@@ -1,6 +1,6 @@
 mod common;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use anyhow::{Ok, Result};
 use lazy_static::lazy_static;
@@ -18,7 +18,7 @@ lazy_static! {
         TestCourse {
             id: TestId(0, None, None),
             dependencies: vec![],
-            metadata: HashMap::from([
+            metadata: BTreeMap::from([
                 (
                     "course_key_1".to_string(),
                     vec!["course_key_1:value_1".to_string()]
@@ -32,7 +32,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(0, Some(0), None),
                     dependencies: vec![],
-                    metadata: HashMap::from([
+                    metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
                             vec!["lesson_key_1:value_1".to_string()]
@@ -47,7 +47,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(0, Some(1), None),
                     dependencies: vec![TestId(0, Some(0), None)],
-                    metadata: HashMap::from([
+                    metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
                             vec!["lesson_key_1:value_2".to_string()]
@@ -64,7 +64,7 @@ lazy_static! {
         TestCourse {
             id: TestId(1, None, None),
             dependencies: vec![TestId(0, None, None)],
-            metadata: HashMap::from([
+            metadata: BTreeMap::from([
                 (
                     "course_key_1".to_string(),
                     vec!["course_key_1:value_1".to_string()]
@@ -78,7 +78,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(1, Some(0), None),
                     dependencies: vec![],
-                    metadata: HashMap::from([
+                    metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
                             vec!["lesson_key_1:value_3".to_string()]
@@ -93,7 +93,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(1, Some(1), None),
                     dependencies: vec![TestId(1, Some(0), None)],
-                    metadata: HashMap::from([
+                    metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
                             vec!["lesson_key_1:value_3".to_string()]
@@ -110,7 +110,7 @@ lazy_static! {
         TestCourse {
             id: TestId(2, None, None),
             dependencies: vec![TestId(0, None, None)],
-            metadata: HashMap::from([
+            metadata: BTreeMap::from([
                 (
                     "course_key_1".to_string(),
                     vec!["course_key_1:value_2".to_string()]
@@ -124,7 +124,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(2, Some(0), None),
                     dependencies: vec![],
-                    metadata: HashMap::from([
+                    metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
                             vec!["lesson_key_1:value_3".to_string()]
@@ -139,7 +139,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(2, Some(1), None),
                     dependencies: vec![TestId(2, Some(0), None)],
-                    metadata: HashMap::from([
+                    metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
                             vec!["lesson_key_1:value_4".to_string()]
@@ -154,7 +154,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(2, Some(2), None),
                     dependencies: vec![TestId(2, Some(1), None)],
-                    metadata: HashMap::from([
+                    metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
                             vec!["lesson_key_1:value_4".to_string()]
@@ -171,7 +171,7 @@ lazy_static! {
         TestCourse {
             id: TestId(4, None, None),
             dependencies: vec![],
-            metadata: HashMap::from([
+            metadata: BTreeMap::from([
                 (
                     "course_key_1".to_string(),
                     vec!["course_key_1:value_3".to_string()]
@@ -185,7 +185,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(4, Some(0), None),
                     dependencies: vec![],
-                    metadata: HashMap::from([
+                    metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
                             vec!["lesson_key_1:value_5".to_string()]
@@ -200,7 +200,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(4, Some(1), None),
                     dependencies: vec![TestId(4, Some(0), None)],
-                    metadata: HashMap::from([
+                    metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
                             vec!["lesson_key_1:value_6".to_string()]
@@ -215,7 +215,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(4, Some(2), None),
                     dependencies: vec![TestId(4, Some(0), None)],
-                    metadata: HashMap::from([
+                    metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
                             vec!["lesson_key_1:value_5".to_string()]
@@ -230,7 +230,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(4, Some(3), None),
                     dependencies: vec![TestId(4, Some(2), None)],
-                    metadata: HashMap::from([
+                    metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
                             vec!["lesson_key_1:value_5".to_string()]
@@ -247,7 +247,7 @@ lazy_static! {
         TestCourse {
             id: TestId(5, None, None),
             dependencies: vec![TestId(3, None, None), TestId(4, None, None)],
-            metadata: HashMap::from([
+            metadata: BTreeMap::from([
                 (
                     "course_key_1".to_string(),
                     vec!["course_key_1:value_2".to_string()]
@@ -261,7 +261,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(5, Some(0), None),
                     dependencies: vec![],
-                    metadata: HashMap::from([
+                    metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
                             vec!["lesson_key_1:value_4".to_string()]
@@ -276,7 +276,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(5, Some(1), None),
                     dependencies: vec![TestId(5, Some(0), None)],
-                    metadata: HashMap::from([
+                    metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
                             vec!["lesson_key_1:value_5".to_string()]

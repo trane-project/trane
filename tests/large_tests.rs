@@ -1,6 +1,6 @@
 mod common;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use anyhow::{Ok, Result};
 use rand::Rng;
@@ -81,7 +81,7 @@ impl RandomCourseLibrary {
                 let lesson = TestLesson {
                     id: lesson_id.clone(),
                     dependencies: self.generate_lesson_dependencies(&lesson_id, &mut rng),
-                    metadata: HashMap::new(),
+                    metadata: BTreeMap::new(),
                     num_exercises: num_exercises,
                 };
                 lessons.push(lesson);
@@ -91,7 +91,7 @@ impl RandomCourseLibrary {
             courses.push(TestCourse {
                 id: course_id.clone(),
                 dependencies: self.generate_course_dependencies(&course_id, &mut rng),
-                metadata: HashMap::new(),
+                metadata: BTreeMap::new(),
                 lessons: lessons,
             });
         }
