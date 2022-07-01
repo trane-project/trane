@@ -12,10 +12,10 @@ use rusqlite_migration::{Migrations, M};
 
 /// An interface to store and read the list of units which should be skipped during scheduling.
 pub trait Blacklist {
-    /// Add the given unit to the list of blacklisted units.
+    /// Adds the given unit to the list of blacklisted units.
     fn add_unit(&mut self, unit_id: &str) -> Result<()>;
 
-    /// Remove the given unit from the list of blacklisted units. Do nothing if the unit is not
+    /// Removes the given unit from the list of blacklisted units. Do nothing if the unit is not
     /// already in the list.
     fn remove_unit(&mut self, unit_id: &str) -> Result<()>;
 

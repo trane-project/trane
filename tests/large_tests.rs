@@ -29,7 +29,7 @@ struct RandomCourseLibrary {
 }
 
 impl RandomCourseLibrary {
-    /// Generate random dependencies for the given course. All dependencies are to courses with a
+    /// Generates random dependencies for the given course. All dependencies are to courses with a
     /// lower course ID to prevent cycles.
     fn generate_course_dependencies(&self, course_id: &TestId, rng: &mut impl Rng) -> Vec<TestId> {
         let num_dependencies =
@@ -45,7 +45,7 @@ impl RandomCourseLibrary {
         dependencies
     }
 
-    /// Generate random dependencies for the given course. All dependencies are to other lessons in
+    /// Generates random dependencies for the given course. All dependencies are to other lessons in
     /// the same course with a lower course ID to prevent cycles.
     fn generate_lesson_dependencies(&self, lesson_id: &TestId, rng: &mut impl Rng) -> Vec<TestId> {
         let num_dependencies =
@@ -65,6 +65,7 @@ impl RandomCourseLibrary {
         dependencies
     }
 
+    /// Generates the entire randomized course library.
     fn generate_library(&self) -> Vec<TestCourse> {
         let mut courses = vec![];
         let mut rng = rand::thread_rng();
