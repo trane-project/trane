@@ -1,4 +1,7 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::PathBuf,
+};
 
 use anyhow::{anyhow, Result};
 use chrono::Utc;
@@ -57,7 +60,7 @@ pub struct TestLesson {
     pub dependencies: Vec<TestId>,
 
     /// Metadata of the lesson.
-    pub metadata: HashMap<String, Vec<String>>,
+    pub metadata: BTreeMap<String, Vec<String>>,
 
     /// Number of exercises in the lesson.
     pub num_exercises: usize,
@@ -135,7 +138,7 @@ pub struct TestCourse {
     pub dependencies: Vec<TestId>,
 
     /// The metadata of the course.
-    pub metadata: HashMap<String, Vec<String>>,
+    pub metadata: BTreeMap<String, Vec<String>>,
 
     /// The lessons in the course.
     pub lessons: Vec<TestLesson>,

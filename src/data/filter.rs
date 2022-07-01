@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -46,7 +46,7 @@ pub enum KeyValueFilter {
 impl KeyValueFilter {
     /// Applies the filter to the given map of keys and values.
     fn apply_metadata(
-        metadata: &HashMap<String, Vec<String>>,
+        metadata: &BTreeMap<String, Vec<String>>,
         key: &str,
         value: &str,
         filter_type: FilterType,
@@ -71,7 +71,7 @@ impl KeyValueFilter {
 
     /// Applies the filter to the given manifest.
     pub fn apply(&self, manifest: &impl GetMetadata) -> bool {
-        let default_metadata = HashMap::default();
+        let default_metadata = BTreeMap::default();
         let metadata = manifest.get_metadata().unwrap_or(&default_metadata);
         match self {
             KeyValueFilter::BasicFilter {

@@ -1,6 +1,6 @@
 pub mod filter;
 
-use std::{collections::HashMap, path::Path};
+use std::{collections::BTreeMap, path::Path};
 
 use anyhow::Result;
 use derive_builder::Builder;
@@ -118,7 +118,7 @@ where
 
 pub trait GetMetadata {
     /// Returns the object's metadata.
-    fn get_metadata(&self) -> Option<&HashMap<String, Vec<String>>>;
+    fn get_metadata(&self) -> Option<&BTreeMap<String, Vec<String>>>;
 }
 
 pub trait GetUnitType {
@@ -187,7 +187,7 @@ pub struct CourseManifest {
     //// A mapping of String keys to a list of String values. For example, ("genre", ["jazz"]) could
     /// be attached to a course named "Basic Jazz Chords on Guitar".
     #[builder(default)]
-    pub metadata: Option<HashMap<String, Vec<String>>>,
+    pub metadata: Option<BTreeMap<String, Vec<String>>>,
 
     /// An optional asset, which presents the material covered in the course.
     #[builder(default)]
@@ -219,7 +219,7 @@ impl VerifyPaths for CourseManifest {
 }
 
 impl GetMetadata for CourseManifest {
-    fn get_metadata(&self) -> Option<&HashMap<String, Vec<String>>> {
+    fn get_metadata(&self) -> Option<&BTreeMap<String, Vec<String>>> {
         self.metadata.as_ref()
     }
 }
@@ -254,7 +254,7 @@ pub struct LessonManifest {
     //// A mapping of String keys to a list of String values. For example, ("key", ["C"]) could
     /// be attached to a lesson named "C Major Scale".
     #[builder(default)]
-    pub metadata: Option<HashMap<String, Vec<String>>>,
+    pub metadata: Option<BTreeMap<String, Vec<String>>>,
 
     /// An optional asset, which presents the material covered in the lesson.
     #[builder(default)]
@@ -295,7 +295,7 @@ impl VerifyPaths for LessonManifest {
 }
 
 impl GetMetadata for LessonManifest {
-    fn get_metadata(&self) -> Option<&HashMap<String, Vec<String>>> {
+    fn get_metadata(&self) -> Option<&BTreeMap<String, Vec<String>>> {
         self.metadata.as_ref()
     }
 }

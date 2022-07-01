@@ -1,19 +1,19 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use anyhow::Result;
 
 use super::{FilterType, KeyValueFilter};
 use crate::data::{filter::FilterOp, GetMetadata};
 
-impl GetMetadata for HashMap<String, Vec<String>> {
-    fn get_metadata(&self) -> Option<&HashMap<String, Vec<String>>> {
+impl GetMetadata for BTreeMap<String, Vec<String>> {
+    fn get_metadata(&self) -> Option<&BTreeMap<String, Vec<String>>> {
         Some(self)
     }
 }
 
 #[test]
 fn apply_simple_filter() -> Result<()> {
-    let metadata = HashMap::from([
+    let metadata = BTreeMap::from([
         (
             "key1".to_string(),
             vec!["value1".to_string(), "value2".to_string()],
@@ -34,7 +34,7 @@ fn apply_simple_filter() -> Result<()> {
 
 #[test]
 fn apply_combined_all_filter() -> Result<()> {
-    let metadata = HashMap::from([
+    let metadata = BTreeMap::from([
         (
             "key1".to_string(),
             vec!["value1".to_string(), "value2".to_string()],
@@ -65,7 +65,7 @@ fn apply_combined_all_filter() -> Result<()> {
 
 #[test]
 fn apply_combined_any_filter() -> Result<()> {
-    let metadata = HashMap::from([
+    let metadata = BTreeMap::from([
         (
             "key1".to_string(),
             vec!["value1".to_string(), "value2".to_string()],
