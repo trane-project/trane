@@ -2,6 +2,10 @@
 name = "trane"
 version = "0.1.0"
 edition = "2021"
+description = "An automated system for learning complex skills"
+license = "GPL-3.0"
+readme = "README.md"
+repository = "https://github.com/trane-project/trane"
 
 [lib]
 name = "trane"
