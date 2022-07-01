@@ -1,0 +1,791 @@
+mod common;
+
+use std::collections::HashMap;
+
+use anyhow::{Ok, Result};
+use lazy_static::lazy_static;
+use tempfile::TempDir;
+use trane::data::{
+    filter::{FilterOp, FilterType, KeyValueFilter, MetadataFilter, UnitFilter},
+    MasteryScore,
+};
+
+use crate::common::*;
+
+lazy_static! {
+    /// A simple set of courses to test the basic functionality of Trane.
+    static ref BASIC_LIBRARY: Vec<TestCourse> = vec![
+        TestCourse {
+            id: TestId(0, None, None),
+            dependencies: vec![],
+            metadata: HashMap::from([
+                (
+                    "course_key_1".to_string(),
+                    vec!["course_key_1:value_1".to_string()]
+                ),
+                (
+                    "course_key_2".to_string(),
+                    vec!["course_key_2:value_1".to_string()]
+                ),
+            ]),
+            lessons: vec![
+                TestLesson {
+                    id: TestId(0, Some(0), None),
+                    dependencies: vec![],
+                    metadata: HashMap::from([
+                        (
+                            "lesson_key_1".to_string(),
+                            vec!["lesson_key_1:value_1".to_string()]
+                        ),
+                        (
+                            "lesson_key_2".to_string(),
+                            vec!["lesson_key_2:value_1".to_string()]
+                        ),
+                    ]),
+                    num_exercises: 10,
+                },
+                TestLesson {
+                    id: TestId(0, Some(1), None),
+                    dependencies: vec![TestId(0, Some(0), None)],
+                    metadata: HashMap::from([
+                        (
+                            "lesson_key_1".to_string(),
+                            vec!["lesson_key_1:value_2".to_string()]
+                        ),
+                        (
+                            "lesson_key_2".to_string(),
+                            vec!["lesson_key_2:value_2".to_string()]
+                        ),
+                    ]),
+                    num_exercises: 10,
+                },
+            ],
+        },
+        TestCourse {
+            id: TestId(1, None, None),
+            dependencies: vec![TestId(0, None, None)],
+            metadata: HashMap::from([
+                (
+                    "course_key_1".to_string(),
+                    vec!["course_key_1:value_1".to_string()]
+                ),
+                (
+                    "course_key_2".to_string(),
+                    vec!["course_key_2:value_1".to_string()]
+                ),
+            ]),
+            lessons: vec![
+                TestLesson {
+                    id: TestId(1, Some(0), None),
+                    dependencies: vec![],
+                    metadata: HashMap::from([
+                        (
+                            "lesson_key_1".to_string(),
+                            vec!["lesson_key_1:value_3".to_string()]
+                        ),
+                        (
+                            "lesson_key_2".to_string(),
+                            vec!["lesson_key_2:value_3".to_string()]
+                        ),
+                    ]),
+                    num_exercises: 10,
+                },
+                TestLesson {
+                    id: TestId(1, Some(1), None),
+                    dependencies: vec![TestId(1, Some(0), None)],
+                    metadata: HashMap::from([
+                        (
+                            "lesson_key_1".to_string(),
+                            vec!["lesson_key_1:value_3".to_string()]
+                        ),
+                        (
+                            "lesson_key_2".to_string(),
+                            vec!["lesson_key_2:value_3".to_string()]
+                        ),
+                    ]),
+                    num_exercises: 10,
+                },
+            ],
+        },
+        TestCourse {
+            id: TestId(2, None, None),
+            dependencies: vec![TestId(0, None, None)],
+            metadata: HashMap::from([
+                (
+                    "course_key_1".to_string(),
+                    vec!["course_key_1:value_2".to_string()]
+                ),
+                (
+                    "course_key_2".to_string(),
+                    vec!["course_key_2:value_2".to_string()]
+                ),
+            ]),
+            lessons: vec![
+                TestLesson {
+                    id: TestId(2, Some(0), None),
+                    dependencies: vec![],
+                    metadata: HashMap::from([
+                        (
+                            "lesson_key_1".to_string(),
+                            vec!["lesson_key_1:value_3".to_string()]
+                        ),
+                        (
+                            "lesson_key_2".to_string(),
+                            vec!["lesson_key_2:value_3".to_string()]
+                        ),
+                    ]),
+                    num_exercises: 10,
+                },
+                TestLesson {
+                    id: TestId(2, Some(1), None),
+                    dependencies: vec![TestId(2, Some(0), None)],
+                    metadata: HashMap::from([
+                        (
+                            "lesson_key_1".to_string(),
+                            vec!["lesson_key_1:value_4".to_string()]
+                        ),
+                        (
+                            "lesson_key_2".to_string(),
+                            vec!["lesson_key_2:value_4".to_string()]
+                        ),
+                    ]),
+                    num_exercises: 10,
+                },
+                TestLesson {
+                    id: TestId(2, Some(2), None),
+                    dependencies: vec![TestId(2, Some(1), None)],
+                    metadata: HashMap::from([
+                        (
+                            "lesson_key_1".to_string(),
+                            vec!["lesson_key_1:value_4".to_string()]
+                        ),
+                        (
+                            "lesson_key_2".to_string(),
+                            vec!["lesson_key_2:value_4".to_string()]
+                        ),
+                    ]),
+                    num_exercises: 10,
+                },
+            ],
+        },
+        TestCourse {
+            id: TestId(4, None, None),
+            dependencies: vec![],
+            metadata: HashMap::from([
+                (
+                    "course_key_1".to_string(),
+                    vec!["course_key_1:value_3".to_string()]
+                ),
+                (
+                    "course_key_2".to_string(),
+                    vec!["course_key_2:value_3".to_string()]
+                ),
+            ]),
+            lessons: vec![
+                TestLesson {
+                    id: TestId(4, Some(0), None),
+                    dependencies: vec![],
+                    metadata: HashMap::from([
+                        (
+                            "lesson_key_1".to_string(),
+                            vec!["lesson_key_1:value_5".to_string()]
+                        ),
+                        (
+                            "lesson_key_2".to_string(),
+                            vec!["lesson_key_2:value_5".to_string()]
+                        ),
+                    ]),
+                    num_exercises: 10,
+                },
+                TestLesson {
+                    id: TestId(4, Some(1), None),
+                    dependencies: vec![TestId(4, Some(0), None)],
+                    metadata: HashMap::from([
+                        (
+                            "lesson_key_1".to_string(),
+                            vec!["lesson_key_1:value_6".to_string()]
+                        ),
+                        (
+                            "lesson_key_2".to_string(),
+                            vec!["lesson_key_2:value_6".to_string()]
+                        ),
+                    ]),
+                    num_exercises: 10,
+                },
+                TestLesson {
+                    id: TestId(4, Some(2), None),
+                    dependencies: vec![TestId(4, Some(0), None)],
+                    metadata: HashMap::from([
+                        (
+                            "lesson_key_1".to_string(),
+                            vec!["lesson_key_1:value_5".to_string()]
+                        ),
+                        (
+                            "lesson_key_2".to_string(),
+                            vec!["lesson_key_2:value_5".to_string()]
+                        ),
+                    ]),
+                    num_exercises: 10,
+                },
+                TestLesson {
+                    id: TestId(4, Some(3), None),
+                    dependencies: vec![TestId(4, Some(2), None)],
+                    metadata: HashMap::from([
+                        (
+                            "lesson_key_1".to_string(),
+                            vec!["lesson_key_1:value_5".to_string()]
+                        ),
+                        (
+                            "lesson_key_2".to_string(),
+                            vec!["lesson_key_2:value_5".to_string()]
+                        ),
+                    ]),
+                    num_exercises: 10,
+                },
+            ],
+        },
+        TestCourse {
+            id: TestId(5, None, None),
+            dependencies: vec![TestId(3, None, None), TestId(4, None, None)],
+            metadata: HashMap::from([
+                (
+                    "course_key_1".to_string(),
+                    vec!["course_key_1:value_2".to_string()]
+                ),
+                (
+                    "course_key_2".to_string(),
+                    vec!["course_key_2:value_2".to_string()]
+                ),
+            ]),
+            lessons: vec![
+                TestLesson {
+                    id: TestId(5, Some(0), None),
+                    dependencies: vec![],
+                    metadata: HashMap::from([
+                        (
+                            "lesson_key_1".to_string(),
+                            vec!["lesson_key_1:value_4".to_string()]
+                        ),
+                        (
+                            "lesson_key_2".to_string(),
+                            vec!["lesson_key_2:value_4".to_string()]
+                        ),
+                    ]),
+                    num_exercises: 10,
+                },
+                TestLesson {
+                    id: TestId(5, Some(1), None),
+                    dependencies: vec![TestId(5, Some(0), None)],
+                    metadata: HashMap::from([
+                        (
+                            "lesson_key_1".to_string(),
+                            vec!["lesson_key_1:value_5".to_string()]
+                        ),
+                        (
+                            "lesson_key_2".to_string(),
+                            vec!["lesson_key_2:value_5".to_string()]
+                        ),
+                    ]),
+                    num_exercises: 10,
+                },
+            ],
+        },
+    ];
+}
+
+/// A test that verifies that all the exercises are scheduled with no blacklist or filter when the
+/// user gives a score of five to every exercise.
+#[test]
+fn all_exercises_scheduled() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+
+    // Run the simulation.
+    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    simulation.run_simulation(&mut trane, &vec![], None)?;
+
+    // Every exercise ID should be in simulation.answer_history.
+    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    for exercise_id in exercise_ids {
+        assert!(
+            simulation
+                .answer_history
+                .contains_key(&exercise_id.to_string()),
+            "exercise {:?} should have been scheduled",
+            exercise_id
+        );
+        assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+    }
+    Ok(())
+}
+
+/// A test that verifies no exercises past the first course and lesson are scheduled when the user
+/// scores every exercise in that lesson with a mastery score of one.
+#[test]
+fn bad_score_prevents_advancing() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+
+    // Run the simulation.
+    let mut simulation = TraneSimulation::new(100, Box::new(|_| Some(MasteryScore::One)));
+    simulation.run_simulation(&mut trane, &vec![], None)?;
+
+    // Only the exercises in the first lesson should be in simulation.answer_history.
+    let first_lessons = vec![TestId(0, Some(0), None), TestId(4, Some(0), None)];
+    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    for exercise_id in exercise_ids {
+        if first_lessons
+            .iter()
+            .any(|lesson| exercise_id.exercise_in_lesson(&lesson))
+        {
+            assert!(
+                simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_string()),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        } else {
+            assert!(
+                !simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_string()),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        }
+    }
+    Ok(())
+}
+
+/// A test that verifies that all the exercises are scheduled except for those belonging to the
+/// courses in the blacklist.
+#[test]
+fn avoid_scheduling_courses_in_blacklist() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+
+    // Run the simulation.
+    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    let course_blacklist = vec![TestId(0, None, None), TestId(4, None, None)];
+    simulation.run_simulation(&mut trane, &course_blacklist, None)?;
+
+    // Every exercise ID should be in simulation.answer_history except for those which belong to
+    // courses in the blacklist.
+    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    for exercise_id in exercise_ids {
+        if !course_blacklist
+            .iter()
+            .any(|course_id| exercise_id.exercise_in_course(&course_id))
+        {
+            assert!(
+                simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_string()),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        } else {
+            assert!(
+                !simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_string()),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        }
+    }
+    Ok(())
+}
+
+/// A test that verifies that all the exercises are scheduled except for those belonging to the
+/// lessons in the blacklist.
+#[test]
+fn avoid_scheduling_lessons_in_blacklist() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+
+    // Run the simulation.
+    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    let lesson_blacklist = vec![TestId(0, Some(1), None), TestId(4, Some(0), None)];
+    simulation.run_simulation(&mut trane, &lesson_blacklist, None)?;
+
+    // Every exercise ID should be in simulation.answer_history except for those which belong to
+    // lessons in the blacklist.
+    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    for exercise_id in exercise_ids {
+        if !lesson_blacklist
+            .iter()
+            .any(|lesson_id| exercise_id.exercise_in_lesson(&lesson_id))
+        {
+            assert!(
+                simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_string()),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        } else {
+            assert!(
+                !simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_string()),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        }
+    }
+    Ok(())
+}
+
+/// A test that verifies that all the exercises are scheduled except for those in the blacklist.
+#[test]
+fn avoid_scheduling_exercises_in_blacklist() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+
+    // Run the simulation.
+    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    let exercise_blacklist = vec![TestId(2, Some(1), Some(7)), TestId(4, Some(0), Some(0))];
+    simulation.run_simulation(&mut trane, &exercise_blacklist, None)?;
+
+    // Every exercise ID should be in simulation.answer_history except for those in the blacklist.
+    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    for exercise_id in exercise_ids {
+        if !exercise_blacklist
+            .iter()
+            .any(|blacklisted_id| *blacklisted_id == exercise_id)
+        {
+            assert!(
+                simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_string()),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        } else {
+            assert!(
+                !simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_string()),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        }
+    }
+    Ok(())
+}
+
+/// A test that verifies only exercises in the given course are scheduled when a course filter is
+/// provided.
+#[test]
+fn scheduler_respects_course_filter() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+
+    // Run the simulation.
+    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    let selected_course = TestId(5, None, None);
+    let course_filter = UnitFilter::CourseFilter {
+        course_id: selected_course.to_string(),
+    };
+    simulation.run_simulation(&mut trane, &vec![], Some(&course_filter))?;
+
+    // Every exercise ID should be in simulation.answer_history.
+    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    for exercise_id in exercise_ids {
+        if exercise_id.exercise_in_course(&selected_course) {
+            assert!(
+                simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_string()),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        } else {
+            assert!(
+                !simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_string()),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        }
+    }
+    Ok(())
+}
+
+/// A test that verifies only exercises in the given lesson are scheduled when a lesson filter is
+/// provided.
+#[test]
+fn scheduler_respects_lesson_filter() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+
+    // Run the simulation.
+    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    let selected_lesson = TestId(4, Some(1), None);
+    let lesson_filter = UnitFilter::LessonFilter {
+        lesson_id: selected_lesson.to_string(),
+    };
+    simulation.run_simulation(&mut trane, &vec![], Some(&lesson_filter))?;
+
+    // Every exercise ID should be in simulation.answer_history.
+    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    for exercise_id in exercise_ids {
+        if exercise_id.exercise_in_lesson(&selected_lesson) {
+            assert!(
+                simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_string()),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        } else {
+            assert!(
+                !simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_string()),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        }
+    }
+    Ok(())
+}
+
+/// A test that verifies that only exercises in units that match the metadata filter are scheduled.
+#[test]
+fn scheduler_respects_metadata_filter() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+
+    // Run the simulation.
+    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    let filter = UnitFilter::MetadataFilter {
+        filter: MetadataFilter {
+            op: FilterOp::All,
+            course_filter: Some(KeyValueFilter::BasicFilter {
+                filter_type: FilterType::Include,
+                key: "course_key_1".to_string(),
+                value: "course_key_1:value_2".to_string(),
+            }),
+            lesson_filter: Some(KeyValueFilter::BasicFilter {
+                filter_type: FilterType::Include,
+                key: "lesson_key_2".to_string(),
+                value: "lesson_key_2:value_4".to_string(),
+            }),
+        },
+    };
+    simulation.run_simulation(&mut trane, &vec![], Some(&filter))?;
+
+    // Only exercises in the lessons that match the metadata filters should be scheduled.
+    let matching_lessons = vec![
+        TestId(2, Some(1), None),
+        TestId(2, Some(2), None),
+        TestId(5, Some(0), None),
+    ];
+    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    for exercise_id in exercise_ids {
+        if matching_lessons
+            .iter()
+            .any(|lesson| exercise_id.exercise_in_lesson(lesson))
+        {
+            assert!(
+                simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_string()),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        } else {
+            assert!(
+                !simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_string()),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        }
+    }
+    Ok(())
+}
+
+/// A test that verifies that only exercises in units that match the lesson metadata filter are
+/// scheduled.
+#[test]
+fn scheduler_respects_lesson_metadata_filter() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+
+    // Run the simulation.
+    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    let filter = UnitFilter::MetadataFilter {
+        filter: MetadataFilter {
+            op: FilterOp::All,
+            course_filter: None,
+            lesson_filter: Some(KeyValueFilter::BasicFilter {
+                filter_type: FilterType::Include,
+                key: "lesson_key_2".to_string(),
+                value: "lesson_key_2:value_4".to_string(),
+            }),
+        },
+    };
+    simulation.run_simulation(&mut trane, &vec![], Some(&filter))?;
+
+    // Only exercises in the lessons that match the metadata filters should be scheduled.
+    let matching_lessons = vec![
+        TestId(2, Some(1), None),
+        TestId(2, Some(2), None),
+        TestId(5, Some(0), None),
+    ];
+    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    for exercise_id in exercise_ids {
+        if matching_lessons
+            .iter()
+            .any(|lesson| exercise_id.exercise_in_lesson(lesson))
+        {
+            assert!(
+                simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_string()),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        } else {
+            assert!(
+                !simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_string()),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        }
+    }
+    Ok(())
+}
+
+/// A test that verifies that only exercises in units that match the course metadata filter are
+/// scheduled.
+#[test]
+fn scheduler_respects_course_metadata_filter() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+
+    // Run the simulation.
+    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    let filter = UnitFilter::MetadataFilter {
+        filter: MetadataFilter {
+            op: FilterOp::All,
+            course_filter: Some(KeyValueFilter::BasicFilter {
+                filter_type: FilterType::Include,
+                key: "course_key_1".to_string(),
+                value: "course_key_1:value_2".to_string(),
+            }),
+            lesson_filter: None,
+        },
+    };
+    simulation.run_simulation(&mut trane, &vec![], Some(&filter))?;
+
+    // Only exercises in the lessons that match the metadata filters should be scheduled.
+    let matching_courses = vec![TestId(2, None, None), TestId(5, None, None)];
+    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    for exercise_id in exercise_ids {
+        if matching_courses
+            .iter()
+            .any(|course| exercise_id.exercise_in_course(course))
+        {
+            assert!(
+                simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_string()),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        } else {
+            assert!(
+                !simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_string()),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        }
+    }
+    Ok(())
+}
+
+/// A test that verifies that only exercises in units that match the metadata filter are scheduled
+/// but that they are ignored if they are in the blacklist.
+#[test]
+fn scheduler_respects_metadata_filter_and_blacklist() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+
+    // Run the simulation.
+    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    let filter = UnitFilter::MetadataFilter {
+        filter: MetadataFilter {
+            op: FilterOp::All,
+            course_filter: Some(KeyValueFilter::BasicFilter {
+                filter_type: FilterType::Include,
+                key: "course_key_1".to_string(),
+                value: "course_key_1:value_2".to_string(),
+            }),
+            lesson_filter: Some(KeyValueFilter::BasicFilter {
+                filter_type: FilterType::Include,
+                key: "lesson_key_2".to_string(),
+                value: "lesson_key_2:value_4".to_string(),
+            }),
+        },
+    };
+    let blacklist = vec![TestId(2, None, None)];
+    simulation.run_simulation(&mut trane, &blacklist, Some(&filter))?;
+
+    // Only exercises in the lessons that match the metadata filters should be scheduled.
+    let matching_lessons = vec![TestId(5, Some(0), None)];
+    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    for exercise_id in exercise_ids {
+        if matching_lessons
+            .iter()
+            .any(|lesson| exercise_id.exercise_in_lesson(lesson))
+        {
+            assert!(
+                simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_string()),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        } else {
+            assert!(
+                !simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_string()),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        }
+    }
+    Ok(())
+}
