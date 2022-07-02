@@ -64,9 +64,7 @@ impl PracticeStatsDB {
 
     /// A constructor taking a SQLite connection.
     fn new(connection: Connection) -> Result<PracticeStatsDB> {
-        let mut stats = PracticeStatsDB {
-            connection: connection,
-        };
+        let mut stats = PracticeStatsDB { connection };
         stats.init()?;
         Ok(stats)
     }

@@ -52,11 +52,7 @@ impl KeyValueFilter {
         filter_type: FilterType,
     ) -> bool {
         let contains_metadata = if !metadata.contains_key(key) {
-            if filter_type == FilterType::Include {
-                false
-            } else {
-                true
-            }
+            filter_type != FilterType::Include
         } else {
             metadata
                 .get(key)
@@ -81,13 +77,9 @@ impl KeyValueFilter {
             } => KeyValueFilter::apply_metadata(metadata, key, value, filter_type.clone()),
             KeyValueFilter::CombinedFilter { op, filters } => {
                 let mut results = filters.iter().map(|f| f.apply(manifest));
-                match op {
-                    &FilterOp::All => {
-                        return results.all(|x| x);
-                    }
-                    &FilterOp::Any => {
-                        return results.any(|x| x);
-                    }
+                match *op {
+                    FilterOp::All => results.all(|x| x),
+                    FilterOp::Any => results.any(|x| x),
                 }
             }
         }

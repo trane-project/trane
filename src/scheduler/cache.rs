@@ -28,7 +28,7 @@ impl ScoreCache {
     pub(super) fn new(data: SchedulerData, options: SchedulerOptions) -> Self {
         Self {
             cache: RefCell::new(HashMap::new()),
-            data: data,
+            data,
             options: RefCell::new(options),
             scorer: Box::new(SimpleScorer {}),
         }
@@ -47,8 +47,8 @@ impl ScoreCache {
     /// Returns the score for the given exercise.
     pub(super) fn get_exercise_score(&self, exercise_uid: u64) -> Result<f32> {
         let cached_score = self.cache.borrow_mut().get(&exercise_uid).cloned();
-        if cached_score.is_some() {
-            return Ok(cached_score.unwrap());
+        if let Some(score) = cached_score {
+            return Ok(score);
         }
 
         let graph_guard = self.data.unit_graph.read().unwrap();
@@ -65,7 +65,7 @@ impl ScoreCache {
 
         let exercise_id = graph_guard
             .get_id(exercise_uid)
-            .ok_or(anyhow!("missing ID for exercise with UID {}", exercise_uid))?;
+            .ok_or_else(|| anyhow!("missing ID for exercise with UID {}", exercise_uid))?;
 
         let scores = self
             .data
@@ -90,7 +90,7 @@ impl ScoreCache {
             .read()
             .unwrap()
             .get_id(unit_uid)
-            .ok_or(anyhow!("missing ID for unit with UID {}", unit_uid))
+            .ok_or_else(|| anyhow!("missing ID for unit with UID {}", unit_uid))
     }
 
     /// Returns the average score of all the exercises in the given lesson.
@@ -201,7 +201,7 @@ impl ScoreCache {
             .read()
             .unwrap()
             .get_unit_type(unit_uid)
-            .ok_or(anyhow!("missing unit type for unit with UID {}", unit_uid))?;
+            .ok_or_else(|| anyhow!("missing unit type for unit with UID {}", unit_uid))?;
         match unit_type {
             UnitType::Course => self.get_course_score(unit_uid),
             UnitType::Lesson => self.get_lesson_score(unit_uid),

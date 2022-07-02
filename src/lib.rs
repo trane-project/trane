@@ -80,12 +80,10 @@ impl Trane {
                     trane_path.display()
                 )
             })?;
-        } else {
-            if !trane_path.is_dir() {
-                return Err(anyhow!(
-                    "config path .trane inside library must be a directory"
-                ));
-            }
+        } else if !trane_path.is_dir() {
+            return Err(anyhow!(
+                "config path .trane inside library must be a directory"
+            ));
         }
 
         // Create the filters directory if it doesn't exist.
@@ -127,13 +125,13 @@ impl Trane {
         };
 
         Ok(Trane {
-            blacklist: blacklist,
-            course_library: course_library,
-            filter_manager: filter_manager,
+            blacklist,
+            course_library,
+            filter_manager,
             library_root: library_root.to_string(),
-            practice_stats: practice_stats,
+            practice_stats,
             scheduler: DepthFirstScheduler::new(scheduler_data, SchedulerOptions::default()),
-            unit_graph: unit_graph,
+            unit_graph,
         })
     }
 

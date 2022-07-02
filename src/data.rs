@@ -46,12 +46,12 @@ pub enum MasteryScore {
 impl MasteryScore {
     /// Assigns a f32 value to each of the values of MasteryScore.
     pub fn float_score(&self) -> f32 {
-        match self {
-            &Self::One => 1.0,
-            &Self::Two => 2.0,
-            &Self::Three => 3.0,
-            &Self::Four => 4.0,
-            &Self::Five => 5.0,
+        match *self {
+            Self::One => 1.0,
+            Self::Two => 2.0,
+            Self::Three => 3.0,
+            Self::Four => 4.0,
+            Self::Five => 5.0,
         }
     }
 }

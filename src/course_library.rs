@@ -51,9 +51,9 @@ pub(crate) struct LocalCourseLibrary {
 impl LocalCourseLibrary {
     /// Opens the manifest located at the given path.
     fn open_manifest<T: DeserializeOwned>(&self, path: &str) -> Result<T> {
-        let file = File::open(path).or(Err(anyhow!("cannot open manifest file {}", path)))?;
+        let file = File::open(path).map_err(|_| anyhow!("cannot open manifest file {}", path))?;
         let reader = BufReader::new(file);
-        serde_json::from_reader(reader).or(Err(anyhow!("cannot parse manifest file {}", path)))
+        serde_json::from_reader(reader).map_err(|_| anyhow!("cannot parse manifest file {}", path))
     }
 
     /// Processes the exercise manifest located at the given DirEntry.
@@ -101,7 +101,7 @@ impl LocalCourseLibrary {
         let lesson_root = dir_entry
             .path()
             .parent()
-            .ok_or(anyhow!("cannot get lesson's parent directory"))?;
+            .ok_or_else(|| anyhow!("cannot get lesson's parent directory"))?;
 
         // Start a new search from the lesson's root. Each exercise in the lesson must be contained
         // in a directory that is a direct descendent of the root. Therefore, all the exercise
@@ -110,10 +110,9 @@ impl LocalCourseLibrary {
             match entry {
                 Err(_) => continue,
                 Ok(exercise_dir_entry) => {
-                    let path = exercise_dir_entry.path().to_str().ok_or(anyhow!(
-                        "invalid dir entry {}",
-                        exercise_dir_entry.path().display()
-                    ))?;
+                    let path = exercise_dir_entry.path().to_str().ok_or_else(|| {
+                        anyhow!("invalid dir entry {}", exercise_dir_entry.path().display())
+                    })?;
                     if !path.ends_with("exercise_manifest.json") {
                         continue;
                     }
@@ -171,7 +170,7 @@ impl LocalCourseLibrary {
                     .read()
                     .unwrap()
                     .get_id(uid.unwrap())
-                    .ok_or(anyhow!("cannot find lesson ID for UID {}", uid.unwrap()))
+                    .ok_or_else(|| anyhow!("cannot find lesson ID for UID {}", uid.unwrap()))
             })
             .collect::<Result<Vec<String>>>()?;
 
@@ -179,7 +178,7 @@ impl LocalCourseLibrary {
             self.unit_graph.write().unwrap().add_dependencies(
                 &lesson_id,
                 UnitType::Lesson,
-                &vec![course_id.clone()],
+                &[course_id.clone()],
             )?;
         }
         Ok(())
@@ -201,10 +200,9 @@ impl LocalCourseLibrary {
             match entry {
                 Err(_) => continue,
                 Ok(lesson_dir_entry) => {
-                    let path = lesson_dir_entry
-                        .path()
-                        .to_str()
-                        .ok_or(anyhow!("invalid dir entry {}", dir_entry.path().display()))?;
+                    let path = lesson_dir_entry.path().to_str().ok_or_else(|| {
+                        anyhow!("invalid dir entry {}", dir_entry.path().display())
+                    })?;
                     if !path.ends_with("lesson_manifest.json") {
                         continue;
                     }
@@ -226,7 +224,7 @@ impl LocalCourseLibrary {
                         .read()
                         .unwrap()
                         .get_uid(&lesson_id)
-                        .ok_or(anyhow!("cannot find lesson UID for ID {}", lesson_id))?;
+                        .ok_or_else(|| anyhow!("cannot find lesson UID for ID {}", lesson_id))?;
                     lesson_uids.insert(lesson_uid);
                 }
             }
@@ -267,10 +265,9 @@ impl LocalCourseLibrary {
             match entry {
                 Err(_) => continue,
                 Ok(dir_entry) => {
-                    let path = dir_entry
-                        .path()
-                        .to_str()
-                        .ok_or(anyhow!("invalid dir entry {}", dir_entry.path().display()))?;
+                    let path = dir_entry.path().to_str().ok_or_else(|| {
+                        anyhow!("invalid dir entry {}", dir_entry.path().display())
+                    })?;
                     if !path.ends_with("course_manifest.json") {
                         continue;
                     }

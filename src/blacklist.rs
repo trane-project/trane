@@ -65,7 +65,7 @@ impl BlackListDB {
     fn new(connection: Connection) -> Result<BlackListDB> {
         let mut blacklist = BlackListDB {
             cache: RefCell::new(HashMap::new()),
-            connection: connection,
+            connection,
         };
         blacklist.init()?;
         Ok(blacklist)

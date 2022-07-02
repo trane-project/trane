@@ -29,7 +29,7 @@ pub(crate) trait UnitGraph {
         &mut self,
         unit_id: &str,
         unit_type: UnitType,
-        dependencies: &Vec<String>,
+        dependencies: &[String],
     ) -> Result<()>;
 
     /// Returns the type of the given unit.
@@ -125,7 +125,7 @@ impl InMemoryUnitGraph {
     }
 
     /// Updates the set of units with no dependencies.
-    fn update_dependency_sinks(&mut self, unit_uid: u64, dependencies: &Vec<String>) {
+    fn update_dependency_sinks(&mut self, unit_uid: u64, dependencies: &[String]) {
         let empty = HashSet::new();
         let current_dependencies = self.dependency_graph.get(&unit_uid).unwrap_or(&empty);
         if current_dependencies.is_empty() && dependencies.is_empty() {
@@ -175,7 +175,7 @@ impl UnitGraph for InMemoryUnitGraph {
         self.lesson_course_map.insert(lesson_uid, course_uid);
         self.course_lesson_map
             .entry(course_uid)
-            .or_insert(HashSet::new())
+            .or_insert_with(HashSet::new)
             .insert(lesson_uid);
         Ok(())
     }
@@ -189,7 +189,7 @@ impl UnitGraph for InMemoryUnitGraph {
 
         self.lesson_exercise_map
             .entry(lesson_uid)
-            .or_insert(HashSet::new())
+            .or_insert_with(HashSet::new)
             .insert(exercise_uid);
         Ok(())
     }
@@ -198,7 +198,7 @@ impl UnitGraph for InMemoryUnitGraph {
         &mut self,
         unit_id: &str,
         unit_type: UnitType,
-        dependencies: &Vec<String>,
+        dependencies: &[String],
     ) -> Result<()> {
         ensure!(
             unit_type != UnitType::Exercise,
@@ -218,18 +218,18 @@ impl UnitGraph for InMemoryUnitGraph {
         }
 
         let dependency_uids = dependencies
-            .into_iter()
+            .iter()
             .map(|d| self.get_or_insert_uid(d))
             .collect::<Vec<u64>>();
 
         self.dependency_graph
             .entry(unit_uid)
-            .or_insert(HashSet::new())
+            .or_insert_with(HashSet::new)
             .extend(dependency_uids.clone());
         for dependency_uid in dependency_uids {
             self.reverse_graph
                 .entry(dependency_uid)
-                .or_insert(HashSet::new())
+                .or_insert_with(HashSet::new)
                 .insert(unit_uid);
         }
         Ok(())
@@ -248,7 +248,7 @@ impl UnitGraph for InMemoryUnitGraph {
 
         let starting_lessons = lessons
             .iter()
-            .map(|uid| *uid)
+            .copied()
             .filter(|uid| {
                 let dependencies = self.get_dependencies(*uid);
                 match dependencies {
