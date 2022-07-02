@@ -1,3 +1,4 @@
+//! Module defining a blacklist of units that should not be shown to the user.
 #[cfg(test)]
 mod test;
 

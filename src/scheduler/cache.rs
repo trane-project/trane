@@ -1,3 +1,5 @@
+//! Module defining a cache of previously computed exercises scores and utilities to compute the
+//! scores of lessons and courses.
 use anyhow::{anyhow, Result};
 use std::{cell::RefCell, collections::HashMap};
 

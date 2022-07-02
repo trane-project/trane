@@ -1,15 +1,20 @@
+//! Module with the definitions of musical scales to generate courses related to the topic.
 use crate::course_builder::music::notes::*;
 use anyhow::{anyhow, Result};
 
 /// Defines a tonal scale.
 #[derive(Debug)]
 pub struct Scale {
+    /// The tonic of the scale.
     pub tonic: Note,
+
+    /// The notes which form the scale in the correct order.
     pub notes: Vec<Note>,
 }
 
 /// Defines a type of scale.
 #[derive(Debug)]
+#[allow(missing_docs)]
 pub enum ScaleType {
     Major,
     Minor,
@@ -71,6 +76,7 @@ impl Note {
 
 /// A trait that constructs a scale given the type of scale and the tonic.
 pub trait ScaleNotes {
+    /// Returns the notes for a scale based on the object and a tonic.
     fn notes(&self, tonic: Note) -> Result<Scale>;
 }
 

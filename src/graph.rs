@@ -1,3 +1,4 @@
+//! Module defining the dependency graph and the basic operations that can be applied to it.
 #[cfg(test)]
 mod tests;
 

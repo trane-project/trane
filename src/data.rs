@@ -1,3 +1,4 @@
+//! Module defining the basic data structures used by Trane.
 pub mod filter;
 
 use std::{collections::BTreeMap, path::Path};
@@ -68,6 +69,7 @@ pub struct MasteryWindowOpts {
 }
 
 impl MasteryWindowOpts {
+    /// Returns whether the given score falls within this window.
     pub fn in_window(&self, score: f32) -> bool {
         self.range.0 <= score && score < self.range.1
     }
@@ -100,6 +102,7 @@ pub enum UnitType {
     Course,
 }
 
+/// Trait to convert relative paths to absolute paths.
 pub trait NormalizePaths
 where
     Self: Sized,
@@ -108,6 +111,7 @@ where
     fn normalize_paths(&self, dir: &Path) -> Result<Self>;
 }
 
+/// Trait to verify that the paths in the object are valid.
 pub trait VerifyPaths
 where
     Self: Sized,
@@ -116,11 +120,13 @@ where
     fn verify_paths(&self, dir: &Path) -> Result<bool>;
 }
 
+/// Trait to get the metadata from a manifest.
 pub trait GetMetadata {
     /// Returns the object's metadata.
     fn get_metadata(&self) -> Option<&BTreeMap<String, Vec<String>>>;
 }
 
+/// Trait to get the unit type from an object.
 pub trait GetUnitType {
     /// Returns the type of the unit associated with the manifest.
     fn get_unit_type(&self) -> UnitType;
@@ -131,7 +137,10 @@ pub trait GetUnitType {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum BasicAsset {
     /// An asset containing the path to a markdown file.
-    MarkdownAsset { path: String },
+    MarkdownAsset {
+        /// The path to the asset.
+        path: String,
+    },
 }
 
 impl NormalizePaths for BasicAsset {
@@ -323,12 +332,18 @@ pub enum ExerciseType {
 #[serde(deny_unknown_fields)]
 pub enum ExerciseAsset {
     /// An asset which stores a link to a SoundSlice.
-    SoundSliceAsset { link: String },
+    SoundSliceAsset {
+        /// The link to the SoundSlice asset.
+        link: String,
+    },
 
     /// An asset storing two paths to two markdown files. The first file stores the front (question)
     /// of the flashcard while the second file stores the back (answer).
     FlashcardAsset {
+        /// The path to the file containing the front of the flashcard.
         front_path: String,
+
+        /// The path to the file containing the back of the flashcard.
         back_path: String,
     },
 }

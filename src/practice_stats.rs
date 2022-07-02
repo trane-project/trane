@@ -1,3 +1,4 @@
+//! Module defining the data structures used to store user's answers to exercises.
 #[cfg(test)]
 mod test;
 

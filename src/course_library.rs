@@ -1,3 +1,5 @@
+//! Module containing utilities to open and manipulate collections of courses and lessons stored
+//! under a directory, which are named a course library.
 use std::{
     collections::{HashMap, HashSet},
     fs::File,

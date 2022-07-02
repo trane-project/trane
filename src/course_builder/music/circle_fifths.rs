@@ -1,3 +1,4 @@
+//! Module to generate courses based on the circles of fifths.
 use crate::{
     course_builder::{music::notes::*, AssetBuilder, CourseBuilder, LessonBuilder},
     data::{CourseManifest, LessonManifestBuilder},

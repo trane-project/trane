@@ -1,3 +1,5 @@
+//! Module defining the data structures used to score an exercise based on the user's previous
+//! trials.
 #[cfg(test)]
 mod test;
 

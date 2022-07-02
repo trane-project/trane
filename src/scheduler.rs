@@ -1,3 +1,5 @@
+//! Module defining the data structures used to schedule batches of exercises to show to the user.
+//! The core of Trane's logic is in this module.
 mod cache;
 
 use anyhow::{anyhow, Result};

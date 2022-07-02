@@ -1,3 +1,4 @@
+//! Module defining utilities to make it easier to generate courses and lessons.
 pub mod music;
 
 use std::{
@@ -13,6 +14,7 @@ use strum::Display;
 /// Common metadata keys for all courses and lessons.
 #[derive(Display)]
 #[strum(serialize_all = "snake_case")]
+#[allow(missing_docs)]
 pub enum TraneMetadata {
     Skill,
 }
