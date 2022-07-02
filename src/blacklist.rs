@@ -1,3 +1,4 @@
+//! Module defining a blacklist of units that should not be shown to the user.
 #[cfg(test)]
 mod test;
 
@@ -65,7 +66,7 @@ impl BlackListDB {
     fn new(connection: Connection) -> Result<BlackListDB> {
         let mut blacklist = BlackListDB {
             cache: RefCell::new(HashMap::new()),
-            connection: connection,
+            connection,
         };
         blacklist.init()?;
         Ok(blacklist)

@@ -1,3 +1,4 @@
+//! Module containing utilities to manipulate the filters saved under the .trane/filters directory.
 #[cfg(test)]
 mod test;
 

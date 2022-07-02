@@ -1,3 +1,22 @@
+//! Trane is an automated learning system for the acquisition of complex and highly hierarchical
+//! skills. It is based on the principles of spaced repetition, mastery learning, and chunking.
+//!
+//! Given a set of exercises which have been bundled into lessons and further bundled in courses, as
+//! well as the dependency relationships between those lessons and courses, Trane selects exercises
+//! to present to the user. It makes sure that exercises from a course or lesson are not presented
+//! to the user until the exercises in their dependencies have been sufficiently mastered. It also
+//! makes sure to keep the balance of exercises so that the difficulty of the exercises lies
+//! slightly outside the user's current mastery.
+//!
+//! You can think of this process as progressing through the skill tree of a character in a video
+//! game, but applied to arbitrary skills, which are defined in plain-text files which define the
+//! exercises, their bundling into lessons and courses, and the dependency relationships between
+//! them.
+
+//! Trane is named after John Coltrane, whose nickname Trane was often used in wordplay with the
+//! word train (as in the vehicle) to describe the overwhelming power of his playing. It is used
+//! here as a play on its homophone (as in "training a new skill").
+
 pub mod blacklist;
 pub mod course_builder;
 pub mod course_library;
@@ -80,12 +99,10 @@ impl Trane {
                     trane_path.display()
                 )
             })?;
-        } else {
-            if !trane_path.is_dir() {
-                return Err(anyhow!(
-                    "config path .trane inside library must be a directory"
-                ));
-            }
+        } else if !trane_path.is_dir() {
+            return Err(anyhow!(
+                "config path .trane inside library must be a directory"
+            ));
         }
 
         // Create the filters directory if it doesn't exist.
@@ -127,16 +144,17 @@ impl Trane {
         };
 
         Ok(Trane {
-            blacklist: blacklist,
-            course_library: course_library,
-            filter_manager: filter_manager,
+            blacklist,
+            course_library,
+            filter_manager,
             library_root: library_root.to_string(),
-            practice_stats: practice_stats,
+            practice_stats,
             scheduler: DepthFirstScheduler::new(scheduler_data, SchedulerOptions::default()),
-            unit_graph: unit_graph,
+            unit_graph,
         })
     }
 
+    /// Returns the path to the root of the course library.
     pub fn library_root(&self) -> String {
         self.library_root.clone()
     }

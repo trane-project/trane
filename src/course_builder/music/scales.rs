@@ -1,15 +1,20 @@
+//! Module with the definitions of musical scales to generate courses related to the topic.
 use crate::course_builder::music::notes::*;
 use anyhow::{anyhow, Result};
 
 /// Defines a tonal scale.
 #[derive(Debug)]
 pub struct Scale {
+    /// The tonic of the scale.
     pub tonic: Note,
+
+    /// The notes which form the scale in the correct order.
     pub notes: Vec<Note>,
 }
 
 /// Defines a type of scale.
 #[derive(Debug)]
+#[allow(missing_docs)]
 pub enum ScaleType {
     Major,
     Minor,
@@ -71,6 +76,7 @@ impl Note {
 
 /// A trait that constructs a scale given the type of scale and the tonic.
 pub trait ScaleNotes {
+    /// Returns the notes for a scale based on the object and a tonic.
     fn notes(&self, tonic: Note) -> Result<Scale>;
 }
 
@@ -80,7 +86,7 @@ impl ScaleNotes for ScaleType {
             ScaleType::Major => match tonic {
                 // A – B – C♯ – D – E – F♯ – G♯
                 Note::A => Ok(Scale {
-                    tonic: tonic,
+                    tonic,
                     notes: vec![
                         Note::A,
                         Note::B,
@@ -94,7 +100,7 @@ impl ScaleNotes for ScaleType {
 
                 // A♭ – B♭ – C – D♭ – E♭ – F – G
                 Note::A_FLAT => Ok(Scale {
-                    tonic: tonic,
+                    tonic,
                     notes: vec![
                         Note::A_FLAT,
                         Note::B_FLAT,
@@ -108,7 +114,7 @@ impl ScaleNotes for ScaleType {
 
                 // B – C♯ – D♯ – E – F♯ – G♯ – A♯
                 Note::B => Ok(Scale {
-                    tonic: tonic,
+                    tonic,
                     notes: vec![
                         Note::B,
                         Note::C_SHARP,
@@ -122,7 +128,7 @@ impl ScaleNotes for ScaleType {
 
                 // B♭ – C – D – E♭ – F – G – A
                 Note::B_FLAT => Ok(Scale {
-                    tonic: tonic,
+                    tonic,
                     notes: vec![
                         Note::B_FLAT,
                         Note::C,
@@ -136,7 +142,7 @@ impl ScaleNotes for ScaleType {
 
                 // C - D - E - F - G - A - B
                 Note::C => Ok(Scale {
-                    tonic: tonic,
+                    tonic,
                     notes: vec![
                         Note::C,
                         Note::D,
@@ -150,7 +156,7 @@ impl ScaleNotes for ScaleType {
 
                 // C♭ – D♭ – E♭ – F♭ – G♭ – A♭ – B♭
                 Note::C_FLAT => Ok(Scale {
-                    tonic: tonic,
+                    tonic,
                     notes: vec![
                         Note::C_FLAT,
                         Note::D_FLAT,
@@ -164,7 +170,7 @@ impl ScaleNotes for ScaleType {
 
                 // C♯ – D♯ – E♯ – F♯ – G♯ – A♯ – B♯
                 Note::C_SHARP => Ok(Scale {
-                    tonic: tonic,
+                    tonic,
                     notes: vec![
                         Note::C_SHARP,
                         Note::D_SHARP,
@@ -178,7 +184,7 @@ impl ScaleNotes for ScaleType {
 
                 // D – E – F♯ – G – A – B – C♯
                 Note::D => Ok(Scale {
-                    tonic: tonic,
+                    tonic,
                     notes: vec![
                         Note::D,
                         Note::E,
@@ -192,7 +198,7 @@ impl ScaleNotes for ScaleType {
 
                 // D♭ – E♭ – F – G♭ – A♭ – B♭ – C
                 Note::D_FLAT => Ok(Scale {
-                    tonic: tonic,
+                    tonic,
                     notes: vec![
                         Note::D_FLAT,
                         Note::E_FLAT,
@@ -206,7 +212,7 @@ impl ScaleNotes for ScaleType {
 
                 // E – F♯ – G♯ – A – B – C♯ – D♯
                 Note::E => Ok(Scale {
-                    tonic: tonic,
+                    tonic,
                     notes: vec![
                         Note::E,
                         Note::F_SHARP,
@@ -220,7 +226,7 @@ impl ScaleNotes for ScaleType {
 
                 // E♭ – F – G – A♭ – B♭ – C – D
                 Note::E_FLAT => Ok(Scale {
-                    tonic: tonic,
+                    tonic,
                     notes: vec![
                         Note::E_FLAT,
                         Note::F,
@@ -234,7 +240,7 @@ impl ScaleNotes for ScaleType {
 
                 // F – G – A – B♭ – C – D – E
                 Note::F => Ok(Scale {
-                    tonic: tonic,
+                    tonic,
                     notes: vec![
                         Note::F,
                         Note::G,
@@ -248,7 +254,7 @@ impl ScaleNotes for ScaleType {
 
                 // F♯ – G♯ – A♯ – B – C♯ – D♯ – E♯
                 Note::F_SHARP => Ok(Scale {
-                    tonic: tonic,
+                    tonic,
                     notes: vec![
                         Note::F_SHARP,
                         Note::G_SHARP,
@@ -262,7 +268,7 @@ impl ScaleNotes for ScaleType {
 
                 // G – A – B – C – D – E – F♯
                 Note::G => Ok(Scale {
-                    tonic: tonic,
+                    tonic,
                     notes: vec![
                         Note::G,
                         Note::A,
@@ -276,7 +282,7 @@ impl ScaleNotes for ScaleType {
 
                 // G♭ – A♭ – B♭ – C♭ – D♭ – E♭ – F
                 Note::G_FLAT => Ok(Scale {
-                    tonic: tonic,
+                    tonic,
                     notes: vec![
                         Note::G_FLAT,
                         Note::A_FLAT,
@@ -294,13 +300,9 @@ impl ScaleNotes for ScaleType {
             },
 
             ScaleType::Minor => {
-                let relative_major =
-                    ScaleType::Major
-                        .notes(tonic.relative_major()?)
-                        .or(Err(anyhow!(
-                            "minor scale not found for note {}",
-                            tonic.to_string()
-                        )))?;
+                let relative_major = ScaleType::Major
+                    .notes(tonic.relative_major()?)
+                    .map_err(|_| anyhow!("minor scale not found for note {}", tonic.to_string()))?;
 
                 Ok(Scale {
                     tonic: relative_major.tonic,
@@ -317,12 +319,14 @@ impl ScaleNotes for ScaleType {
             }
 
             ScaleType::MajorPentatonic => {
-                let major = ScaleType::Major.notes(tonic).or(Err(anyhow!(
-                    "major pentatonic scale not found for note {}",
-                    tonic.to_string()
-                )))?;
+                let major = ScaleType::Major.notes(tonic).map_err(|_| {
+                    anyhow!(
+                        "major pentatonic scale not found for note {}",
+                        tonic.to_string()
+                    )
+                })?;
                 Ok(Scale {
-                    tonic: tonic,
+                    tonic,
                     notes: vec![
                         major.notes[0],
                         major.notes[1],
@@ -334,12 +338,14 @@ impl ScaleNotes for ScaleType {
             }
 
             ScaleType::MinorPentatonic => {
-                let minor = ScaleType::Minor.notes(tonic).or(Err(anyhow!(
-                    "minor pentatonic scale not found for note {}",
-                    tonic.to_string()
-                )))?;
+                let minor = ScaleType::Minor.notes(tonic).map_err(|_| {
+                    anyhow!(
+                        "minor pentatonic scale not found for note {}",
+                        tonic.to_string()
+                    )
+                })?;
                 Ok(Scale {
-                    tonic: tonic,
+                    tonic,
                     notes: vec![
                         minor.notes[0],
                         minor.notes[2],

@@ -1,3 +1,5 @@
+//! Module defining the data structures used to schedule batches of exercises to show to the user.
+//! The core of Trane's logic is in this module.
 mod cache;
 
 use anyhow::{anyhow, Result};
@@ -114,7 +116,7 @@ impl DepthFirstScheduler {
             .read()
             .unwrap()
             .get_uid(unit_id)
-            .ok_or(anyhow!("missing UID for unit with ID {}", unit_id))
+            .ok_or_else(|| anyhow!("missing UID for unit with ID {}", unit_id))
     }
 
     /// Returns the ID of the lesson with the given UID.
@@ -124,7 +126,7 @@ impl DepthFirstScheduler {
             .read()
             .unwrap()
             .get_id(unit_uid)
-            .ok_or(anyhow!("missing ID for unit with UID {}", unit_uid))
+            .ok_or_else(|| anyhow!("missing ID for unit with UID {}", unit_uid))
     }
 
     /// Returns the uid of the course to which the lesson with the given UID belongs.
@@ -134,10 +136,7 @@ impl DepthFirstScheduler {
             .read()
             .unwrap()
             .get_lesson_course(lesson_uid)
-            .ok_or(anyhow!(
-                "missing course UID for lesson with UID {}",
-                lesson_uid
-            ))
+            .ok_or_else(|| anyhow!("missing course UID for lesson with UID {}", lesson_uid))
     }
 
     /// Returns the type of the given unit.
@@ -147,7 +146,7 @@ impl DepthFirstScheduler {
             .read()
             .unwrap()
             .get_unit_type(unit_uid)
-            .ok_or(anyhow!("missing unit type for unit with UID {}", unit_uid))
+            .ok_or_else(|| anyhow!("missing unit type for unit with UID {}", unit_uid))
     }
 
     /// Returns the manifest for the course with the given UID.
@@ -158,7 +157,7 @@ impl DepthFirstScheduler {
             .read()
             .unwrap()
             .get_course_manifest(&course_id)
-            .ok_or(anyhow!("missing manifest for course with ID {}", course_id))
+            .ok_or_else(|| anyhow!("missing manifest for course with ID {}", course_id))
     }
 
     /// Returns the manifest for the course with the given UID.
@@ -169,7 +168,7 @@ impl DepthFirstScheduler {
             .read()
             .unwrap()
             .get_lesson_manifest(&lesson_id)
-            .ok_or(anyhow!("missing manifest for lesson with ID {}", lesson_id))
+            .ok_or_else(|| anyhow!("missing manifest for lesson with ID {}", lesson_id))
     }
 
     /// Returns the manifest for the exercise with the given UID.
@@ -180,10 +179,7 @@ impl DepthFirstScheduler {
             .read()
             .unwrap()
             .get_exercise_manifest(&exercise_id)
-            .ok_or(anyhow!(
-                "missing manifest for exercise with ID {}",
-                exercise_id
-            ))
+            .ok_or_else(|| anyhow!("missing manifest for exercise with ID {}", exercise_id))
     }
 
     /// Returns the value of the course_id field in the manifest of the given lesson.
@@ -230,7 +226,7 @@ impl DepthFirstScheduler {
 
     /// Returns whether the unit with the given ID is blacklisted.
     fn blacklisted_id(&self, unit_id: &str) -> Result<bool> {
-        self.data.blacklist.read().unwrap().blacklisted(&unit_id)
+        self.data.blacklist.read().unwrap().blacklisted(unit_id)
     }
 
     /// Returns all the units that are dependencies of the unit with the given UID.
@@ -241,7 +237,7 @@ impl DepthFirstScheduler {
             .read()
             .unwrap()
             .get_dependents(unit_uid)
-            .unwrap_or(HashSet::new())
+            .unwrap_or_default()
             .into_iter()
             .collect();
     }
@@ -355,7 +351,7 @@ impl DepthFirstScheduler {
 
         // Any error during the filtering is ignored for the purpose of allowing the search to
         // continue if parts of the dependency graph are missing.
-        let valid_dependents = dependents
+        dependents
             .into_iter()
             .filter(|uid| {
                 let exists = self.unit_exists(*uid);
@@ -369,46 +365,40 @@ impl DepthFirstScheduler {
                     .read()
                     .unwrap()
                     .get_dependencies(*uid)
-                    .unwrap_or(HashSet::new());
+                    .unwrap_or_default();
                 if dependencies.is_empty() {
                     return true;
                 }
 
                 let num_dependencies = dependencies.len();
-                let met_dependencies: Vec<u64> = dependencies
-                    .into_iter()
-                    .filter(|dep_uid| {
-                        let passes_filter = self
-                            .unit_passes_filter(*dep_uid, metadata_filter)
-                            .unwrap_or(false);
-                        if !passes_filter {
-                            return true;
-                        }
+                let met_dependencies = dependencies.into_iter().filter(|dep_uid| {
+                    let passes_filter = self
+                        .unit_passes_filter(*dep_uid, metadata_filter)
+                        .unwrap_or(false);
+                    if !passes_filter {
+                        return true;
+                    }
 
-                        let blacklisted = self.blacklisted_uid(*dep_uid);
-                        if blacklisted.is_err() || blacklisted.unwrap() {
-                            return true;
-                        }
+                    let blacklisted = self.blacklisted_uid(*dep_uid);
+                    if blacklisted.is_err() || blacklisted.unwrap() {
+                        return true;
+                    }
 
-                        let course_id = self
-                            .get_lesson_course_id(*dep_uid)
-                            .unwrap_or("".to_string());
-                        if self.blacklisted_id(&course_id).unwrap_or(false) {
-                            return true;
-                        }
+                    let course_id = self.get_lesson_course_id(*dep_uid).unwrap_or_default();
+                    if self.blacklisted_id(&course_id).unwrap_or(false) {
+                        return true;
+                    }
 
-                        let score = self.score_cache.get_unit_score(*dep_uid);
-                        if score.is_err() || score.as_ref().unwrap().is_none() {
-                            return true;
-                        }
-                        let avg_score = score.unwrap().unwrap();
-                        avg_score >= self.options.borrow().passing_score
-                    })
-                    .collect();
-                met_dependencies.len() == num_dependencies
+                    let score = self.score_cache.get_unit_score(*dep_uid);
+                    if score.is_err() || score.as_ref().unwrap().is_none() {
+                        return true;
+                    }
+                    let avg_score = score.unwrap().unwrap();
+                    avg_score >= self.options.borrow().passing_score
+                });
+                met_dependencies.count() == num_dependencies
             })
-            .collect();
-        return valid_dependents;
+            .collect()
     }
 
     /// Shuffles the units and pushes them to the given stack.
@@ -428,7 +418,7 @@ impl DepthFirstScheduler {
             .read()
             .unwrap()
             .get_course_lessons(course_uid)
-            .unwrap_or(HashSet::new());
+            .unwrap_or_default();
         lessons.len() as i64
     }
 
@@ -439,7 +429,7 @@ impl DepthFirstScheduler {
         for course_uid in starting_courses {
             let lesson_uids = self
                 .get_course_starting_lessons(course_uid)
-                .unwrap_or(vec![]);
+                .unwrap_or_default();
             starting_lessons.extend(lesson_uids.into_iter().map(|uid| StackItem {
                 unit_uid: uid,
                 num_hops: 0,
@@ -457,7 +447,7 @@ impl DepthFirstScheduler {
             .read()
             .unwrap()
             .get_course_starting_lessons(course_uid)
-            .unwrap_or(HashSet::new())
+            .unwrap_or_default()
             .into_iter()
             .collect();
         Ok(lessons)
@@ -470,15 +460,15 @@ impl DepthFirstScheduler {
             .read()
             .unwrap()
             .get_lesson_exercises(unit_uid)
-            .unwrap_or(HashSet::default())
+            .unwrap_or_default()
             .into_iter()
             .collect()
     }
 
     /// Gets a list of scores for the given exercises.
-    fn get_exercise_scores(&self, exercises: &Vec<u64>) -> Result<Vec<f32>> {
+    fn get_exercise_scores(&self, exercises: &[u64]) -> Result<Vec<f32>> {
         exercises
-            .into_iter()
+            .iter()
             .map(|exercise_uid| self.score_cache.get_exercise_score(*exercise_uid))
             .collect()
     }
@@ -518,13 +508,13 @@ impl DepthFirstScheduler {
 
     /// Filters the candidates whose score fit in the given window.
     fn candidates_in_window(
-        candidates: &Vec<Candidate>,
+        candidates: &[Candidate],
         window_opts: &MasteryWindowOpts,
     ) -> Vec<Candidate> {
         candidates
             .iter()
             .filter(|c| window_opts.in_window(c.score))
-            .map(|c| c.clone())
+            .cloned()
             .collect()
     }
 
@@ -646,14 +636,14 @@ impl DepthFirstScheduler {
 
                 let starting_lessons: Vec<u64> = self
                     .get_course_starting_lessons(curr_unit.unit_uid)
-                    .unwrap_or(Vec::new());
+                    .unwrap_or_default();
                 Self::shuffle_to_stack(&curr_unit, starting_lessons, &mut stack);
 
                 // Update the count of pending lessons. The course depends on each of its lessons
                 // but the search only moves forward once all of its lessons have been visited.
                 let pending_lessons = pending_course_lessons
                     .entry(curr_unit.unit_uid)
-                    .or_insert(self.get_num_lessons_in_course(curr_unit.unit_uid));
+                    .or_insert_with(|| self.get_num_lessons_in_course(curr_unit.unit_uid));
                 let passes_filter = self
                     .unit_passes_filter(curr_unit.unit_uid, metadata_filter)
                     .unwrap_or(true);
@@ -688,7 +678,7 @@ impl DepthFirstScheduler {
             let course_uid = self.get_course_uid(curr_unit.unit_uid)?;
             let pending_lessons = pending_course_lessons
                 .entry(course_uid)
-                .or_insert(self.get_num_lessons_in_course(course_uid));
+                .or_insert_with(|| self.get_num_lessons_in_course(course_uid));
             *pending_lessons -= 1;
             if *pending_lessons <= 0 {
                 // Once all of the lessons in the course have been visited, re-add the course to the
@@ -732,7 +722,7 @@ impl DepthFirstScheduler {
         let course_uid = self.get_uid(course_id)?;
         let starting_lessons = self
             .get_course_starting_lessons(course_uid)
-            .unwrap_or(Vec::new());
+            .unwrap_or_default();
         let mut stack: Vec<StackItem> = starting_lessons
             .into_iter()
             .map(|uid| StackItem {
@@ -826,10 +816,10 @@ impl ExerciseScheduler for DepthFirstScheduler {
             None => self.get_candidates_from_graph(None)?,
             Some(filter) => match filter {
                 UnitFilter::CourseFilter { course_id } => {
-                    self.get_candidates_from_course(&course_id)?
+                    self.get_candidates_from_course(course_id)?
                 }
                 UnitFilter::LessonFilter { lesson_id } => {
-                    self.get_candidates_from_lesson(&lesson_id)?
+                    self.get_candidates_from_lesson(lesson_id)?
                 }
                 UnitFilter::MetadataFilter { filter } => {
                     self.get_candidates_from_graph(Some(filter))?

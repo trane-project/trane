@@ -1,9 +1,10 @@
+//! Module defining utilities to make it easier to generate courses and lessons.
 pub mod music;
 
 use std::{
     fs::{create_dir_all, File},
     io::Write,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use crate::data::{CourseManifest, ExerciseManifestBuilder, LessonManifestBuilder, VerifyPaths};
@@ -13,6 +14,7 @@ use strum::Display;
 /// Common metadata keys for all courses and lessons.
 #[derive(Display)]
 #[strum(serialize_all = "snake_case")]
+#[allow(missing_docs)]
 pub enum TraneMetadata {
     Skill,
 }
@@ -38,7 +40,7 @@ impl AssetBuilder {
             asset_path.display()
         );
         let mut asset_file = File::create(asset_path)?;
-        asset_file.write_all(&self.contents.as_bytes())?;
+        asset_file.write_all(self.contents.as_bytes())?;
         Ok(())
     }
 }
@@ -76,7 +78,7 @@ impl ExerciseBuilder {
         manifest_file.write_all(manifest_json.as_bytes())?;
 
         for asset_builder in &self.asset_builders {
-            asset_builder.build(&exercise_directory)?;
+            asset_builder.build(exercise_directory)?;
         }
 
         ensure! {
@@ -129,7 +131,7 @@ impl LessonBuilder {
         manifest_file.write_all(manifest_json.as_bytes())?;
 
         for asset_builder in &self.asset_builders {
-            asset_builder.build(&lesson_directory)?;
+            asset_builder.build(lesson_directory)?;
         }
 
         for exercise_builder in &self.exercise_builders {
@@ -168,7 +170,7 @@ pub struct CourseBuilder {
 
 impl CourseBuilder {
     /// Writes the files needed for this course to the given directory.
-    pub fn build(&self, parent_directory: &PathBuf) -> Result<()> {
+    pub fn build(&self, parent_directory: &Path) -> Result<()> {
         let course_directory = parent_directory.join(&self.directory_name);
         ensure!(
             !course_directory.is_dir(),

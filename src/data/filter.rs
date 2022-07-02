@@ -1,3 +1,4 @@
+//! Module defining the data structures used to select which units to show to the user.
 #[cfg(test)]
 mod tests;
 
@@ -30,15 +31,24 @@ pub enum FilterType {
 /// A filter on the metadata of a course.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub enum KeyValueFilter {
+    /// A basic filter that matches a key value pair.
     BasicFilter {
+        /// The key to filter.
         key: String,
+
+        /// The value to filter.
         value: String,
+
+        /// Whether units which match the filter should be included or excluded.
         filter_type: FilterType,
     },
 
     /// A combination of filters on the metadata.
     CombinedFilter {
+        /// The logical operation used to combine multiple filters.
         op: FilterOp,
+
+        /// The filters to combine.
         filters: Vec<KeyValueFilter>,
     },
 }
@@ -52,11 +62,7 @@ impl KeyValueFilter {
         filter_type: FilterType,
     ) -> bool {
         let contains_metadata = if !metadata.contains_key(key) {
-            if filter_type == FilterType::Include {
-                false
-            } else {
-                true
-            }
+            filter_type != FilterType::Include
         } else {
             metadata
                 .get(key)
@@ -81,23 +87,25 @@ impl KeyValueFilter {
             } => KeyValueFilter::apply_metadata(metadata, key, value, filter_type.clone()),
             KeyValueFilter::CombinedFilter { op, filters } => {
                 let mut results = filters.iter().map(|f| f.apply(manifest));
-                match op {
-                    &FilterOp::All => {
-                        return results.all(|x| x);
-                    }
-                    &FilterOp::Any => {
-                        return results.any(|x| x);
-                    }
+                match *op {
+                    FilterOp::All => results.all(|x| x),
+                    FilterOp::Any => results.any(|x| x),
                 }
             }
         }
     }
 }
 
+/// A filter on course and/or lesson metadata.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct MetadataFilter {
+    /// The filter to apply to the course metadata.
     pub course_filter: Option<KeyValueFilter>,
+
+    /// The filter to apply to the lesson metadata.
     pub lesson_filter: Option<KeyValueFilter>,
+
+    /// The logical operation used to combine the course and lesson filters.
     pub op: FilterOp,
 }
 
@@ -105,13 +113,22 @@ pub struct MetadataFilter {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub enum UnitFilter {
     /// A filter on a course ID.
-    CourseFilter { course_id: String },
+    CourseFilter {
+        /// The ID of the course to filter.
+        course_id: String,
+    },
 
     /// A filter on a lesson ID.
-    LessonFilter { lesson_id: String },
+    LessonFilter {
+        /// The ID of the lesson to filter.
+        lesson_id: String,
+    },
 
     /// A filter on the metadata of a course or lesson.
-    MetadataFilter { filter: MetadataFilter },
+    MetadataFilter {
+        /// The filter to apply to the course or lesson metadata.
+        filter: MetadataFilter,
+    },
 }
 
 /// A named filter for easy reference.

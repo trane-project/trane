@@ -1,3 +1,4 @@
+//! Module defining the data structures used to store user's answers to exercises.
 #[cfg(test)]
 mod test;
 
@@ -64,9 +65,7 @@ impl PracticeStatsDB {
 
     /// A constructor taking a SQLite connection.
     fn new(connection: Connection) -> Result<PracticeStatsDB> {
-        let mut stats = PracticeStatsDB {
-            connection: connection,
-        };
+        let mut stats = PracticeStatsDB { connection };
         stats.init()?;
         Ok(stats)
     }
