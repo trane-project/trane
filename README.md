@@ -9,11 +9,11 @@ Given a set of exercises which have been bundled into lessons and further bundle
 well as the dependency relationships between those lessons and courses, Trane selects exercises to
 present to the user. It makes sure that exercises from a course or lesson are not presented until
 the exercises in their dependencies have been sufficiently mastered. It also tries to keep the
-difficulty of the exercises balances, so that the selected exercises lie slightly outside the user's
+difficulty of the exercises balanced, so that the selected exercises lie slightly outside the user's
 current abilities.
 
 You can think of this process as progressing through the skill tree of a character in a video game,
-but applied to arbitrary skills, specified in plain-text files and easily shared and augmented.
+but applied to arbitrary skills, specified in plain-text files which are easy to share and augment.
 
 Trane is named after John Coltrane, whose nickname Trane was often used in wordplay with the word
 train (as in the vehicle) to describe the overwhelming power of his playing. It is used here as a
