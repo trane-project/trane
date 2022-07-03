@@ -7,25 +7,24 @@ It is based on the principles of spaced repetition, mastery learning, and chunki
 
 Given a set of exercises which have been bundled into lessons and further bundled in courses, as
 well as the dependency relationships between those lessons and courses, Trane selects exercises to
-present to the user. It makes sure that exercises from a course or lesson are not presented to the
-user until the exercises in their dependencies have been sufficiently mastered. It also makes sure
-to keep the balance of exercises so that the difficulty of the exercises lies slightly outside the
-user's current mastery.
+present to the user. It makes sure that exercises from a course or lesson are not presented until
+the exercises in their dependencies have been sufficiently mastered. It also tries to keep the
+difficulty of the exercises balances, so that the selected exercises lie slightly outside the user's
+current abilities.
 
 You can think of this process as progressing through the skill tree of a character in a video game,
-but applied to arbitrary skills, which are defined in plain-text files which define the exercises,
-their bundling into lessons and courses, and the dependency relationships between them.
+but applied to arbitrary skills, specified in plain-text files and easily shared and augmented.
 
 Trane is named after John Coltrane, whose nickname Trane was often used in wordplay with the word
 train (as in the vehicle) to describe the overwhelming power of his playing. It is used here as a
-play on its homophone (as in "training a new skill").
+play on its homophone (as in "*trane* a new skill").
 
 ## Motivation
 
-Trane was conceived after my frustration learning jazz improvisation and music in general (another
-reason for its name). While I practiced most days, I didn't feel I was making a lot of progress.
-While I made progress in whatever I practiced at the time, other skills and previously learned songs
-were in a constant process of being unlearned and forgotten.
+Trane was conceived after my frustration trying to learn music in general and jazz improvisation in
+particular (another reason for its name). While I practiced most days, I didn't feel I was making a
+lot of progress. While I made progress in whatever I practiced at the time, other skills and
+previously learned songs were in a constant process of being unlearned and forgotten.
 
 I wanted a system that would keep track of all the skill and exercises I needed to practice, letting
 me know when my skills were deteriorating, and asking me to practice them. I also wanted to move on
@@ -53,26 +52,26 @@ repetition of individual skills until they are mastered, so I do not believe thi
 
 There might be a major revamp of the algorithm once I get enough feedback, both from my own
 experience and others'. Until now, I suspect that a majority of learning gains will come about from
-selecting exercises based on an average of their previous scores.
+selecting exercises based on some average of their previous scores.
 
 ### Mastery Learning & Chunking
 
 These two concepts are highly related. Mastery learning states that students must achieve a level of
 mastery in a skill before moving on to learning the skills which depend on the current skill (in
-Trane these skills are called the dependents of a unit). Chunking consists of breaking up a complex
-skill into smaller components that can be practiced independently.
+Trane these skills are called the dependencies and dependents of a unit). Chunking consists of
+breaking up a complex skill into smaller components that can be practiced independently.
 
 Trane applies mastery learning by preventing the user from moving on to the dependents of a unit
-until the material in the unit is sufficiently mastered. Otherwise, a user might be presented with
-material that lies too outside their current abilities and become frustrated. If a user's
-performance on a previously mastered unit degrades, Trane will make the user practice the material
-until it is mastered again.
+until the material in the unit is sufficiently mastered. It also excludes units whose dependencies
+have not been fully met. Otherwise, a user might be presented with material that lies too outside
+their current abilities and become frustrated. If a user's performance on a previously mastered unit
+degrades, Trane will make the user practice the material until it is mastered again.
 
 Trane applies chunking by allowing users to define lessons and courses with arbitrary dependency
 relationships. For example, learning to improvise over chord progressions might be broken into units
 to learn the notes in each chord, learn the fingerings of each chord, or improvise over single
-chords. The user can then define a unit to learn chord progressions and declare each of the other
-lessons as a dependency.
+chords. The user can then define a unit that exercises the union of all the previous skills and
+claim the other lessons as a dependency.
 
 ### Units Defined in Text Files
 
@@ -88,7 +87,7 @@ files programmatically and to extend Trane to support new types of exercises.
 
 Trane comes with utilities for the purpose of facilitating the creation of new courses. For example,
 it provides a course builder that follows the circle of fifths and creates a lesson based on the key
-and the note that came before in the circle. For example, one can use this builder to generate a
+and the one that came before in the circle. For example, one can use this builder to generate a
 course on the major scale that begins by teaching the C Major scale, followed by the F Major and G
 Major scale (the scales with one flat and sharp respectively) and so on.
 
@@ -160,10 +159,38 @@ happen in the core scheduling logic. The only state stored by Trane depends on t
 as long as that is not changed, updating the files is the only thing needed to make Trane pick up
 updated versions.
 
+### How well does Trane work?
+
+The honest answer is that I am not sure. One of the goals of releasing Trane to the public is to get
+feedback and user reports in the hope that I can fine-tune it. I suspect Trane will work fairly well
+in learning skills that require the repetition of complex chains of patterns until mastery of each
+and the whole is achieved. Playing music mostly follows this pattern, but I would like to figure out
+how it can be applied to other skills. 
+
 ### How do I use Trane?
 
-At the moment, there is only a command line interface for using Trane. The code is in the trane-cli
-repository.
+At the moment, there is only a command line interface for using Trane. The code and releases are in
+the [trane-cli](https://trane-project/trane-cli) repository.
+
+### How do I get content for Trane.
+
+The repository [trane-music](https://trane-project/trane-music) contains the first courses available
+that you can use to experiment with Trane. More are coming, and I am open to contributions. I am
+also looking into creating courses for other skills to figure out how to apply Trane to skills other
+than music. Some candidates at the moment are chess, programming, and languages.
+
+Since Trane courses are just collections of plain-text files, you can also create your own content.
+This content can freely reference other courses, even those written by others. For example, you
+could add new courses that link to a course in trane-music, or add additional exercises to one of
+the lessons.
+
+You can also experiment with augmenting existing educational materials by translating them into
+Trane exercises, lessons, and courses. For example, if you are learning the flute and have a book of
+études you would like to master, you could break each into a course, each large section of the piece
+into a lesson, and each small subsection into an exercise. This process does not require you to port
+any of the actual material into Trane. Creating flashcards that say "Play étude 4, measures 12
+through 16" is enough. Used in this manner, Trane can integrate materials from multiple sources into
+one centralized practice system.
 
 ### Are there plans to have a graphic interface?
 
