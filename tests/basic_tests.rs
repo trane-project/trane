@@ -290,6 +290,52 @@ lazy_static! {
                 },
             ],
         },
+        TestCourse {
+            id: TestId(6, None, None),
+            dependencies: vec![TestId(3, None, None)],
+            metadata: BTreeMap::from([
+                (
+                    "course_key_1".to_string(),
+                    vec!["course_key_1:value_6".to_string()]
+                ),
+                (
+                    "course_key_2".to_string(),
+                    vec!["course_key_2:value_6".to_string()]
+                ),
+            ]),
+            lessons: vec![
+                TestLesson {
+                    id: TestId(6, Some(0), None),
+                    dependencies: vec![],
+                    metadata: BTreeMap::from([
+                        (
+                            "lesson_key_1".to_string(),
+                            vec!["lesson_key_1:value_6".to_string()]
+                        ),
+                        (
+                            "lesson_key_2".to_string(),
+                            vec!["lesson_key_2:value_6".to_string()]
+                        ),
+                    ]),
+                    num_exercises: 10,
+                },
+                TestLesson {
+                    id: TestId(6, Some(1), None),
+                    dependencies: vec![TestId(6, Some(0), None)],
+                    metadata: BTreeMap::from([
+                        (
+                            "lesson_key_1".to_string(),
+                            vec!["lesson_key_1:value_7".to_string()]
+                        ),
+                        (
+                            "lesson_key_2".to_string(),
+                            vec!["lesson_key_2:value_7".to_string()]
+                        ),
+                    ]),
+                    num_exercises: 10,
+                },
+            ],
+        }
     ];
 }
 
@@ -331,8 +377,12 @@ fn bad_score_prevents_advancing() -> Result<()> {
     let mut simulation = TraneSimulation::new(100, Box::new(|_| Some(MasteryScore::One)));
     simulation.run_simulation(&mut trane, &vec![], None)?;
 
-    // Only the exercises in the first lesson should be in simulation.answer_history.
-    let first_lessons = vec![TestId(0, Some(0), None), TestId(4, Some(0), None)];
+    // Only the exercises in the first lessons should be in simulation.answer_history.
+    let first_lessons = vec![
+        TestId(0, Some(0), None),
+        TestId(4, Some(0), None),
+        TestId(6, Some(0), None),
+    ];
     let exercise_ids = all_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
         if first_lessons

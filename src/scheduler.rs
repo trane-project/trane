@@ -422,9 +422,52 @@ impl DepthFirstScheduler {
         lessons.len() as i64
     }
 
+    fn get_all_starting_courses(&self) -> HashSet<u64> {
+        let mut starting_courses = self.data.unit_graph.read().unwrap().get_dependency_sinks();
+        let mut num_courses = starting_courses.len();
+        // Replace any missing courses with their dependents and repeat this process until there are
+        // no missing courses.
+        loop {
+            let mut new_starting_courses = HashSet::new();
+            for course_uid in starting_courses {
+                if self.unit_exists(course_uid).unwrap() {
+                    new_starting_courses.insert(course_uid);
+                } else {
+                    new_starting_courses.extend(self.get_all_dependents(course_uid).iter());
+                }
+            }
+            starting_courses = new_starting_courses;
+
+            if starting_courses.len() == num_courses {
+                break;
+            }
+            num_courses = starting_courses.len();
+        }
+
+        // Some of the courses added may have existing dependencies. Remove them.
+        starting_courses
+            .into_iter()
+            .filter(|course_uid| {
+                let dependencies = self
+                    .data
+                    .unit_graph
+                    .read()
+                    .unwrap()
+                    .get_dependencies(*course_uid)
+                    .unwrap_or_default();
+                if dependencies.is_empty() {
+                    return true;
+                }
+                dependencies
+                    .iter()
+                    .all(|uid| !self.unit_exists(*uid).unwrap())
+            })
+            .collect()
+    }
+
     /// Returns all the starting lessons in the graph.
     fn get_all_starting_lessons(&self) -> Vec<StackItem> {
-        let starting_courses = self.data.unit_graph.read().unwrap().get_dependency_sinks();
+        let starting_courses = self.get_all_starting_courses();
         let mut starting_lessons: Vec<StackItem> = vec![];
         for course_uid in starting_courses {
             let lesson_uids = self
