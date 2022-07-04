@@ -35,13 +35,18 @@ impl PracticeStatsDB {
     /// Returns all the migrations needed to setup the database.
     fn migrations() -> Migrations<'static> {
         Migrations::new(vec![
+            M::up("CREATE TABLE uids(unit_uid INTEGER PRIMARY KEY, unit_id TEXT NOT NULL UNIQUE);")
+                .down("DROP TABLE uids;"),
             M::up(
                 "CREATE TABLE practice_stats(
-                unit_id TEXT NOT NULL, score REAL, timestamp INTEGER);",
+                id INTEGER PRIMARY KEY,
+                unit_uid INTEGER NOT NULL REFERENCES uids(unit_uid),
+                score REAL, timestamp INTEGER);",
             )
             .down("DROP TABLE practice_stats"),
-            M::up("CREATE INDEX unit_scores ON practice_stats (unit_id);")
+            M::up("CREATE INDEX unit_scores ON practice_stats (unit_uid);")
                 .down("DROP INDEX unit_scores"),
+            M::up("CREATE INDEX unit_ids ON uids (unit_id);").down("DROP INDEX unit_ids"),
         ])
     }
 
@@ -83,8 +88,9 @@ impl PracticeStats for PracticeStatsDB {
         let mut stmt = self
             .connection
             .prepare_cached(
-                "SELECT score, timestamp from practice_stats WHERE unit_id = ?1 ORDER BY
-                    timestamp DESC LIMIT ?2;",
+                "SELECT score, timestamp from practice_stats WHERE unit_uid = (
+                    SELECT unit_uid FROM uids WHERE unit_id = ?1)
+                    ORDER BY timestamp DESC LIMIT ?2;",
             )
             .with_context(|| "cannot prepare statement to query practice stats DB")?;
 
@@ -110,8 +116,20 @@ impl PracticeStats for PracticeStatsDB {
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<()> {
+        // Add the exercise to the table of uids if not there already.
+        let mut uid_stmt = self
+            .connection
+            .prepare_cached("INSERT OR IGNORE INTO uids(unit_id) VALUES (?1);")?;
+        uid_stmt.execute(params![exercise_id]).with_context(|| {
+            format!(
+                "cannot add {} to uids table in practice stats DB",
+                exercise_id
+            )
+        })?;
+
         let mut stmt = self.connection.prepare_cached(
-            "INSERT INTO practice_stats (unit_id, score, timestamp) VALUES (?1, ?2, ?3)",
+            "INSERT INTO practice_stats (unit_uid, score, timestamp) VALUES (
+                (SELECT unit_uid FROM uids WHERE unit_id = ?1), ?2, ?3);",
         )?;
         stmt.execute(params![exercise_id, score.float_score(), timestamp])
             .with_context(|| {
