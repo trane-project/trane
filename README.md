@@ -170,7 +170,7 @@ how it can be applied to other skills.
 ### How do I use Trane?
 
 At the moment, there is only a command line interface for using Trane. The code and releases are in
-the [trane-cli](https://trane-project/trane-cli) repository.
+the [trane-cli](https://github.com/trane-project/trane-cli) repository.
 
 ### How do I get content for Trane.
 
