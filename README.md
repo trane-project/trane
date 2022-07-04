@@ -174,10 +174,11 @@ the [trane-cli](https://trane-project/trane-cli) repository.
 
 ### How do I get content for Trane.
 
-The repository [trane-music](https://trane-project/trane-music) contains the first courses available
-that you can use to experiment with Trane. More are coming, and I am open to contributions. I am
-also looking into creating courses for other skills to figure out how to apply Trane to skills other
-than music. Some candidates at the moment are chess, programming, and languages.
+The repository [trane-music](https://github.com/trane-project/trane-music) contains the first
+courses available that you can use to experiment with Trane. More are coming, and I am open to
+contributions. I am also looking into creating courses for other skills to figure out how to apply
+Trane to skills other than music. Some candidates at the moment are chess, programming, and
+languages.
 
 Since Trane courses are just collections of plain-text files, you can also create your own content.
 This content can freely reference other courses, even those written by others. For example, you
