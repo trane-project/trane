@@ -213,9 +213,13 @@ impl UnitGraph for InMemoryUnitGraph {
         );
 
         let unit_uid = self.get_or_insert_uid(unit_id);
-        self.update_unit_type(unit_uid, unit_type.clone())?;
-        if unit_type == UnitType::Course || unit_type == UnitType::Lesson {
-            self.update_dependency_sinks(unit_uid, dependencies);
+        self.update_unit_type(unit_uid, unit_type)?;
+        self.update_dependency_sinks(unit_uid, dependencies);
+        for dep_id in dependencies {
+            // Update the dependency sinks for all dependencies so that the scheduler work even in
+            // the case somme dependencies are missing.
+            let dep_uid = self.get_or_insert_uid(dep_id);
+            self.update_dependency_sinks(dep_uid, &[]);
         }
 
         let dependency_uids = dependencies
