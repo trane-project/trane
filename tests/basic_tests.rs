@@ -377,7 +377,7 @@ fn bad_score_prevents_advancing() -> Result<()> {
     let mut simulation = TraneSimulation::new(100, Box::new(|_| Some(MasteryScore::One)));
     simulation.run_simulation(&mut trane, &vec![], None)?;
 
-    // Only the exercises in the first lesson should be in simulation.answer_history.
+    // Only the exercises in the first lessons should be in simulation.answer_history.
     let first_lessons = vec![
         TestId(0, Some(0), None),
         TestId(4, Some(0), None),
