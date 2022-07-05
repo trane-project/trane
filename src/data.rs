@@ -335,6 +335,11 @@ pub enum ExerciseAsset {
     SoundSliceAsset {
         /// The link to the SoundSlice asset.
         link: String,
+
+        /// An optional description of the exercise tied to this asset. For example, "Play this
+        /// slice in the key of D Major" or "Practice measures 1 through 4". A missing description
+        /// implies the entire slice should be practiced as is.
+        description: Option<String>,
     },
 
     /// An asset storing two paths to two markdown files. The first file stores the front (question)
