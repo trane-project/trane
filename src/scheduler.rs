@@ -564,10 +564,14 @@ impl DepthFirstScheduler {
     /// Takes a list of candidates and randomly selectes num_selected candidates among them. The
     /// probabilities of selecting a candidate are weighted based on their score and the number of
     /// hops taken by the graph search to find them. Lower scores and higher number of hops give the
-    /// candidate a higher chance of being selected.
-    fn select_candidates(candidates: Vec<Candidate>, num_selected: usize) -> Vec<Candidate> {
+    /// candidate a higher chance of being selected. The function returns a tuple of the selected
+    /// candidates and the remainder.
+    fn select_candidates(
+        candidates: Vec<Candidate>,
+        num_selected: usize,
+    ) -> (Vec<Candidate>, Vec<Candidate>) {
         if candidates.len() <= num_selected {
-            return candidates;
+            return (candidates, vec![]);
         }
 
         // Create the list of weights for each candidate. A small value (0.5) is added to each
@@ -590,7 +594,15 @@ impl DepthFirstScheduler {
             dist = WeightedIndex::new(&weights).unwrap();
             turns += 1;
         }
-        selected
+
+        // Compute all the candidates that were not selected.
+        let mut remainder = vec![];
+        for (i, weight) in weights.iter().enumerate() {
+            if *weight != 0.0 {
+                remainder.push(candidates[i].clone());
+            }
+        }
+        (selected, remainder)
     }
 
     /// Takes a list of candidates and returns a vector of tuples of exercises IDs and manifests.
@@ -616,6 +628,9 @@ impl DepthFirstScheduler {
         &self,
         candidates: Vec<Candidate>,
     ) -> Result<Vec<(String, ExerciseManifest)>> {
+        let batch_size = self.options.borrow().batch_size;
+        let batch_size_float = batch_size as f32;
+
         let easy_candidates =
             Self::candidates_in_window(&candidates, &self.options.borrow().easy_window_opts);
         let current_candidates =
@@ -624,17 +639,37 @@ impl DepthFirstScheduler {
             Self::candidates_in_window(&candidates, &self.options.borrow().target_window_opts);
         let mut final_candidates = Vec::new();
 
-        let num_easy = ((self.options.borrow().batch_size as f32)
-            * self.options.borrow().easy_window_opts.percentage) as usize;
-        final_candidates.extend(Self::select_candidates(easy_candidates, num_easy));
+        let num_easy =
+            (batch_size_float * self.options.borrow().easy_window_opts.percentage) as usize;
+        let (easy_selected, easy_remainder) = Self::select_candidates(easy_candidates, num_easy);
+        final_candidates.extend(easy_selected);
 
-        let num_current = ((self.options.borrow().batch_size as f32)
-            * self.options.borrow().current_window_opts.percentage)
-            as usize;
-        final_candidates.extend(Self::select_candidates(current_candidates, num_current));
+        let num_current =
+            (batch_size_float * self.options.borrow().current_window_opts.percentage) as usize;
+        let (current_selected, current_remainder) =
+            Self::select_candidates(current_candidates, num_current);
+        final_candidates.extend(current_selected);
 
-        let remainder = self.options.borrow().batch_size - final_candidates.len();
-        final_candidates.extend(Self::select_candidates(target_candidates, remainder));
+        let remainder = batch_size - final_candidates.len();
+        let (target_selected, _) = Self::select_candidates(target_candidates, remainder);
+        final_candidates.extend(target_selected);
+
+        if final_candidates.len() < batch_size {
+            let remainder = batch_size - final_candidates.len();
+            final_candidates.extend(
+                current_remainder[..remainder.min(current_remainder.len())]
+                    .iter()
+                    .cloned(),
+            );
+        }
+        if final_candidates.len() < batch_size {
+            let remainder = batch_size - final_candidates.len();
+            final_candidates.extend(
+                easy_remainder[..remainder.min(easy_remainder.len())]
+                    .iter()
+                    .cloned(),
+            );
+        }
 
         self.candidates_to_exercises(candidates)
     }
