@@ -251,6 +251,9 @@ impl TraneSimulation {
             if batch.is_empty() {
                 batch = trane.get_exercise_batch(filter)?;
             }
+            if batch.is_empty() {
+                break;
+            }
 
             let (exercise_id, _) = batch.pop().unwrap();
             let score = (self.answer_closure)(&exercise_id);
