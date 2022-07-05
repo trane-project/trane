@@ -657,9 +657,9 @@ impl DepthFirstScheduler {
         let mut final_candidates = Vec::new();
 
         let num_mastered = (batch_size_float * options.mastered_window_opts.percentage) as usize;
-        let (mastered_candidates, mastered_remainder) =
+        let (mastered_selected, mastered_remainder) =
             Self::select_candidates(mastered_candidates, num_mastered);
-        final_candidates.extend(mastered_candidates);
+        final_candidates.extend(mastered_selected);
 
         let num_easy = (batch_size_float * options.easy_window_opts.percentage) as usize;
         let (easy_selected, easy_remainder) = Self::select_candidates(easy_candidates, num_easy);
@@ -688,7 +688,7 @@ impl DepthFirstScheduler {
             &mastered_remainder,
         );
 
-        self.candidates_to_exercises(candidates)
+        self.candidates_to_exercises(final_candidates)
     }
 
     /// Searches for candidates across the entire graph.
