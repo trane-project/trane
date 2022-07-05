@@ -622,6 +622,22 @@ impl DepthFirstScheduler {
         Ok(exercises)
     }
 
+    /// Fills up the candidates with the values from remainder if there are not enough candidates.
+    fn add_remainder(
+        batch_size: usize,
+        final_candidates: &mut Vec<Candidate>,
+        remainder_candidates: &[Candidate],
+    ) {
+        if final_candidates.len() < batch_size {
+            let remainder = batch_size - final_candidates.len();
+            final_candidates.extend(
+                remainder_candidates[..remainder.min(remainder_candidates.len())]
+                    .iter()
+                    .cloned(),
+            );
+        }
+    }
+
     /// Takes a list of exercises and filters them so that the end result is a list of exercise
     /// manifests which fit the options given to the scheduler.
     fn filter_candidates(
@@ -631,12 +647,19 @@ impl DepthFirstScheduler {
         let options = self.options.borrow();
         let batch_size_float = options.batch_size as f32;
 
+        let mastered_candidates =
+            Self::candidates_in_window(&candidates, &options.mastered_window_opts);
         let easy_candidates = Self::candidates_in_window(&candidates, &options.easy_window_opts);
         let current_candidates =
             Self::candidates_in_window(&candidates, &options.current_window_opts);
         let target_candidates =
             Self::candidates_in_window(&candidates, &options.target_window_opts);
         let mut final_candidates = Vec::new();
+
+        let num_mastered = (batch_size_float * options.mastered_window_opts.percentage) as usize;
+        let (mastered_candidates, mastered_remainder) =
+            Self::select_candidates(mastered_candidates, num_mastered);
+        final_candidates.extend(mastered_candidates);
 
         let num_easy = (batch_size_float * options.easy_window_opts.percentage) as usize;
         let (easy_selected, easy_remainder) = Self::select_candidates(easy_candidates, num_easy);
@@ -651,22 +674,19 @@ impl DepthFirstScheduler {
         let (target_selected, _) = Self::select_candidates(target_candidates, remainder);
         final_candidates.extend(target_selected);
 
-        if final_candidates.len() < options.batch_size {
-            let remainder = options.batch_size - final_candidates.len();
-            final_candidates.extend(
-                current_remainder[..remainder.min(current_remainder.len())]
-                    .iter()
-                    .cloned(),
-            );
-        }
-        if final_candidates.len() < options.batch_size {
-            let remainder = options.batch_size - final_candidates.len();
-            final_candidates.extend(
-                easy_remainder[..remainder.min(easy_remainder.len())]
-                    .iter()
-                    .cloned(),
-            );
-        }
+        // Go through the remainders in descending order of difficulty and add them to the list of
+        // final candidates if there's still space left in the batch.
+        Self::add_remainder(
+            options.batch_size,
+            &mut final_candidates,
+            &current_remainder,
+        );
+        Self::add_remainder(options.batch_size, &mut final_candidates, &easy_remainder);
+        Self::add_remainder(
+            options.batch_size,
+            &mut final_candidates,
+            &mastered_remainder,
+        );
 
         self.candidates_to_exercises(candidates)
     }

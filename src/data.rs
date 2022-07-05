@@ -451,14 +451,21 @@ pub struct SchedulerOptions {
     /// The maximum number of candidates to return each time the scheduler is worked.
     pub batch_size: usize,
 
-    /// The options of the target mastery window.
+    /// The options of the target mastery window. That is, the window of exercises that lie outside
+    /// the user's current abilities.
     pub target_window_opts: MasteryWindowOpts,
 
-    /// The options of the current mastery window.
+    /// The options of the current mastery window. That is, the window of exercises that are
+    /// roughly in the user's current abilities.
     pub current_window_opts: MasteryWindowOpts,
 
-    /// The options of the easy mastery window.
+    /// The options of the easy mastery window. That is, the window of exercises that lie well
+    /// within the user's current abilities.
     pub easy_window_opts: MasteryWindowOpts,
+
+    /// The options for the mastered mastery window. That is, the window of exercises that the user
+    /// has properly mastered.
+    pub mastered_window_opts: MasteryWindowOpts,
 
     /// The minimum average score of a unit required to move on to its dependents.
     pub passing_score: f32,
@@ -473,7 +480,7 @@ impl Default for SchedulerOptions {
         SchedulerOptions {
             batch_size: 50,
             target_window_opts: MasteryWindowOpts {
-                percentage: 0.25,
+                percentage: 0.2,
                 range: (0.0, 2.5),
             },
             current_window_opts: MasteryWindowOpts {
@@ -481,8 +488,12 @@ impl Default for SchedulerOptions {
                 range: (2.5, 3.9),
             },
             easy_window_opts: MasteryWindowOpts {
-                percentage: 0.25,
-                range: (3.9, 5.0),
+                percentage: 0.2,
+                range: (3.9, 4.7),
+            },
+            mastered_window_opts: MasteryWindowOpts {
+                percentage: 0.1,
+                range: (4.7, 5.0),
             },
             passing_score: 3.9,
             num_scores: 25,
