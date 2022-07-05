@@ -628,42 +628,39 @@ impl DepthFirstScheduler {
         &self,
         candidates: Vec<Candidate>,
     ) -> Result<Vec<(String, ExerciseManifest)>> {
-        let batch_size = self.options.borrow().batch_size;
-        let batch_size_float = batch_size as f32;
+        let options = self.options.borrow();
+        let batch_size_float = options.batch_size as f32;
 
-        let easy_candidates =
-            Self::candidates_in_window(&candidates, &self.options.borrow().easy_window_opts);
+        let easy_candidates = Self::candidates_in_window(&candidates, &options.easy_window_opts);
         let current_candidates =
-            Self::candidates_in_window(&candidates, &self.options.borrow().current_window_opts);
+            Self::candidates_in_window(&candidates, &options.current_window_opts);
         let target_candidates =
-            Self::candidates_in_window(&candidates, &self.options.borrow().target_window_opts);
+            Self::candidates_in_window(&candidates, &options.target_window_opts);
         let mut final_candidates = Vec::new();
 
-        let num_easy =
-            (batch_size_float * self.options.borrow().easy_window_opts.percentage) as usize;
+        let num_easy = (batch_size_float * options.easy_window_opts.percentage) as usize;
         let (easy_selected, easy_remainder) = Self::select_candidates(easy_candidates, num_easy);
         final_candidates.extend(easy_selected);
 
-        let num_current =
-            (batch_size_float * self.options.borrow().current_window_opts.percentage) as usize;
+        let num_current = (batch_size_float * options.current_window_opts.percentage) as usize;
         let (current_selected, current_remainder) =
             Self::select_candidates(current_candidates, num_current);
         final_candidates.extend(current_selected);
 
-        let remainder = batch_size - final_candidates.len();
+        let remainder = options.batch_size - final_candidates.len();
         let (target_selected, _) = Self::select_candidates(target_candidates, remainder);
         final_candidates.extend(target_selected);
 
-        if final_candidates.len() < batch_size {
-            let remainder = batch_size - final_candidates.len();
+        if final_candidates.len() < options.batch_size {
+            let remainder = options.batch_size - final_candidates.len();
             final_candidates.extend(
                 current_remainder[..remainder.min(current_remainder.len())]
                     .iter()
                     .cloned(),
             );
         }
-        if final_candidates.len() < batch_size {
-            let remainder = batch_size - final_candidates.len();
+        if final_candidates.len() < options.batch_size {
+            let remainder = options.batch_size - final_candidates.len();
             final_candidates.extend(
                 easy_remainder[..remainder.min(easy_remainder.len())]
                     .iter()
