@@ -1,5 +1,16 @@
 # Trane
 
+## TLDR
+
+Trane is an automated learning system for acquiring complex skills. Think of it like a system to
+progress through a video game character's skill tree while making sure all of your previously
+mastered skills are kept up to date, but applied to arbitrary skills.
+
+If you want to see it in action, head over to
+[trane-cli](https://github.com/trane-project/trane-cli) for the command-line interface and to
+[trane-music](https://github.com/trane-project/trane-music) for some music courses you can use to
+test it out.
+
 ## Introduction
 
 Trane is an automated learning system for the acquisition of complex and highly hierarchical skills.
