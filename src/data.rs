@@ -91,8 +91,8 @@ pub enum UnitType {
     /// A single task, which the student is meant to perform and assess.
     Exercise,
 
-    /// A set of related exercises. There are no dependencies between the exercises
-    /// in a single lesson, so students could see them in any order.
+    /// A set of related exercises. There are no dependencies between the exercises in a single
+    /// lesson, so students could see them in any order.
     Lesson,
 
     /// A set of related lessons around one or more similar topics. Lessons in the same course can
@@ -455,8 +455,8 @@ pub struct SchedulerOptions {
     /// the user's current abilities.
     pub target_window_opts: MasteryWindowOpts,
 
-    /// The options of the current mastery window. That is, the window of exercises that are
-    /// roughly in the user's current abilities.
+    /// The options of the current mastery window. That is, the window of exercises that lie
+    /// roughly within the user's current abilities.
     pub current_window_opts: MasteryWindowOpts,
 
     /// The options of the easy mastery window. That is, the window of exercises that lie well
