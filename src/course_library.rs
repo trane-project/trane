@@ -1,11 +1,12 @@
 //! Module containing utilities to open and manipulate collections of courses and lessons stored
 //! under a directory, which are named a course library.
 use std::{
+    cell::RefCell,
     collections::{HashMap, HashSet},
     fs::File,
     io::BufReader,
     path::Path,
-    sync::{Arc, RwLock},
+    rc::Rc,
 };
 
 use anyhow::{anyhow, ensure, Result};
@@ -32,13 +33,13 @@ pub trait CourseLibrary {
 pub(crate) trait GetUnitGraph {
     /// Returns a reference to the unit graph describing the dependencies among the courses and
     /// lessons in this library.
-    fn get_unit_graph(&self) -> Arc<RwLock<dyn UnitGraph>>;
+    fn get_unit_graph(&self) -> Rc<RefCell<dyn UnitGraph>>;
 }
 
 /// An implementation of CourseLibrary backed by the local filesystem.
 pub(crate) struct LocalCourseLibrary {
     /// A dependency graph of the course and lessons in the library.
-    unit_graph: Arc<RwLock<dyn UnitGraph>>,
+    unit_graph: Rc<RefCell<dyn UnitGraph>>,
 
     /// A map of course ID to the path of its manifest.
     course_map: HashMap<String, CourseManifest>,
@@ -78,8 +79,7 @@ impl LocalCourseLibrary {
         );
 
         self.unit_graph
-            .write()
-            .unwrap()
+            .borrow_mut()
             .add_exercise(&exercise_manifest.id, &exercise_manifest.lesson_id)?;
         self.exercise_map
             .insert(exercise_manifest.id.clone(), exercise_manifest);
@@ -127,16 +127,16 @@ impl LocalCourseLibrary {
             }
         }
 
-        if let Ok(mut unit_graph) = self.unit_graph.write() {
-            unit_graph.add_lesson(&lesson_manifest.id, &lesson_manifest.course_id)?;
+        self.unit_graph
+            .borrow_mut()
+            .add_lesson(&lesson_manifest.id, &lesson_manifest.course_id)?;
 
-            // Add the dependencies explicitly stated by the manifest.
-            unit_graph.add_dependencies(
-                &lesson_manifest.id,
-                UnitType::Lesson,
-                &lesson_manifest.dependencies,
-            )?;
-        }
+        // Add the dependencies explicitly stated by the manifest.
+        self.unit_graph.borrow_mut().add_dependencies(
+            &lesson_manifest.id,
+            UnitType::Lesson,
+            &lesson_manifest.dependencies,
+        )?;
 
         self.lesson_map
             .insert(lesson_manifest.id.clone(), lesson_manifest);
@@ -154,7 +154,7 @@ impl LocalCourseLibrary {
         let first_lessons: Vec<String> = lesson_uids
             .iter()
             .map(|uid| {
-                let dependencies = self.unit_graph.read().unwrap().get_dependencies(*uid);
+                let dependencies = self.unit_graph.borrow().get_dependencies(*uid);
                 match dependencies {
                     None => Some(*uid),
                     Some(deps) => {
@@ -169,15 +169,14 @@ impl LocalCourseLibrary {
             .filter(|uid| uid.is_some())
             .map(|uid| {
                 self.unit_graph
-                    .read()
-                    .unwrap()
+                    .borrow()
                     .get_id(uid.unwrap())
                     .ok_or_else(|| anyhow!("cannot find lesson ID for UID {}", uid.unwrap()))
             })
             .collect::<Result<Vec<String>>>()?;
 
         for lesson_id in first_lessons {
-            self.unit_graph.write().unwrap().add_dependencies(
+            self.unit_graph.borrow_mut().add_dependencies(
                 &lesson_id,
                 UnitType::Lesson,
                 &[course_id.clone()],
@@ -223,8 +222,7 @@ impl LocalCourseLibrary {
                     // dependencies between the course and its lessons.
                     let lesson_uid = self
                         .unit_graph
-                        .read()
-                        .unwrap()
+                        .borrow()
                         .get_uid(&lesson_id)
                         .ok_or_else(|| anyhow!("cannot find lesson UID for ID {}", lesson_id))?;
                     lesson_uids.insert(lesson_uid);
@@ -232,7 +230,7 @@ impl LocalCourseLibrary {
             }
         }
 
-        self.unit_graph.write().unwrap().add_dependencies(
+        self.unit_graph.borrow_mut().add_dependencies(
             &course_manifest.id,
             UnitType::Course,
             &course_manifest.dependencies,
@@ -257,7 +255,7 @@ impl LocalCourseLibrary {
             course_map: HashMap::new(),
             lesson_map: HashMap::new(),
             exercise_map: HashMap::new(),
-            unit_graph: Arc::new(RwLock::new(InMemoryUnitGraph::default())),
+            unit_graph: Rc::new(RefCell::new(InMemoryUnitGraph::default())),
         };
 
         // Start a search from the library root. Courses can be located at any level within the
@@ -282,7 +280,7 @@ impl LocalCourseLibrary {
             }
         }
 
-        library.unit_graph.read().unwrap().check_cycles()?;
+        library.unit_graph.borrow().check_cycles()?;
         Ok(library)
     }
 }
@@ -302,7 +300,7 @@ impl CourseLibrary for LocalCourseLibrary {
 }
 
 impl GetUnitGraph for LocalCourseLibrary {
-    fn get_unit_graph(&self) -> Arc<RwLock<dyn UnitGraph>> {
+    fn get_unit_graph(&self) -> Rc<RefCell<dyn UnitGraph>> {
         self.unit_graph.clone()
     }
 }

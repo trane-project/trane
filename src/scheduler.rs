@@ -7,7 +7,7 @@ use rand::{seq::SliceRandom, thread_rng};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
-    sync::{Arc, RwLock},
+    rc::Rc,
 };
 
 use crate::{
@@ -52,16 +52,16 @@ pub trait ExerciseScheduler {
 #[derive(Clone)]
 pub(crate) struct SchedulerData {
     /// The course library storing manifests and info about units.
-    pub course_library: Arc<RwLock<dyn CourseLibrary>>,
+    pub course_library: Rc<RefCell<dyn CourseLibrary>>,
 
     /// The dependency graph of courses and lessons.
-    pub unit_graph: Arc<RwLock<dyn UnitGraph>>,
+    pub unit_graph: Rc<RefCell<dyn UnitGraph>>,
 
     /// The list of previous exercise results.
-    pub practice_stats: Arc<RwLock<dyn PracticeStats>>,
+    pub practice_stats: Rc<RefCell<dyn PracticeStats>>,
 
     /// The list of units to skip during scheduling.
-    pub blacklist: Arc<RwLock<dyn Blacklist>>,
+    pub blacklist: Rc<RefCell<dyn Blacklist>>,
 }
 
 /// A struct representing an element in the stack used during the graph search.
@@ -113,8 +113,7 @@ impl DepthFirstScheduler {
     fn get_uid(&self, unit_id: &str) -> Result<u64> {
         self.data
             .unit_graph
-            .read()
-            .unwrap()
+            .borrow()
             .get_uid(unit_id)
             .ok_or_else(|| anyhow!("missing UID for unit with ID {}", unit_id))
     }
@@ -123,8 +122,7 @@ impl DepthFirstScheduler {
     fn get_id(&self, unit_uid: u64) -> Result<String> {
         self.data
             .unit_graph
-            .read()
-            .unwrap()
+            .borrow()
             .get_id(unit_uid)
             .ok_or_else(|| anyhow!("missing ID for unit with UID {}", unit_uid))
     }
@@ -133,8 +131,7 @@ impl DepthFirstScheduler {
     fn get_course_uid(&self, lesson_uid: u64) -> Result<u64> {
         self.data
             .unit_graph
-            .read()
-            .unwrap()
+            .borrow()
             .get_lesson_course(lesson_uid)
             .ok_or_else(|| anyhow!("missing course UID for lesson with UID {}", lesson_uid))
     }
@@ -143,8 +140,7 @@ impl DepthFirstScheduler {
     fn get_unit_type(&self, unit_uid: u64) -> Result<UnitType> {
         self.data
             .unit_graph
-            .read()
-            .unwrap()
+            .borrow()
             .get_unit_type(unit_uid)
             .ok_or_else(|| anyhow!("missing unit type for unit with UID {}", unit_uid))
     }
@@ -154,8 +150,7 @@ impl DepthFirstScheduler {
         let course_id = self.get_id(course_uid)?;
         self.data
             .course_library
-            .read()
-            .unwrap()
+            .borrow()
             .get_course_manifest(&course_id)
             .ok_or_else(|| anyhow!("missing manifest for course with ID {}", course_id))
     }
@@ -165,8 +160,7 @@ impl DepthFirstScheduler {
         let lesson_id = self.get_id(lesson_uid)?;
         self.data
             .course_library
-            .read()
-            .unwrap()
+            .borrow()
             .get_lesson_manifest(&lesson_id)
             .ok_or_else(|| anyhow!("missing manifest for lesson with ID {}", lesson_id))
     }
@@ -176,8 +170,7 @@ impl DepthFirstScheduler {
         let exercise_id = self.get_id(exercise_uid)?;
         self.data
             .course_library
-            .read()
-            .unwrap()
+            .borrow()
             .get_exercise_manifest(&exercise_id)
             .ok_or_else(|| anyhow!("missing manifest for exercise with ID {}", exercise_id))
     }
@@ -190,28 +183,26 @@ impl DepthFirstScheduler {
     /// Returns whether the unit exists in the library. Some units will exists in the unit graph
     /// because they are a dependency of another but their data might not exist in the library.
     fn unit_exists(&self, unit_uid: u64) -> Result<bool, String> {
-        let graph_guard = self.data.unit_graph.read().unwrap();
-
-        let unit_id = graph_guard.get_id(unit_uid);
+        let unit_id = self.data.unit_graph.borrow().get_id(unit_uid);
         if unit_id.is_none() {
             return Ok(false);
         }
-        let unit_type = graph_guard.get_unit_type(unit_uid);
+        let unit_type = self.data.unit_graph.borrow().get_unit_type(unit_uid);
         if unit_type.is_none() {
             return Ok(false);
         }
 
-        let library_guard = self.data.course_library.read().unwrap();
+        let library = self.data.course_library.borrow();
         match unit_type.unwrap() {
-            UnitType::Course => match library_guard.get_course_manifest(&unit_id.unwrap()) {
+            UnitType::Course => match library.get_course_manifest(&unit_id.unwrap()) {
                 None => Ok(false),
                 Some(_) => Ok(true),
             },
-            UnitType::Lesson => match library_guard.get_lesson_manifest(&unit_id.unwrap()) {
+            UnitType::Lesson => match library.get_lesson_manifest(&unit_id.unwrap()) {
                 None => Ok(false),
                 Some(_) => Ok(true),
             },
-            UnitType::Exercise => match library_guard.get_exercise_manifest(&unit_id.unwrap()) {
+            UnitType::Exercise => match library.get_exercise_manifest(&unit_id.unwrap()) {
                 None => Ok(false),
                 Some(_) => Ok(true),
             },
@@ -221,12 +212,12 @@ impl DepthFirstScheduler {
     /// Returns whether the unit with the given UID is blacklisted.
     fn blacklisted_uid(&self, unit_uid: u64) -> Result<bool> {
         let unit_id = self.get_id(unit_uid)?;
-        self.data.blacklist.read().unwrap().blacklisted(&unit_id)
+        self.data.blacklist.borrow().blacklisted(&unit_id)
     }
 
     /// Returns whether the unit with the given ID is blacklisted.
     fn blacklisted_id(&self, unit_id: &str) -> Result<bool> {
-        self.data.blacklist.read().unwrap().blacklisted(unit_id)
+        self.data.blacklist.borrow().blacklisted(unit_id)
     }
 
     /// Returns all the units that are dependencies of the unit with the given UID.
@@ -234,8 +225,7 @@ impl DepthFirstScheduler {
         return self
             .data
             .unit_graph
-            .read()
-            .unwrap()
+            .borrow()
             .get_dependents(unit_uid)
             .unwrap_or_default()
             .into_iter()
@@ -362,8 +352,7 @@ impl DepthFirstScheduler {
                 let dependencies = self
                     .data
                     .unit_graph
-                    .read()
-                    .unwrap()
+                    .borrow()
                     .get_dependencies(*uid)
                     .unwrap_or_default();
                 if dependencies.is_empty() {
@@ -415,15 +404,14 @@ impl DepthFirstScheduler {
         let lessons: HashSet<u64> = self
             .data
             .unit_graph
-            .read()
-            .unwrap()
+            .borrow()
             .get_course_lessons(course_uid)
             .unwrap_or_default();
         lessons.len() as i64
     }
 
     fn get_all_starting_courses(&self) -> HashSet<u64> {
-        let mut starting_courses = self.data.unit_graph.read().unwrap().get_dependency_sinks();
+        let mut starting_courses = self.data.unit_graph.borrow().get_dependency_sinks();
         let mut num_courses = starting_courses.len();
         // Replace any missing courses with their dependents and repeat this process until there are
         // no missing courses.
@@ -451,8 +439,7 @@ impl DepthFirstScheduler {
                 let dependencies = self
                     .data
                     .unit_graph
-                    .read()
-                    .unwrap()
+                    .borrow()
                     .get_dependencies(*course_uid)
                     .unwrap_or_default();
                 if dependencies.is_empty() {
@@ -487,8 +474,7 @@ impl DepthFirstScheduler {
         let lessons: Vec<u64> = self
             .data
             .unit_graph
-            .read()
-            .unwrap()
+            .borrow()
             .get_course_starting_lessons(course_uid)
             .unwrap_or_default()
             .into_iter()
@@ -500,8 +486,7 @@ impl DepthFirstScheduler {
     fn get_lesson_exercises(&self, unit_uid: u64) -> Vec<u64> {
         self.data
             .unit_graph
-            .read()
-            .unwrap()
+            .borrow()
             .get_lesson_exercises(unit_uid)
             .unwrap_or_default()
             .into_iter()
@@ -922,8 +907,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
         let exercise_uid = self.get_uid(exercise_id)?;
         self.data
             .practice_stats
-            .write()
-            .unwrap()
+            .borrow_mut()
             .record_exercise_score(exercise_id, score, timestamp)?;
         self.score_cache.invalidate_cached_score(exercise_uid);
         Ok(())
