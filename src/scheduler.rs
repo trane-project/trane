@@ -3,7 +3,7 @@
 mod cache;
 
 use anyhow::{anyhow, Result};
-use rand::{distributions::WeightedIndex, prelude::Distribution, seq::SliceRandom, thread_rng};
+use rand::{seq::SliceRandom, thread_rng};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
@@ -569,40 +569,25 @@ impl DepthFirstScheduler {
     fn select_candidates(
         candidates: Vec<Candidate>,
         num_selected: usize,
-    ) -> (Vec<Candidate>, Vec<Candidate>) {
+    ) -> Result<(Vec<Candidate>, Vec<Candidate>)> {
         if candidates.len() <= num_selected {
-            return (candidates, vec![]);
+            return Ok((candidates, vec![]));
         }
 
-        // Create the list of weights for each candidate. A small value (0.5) is added to each
-        // weight to prevent any of the weights from being zero.
-        let mut weights: Vec<f32> = candidates
-            .iter()
-            .map(|c| 0.5 + (5.0 - c.score.min(5.0)) + (0.1 * (c.num_hops as f32)))
-            .collect();
-        let mut dist = WeightedIndex::new(&weights).unwrap();
         let mut rng = thread_rng();
-
-        let mut selected = Vec::new();
-        let mut turns = 0;
-        while selected.len() < num_selected && turns <= num_selected {
-            let index = dist.sample(&mut rng);
-            selected.push(candidates[index].clone());
-
-            // Update the weight of this index to zero so it's never selected again.
-            weights[index] = 0.0;
-            dist = WeightedIndex::new(&weights).unwrap();
-            turns += 1;
-        }
-
-        // Compute all the candidates that were not selected.
-        let mut remainder = vec![];
-        for (i, weight) in weights.iter().enumerate() {
-            if *weight != 0.0 {
-                remainder.push(candidates[i].clone());
-            }
-        }
-        (selected, remainder)
+        let selected: Vec<Candidate> = candidates
+            .choose_multiple_weighted(&mut rng, num_selected, |c| {
+                1.0 + (5.0 - c.score) + (c.num_hops as f32)
+            })?
+            .cloned()
+            .collect();
+        let selected_uids: HashSet<u64> = selected.iter().map(|c| c.exercise_uid).collect();
+        let remainder = candidates
+            .iter()
+            .filter(|c| !selected_uids.contains(&c.exercise_uid))
+            .cloned()
+            .collect();
+        Ok((selected, remainder))
     }
 
     /// Takes a list of candidates and returns a vector of tuples of exercises IDs and manifests.
@@ -647,6 +632,7 @@ impl DepthFirstScheduler {
         let options = self.options.borrow();
         let batch_size_float = options.batch_size as f32;
 
+        // Find the candidates that fit in each window.
         let mastered_candidates =
             Self::candidates_in_window(&candidates, &options.mastered_window_opts);
         let easy_candidates = Self::candidates_in_window(&candidates, &options.easy_window_opts);
@@ -654,24 +640,26 @@ impl DepthFirstScheduler {
             Self::candidates_in_window(&candidates, &options.current_window_opts);
         let target_candidates =
             Self::candidates_in_window(&candidates, &options.target_window_opts);
-        let mut final_candidates = Vec::new();
+        let mut final_candidates = Vec::with_capacity(options.batch_size);
 
+        // For each window, add the appropriate number of candidates to the final list.
         let num_mastered = (batch_size_float * options.mastered_window_opts.percentage) as usize;
         let (mastered_selected, mastered_remainder) =
-            Self::select_candidates(mastered_candidates, num_mastered);
+            Self::select_candidates(mastered_candidates, num_mastered)?;
         final_candidates.extend(mastered_selected);
 
         let num_easy = (batch_size_float * options.easy_window_opts.percentage) as usize;
-        let (easy_selected, easy_remainder) = Self::select_candidates(easy_candidates, num_easy);
+        let (easy_selected, easy_remainder) = Self::select_candidates(easy_candidates, num_easy)?;
         final_candidates.extend(easy_selected);
 
         let num_current = (batch_size_float * options.current_window_opts.percentage) as usize;
         let (current_selected, current_remainder) =
-            Self::select_candidates(current_candidates, num_current);
+            Self::select_candidates(current_candidates, num_current)?;
         final_candidates.extend(current_selected);
 
+        // For the target window, add as many candidates as possible to fill the batch.
         let remainder = options.batch_size - final_candidates.len();
-        let (target_selected, _) = Self::select_candidates(target_candidates, remainder);
+        let (target_selected, _) = Self::select_candidates(target_candidates, remainder)?;
         final_candidates.extend(target_selected);
 
         // Go through the remainders in descending order of difficulty and add them to the list of
