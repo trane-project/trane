@@ -10,7 +10,7 @@ jobs:
     name: Test Suite
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest]
         rust: [stable]
     runs-on: ${{ matrix.os }}
     steps:

@@ -410,6 +410,8 @@ impl DepthFirstScheduler {
         lessons.len() as i64
     }
 
+    /// Returns all the courses without dependencies. If some of those courses are missing, their
+    /// dependents are added until there are no missing courses.
     fn get_all_starting_courses(&self) -> HashSet<u64> {
         let mut starting_courses = self.data.unit_graph.borrow().get_dependency_sinks();
         let mut num_courses = starting_courses.len();
