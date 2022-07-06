@@ -53,8 +53,7 @@ impl ScoreCache {
             return Ok(score);
         }
 
-        let graph_guard = self.data.unit_graph.read().unwrap();
-        let unit_type = graph_guard.get_unit_type(exercise_uid);
+        let unit_type = self.data.unit_graph.borrow().get_unit_type(exercise_uid);
         match unit_type {
             Some(UnitType::Exercise) => (),
             _ => {
@@ -65,15 +64,17 @@ impl ScoreCache {
             }
         }
 
-        let exercise_id = graph_guard
+        let exercise_id = self
+            .data
+            .unit_graph
+            .borrow()
             .get_id(exercise_uid)
             .ok_or_else(|| anyhow!("missing ID for exercise with UID {}", exercise_uid))?;
 
         let scores = self
             .data
             .practice_stats
-            .read()
-            .unwrap()
+            .borrow()
             .get_scores(&exercise_id, self.options.borrow().num_scores)?;
 
         let score = self.scorer.score(scores);
@@ -89,8 +90,7 @@ impl ScoreCache {
     fn get_unit_id(&self, unit_uid: u64) -> Result<String> {
         self.data
             .unit_graph
-            .read()
-            .unwrap()
+            .borrow()
             .get_id(unit_uid)
             .ok_or_else(|| anyhow!("missing ID for unit with UID {}", unit_uid))
     }
@@ -100,8 +100,7 @@ impl ScoreCache {
         let exercises = self
             .data
             .unit_graph
-            .read()
-            .unwrap()
+            .borrow()
             .get_lesson_exercises(lesson_uid);
         match exercises {
             None => Ok(None),
@@ -117,8 +116,7 @@ impl ScoreCache {
                         let blacklisted = self
                             .data
                             .blacklist
-                            .read()
-                            .unwrap()
+                            .borrow()
                             .blacklisted(&exercise_id.unwrap());
                         blacklisted.is_err() || !blacklisted.unwrap()
                     })
@@ -143,17 +141,12 @@ impl ScoreCache {
     /// Returns the average score of all the exercises in the given course.
     fn get_course_score(&self, course_uid: u64) -> Result<Option<f32>> {
         let course_id = self.get_unit_id(course_uid)?;
-        let blacklisted = self.data.blacklist.read().unwrap().blacklisted(&course_id);
+        let blacklisted = self.data.blacklist.borrow().blacklisted(&course_id);
         if blacklisted.is_ok() && !blacklisted.unwrap() {
             return Ok(None);
         }
 
-        let lessons = self
-            .data
-            .unit_graph
-            .read()
-            .unwrap()
-            .get_course_lessons(course_uid);
+        let lessons = self.data.unit_graph.borrow().get_course_lessons(course_uid);
         match lessons {
             None => Ok(None),
             Some(uids) => {
@@ -168,8 +161,7 @@ impl ScoreCache {
                         let blacklisted = self
                             .data
                             .blacklist
-                            .read()
-                            .unwrap()
+                            .borrow()
                             .blacklisted(&lesson_id.unwrap());
                         blacklisted.is_err() || !blacklisted.unwrap()
                     })
@@ -200,8 +192,7 @@ impl ScoreCache {
         let unit_type = self
             .data
             .unit_graph
-            .read()
-            .unwrap()
+            .borrow()
             .get_unit_type(unit_uid)
             .ok_or_else(|| anyhow!("missing unit type for unit with UID {}", unit_uid))?;
         match unit_type {
