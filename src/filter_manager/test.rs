@@ -17,7 +17,7 @@ fn test_filters() -> Vec<NamedFilter> {
             id: "filter1".to_string(),
             description: "Filter 1".to_string(),
             filter: UnitFilter::CourseFilter {
-                course_id: "course1".to_string(),
+                course_ids: vec!["course1".to_string()],
             },
         },
         NamedFilter {
