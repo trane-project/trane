@@ -544,16 +544,19 @@ fn scheduler_respects_course_filter() -> Result<()> {
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
-    let selected_course = TestId(5, None, None);
+    let selected_courses = vec![TestId(1, None, None), TestId(5, None, None)];
     let course_filter = UnitFilter::CourseFilter {
-        course_id: selected_course.to_string(),
+        course_ids: selected_courses.iter().map(|id| id.to_string()).collect(),
     };
     simulation.run_simulation(&mut trane, &vec![], Some(&course_filter))?;
 
     // Every exercise ID should be in simulation.answer_history.
     let exercise_ids = all_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
-        if exercise_id.exercise_in_course(&selected_course) {
+        if selected_courses
+            .iter()
+            .any(|course_id| exercise_id.exercise_in_course(course_id))
+        {
             assert!(
                 simulation
                     .answer_history
@@ -585,16 +588,19 @@ fn scheduler_respects_lesson_filter() -> Result<()> {
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
-    let selected_lesson = TestId(4, Some(1), None);
+    let selected_lessons = vec![TestId(2, Some(0), None), TestId(4, Some(1), None)];
     let lesson_filter = UnitFilter::LessonFilter {
-        lesson_id: selected_lesson.to_string(),
+        lesson_ids: selected_lessons.iter().map(|id| id.to_string()).collect(),
     };
     simulation.run_simulation(&mut trane, &vec![], Some(&lesson_filter))?;
 
     // Every exercise ID should be in simulation.answer_history.
     let exercise_ids = all_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
-        if exercise_id.exercise_in_lesson(&selected_lesson) {
+        if selected_lessons
+            .iter()
+            .any(|lesson_id| exercise_id.exercise_in_lesson(lesson_id))
+        {
             assert!(
                 simulation
                     .answer_history

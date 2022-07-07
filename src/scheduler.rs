@@ -885,11 +885,19 @@ impl ExerciseScheduler for DepthFirstScheduler {
         let candidates = match filter {
             None => self.get_candidates_from_graph(None)?,
             Some(filter) => match filter {
-                UnitFilter::CourseFilter { course_id } => {
-                    self.get_candidates_from_course(course_id)?
+                UnitFilter::CourseFilter { course_ids } => {
+                    let mut candidates = Vec::new();
+                    for course_id in course_ids {
+                        candidates.extend(self.get_candidates_from_course(course_id)?.into_iter());
+                    }
+                    candidates
                 }
-                UnitFilter::LessonFilter { lesson_id } => {
-                    self.get_candidates_from_lesson(lesson_id)?
+                UnitFilter::LessonFilter { lesson_ids } => {
+                    let mut candidates = Vec::new();
+                    for lesson_id in lesson_ids {
+                        candidates.extend(self.get_candidates_from_lesson(lesson_id)?.into_iter());
+                    }
+                    candidates
                 }
                 UnitFilter::MetadataFilter { filter } => {
                     self.get_candidates_from_graph(Some(filter))?

@@ -112,16 +112,16 @@ pub struct MetadataFilter {
 /// A filter on a course or lesson manifest.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub enum UnitFilter {
-    /// A filter on a course ID.
+    /// A filter to show exercises belonging to the given courses.
     CourseFilter {
-        /// The ID of the course to filter.
-        course_id: String,
+        /// The IDs of the courses to filter.
+        course_ids: Vec<String>,
     },
 
-    /// A filter on a lesson ID.
+    /// A filter to show exercises belonging to the given lessons.
     LessonFilter {
-        /// The ID of the lesson to filter.
-        lesson_id: String,
+        /// The IDs of the lessons to filter.
+        lesson_ids: Vec<String>,
     },
 
     /// A filter on the metadata of a course or lesson.
