@@ -36,7 +36,7 @@ use data::{filter::*, *};
 use filter_manager::{FilterManager, LocalFilterManager};
 use graph::{DebugUnitGraph, UnitGraph};
 use practice_stats::{PracticeStats, PracticeStatsDB};
-use scheduler::{DepthFirstScheduler, ExerciseScheduler, SchedulerData};
+use scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseScheduler};
 
 /// The path to the folder inside each course library containing the user data.
 const TRANE_CONFIG_DIR_PATH: &str = ".trane";
@@ -208,7 +208,7 @@ impl PracticeStats for Trane {
     }
 
     fn record_exercise_score(
-        &mut self,
+        &self,
         exercise_id: &str,
         score: MasteryScore,
         timestamp: i64,
@@ -232,7 +232,7 @@ impl ExerciseScheduler for Trane {
     }
 
     fn record_exercise_score(
-        &self,
+        &mut self,
         exercise_id: &str,
         score: MasteryScore,
         timestamp: i64,

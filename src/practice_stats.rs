@@ -18,7 +18,7 @@ pub trait PracticeStats {
     /// should have scores recorded. However, the enforcement of this requirement is left to the
     /// caller.
     fn record_exercise_score(
-        &mut self,
+        &self,
         exercise_id: &str,
         score: MasteryScore,
         timestamp: i64,
@@ -111,7 +111,7 @@ impl PracticeStats for PracticeStatsDB {
     }
 
     fn record_exercise_score(
-        &mut self,
+        &self,
         exercise_id: &str,
         score: MasteryScore,
         timestamp: i64,
