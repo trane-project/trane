@@ -1,13 +1,13 @@
 //! Module defining the data structures used to schedule batches of exercises to show to the user.
 //! The core of Trane's logic is in this module.
 mod cache;
+pub mod data;
 
 use anyhow::{anyhow, Result};
 use rand::{seq::SliceRandom, thread_rng};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
-    rc::Rc,
 };
 
 use crate::{
@@ -21,6 +21,7 @@ use crate::{
     graph::UnitGraph,
     practice_stats::PracticeStats,
     scheduler::cache::ScoreCache,
+    scheduler::data::SchedulerData,
 };
 
 /// The batch size will be multiplied by this factor in order to expand the range of the search and
@@ -41,27 +42,11 @@ pub trait ExerciseScheduler {
 
     /// Records the score of the given exercise's trial.
     fn record_exercise_score(
-        &self,
+        &mut self,
         exercise_id: &str,
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<()>;
-}
-
-/// A struct encapsulating all the state needed to schedule exercises.
-#[derive(Clone)]
-pub(crate) struct SchedulerData {
-    /// The course library storing manifests and info about units.
-    pub course_library: Rc<RefCell<dyn CourseLibrary>>,
-
-    /// The dependency graph of courses and lessons.
-    pub unit_graph: Rc<RefCell<dyn UnitGraph>>,
-
-    /// The list of previous exercise results.
-    pub practice_stats: Rc<RefCell<dyn PracticeStats>>,
-
-    /// The list of units to skip during scheduling.
-    pub blacklist: Rc<RefCell<dyn Blacklist>>,
 }
 
 /// A struct representing an element in the stack used during the graph search.
@@ -112,8 +97,6 @@ impl DepthFirstScheduler {
     /// Returns the UID of the lesson with the given ID.
     fn get_uid(&self, unit_id: &str) -> Result<u64> {
         self.data
-            .unit_graph
-            .borrow()
             .get_uid(unit_id)
             .ok_or_else(|| anyhow!("missing UID for unit with ID {}", unit_id))
     }
@@ -121,8 +104,6 @@ impl DepthFirstScheduler {
     /// Returns the ID of the lesson with the given UID.
     fn get_id(&self, unit_uid: u64) -> Result<String> {
         self.data
-            .unit_graph
-            .borrow()
             .get_id(unit_uid)
             .ok_or_else(|| anyhow!("missing ID for unit with UID {}", unit_uid))
     }
@@ -130,8 +111,6 @@ impl DepthFirstScheduler {
     /// Returns the uid of the course to which the lesson with the given UID belongs.
     fn get_course_uid(&self, lesson_uid: u64) -> Result<u64> {
         self.data
-            .unit_graph
-            .borrow()
             .get_lesson_course(lesson_uid)
             .ok_or_else(|| anyhow!("missing course UID for lesson with UID {}", lesson_uid))
     }
@@ -139,8 +118,6 @@ impl DepthFirstScheduler {
     /// Returns the type of the given unit.
     fn get_unit_type(&self, unit_uid: u64) -> Result<UnitType> {
         self.data
-            .unit_graph
-            .borrow()
             .get_unit_type(unit_uid)
             .ok_or_else(|| anyhow!("missing unit type for unit with UID {}", unit_uid))
     }
@@ -149,8 +126,6 @@ impl DepthFirstScheduler {
     fn get_course_manifest(&self, course_uid: u64) -> Result<CourseManifest> {
         let course_id = self.get_id(course_uid)?;
         self.data
-            .course_library
-            .borrow()
             .get_course_manifest(&course_id)
             .ok_or_else(|| anyhow!("missing manifest for course with ID {}", course_id))
     }
@@ -159,8 +134,6 @@ impl DepthFirstScheduler {
     fn get_lesson_manifest(&self, lesson_uid: u64) -> Result<LessonManifest> {
         let lesson_id = self.get_id(lesson_uid)?;
         self.data
-            .course_library
-            .borrow()
             .get_lesson_manifest(&lesson_id)
             .ok_or_else(|| anyhow!("missing manifest for lesson with ID {}", lesson_id))
     }
@@ -169,8 +142,6 @@ impl DepthFirstScheduler {
     fn get_exercise_manifest(&self, exercise_uid: u64) -> Result<ExerciseManifest> {
         let exercise_id = self.get_id(exercise_uid)?;
         self.data
-            .course_library
-            .borrow()
             .get_exercise_manifest(&exercise_id)
             .ok_or_else(|| anyhow!("missing manifest for exercise with ID {}", exercise_id))
     }
@@ -183,26 +154,25 @@ impl DepthFirstScheduler {
     /// Returns whether the unit exists in the library. Some units will exists in the unit graph
     /// because they are a dependency of another but their data might not exist in the library.
     fn unit_exists(&self, unit_uid: u64) -> Result<bool, String> {
-        let unit_id = self.data.unit_graph.borrow().get_id(unit_uid);
+        let unit_id = self.data.get_id(unit_uid);
         if unit_id.is_none() {
             return Ok(false);
         }
-        let unit_type = self.data.unit_graph.borrow().get_unit_type(unit_uid);
+        let unit_type = self.data.get_unit_type(unit_uid);
         if unit_type.is_none() {
             return Ok(false);
         }
 
-        let library = self.data.course_library.borrow();
         match unit_type.unwrap() {
-            UnitType::Course => match library.get_course_manifest(&unit_id.unwrap()) {
+            UnitType::Course => match self.data.get_course_manifest(&unit_id.unwrap()) {
                 None => Ok(false),
                 Some(_) => Ok(true),
             },
-            UnitType::Lesson => match library.get_lesson_manifest(&unit_id.unwrap()) {
+            UnitType::Lesson => match self.data.get_lesson_manifest(&unit_id.unwrap()) {
                 None => Ok(false),
                 Some(_) => Ok(true),
             },
-            UnitType::Exercise => match library.get_exercise_manifest(&unit_id.unwrap()) {
+            UnitType::Exercise => match self.data.get_exercise_manifest(&unit_id.unwrap()) {
                 None => Ok(false),
                 Some(_) => Ok(true),
             },
@@ -212,24 +182,16 @@ impl DepthFirstScheduler {
     /// Returns whether the unit with the given UID is blacklisted.
     fn blacklisted_uid(&self, unit_uid: u64) -> Result<bool> {
         let unit_id = self.get_id(unit_uid)?;
-        self.data.blacklist.borrow().blacklisted(&unit_id)
-    }
-
-    /// Returns whether the unit with the given ID is blacklisted.
-    fn blacklisted_id(&self, unit_id: &str) -> Result<bool> {
-        self.data.blacklist.borrow().blacklisted(unit_id)
+        self.data.blacklisted(&unit_id)
     }
 
     /// Returns all the units that are dependencies of the unit with the given UID.
     fn get_all_dependents(&self, unit_uid: u64) -> Vec<u64> {
-        return self
-            .data
-            .unit_graph
-            .borrow()
+        self.data
             .get_dependents(unit_uid)
             .unwrap_or_default()
             .into_iter()
-            .collect();
+            .collect()
     }
 
     /// Applies the metadata filter to the given unit.
@@ -374,7 +336,7 @@ impl DepthFirstScheduler {
                     }
 
                     let course_id = self.get_lesson_course_id(*dep_uid).unwrap_or_default();
-                    if self.blacklisted_id(&course_id).unwrap_or(false) {
+                    if self.data.blacklisted(&course_id).unwrap_or(false) {
                         return true;
                     }
 
@@ -413,7 +375,7 @@ impl DepthFirstScheduler {
     /// Returns all the courses without dependencies. If some of those courses are missing, their
     /// dependents are added until there are no missing courses.
     fn get_all_starting_courses(&self) -> HashSet<u64> {
-        let mut starting_courses = self.data.unit_graph.borrow().get_dependency_sinks();
+        let mut starting_courses = self.data.get_dependency_sinks();
         let mut num_courses = starting_courses.len();
         // Replace any missing courses with their dependents and repeat this process until there are
         // no missing courses.
@@ -487,8 +449,6 @@ impl DepthFirstScheduler {
     /// Returns the exercises contained within the given unit.
     fn get_lesson_exercises(&self, unit_uid: u64) -> Vec<u64> {
         self.data
-            .unit_graph
-            .borrow()
             .get_lesson_exercises(unit_uid)
             .unwrap_or_default()
             .into_iter()
@@ -510,7 +470,7 @@ impl DepthFirstScheduler {
             return Ok((vec![], 0.0));
         }
         let course_id = self.get_lesson_course_id(item.unit_uid)?;
-        if self.blacklisted_id(&course_id).unwrap_or(false) {
+        if self.data.blacklisted(&course_id).unwrap_or(false) {
             return Ok((vec![], 0.0));
         }
 
@@ -909,15 +869,13 @@ impl ExerciseScheduler for DepthFirstScheduler {
     }
 
     fn record_exercise_score(
-        &self,
+        &mut self,
         exercise_id: &str,
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<()> {
         let exercise_uid = self.get_uid(exercise_id)?;
         self.data
-            .practice_stats
-            .borrow_mut()
             .record_exercise_score(exercise_id, score, timestamp)?;
         self.score_cache.invalidate_cached_score(exercise_uid);
         Ok(())
