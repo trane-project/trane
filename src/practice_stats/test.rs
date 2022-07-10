@@ -28,7 +28,7 @@ fn assert_scores(expected: Vec<f32>, actual: Vec<ExerciseTrial>) {
 
 #[test]
 fn basic() -> Result<()> {
-    let stats = new_tests_stats()?;
+    let mut stats = new_tests_stats()?;
     stats.record_exercise_score("ex_123", MasteryScore::Five, 1)?;
     let scores = stats.get_scores("ex_123", 1)?;
     assert_scores(vec![5.0], scores);
@@ -37,7 +37,7 @@ fn basic() -> Result<()> {
 
 #[test]
 fn multiple_records() -> Result<()> {
-    let stats = new_tests_stats()?;
+    let mut stats = new_tests_stats()?;
     stats.record_exercise_score("ex_123", MasteryScore::Three, 1)?;
     stats.record_exercise_score("ex_123", MasteryScore::Four, 2)?;
     stats.record_exercise_score("ex_123", MasteryScore::Five, 3)?;

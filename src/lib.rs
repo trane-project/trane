@@ -36,7 +36,7 @@ use data::{filter::*, *};
 use filter_manager::{FilterManager, LocalFilterManager};
 use graph::{DebugUnitGraph, UnitGraph};
 use practice_stats::{PracticeStats, PracticeStatsDB};
-use scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseScheduler};
+use scheduler::{DepthFirstScheduler, ExerciseScheduler, SchedulerData};
 
 /// The path to the folder inside each course library containing the user data.
 const TRANE_CONFIG_DIR_PATH: &str = ".trane";
@@ -133,6 +133,7 @@ impl Trane {
             config_path.join(FILTERS_DIR).to_str().unwrap(),
         )?));
         let scheduler_data = SchedulerData {
+            options: SchedulerOptions::default(),
             course_library: course_library.clone(),
             unit_graph: unit_graph.clone(),
             practice_stats: practice_stats.clone(),
@@ -208,7 +209,7 @@ impl PracticeStats for Trane {
     }
 
     fn record_exercise_score(
-        &self,
+        &mut self,
         exercise_id: &str,
         score: MasteryScore,
         timestamp: i64,
@@ -220,10 +221,6 @@ impl PracticeStats for Trane {
 }
 
 impl ExerciseScheduler for Trane {
-    fn set_options(&self, options: SchedulerOptions) {
-        self.scheduler.set_options(options);
-    }
-
     fn get_exercise_batch(
         &self,
         filter: Option<&UnitFilter>,
@@ -232,7 +229,7 @@ impl ExerciseScheduler for Trane {
     }
 
     fn record_exercise_score(
-        &mut self,
+        &self,
         exercise_id: &str,
         score: MasteryScore,
         timestamp: i64,

@@ -36,11 +36,6 @@ impl ScoreCache {
         }
     }
 
-    /// Replaces the options with the given value.
-    pub(super) fn set_options(&self, options: SchedulerOptions) {
-        self.options.replace(options);
-    }
-
     /// Removes the cached score for the given exercise.
     pub(super) fn invalidate_cached_score(&self, exercise_uid: u64) {
         self.cache.borrow_mut().remove(&exercise_uid);
