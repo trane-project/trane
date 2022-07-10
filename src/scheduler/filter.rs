@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use rand::{prelude::SliceRandom, thread_rng};
 use std::collections::HashSet;
 
@@ -17,25 +17,6 @@ impl CandidateFilter {
     /// Constructs a new candidate filter.
     pub fn new(data: SchedulerData) -> Self {
         Self { data }
-    }
-
-    /// Returns the ID of the lesson with the given UID.
-    fn get_id(&self, unit_uid: u64) -> Result<String> {
-        self.data
-            .unit_graph
-            .borrow()
-            .get_id(unit_uid)
-            .ok_or_else(|| anyhow!("missing ID for unit with UID {}", unit_uid))
-    }
-
-    /// Returns the manifest for the exercise with the given UID.
-    fn get_exercise_manifest(&self, exercise_uid: u64) -> Result<ExerciseManifest> {
-        let exercise_id = self.get_id(exercise_uid)?;
-        self.data
-            .course_library
-            .borrow()
-            .get_exercise_manifest(&exercise_id)
-            .ok_or_else(|| anyhow!("missing manifest for exercise with ID {}", exercise_id))
     }
 
     /// Filters the candidates whose score fit in the given window.
@@ -103,8 +84,8 @@ impl CandidateFilter {
         let mut exercises = candidates
             .into_iter()
             .map(|c| -> Result<(String, ExerciseManifest)> {
-                let id = self.get_id(c.exercise_uid)?;
-                let manifest = self.get_exercise_manifest(c.exercise_uid)?;
+                let id = self.data.get_id(c.exercise_uid)?;
+                let manifest = self.data.get_exercise_manifest(c.exercise_uid)?;
                 Ok((id, manifest))
             })
             .collect::<Result<Vec<(String, ExerciseManifest)>>>()?;

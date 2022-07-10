@@ -36,7 +36,7 @@ use data::{filter::*, *};
 use filter_manager::{FilterManager, LocalFilterManager};
 use graph::{DebugUnitGraph, UnitGraph};
 use practice_stats::{PracticeStats, PracticeStatsDB};
-use scheduler::{DepthFirstScheduler, ExerciseScheduler, SchedulerData};
+use scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseScheduler};
 
 /// The path to the folder inside each course library containing the user data.
 const TRANE_CONFIG_DIR_PATH: &str = ".trane";
