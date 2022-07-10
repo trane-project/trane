@@ -1,13 +1,14 @@
 //! Module defining the data structures used to schedule batches of exercises to show to the user.
 //! The core of Trane's logic is in this module.
 mod cache;
-pub mod data;
+mod filter;
 
 use anyhow::{anyhow, Result};
 use rand::{seq::SliceRandom, thread_rng};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
+    rc::Rc,
 };
 
 use crate::{
@@ -15,14 +16,14 @@ use crate::{
     course_library::CourseLibrary,
     data::{
         filter::{FilterOp, MetadataFilter, UnitFilter},
-        CourseManifest, ExerciseManifest, LessonManifest, MasteryScore, MasteryWindowOpts,
-        SchedulerOptions, UnitType,
+        CourseManifest, ExerciseManifest, LessonManifest, MasteryScore, SchedulerOptions, UnitType,
     },
     graph::UnitGraph,
     practice_stats::PracticeStats,
     scheduler::cache::ScoreCache,
-    scheduler::data::SchedulerData,
 };
+
+use self::filter::CandidateFilter;
 
 /// The batch size will be multiplied by this factor in order to expand the range of the search and
 /// avoid always returning the same exercises. A search concludes early if it reaches a dead-end and
@@ -31,9 +32,6 @@ const MAX_CANDIDATE_FACTOR: usize = 10;
 
 /// Contains functions used to retrieve a new batch of exercises.
 pub trait ExerciseScheduler {
-    /// Sets the options used while searching for exercise candidates.
-    fn set_options(&self, options: SchedulerOptions);
-
     /// Gets a new batch of exercises scheduled for a new trial.
     fn get_exercise_batch(
         &self,
@@ -42,11 +40,29 @@ pub trait ExerciseScheduler {
 
     /// Records the score of the given exercise's trial.
     fn record_exercise_score(
-        &mut self,
+        &self,
         exercise_id: &str,
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<()>;
+}
+
+/// A struct encapsulating all the state needed to schedule exercises.
+#[derive(Clone)]
+pub(crate) struct SchedulerData {
+    pub options: SchedulerOptions,
+
+    /// The course library storing manifests and info about units.
+    pub course_library: Rc<RefCell<dyn CourseLibrary>>,
+
+    /// The dependency graph of courses and lessons.
+    pub unit_graph: Rc<RefCell<dyn UnitGraph>>,
+
+    /// The list of previous exercise results.
+    pub practice_stats: Rc<RefCell<dyn PracticeStats>>,
+
+    /// The list of units to skip during scheduling.
+    pub blacklist: Rc<RefCell<dyn Blacklist>>,
 }
 
 /// A struct representing an element in the stack used during the graph search.
@@ -74,9 +90,6 @@ struct Candidate {
 
 /// An exercise scheduler based on depth-first search.
 pub(crate) struct DepthFirstScheduler {
-    /// The options used to schedule exercises.
-    options: RefCell<SchedulerOptions>,
-
     /// The data used to schedule exercises.
     data: SchedulerData,
 
@@ -88,7 +101,6 @@ impl DepthFirstScheduler {
     /// Creates a new simple scheduler.
     pub fn new(data: SchedulerData, options: SchedulerOptions) -> Self {
         Self {
-            options: RefCell::new(options.clone()),
             data: data.clone(),
             score_cache: ScoreCache::new(data, options),
         }
@@ -97,6 +109,8 @@ impl DepthFirstScheduler {
     /// Returns the UID of the lesson with the given ID.
     fn get_uid(&self, unit_id: &str) -> Result<u64> {
         self.data
+            .unit_graph
+            .borrow()
             .get_uid(unit_id)
             .ok_or_else(|| anyhow!("missing UID for unit with ID {}", unit_id))
     }
@@ -104,6 +118,8 @@ impl DepthFirstScheduler {
     /// Returns the ID of the lesson with the given UID.
     fn get_id(&self, unit_uid: u64) -> Result<String> {
         self.data
+            .unit_graph
+            .borrow()
             .get_id(unit_uid)
             .ok_or_else(|| anyhow!("missing ID for unit with UID {}", unit_uid))
     }
@@ -111,6 +127,8 @@ impl DepthFirstScheduler {
     /// Returns the uid of the course to which the lesson with the given UID belongs.
     fn get_course_uid(&self, lesson_uid: u64) -> Result<u64> {
         self.data
+            .unit_graph
+            .borrow()
             .get_lesson_course(lesson_uid)
             .ok_or_else(|| anyhow!("missing course UID for lesson with UID {}", lesson_uid))
     }
@@ -118,6 +136,8 @@ impl DepthFirstScheduler {
     /// Returns the type of the given unit.
     fn get_unit_type(&self, unit_uid: u64) -> Result<UnitType> {
         self.data
+            .unit_graph
+            .borrow()
             .get_unit_type(unit_uid)
             .ok_or_else(|| anyhow!("missing unit type for unit with UID {}", unit_uid))
     }
@@ -126,6 +146,8 @@ impl DepthFirstScheduler {
     fn get_course_manifest(&self, course_uid: u64) -> Result<CourseManifest> {
         let course_id = self.get_id(course_uid)?;
         self.data
+            .course_library
+            .borrow()
             .get_course_manifest(&course_id)
             .ok_or_else(|| anyhow!("missing manifest for course with ID {}", course_id))
     }
@@ -134,16 +156,10 @@ impl DepthFirstScheduler {
     fn get_lesson_manifest(&self, lesson_uid: u64) -> Result<LessonManifest> {
         let lesson_id = self.get_id(lesson_uid)?;
         self.data
+            .course_library
+            .borrow()
             .get_lesson_manifest(&lesson_id)
             .ok_or_else(|| anyhow!("missing manifest for lesson with ID {}", lesson_id))
-    }
-
-    /// Returns the manifest for the exercise with the given UID.
-    fn get_exercise_manifest(&self, exercise_uid: u64) -> Result<ExerciseManifest> {
-        let exercise_id = self.get_id(exercise_uid)?;
-        self.data
-            .get_exercise_manifest(&exercise_id)
-            .ok_or_else(|| anyhow!("missing manifest for exercise with ID {}", exercise_id))
     }
 
     /// Returns the value of the course_id field in the manifest of the given lesson.
@@ -154,25 +170,26 @@ impl DepthFirstScheduler {
     /// Returns whether the unit exists in the library. Some units will exists in the unit graph
     /// because they are a dependency of another but their data might not exist in the library.
     fn unit_exists(&self, unit_uid: u64) -> Result<bool, String> {
-        let unit_id = self.data.get_id(unit_uid);
+        let unit_id = self.data.unit_graph.borrow().get_id(unit_uid);
         if unit_id.is_none() {
             return Ok(false);
         }
-        let unit_type = self.data.get_unit_type(unit_uid);
+        let unit_type = self.data.unit_graph.borrow().get_unit_type(unit_uid);
         if unit_type.is_none() {
             return Ok(false);
         }
 
+        let library = self.data.course_library.borrow();
         match unit_type.unwrap() {
-            UnitType::Course => match self.data.get_course_manifest(&unit_id.unwrap()) {
+            UnitType::Course => match library.get_course_manifest(&unit_id.unwrap()) {
                 None => Ok(false),
                 Some(_) => Ok(true),
             },
-            UnitType::Lesson => match self.data.get_lesson_manifest(&unit_id.unwrap()) {
+            UnitType::Lesson => match library.get_lesson_manifest(&unit_id.unwrap()) {
                 None => Ok(false),
                 Some(_) => Ok(true),
             },
-            UnitType::Exercise => match self.data.get_exercise_manifest(&unit_id.unwrap()) {
+            UnitType::Exercise => match library.get_exercise_manifest(&unit_id.unwrap()) {
                 None => Ok(false),
                 Some(_) => Ok(true),
             },
@@ -182,16 +199,24 @@ impl DepthFirstScheduler {
     /// Returns whether the unit with the given UID is blacklisted.
     fn blacklisted_uid(&self, unit_uid: u64) -> Result<bool> {
         let unit_id = self.get_id(unit_uid)?;
-        self.data.blacklisted(&unit_id)
+        self.data.blacklist.borrow().blacklisted(&unit_id)
+    }
+
+    /// Returns whether the unit with the given ID is blacklisted.
+    fn blacklisted_id(&self, unit_id: &str) -> Result<bool> {
+        self.data.blacklist.borrow().blacklisted(unit_id)
     }
 
     /// Returns all the units that are dependencies of the unit with the given UID.
     fn get_all_dependents(&self, unit_uid: u64) -> Vec<u64> {
-        self.data
+        return self
+            .data
+            .unit_graph
+            .borrow()
             .get_dependents(unit_uid)
             .unwrap_or_default()
             .into_iter()
-            .collect()
+            .collect();
     }
 
     /// Applies the metadata filter to the given unit.
@@ -336,7 +361,7 @@ impl DepthFirstScheduler {
                     }
 
                     let course_id = self.get_lesson_course_id(*dep_uid).unwrap_or_default();
-                    if self.data.blacklisted(&course_id).unwrap_or(false) {
+                    if self.blacklisted_id(&course_id).unwrap_or(false) {
                         return true;
                     }
 
@@ -345,7 +370,7 @@ impl DepthFirstScheduler {
                         return true;
                     }
                     let avg_score = score.unwrap().unwrap();
-                    avg_score >= self.options.borrow().passing_score
+                    avg_score >= self.data.options.passing_score
                 });
                 met_dependencies.count() == num_dependencies
             })
@@ -375,7 +400,7 @@ impl DepthFirstScheduler {
     /// Returns all the courses without dependencies. If some of those courses are missing, their
     /// dependents are added until there are no missing courses.
     fn get_all_starting_courses(&self) -> HashSet<u64> {
-        let mut starting_courses = self.data.get_dependency_sinks();
+        let mut starting_courses = self.data.unit_graph.borrow().get_dependency_sinks();
         let mut num_courses = starting_courses.len();
         // Replace any missing courses with their dependents and repeat this process until there are
         // no missing courses.
@@ -449,6 +474,8 @@ impl DepthFirstScheduler {
     /// Returns the exercises contained within the given unit.
     fn get_lesson_exercises(&self, unit_uid: u64) -> Vec<u64> {
         self.data
+            .unit_graph
+            .borrow()
             .get_lesson_exercises(unit_uid)
             .unwrap_or_default()
             .into_iter()
@@ -470,7 +497,7 @@ impl DepthFirstScheduler {
             return Ok((vec![], 0.0));
         }
         let course_id = self.get_lesson_course_id(item.unit_uid)?;
-        if self.data.blacklisted(&course_id).unwrap_or(false) {
+        if self.blacklisted_id(&course_id).unwrap_or(false) {
             return Ok((vec![], 0.0));
         }
 
@@ -496,136 +523,6 @@ impl DepthFirstScheduler {
         Ok((candidates, avg_score))
     }
 
-    /// Filters the candidates whose score fit in the given window.
-    fn candidates_in_window(
-        candidates: &[Candidate],
-        window_opts: &MasteryWindowOpts,
-    ) -> Vec<Candidate> {
-        candidates
-            .iter()
-            .filter(|c| window_opts.in_window(c.score))
-            .cloned()
-            .collect()
-    }
-
-    /// Takes a list of candidates and randomly selectes num_selected candidates among them. The
-    /// probabilities of selecting a candidate are weighted based on their score and the number of
-    /// hops taken by the graph search to find them. Lower scores and higher number of hops give the
-    /// candidate a higher chance of being selected. The function returns a tuple of the selected
-    /// candidates and the remainder.
-    fn select_candidates(
-        candidates: Vec<Candidate>,
-        num_selected: usize,
-    ) -> Result<(Vec<Candidate>, Vec<Candidate>)> {
-        if candidates.len() <= num_selected {
-            return Ok((candidates, vec![]));
-        }
-
-        let mut rng = thread_rng();
-        let selected: Vec<Candidate> = candidates
-            .choose_multiple_weighted(&mut rng, num_selected, |c| {
-                1.0 + (5.0 - c.score) + (c.num_hops as f32)
-            })?
-            .cloned()
-            .collect();
-        let selected_uids: HashSet<u64> = selected.iter().map(|c| c.exercise_uid).collect();
-        let remainder = candidates
-            .iter()
-            .filter(|c| !selected_uids.contains(&c.exercise_uid))
-            .cloned()
-            .collect();
-        Ok((selected, remainder))
-    }
-
-    /// Takes a list of candidates and returns a vector of tuples of exercises IDs and manifests.
-    fn candidates_to_exercises(
-        &self,
-        candidates: Vec<Candidate>,
-    ) -> Result<Vec<(String, ExerciseManifest)>> {
-        let mut exercises = candidates
-            .into_iter()
-            .map(|c| -> Result<(String, ExerciseManifest)> {
-                let id = self.get_id(c.exercise_uid)?;
-                let manifest = self.get_exercise_manifest(c.exercise_uid)?;
-                Ok((id, manifest))
-            })
-            .collect::<Result<Vec<(String, ExerciseManifest)>>>()?;
-        exercises.shuffle(&mut thread_rng());
-        Ok(exercises)
-    }
-
-    /// Fills up the candidates with the values from remainder if there are not enough candidates.
-    fn add_remainder(
-        batch_size: usize,
-        final_candidates: &mut Vec<Candidate>,
-        remainder_candidates: &[Candidate],
-    ) {
-        if final_candidates.len() < batch_size {
-            let remainder = batch_size - final_candidates.len();
-            final_candidates.extend(
-                remainder_candidates[..remainder.min(remainder_candidates.len())]
-                    .iter()
-                    .cloned(),
-            );
-        }
-    }
-
-    /// Takes a list of exercises and filters them so that the end result is a list of exercise
-    /// manifests which fit the options given to the scheduler.
-    fn filter_candidates(
-        &self,
-        candidates: Vec<Candidate>,
-    ) -> Result<Vec<(String, ExerciseManifest)>> {
-        let options = self.options.borrow();
-        let batch_size_float = options.batch_size as f32;
-
-        // Find the candidates that fit in each window.
-        let mastered_candidates =
-            Self::candidates_in_window(&candidates, &options.mastered_window_opts);
-        let easy_candidates = Self::candidates_in_window(&candidates, &options.easy_window_opts);
-        let current_candidates =
-            Self::candidates_in_window(&candidates, &options.current_window_opts);
-        let target_candidates =
-            Self::candidates_in_window(&candidates, &options.target_window_opts);
-        let mut final_candidates = Vec::with_capacity(options.batch_size);
-
-        // For each window, add the appropriate number of candidates to the final list.
-        let num_mastered = (batch_size_float * options.mastered_window_opts.percentage) as usize;
-        let (mastered_selected, mastered_remainder) =
-            Self::select_candidates(mastered_candidates, num_mastered)?;
-        final_candidates.extend(mastered_selected);
-
-        let num_easy = (batch_size_float * options.easy_window_opts.percentage) as usize;
-        let (easy_selected, easy_remainder) = Self::select_candidates(easy_candidates, num_easy)?;
-        final_candidates.extend(easy_selected);
-
-        let num_current = (batch_size_float * options.current_window_opts.percentage) as usize;
-        let (current_selected, current_remainder) =
-            Self::select_candidates(current_candidates, num_current)?;
-        final_candidates.extend(current_selected);
-
-        // For the target window, add as many candidates as possible to fill the batch.
-        let remainder = options.batch_size - final_candidates.len();
-        let (target_selected, _) = Self::select_candidates(target_candidates, remainder)?;
-        final_candidates.extend(target_selected);
-
-        // Go through the remainders in descending order of difficulty and add them to the list of
-        // final candidates if there's still space left in the batch.
-        Self::add_remainder(
-            options.batch_size,
-            &mut final_candidates,
-            &current_remainder,
-        );
-        Self::add_remainder(options.batch_size, &mut final_candidates, &easy_remainder);
-        Self::add_remainder(
-            options.batch_size,
-            &mut final_candidates,
-            &mastered_remainder,
-        );
-
-        self.candidates_to_exercises(final_candidates)
-    }
-
     /// Searches for candidates across the entire graph.
     fn get_candidates_from_graph(
         &self,
@@ -635,7 +532,7 @@ impl DepthFirstScheduler {
         let starting_courses = self.get_all_starting_lessons();
         stack.extend(starting_courses.into_iter());
 
-        let max_candidates = self.options.borrow().batch_size * MAX_CANDIDATE_FACTOR;
+        let max_candidates = self.data.options.batch_size * MAX_CANDIDATE_FACTOR;
         let mut all_candidates: Vec<Candidate> = Vec::new();
         let mut visited: HashSet<u64> = HashSet::new();
         // Keeps track of the number of lessons that have been visited for each course. The search
@@ -732,7 +629,7 @@ impl DepthFirstScheduler {
             let num_candidates = candidates.len();
             all_candidates.extend(candidates);
 
-            if num_candidates > 0 && avg_score < self.options.borrow().passing_score {
+            if num_candidates > 0 && avg_score < self.data.options.passing_score {
                 // If the search reaches a dead-end and there are already enough candidates,
                 // terminate the search. Otherwise, continue with the search.
                 if all_candidates.len() >= max_candidates {
@@ -761,7 +658,7 @@ impl DepthFirstScheduler {
             })
             .collect();
 
-        let max_candidates = self.options.borrow().batch_size * MAX_CANDIDATE_FACTOR;
+        let max_candidates = self.data.options.batch_size * MAX_CANDIDATE_FACTOR;
         let mut all_candidates: Vec<Candidate> = Vec::new();
         let mut visited: HashSet<u64> = HashSet::new();
         visited.insert(course_uid);
@@ -807,7 +704,7 @@ impl DepthFirstScheduler {
             let num_candidates = candidates.len();
             all_candidates.extend(candidates);
 
-            if num_candidates > 0 && avg_score < self.options.borrow().passing_score {
+            if num_candidates > 0 && avg_score < self.data.options.passing_score {
                 if all_candidates.len() >= max_candidates {
                     break;
                 }
@@ -833,11 +730,6 @@ impl DepthFirstScheduler {
 }
 
 impl ExerciseScheduler for DepthFirstScheduler {
-    fn set_options(&self, options: SchedulerOptions) {
-        self.options.replace(options.clone());
-        self.score_cache.set_options(options);
-    }
-
     fn get_exercise_batch(
         &self,
         filter: Option<&UnitFilter>,
@@ -865,17 +757,20 @@ impl ExerciseScheduler for DepthFirstScheduler {
             },
         };
 
-        self.filter_candidates(candidates)
+        let filter = CandidateFilter::new(self.data.clone());
+        filter.filter_candidates(candidates)
     }
 
     fn record_exercise_score(
-        &mut self,
+        &self,
         exercise_id: &str,
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<()> {
         let exercise_uid = self.get_uid(exercise_id)?;
         self.data
+            .practice_stats
+            .borrow_mut()
             .record_exercise_score(exercise_id, score, timestamp)?;
         self.score_cache.invalidate_cached_score(exercise_uid);
         Ok(())
