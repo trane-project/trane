@@ -305,18 +305,17 @@ impl DepthFirstScheduler {
                 let pending_lessons = pending_course_lessons
                     .entry(curr_unit.unit_uid)
                     .or_insert_with(|| self.data.get_num_lessons_in_course(curr_unit.unit_uid));
+
                 let passes_filter = self
                     .data
                     .unit_passes_filter(curr_unit.unit_uid, metadata_filter)
                     .unwrap_or(true);
+                let blacklisted = self
+                    .data
+                    .blacklisted_uid(curr_unit.unit_uid)
+                    .unwrap_or(false);
 
-                if *pending_lessons <= 0
-                    || !passes_filter
-                    || self
-                        .data
-                        .blacklisted_uid(curr_unit.unit_uid)
-                        .unwrap_or(false)
-                {
+                if *pending_lessons <= 0 || !passes_filter || blacklisted {
                     // There are no pending lessons, the course does not pass the metadata filter,
                     // or the unit is blacklisted. Push its valid dependents onto the stack.
                     visited.insert(curr_unit.unit_uid);

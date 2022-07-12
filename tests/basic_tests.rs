@@ -622,9 +622,10 @@ fn scheduler_respects_lesson_filter() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies that only exercises in units that match the metadata filter are scheduled.
+/// A test that verifies that only exercises in units that match the metadata filter using the
+/// logical op All are scheduled.
 #[test]
-fn scheduler_respects_metadata_filter() -> Result<()> {
+fn scheduler_respects_metadata_filter_op_all() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
     let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
@@ -653,6 +654,68 @@ fn scheduler_respects_metadata_filter() -> Result<()> {
         TestId(2, Some(1), None),
         TestId(2, Some(2), None),
         TestId(5, Some(0), None),
+    ];
+    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    for exercise_id in exercise_ids {
+        if matching_lessons
+            .iter()
+            .any(|lesson| exercise_id.exercise_in_lesson(lesson))
+        {
+            assert!(
+                simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_string()),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        } else {
+            assert!(
+                !simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_string()),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        }
+    }
+    Ok(())
+}
+
+/// A test that verifies that only exercises in units that match the metadata filter using the
+/// logical op Any are scheduled.
+#[test]
+fn scheduler_respects_metadata_filter_op_any() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+
+    // Run the simulation.
+    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    let filter = UnitFilter::MetadataFilter {
+        filter: MetadataFilter {
+            op: FilterOp::Any,
+            course_filter: Some(KeyValueFilter::BasicFilter {
+                filter_type: FilterType::Include,
+                key: "course_key_1".to_string(),
+                value: "course_key_1:value_2".to_string(),
+            }),
+            lesson_filter: Some(KeyValueFilter::BasicFilter {
+                filter_type: FilterType::Include,
+                key: "lesson_key_2".to_string(),
+                value: "lesson_key_2:value_4".to_string(),
+            }),
+        },
+    };
+    simulation.run_simulation(&mut trane, &vec![], Some(&filter))?;
+
+    // Only exercises in the lessons that match the metadata filters should be scheduled.
+    let matching_lessons = vec![
+        TestId(2, Some(0), None),
+        TestId(2, Some(1), None),
+        TestId(2, Some(2), None),
+        TestId(5, Some(0), None),
+        TestId(5, Some(1), None),
     ];
     let exercise_ids = all_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
