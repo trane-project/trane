@@ -192,6 +192,48 @@ impl DepthFirstScheduler {
         Ok((candidates, avg_score))
     }
 
+    /// Returns whether the given dependency can be considered as fulfilled. If all the dependencies
+    /// of a unit are met, the search can continue with the unit.
+    fn is_fulfilled_dependency(
+        &self,
+        dependency_uid: u64,
+        metadata_filter: Option<&MetadataFilter>,
+    ) -> bool {
+        // Dependencies which do not pass the filter are considered as fulfilled.
+        let passes_filter = self
+            .data
+            .unit_passes_filter(dependency_uid, metadata_filter)
+            .unwrap_or(false);
+        if !passes_filter {
+            return true;
+        }
+
+        // Dependencies in the blacklist are considered as fulfilled.
+        let blacklisted = self.data.blacklisted_uid(dependency_uid);
+        if blacklisted.is_err() || blacklisted.unwrap() {
+            return true;
+        }
+
+        // Dependencies which are a lesson belonging to a blacklisted course are considered as
+        // fulfilled.
+        let course_id = self
+            .data
+            .get_lesson_course_id(dependency_uid)
+            .unwrap_or_default();
+        if !course_id.is_empty() && self.data.blacklisted_id(&course_id).unwrap_or(false) {
+            return true;
+        }
+
+        // Finally, dependencies with a score equal or greater than the passing score are considered
+        // as fulfilled.
+        let score = self.score_cache.get_unit_score(dependency_uid);
+        if score.is_err() || score.as_ref().unwrap().is_none() {
+            return true;
+        }
+        let avg_score = score.unwrap().unwrap();
+        avg_score >= self.data.options.passing_score
+    }
+
     /// Returns the valid dependents which can be visited after the given unit. A valid dependent is
     /// a unit whose full dependencies are met.
     fn get_valid_dependents(
@@ -225,33 +267,10 @@ impl DepthFirstScheduler {
                 }
 
                 let num_dependencies = dependencies.len();
-                let met_dependencies = dependencies.into_iter().filter(|dep_uid| {
-                    let passes_filter = self
-                        .data
-                        .unit_passes_filter(*dep_uid, metadata_filter)
-                        .unwrap_or(false);
-                    if !passes_filter {
-                        return true;
-                    }
-
-                    let blacklisted = self.data.blacklisted_uid(*dep_uid);
-                    if blacklisted.is_err() || blacklisted.unwrap() {
-                        return true;
-                    }
-
-                    let course_id = self.data.get_lesson_course_id(*dep_uid).unwrap_or_default();
-                    if self.data.blacklisted_id(&course_id).unwrap_or(false) {
-                        return true;
-                    }
-
-                    let score = self.score_cache.get_unit_score(*dep_uid);
-                    if score.is_err() || score.as_ref().unwrap().is_none() {
-                        return true;
-                    }
-                    let avg_score = score.unwrap().unwrap();
-                    avg_score >= self.data.options.passing_score
+                let fulfilled_dependencies = dependencies.into_iter().filter(|dependency_uid| {
+                    self.is_fulfilled_dependency(*dependency_uid, metadata_filter)
                 });
-                met_dependencies.count() == num_dependencies
+                fulfilled_dependencies.count() == num_dependencies
             })
             .collect()
     }
