@@ -16,6 +16,7 @@ use crate::{
 /// A struct encapsulating all the state needed to schedule exercises.
 #[derive(Clone)]
 pub(crate) struct SchedulerData {
+    /// The options used to run this scheduler.
     pub options: SchedulerOptions,
 
     /// The course library storing manifests and info about units.
@@ -234,12 +235,21 @@ impl SchedulerData {
                     metadata_filter.lesson_filter.as_ref(),
                     metadata_filter.course_filter.as_ref(),
                 ) {
+                    // There's no lesson nor course filter, so the course passes the filter.
                     (None, None) => Ok(true),
-                    (Some(_), None) => Ok(false),
+                    //  There's only a lesson filter. Return true so that the lessons in the course
+                    //  are reached by the search.
+                    (Some(_), None) => Ok(true),
+                    // There's only a course filter, so return whether the course passed the filter.
                     (None, Some(_)) => Ok(course_passes.unwrap_or(false)),
+                    // There's both a lesson and course filter. The behavior depends on the logical
+                    // op used in the filter.
                     (Some(_), Some(_)) => match metadata_filter.op {
-                        FilterOp::All => Ok(false),
-                        FilterOp::Any => Ok(course_passes.unwrap_or(false)),
+                        // If the op is All, return whether the course passed the filter.
+                        FilterOp::All => Ok(course_passes.unwrap_or(false)),
+                        // If the op is Any, return true because the metadata in the lessons
+                        // ultimately decides whether the lessons pass the filter.
+                        FilterOp::Any => Ok(true),
                     },
                 }
             }
@@ -258,13 +268,22 @@ impl SchedulerData {
                     metadata_filter.lesson_filter.as_ref(),
                     metadata_filter.course_filter.as_ref(),
                 ) {
+                    // There's no lesson nor course filter, so the lesson passes the filter.
                     (None, None) => Ok(true),
+                    // There's only a lesson filter, so return whether the lesson passed the filter.
                     (Some(_), None) => Ok(lesson_passes.unwrap_or(false)),
+                    // There's only a course filter, so return whether the course passed the filter.
                     (None, Some(_)) => Ok(course_passes.unwrap_or(false)),
+                    // There's both a lesson and course filter. The behavior depends on the logical
+                    // op used in the filter.
                     (Some(_), Some(_)) => match metadata_filter.op {
+                        // If the op is All, return whether the lesson and the course passed the
+                        // filters.
                         FilterOp::All => {
                             Ok(lesson_passes.unwrap_or(false) && course_passes.unwrap_or(false))
                         }
+                        // If the op is Any, return whether the lesson or the course passed the
+                        // filter.
                         FilterOp::Any => {
                             Ok(lesson_passes.unwrap_or(false) || course_passes.unwrap_or(false))
                         }
