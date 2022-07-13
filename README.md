@@ -11,6 +11,10 @@ If you want to see it in action, head over to
 [trane-music](https://github.com/trane-project/trane-music) for some music courses you can use to
 test it out.
 
+## Documentation
+
+Latest documentation can be found at the [official site](https://trane-project.github.io/)
+
 ## Introduction
 
 Trane is an automated learning system for the acquisition of complex and highly hierarchical skills.
