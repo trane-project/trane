@@ -189,6 +189,18 @@ impl CourseLibrary for Trane {
             .borrow()
             .get_exercise_manifest(exercise_id)
     }
+
+    fn get_course_ids(&self) -> Vec<String> {
+        self.course_library.borrow().get_course_ids()
+    }
+
+    fn get_lesson_ids(&self, course_id: &str) -> Result<Vec<String>> {
+        self.course_library.borrow().get_lesson_ids(course_id)
+    }
+
+    fn get_exercise_ids(&self, lesson_id: &str) -> Result<Vec<String>> {
+        self.course_library.borrow().get_exercise_ids(lesson_id)
+    }
 }
 
 impl FilterManager for Trane {

@@ -28,6 +28,15 @@ pub trait CourseLibrary {
 
     /// Returns the manfifest for the given exercise.
     fn get_exercise_manifest(&self, exercise_id: &str) -> Option<ExerciseManifest>;
+
+    /// Returns the IDs of all courses in the library.
+    fn get_course_ids(&self) -> Vec<String>;
+
+    /// Returns the IDs of all lessons in the given course.
+    fn get_lesson_ids(&self, course_id: &str) -> Result<Vec<String>>;
+
+    /// Returns the IDs of all exercises in the given lesson.
+    fn get_exercise_ids(&self, lesson_id: &str) -> Result<Vec<String>>;
 }
 
 pub(crate) trait GetUnitGraph {
@@ -296,6 +305,58 @@ impl CourseLibrary for LocalCourseLibrary {
 
     fn get_exercise_manifest(&self, exercise_id: &str) -> Option<ExerciseManifest> {
         self.exercise_map.get(exercise_id).cloned()
+    }
+
+    fn get_course_ids(&self) -> Vec<String> {
+        let mut courses = self.course_map.keys().cloned().collect::<Vec<String>>();
+        courses.sort();
+        courses
+    }
+
+    fn get_lesson_ids(&self, course_id: &str) -> Result<Vec<String>> {
+        let course_uid = self
+            .unit_graph
+            .borrow()
+            .get_uid(course_id)
+            .ok_or_else(|| anyhow!("cannot find course UID for ID {}", course_id))?;
+        let mut lessons = self
+            .unit_graph
+            .borrow()
+            .get_course_lessons(course_uid)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|uid| {
+                self.unit_graph
+                    .borrow()
+                    .get_id(uid)
+                    .ok_or_else(|| anyhow!("cannot find lesson ID for UID {}", uid))
+            })
+            .collect::<Result<Vec<String>>>()?;
+        lessons.sort();
+        Ok(lessons)
+    }
+
+    fn get_exercise_ids(&self, lesson_id: &str) -> Result<Vec<String>> {
+        let lesson_uid = self
+            .unit_graph
+            .borrow()
+            .get_uid(lesson_id)
+            .ok_or_else(|| anyhow!("cannot find lesson UID for ID {}", lesson_id))?;
+        let mut exercises = self
+            .unit_graph
+            .borrow()
+            .get_lesson_exercises(lesson_uid)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|uid| {
+                self.unit_graph
+                    .borrow()
+                    .get_id(uid)
+                    .ok_or_else(|| anyhow!("cannot find exercise ID for UID {}", uid))
+            })
+            .collect::<Result<Vec<String>>>()?;
+        exercises.sort();
+        Ok(exercises)
     }
 }
 
