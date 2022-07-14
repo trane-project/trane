@@ -79,9 +79,9 @@ pub struct CircleFifthsCourse {
     /// A closure which generates the builder for each lesson.
     pub lesson_builder_generator: Box<dyn Fn(Note, Option<Note>) -> Result<LessonBuilder>>,
 
-    /// A vector of additional LessonBuilders to add lessons that do not conform to the pattern of
-    /// the circle of fifths.
-    pub extra_lesson_builders: Vec<LessonBuilder>,
+    /// An optional closure which generates extra lessons which do not follow the circle of fifths
+    /// pattern.
+    pub extra_lessons_generator: Option<Box<dyn Fn() -> Result<Vec<LessonBuilder>>>>,
 }
 
 impl CircleFifthsCourse {
@@ -146,6 +146,9 @@ impl CircleFifthsCourse {
                 .into_iter(),
         );
         lessons.extend(self.generate_clockwise(Note::C.clockwise())?.into_iter());
+        if let Some(generator) = &self.extra_lessons_generator {
+            lessons.extend(generator()?.into_iter());
+        }
         Ok(lessons)
     }
 

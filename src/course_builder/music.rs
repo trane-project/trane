@@ -2,6 +2,7 @@
 use strum::Display;
 
 pub mod circle_fifths;
+pub mod intervals;
 pub mod notes;
 pub mod scales;
 
