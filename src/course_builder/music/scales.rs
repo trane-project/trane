@@ -1,4 +1,5 @@
 //! Module with the definitions of musical scales to generate courses related to the topic.
+use crate::course_builder::music::intervals::*;
 use crate::course_builder::music::notes::*;
 use anyhow::{anyhow, Result};
 
@@ -74,14 +75,9 @@ impl Note {
     }
 }
 
-/// A trait that constructs a scale given the type of scale and the tonic.
-pub trait ScaleNotes {
-    /// Returns the notes for a scale based on the object and a tonic.
-    fn notes(&self, tonic: Note) -> Result<Scale>;
-}
-
-impl ScaleNotes for ScaleType {
-    fn notes(&self, tonic: Note) -> Result<Scale> {
+impl ScaleType {
+    /// Returns a scale of the given type and tonic.
+    pub fn notes(&self, tonic: Note) -> Result<Scale> {
         match &self {
             ScaleType::Major => match tonic {
                 // A – B – C♯ – D – E – F♯ – G♯
@@ -355,6 +351,44 @@ impl ScaleNotes for ScaleType {
                     ],
                 })
             }
+        }
+    }
+
+    /// Returns the intervals in the scale.
+    pub fn intervals(&self) -> Result<Vec<Interval>> {
+        match &self {
+            ScaleType::Major => Ok(vec![
+                Interval::Unison,
+                Interval::MajorSecond,
+                Interval::MajorThird,
+                Interval::PerfectFourth,
+                Interval::PerfectFifth,
+                Interval::MajorSixth,
+                Interval::MajorSeventh,
+            ]),
+            ScaleType::Minor => Ok(vec![
+                Interval::Unison,
+                Interval::MajorSecond,
+                Interval::MinorThird,
+                Interval::PerfectFourth,
+                Interval::PerfectFifth,
+                Interval::MinorSixth,
+                Interval::MinorSeventh,
+            ]),
+            ScaleType::MajorPentatonic => Ok(vec![
+                Interval::Unison,
+                Interval::MajorSecond,
+                Interval::MajorThird,
+                Interval::PerfectFifth,
+                Interval::MajorSixth,
+            ]),
+            ScaleType::MinorPentatonic => Ok(vec![
+                Interval::Unison,
+                Interval::MinorThird,
+                Interval::PerfectFourth,
+                Interval::PerfectFifth,
+                Interval::MinorSeventh,
+            ]),
         }
     }
 }
