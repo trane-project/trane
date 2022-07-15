@@ -91,42 +91,33 @@ impl DepthFirstScheduler {
     /// Returns all the courses without dependencies. If some of those courses are missing, their
     /// dependents are added until there are no missing courses.
     fn get_all_starting_courses(&self) -> HashSet<u64> {
-        let mut starting_courses = self.data.unit_graph.borrow().get_dependency_sinks();
-        let mut num_courses = starting_courses.len();
-
         // Replace any missing courses with their dependents and repeat this process until there are
         // no missing courses.
+        let mut starting_courses = self.data.unit_graph.borrow().get_dependency_sinks();
         loop {
             let mut new_starting_courses = HashSet::new();
-            for course_uid in starting_courses {
-                if self.data.unit_exists(course_uid).unwrap() {
-                    new_starting_courses.insert(course_uid);
+            for course_uid in &starting_courses {
+                if self.data.unit_exists(*course_uid).unwrap() {
+                    new_starting_courses.insert(*course_uid);
                 } else {
-                    new_starting_courses.extend(self.data.get_all_dependents(course_uid).iter());
+                    new_starting_courses.extend(self.data.get_all_dependents(*course_uid).iter());
                 }
             }
-            starting_courses = new_starting_courses;
-
-            if starting_courses.len() == num_courses {
+            if new_starting_courses.len() == starting_courses.len() {
                 break;
             }
-            num_courses = starting_courses.len();
+            starting_courses = new_starting_courses;
         }
 
-        // Some of the courses added may have existing dependencies. Remove them.
+        // Remove all courses with existing dependencies.
         starting_courses
             .into_iter()
             .filter(|course_uid| {
-                let dependencies = self
-                    .data
+                self.data
                     .unit_graph
                     .borrow()
                     .get_dependencies(*course_uid)
-                    .unwrap_or_default();
-                if dependencies.is_empty() {
-                    return true;
-                }
-                dependencies
+                    .unwrap_or_default()
                     .iter()
                     .all(|uid| !self.data.unit_exists(*uid).unwrap())
             })
@@ -170,6 +161,7 @@ impl DepthFirstScheduler {
             return Ok((vec![], 0.0));
         }
 
+        // Generate a list of candidates from the lesson's exercises.
         let exercises = self.data.get_lesson_exercises(item.unit_uid);
         let exercise_scores = self.get_exercise_scores(&exercises)?;
         let candidates = exercises
@@ -184,11 +176,11 @@ impl DepthFirstScheduler {
             .collect::<Vec<Candidate>>();
 
         let avg_score = if exercise_scores.is_empty() {
+            // Return 0.0 if there are no exercises to avoid division by zero.
             0.0
         } else {
             exercise_scores.iter().sum::<f32>() / (exercise_scores.len() as f32)
         };
-
         Ok((candidates, avg_score))
     }
 
@@ -234,6 +226,28 @@ impl DepthFirstScheduler {
         avg_score >= self.data.options.passing_score
     }
 
+    /// Returns whether all the dependencies of the given unit are fulfilled.
+    fn all_fulfiled_dependencies(
+        &self,
+        unit_uid: u64,
+        metadata_filter: Option<&MetadataFilter>,
+    ) -> bool {
+        // Any error during the filtering is ignored for the purpose of allowing the search to
+        // continue if parts of the dependency graph are missing.
+        let exists = self.data.unit_exists(unit_uid);
+        if exists.is_err() {
+            return true;
+        }
+
+        self.data
+            .unit_graph
+            .borrow()
+            .get_dependencies(unit_uid)
+            .unwrap_or_default()
+            .into_iter()
+            .all(|dependency_uid| self.is_fulfilled_dependency(dependency_uid, metadata_filter))
+    }
+
     /// Returns the valid dependents which can be visited after the given unit. A valid dependent is
     /// a unit whose full dependencies are met.
     fn get_valid_dependents(
@@ -241,37 +255,10 @@ impl DepthFirstScheduler {
         unit_uid: u64,
         metadata_filter: Option<&MetadataFilter>,
     ) -> Vec<u64> {
-        let dependents = self.data.get_all_dependents(unit_uid);
-        if dependents.is_empty() {
-            return dependents;
-        }
-
-        // Any error during the filtering is ignored for the purpose of allowing the search to
-        // continue if parts of the dependency graph are missing.
-        dependents
+        self.data
+            .get_all_dependents(unit_uid)
             .into_iter()
-            .filter(|uid| {
-                let exists = self.data.unit_exists(*uid);
-                if exists.is_err() {
-                    return true;
-                }
-
-                let dependencies = self
-                    .data
-                    .unit_graph
-                    .borrow()
-                    .get_dependencies(*uid)
-                    .unwrap_or_default();
-                if dependencies.is_empty() {
-                    return true;
-                }
-
-                let num_dependencies = dependencies.len();
-                let fulfilled_dependencies = dependencies.into_iter().filter(|dependency_uid| {
-                    self.is_fulfilled_dependency(*dependency_uid, metadata_filter)
-                });
-                fulfilled_dependencies.count() == num_dependencies
-            })
+            .filter(|unit_uid| self.all_fulfiled_dependencies(*unit_uid, metadata_filter))
             .collect()
     }
 
@@ -308,6 +295,12 @@ impl DepthFirstScheduler {
             }
 
             let unit_type = self.data.get_unit_type(curr_unit.unit_uid)?;
+            if unit_type == UnitType::Exercise {
+                // The search only considers lessons and courses. Any exercise encountered by
+                // mistake is ignored.
+                continue;
+            }
+
             if unit_type == UnitType::Course {
                 if visited.contains(&curr_unit.unit_uid) {
                     continue;
@@ -345,12 +338,6 @@ impl DepthFirstScheduler {
 
                 // The course has pending lessons so do not mark it as visited. Simply continue with
                 // the search.
-                continue;
-            }
-
-            if unit_type == UnitType::Exercise {
-                // The search only considers lessons and courses. Any exercise encountered by
-                // mistake is ignored.
                 continue;
             }
 
