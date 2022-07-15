@@ -97,7 +97,7 @@ impl DepthFirstScheduler {
         loop {
             let mut new_starting_courses = HashSet::new();
             for course_uid in &starting_courses {
-                if self.data.unit_exists(*course_uid).unwrap() {
+                if self.data.unit_exists(*course_uid).unwrap_or(false) {
                     new_starting_courses.insert(*course_uid);
                 } else {
                     new_starting_courses.extend(self.data.get_all_dependents(*course_uid).iter());
@@ -251,8 +251,8 @@ impl DepthFirstScheduler {
     ) -> bool {
         // Any error during the filtering is ignored for the purpose of allowing the search to
         // continue if parts of the dependency graph are missing.
-        let exists = self.data.unit_exists(unit_uid);
-        if exists.is_err() {
+        if self.data.unit_exists(unit_uid).unwrap_or(false) {
+            // Ignore any missing unit.
             return true;
         }
 
@@ -284,6 +284,7 @@ impl DepthFirstScheduler {
         &self,
         metadata_filter: Option<&MetadataFilter>,
     ) -> Result<Vec<Candidate>> {
+        // Initialize stack with every starting lesson from the courses with no dpendencies.
         let mut stack: Vec<StackItem> = Vec::new();
         let starting_courses = self.get_all_starting_lessons(metadata_filter);
         stack.extend(starting_courses.into_iter());
@@ -291,7 +292,7 @@ impl DepthFirstScheduler {
         let max_candidates = self.data.options.batch_size * MAX_CANDIDATE_FACTOR;
         let mut all_candidates: Vec<Candidate> = Vec::new();
         let mut visited: HashSet<u64> = HashSet::new();
-        // Keeps track of the number of lessons that have been visited for each course. The search
+        // Keep track of the number of lessons that have been visited for each course. The search
         // will move onto the dependents of a course if all of its lessons have been visited.
         let mut pending_course_lessons: HashMap<u64, i64> = HashMap::new();
 
@@ -301,8 +302,7 @@ impl DepthFirstScheduler {
                 continue;
             }
 
-            let exists = self.data.unit_exists(curr_unit.unit_uid);
-            if exists.is_err() || !exists.unwrap() {
+            if !self.data.unit_exists(curr_unit.unit_uid).unwrap_or(false) {
                 // Try to add the valid dependents of any unit which cannot be found so that missing
                 // sections of the graph do not stop the search.
                 visited.insert(curr_unit.unit_uid);
@@ -381,6 +381,8 @@ impl DepthFirstScheduler {
                 .unit_passes_filter(curr_unit.unit_uid, metadata_filter)
                 .unwrap_or(true);
             if !passes_filter {
+                // If the lesson does not pass the metadata filter, push its valid dependents and
+                // continue with the search.
                 Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
                 continue;
             }
@@ -405,24 +407,26 @@ impl DepthFirstScheduler {
     }
 
     /// Searches for candidates from the given course.
-    fn get_candidates_from_course(&self, course_id: &str) -> Result<Vec<Candidate>> {
-        let course_uid = self.data.get_uid(course_id)?;
-        let starting_lessons = self
-            .get_course_starting_lessons(course_uid, None)
-            .unwrap_or_default();
-        let mut stack: Vec<StackItem> = starting_lessons
-            .into_iter()
-            .map(|uid| StackItem {
-                unit_uid: uid,
-                num_hops: 0,
-            })
-            .collect();
+    fn get_candidates_from_course(&self, course_ids: &[String]) -> Result<Vec<Candidate>> {
+        // Start the search with the starting lessons from the courses.
+        let mut stack: Vec<StackItem> = Vec::new();
+        let mut visited: HashSet<u64> = HashSet::new();
+        for course_id in course_ids {
+            let course_uid = self.data.get_uid(course_id)?;
+            let starting_lessons = self
+                .get_course_starting_lessons(course_uid, None)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|uid| StackItem {
+                    unit_uid: uid,
+                    num_hops: 0,
+                });
+            stack.extend(starting_lessons);
+            visited.insert(course_uid);
+        }
 
         let max_candidates = self.data.options.batch_size * MAX_CANDIDATE_FACTOR;
         let mut all_candidates: Vec<Candidate> = Vec::new();
-        let mut visited: HashSet<u64> = HashSet::new();
-        visited.insert(course_uid);
-
         while !stack.is_empty() {
             let curr_unit = stack.pop().unwrap();
             if visited.contains(&curr_unit.unit_uid) {
@@ -431,9 +435,9 @@ impl DepthFirstScheduler {
                 visited.insert(curr_unit.unit_uid);
             }
 
-            let exists = self.data.unit_exists(curr_unit.unit_uid);
-            if exists.is_err() || !exists.unwrap() {
-                // Try to add the valid dependents of any unit which cannot be found.
+            if !self.data.unit_exists(curr_unit.unit_uid).unwrap_or(false) {
+                // Try to add the valid dependents of any unit which cannot be found so that missing
+                // sections of the graph do not stop the search.
                 let valid_deps = self.get_valid_dependents(curr_unit.unit_uid, None);
                 Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
                 continue;
@@ -452,11 +456,12 @@ impl DepthFirstScheduler {
             }
 
             // If the searched reached this point, the unit must be a lesson.
-            let lesson_course_id = self.data.get_lesson_course_id(curr_unit.unit_uid);
-            if lesson_course_id.is_err() {
-                continue;
-            }
-            if lesson_course_id.unwrap() != course_id {
+            let lesson_course_id = self
+                .data
+                .get_lesson_course_id(curr_unit.unit_uid)
+                .unwrap_or_default();
+            if !course_ids.contains(&lesson_course_id) {
+                // Ignore any lessons from other courses.
                 continue;
             }
 
@@ -465,6 +470,8 @@ impl DepthFirstScheduler {
             all_candidates.extend(candidates);
 
             if num_candidates > 0 && avg_score < self.data.options.passing_score {
+                // If the search reaches a dead-end and there are already enough candidates,
+                // terminate the search. Otherwise, continue with the search.
                 if all_candidates.len() >= max_candidates {
                     break;
                 }
@@ -495,16 +502,17 @@ impl ExerciseScheduler for DepthFirstScheduler {
         filter: Option<&UnitFilter>,
     ) -> Result<Vec<(String, ExerciseManifest)>> {
         let candidates = match filter {
-            None => self.get_candidates_from_graph(None)?,
+            None => {
+                // Retrieve candidates from the entire graph.
+                self.get_candidates_from_graph(None)?
+            }
             Some(filter) => match filter {
                 UnitFilter::CourseFilter { course_ids } => {
-                    let mut candidates = Vec::new();
-                    for course_id in course_ids {
-                        candidates.extend(self.get_candidates_from_course(course_id)?.into_iter());
-                    }
-                    candidates
+                    // Retrieve candidates from the given courses.
+                    self.get_candidates_from_course(&course_ids[..])?
                 }
                 UnitFilter::LessonFilter { lesson_ids } => {
+                    // Retrieve candidate from the given lessons.
                     let mut candidates = Vec::new();
                     for lesson_id in lesson_ids {
                         candidates.extend(self.get_candidates_from_lesson(lesson_id)?.into_iter());
@@ -512,6 +520,8 @@ impl ExerciseScheduler for DepthFirstScheduler {
                     candidates
                 }
                 UnitFilter::MetadataFilter { filter } => {
+                    // Retrieve candidates from the entire graph but only if the exercises belongs
+                    // to a course or lesson matching the given metadata filter.
                     self.get_candidates_from_graph(Some(filter))?
                 }
             },
