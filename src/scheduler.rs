@@ -408,7 +408,7 @@ impl DepthFirstScheduler {
 
     /// Searches for candidates from the given course.
     fn get_candidates_from_course(&self, course_ids: &[String]) -> Result<Vec<Candidate>> {
-        // Start the search with this course's starting lessons.
+        // Start the search with the starting lessons from the courses.
         let mut stack: Vec<StackItem> = Vec::new();
         let mut visited: HashSet<u64> = HashSet::new();
         for course_id in course_ids {
