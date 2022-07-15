@@ -124,14 +124,31 @@ impl DepthFirstScheduler {
             .collect()
     }
 
+    /// Returns the lessons in the course that have no dependencies with other lessons in the course
+    /// and whose dependencies are satisfied.
+    pub fn get_course_starting_lessons(
+        &self,
+        course_uid: u64,
+        metadata_filter: Option<&MetadataFilter>,
+    ) -> Result<Vec<u64>> {
+        Ok(self
+            .data
+            .unit_graph
+            .borrow()
+            .get_course_starting_lessons(course_uid)
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|uid| self.all_satisfied_dependencies(*uid, metadata_filter))
+            .collect())
+    }
+
     /// Returns all the starting lessons in the graph.
-    fn get_all_starting_lessons(&self) -> Vec<StackItem> {
+    fn get_all_starting_lessons(&self, metadata_filter: Option<&MetadataFilter>) -> Vec<StackItem> {
         let starting_courses = self.get_all_starting_courses();
         let mut starting_lessons: Vec<StackItem> = vec![];
         for course_uid in starting_courses {
             let lesson_uids = self
-                .data
-                .get_course_starting_lessons(course_uid)
+                .get_course_starting_lessons(course_uid, metadata_filter)
                 .unwrap_or_default();
             starting_lessons.extend(lesson_uids.into_iter().map(|uid| StackItem {
                 unit_uid: uid,
@@ -184,14 +201,14 @@ impl DepthFirstScheduler {
         Ok((candidates, avg_score))
     }
 
-    /// Returns whether the given dependency can be considered as fulfilled. If all the dependencies
+    /// Returns whether the given dependency can be considered as satisfied. If all the dependencies
     /// of a unit are met, the search can continue with the unit.
-    fn is_fulfilled_dependency(
+    fn satisfied_dependency(
         &self,
         dependency_uid: u64,
         metadata_filter: Option<&MetadataFilter>,
     ) -> bool {
-        // Dependencies which do not pass the filter are considered as fulfilled.
+        // Dependencies which do not pass the filter are considered as satisfied.
         let passes_filter = self
             .data
             .unit_passes_filter(dependency_uid, metadata_filter)
@@ -200,14 +217,14 @@ impl DepthFirstScheduler {
             return true;
         }
 
-        // Dependencies in the blacklist are considered as fulfilled.
+        // Dependencies in the blacklist are considered as satisfied.
         let blacklisted = self.data.blacklisted_uid(dependency_uid);
         if blacklisted.is_err() || blacklisted.unwrap() {
             return true;
         }
 
         // Dependencies which are a lesson belonging to a blacklisted course are considered as
-        // fulfilled.
+        // satisfied.
         let course_id = self
             .data
             .get_lesson_course_id(dependency_uid)
@@ -217,7 +234,7 @@ impl DepthFirstScheduler {
         }
 
         // Finally, dependencies with a score equal or greater than the passing score are considered
-        // as fulfilled.
+        // as satisfied.
         let score = self.score_cache.get_unit_score(dependency_uid);
         if score.is_err() || score.as_ref().unwrap().is_none() {
             return true;
@@ -226,8 +243,8 @@ impl DepthFirstScheduler {
         avg_score >= self.data.options.passing_score
     }
 
-    /// Returns whether all the dependencies of the given unit are fulfilled.
-    fn all_fulfiled_dependencies(
+    /// Returns whether all the dependencies of the given unit are satisfied.
+    fn all_satisfied_dependencies(
         &self,
         unit_uid: u64,
         metadata_filter: Option<&MetadataFilter>,
@@ -245,7 +262,7 @@ impl DepthFirstScheduler {
             .get_dependencies(unit_uid)
             .unwrap_or_default()
             .into_iter()
-            .all(|dependency_uid| self.is_fulfilled_dependency(dependency_uid, metadata_filter))
+            .all(|dependency_uid| self.satisfied_dependency(dependency_uid, metadata_filter))
     }
 
     /// Returns the valid dependents which can be visited after the given unit. A valid dependent is
@@ -258,7 +275,7 @@ impl DepthFirstScheduler {
         self.data
             .get_all_dependents(unit_uid)
             .into_iter()
-            .filter(|unit_uid| self.all_fulfiled_dependencies(*unit_uid, metadata_filter))
+            .filter(|unit_uid| self.all_satisfied_dependencies(*unit_uid, metadata_filter))
             .collect()
     }
 
@@ -268,7 +285,7 @@ impl DepthFirstScheduler {
         metadata_filter: Option<&MetadataFilter>,
     ) -> Result<Vec<Candidate>> {
         let mut stack: Vec<StackItem> = Vec::new();
-        let starting_courses = self.get_all_starting_lessons();
+        let starting_courses = self.get_all_starting_lessons(metadata_filter);
         stack.extend(starting_courses.into_iter());
 
         let max_candidates = self.data.options.batch_size * MAX_CANDIDATE_FACTOR;
@@ -307,8 +324,7 @@ impl DepthFirstScheduler {
                 }
 
                 let starting_lessons: Vec<u64> = self
-                    .data
-                    .get_course_starting_lessons(curr_unit.unit_uid)
+                    .get_course_starting_lessons(curr_unit.unit_uid, metadata_filter)
                     .unwrap_or_default();
                 Self::shuffle_to_stack(&curr_unit, starting_lessons, &mut stack);
 
@@ -392,8 +408,7 @@ impl DepthFirstScheduler {
     fn get_candidates_from_course(&self, course_id: &str) -> Result<Vec<Candidate>> {
         let course_uid = self.data.get_uid(course_id)?;
         let starting_lessons = self
-            .data
-            .get_course_starting_lessons(course_uid)
+            .get_course_starting_lessons(course_uid, None)
             .unwrap_or_default();
         let mut stack: Vec<StackItem> = starting_lessons
             .into_iter()
