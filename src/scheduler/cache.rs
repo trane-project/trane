@@ -92,6 +92,12 @@ impl ScoreCache {
 
     /// Returns the average score of all the exercises in the given lesson.
     fn get_lesson_score(&self, lesson_uid: u64) -> Result<Option<f32>> {
+        let lesson_id = self.get_unit_id(lesson_uid)?;
+        let blacklisted = self.data.blacklist.borrow().blacklisted(&lesson_id);
+        if blacklisted.unwrap_or(false) {
+            return Ok(None);
+        }
+
         let exercises = self
             .data
             .unit_graph
@@ -113,7 +119,7 @@ impl ScoreCache {
                             .blacklist
                             .borrow()
                             .blacklisted(&exercise_id.unwrap());
-                        blacklisted.is_err() || !blacklisted.unwrap()
+                        !blacklisted.unwrap_or(false)
                     })
                     .collect::<Vec<u64>>();
 
@@ -137,7 +143,7 @@ impl ScoreCache {
     fn get_course_score(&self, course_uid: u64) -> Result<Option<f32>> {
         let course_id = self.get_unit_id(course_uid)?;
         let blacklisted = self.data.blacklist.borrow().blacklisted(&course_id);
-        if blacklisted.is_ok() && !blacklisted.unwrap() {
+        if blacklisted.unwrap_or(false) {
             return Ok(None);
         }
 
@@ -158,14 +164,14 @@ impl ScoreCache {
                             .blacklist
                             .borrow()
                             .blacklisted(&lesson_id.unwrap());
-                        blacklisted.is_err() || !blacklisted.unwrap()
+                        !blacklisted.unwrap_or(false)
                     })
                     .map(|uid| self.get_lesson_score(uid))
                     .filter(|score| {
                         if score.is_err() || score.as_ref().unwrap().is_none() {
                             return false;
                         }
-                        score.as_ref().unwrap().unwrap() > 0.0
+                        true
                     })
                     .map(|score| score.unwrap().unwrap())
                     .collect::<Vec<f32>>();

@@ -258,7 +258,7 @@ impl TraneSimulation {
             let (exercise_id, _) = batch.pop().unwrap();
             let score = (self.answer_closure)(&exercise_id);
             if score.is_some() {
-                trane.record_exercise_score(
+                trane.score_exercise(
                     &exercise_id,
                     score.clone().unwrap(),
                     Utc::now().timestamp(),

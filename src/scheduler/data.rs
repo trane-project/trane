@@ -225,9 +225,9 @@ impl SchedulerData {
                 ) {
                     // There's no lesson nor course filter, so the course passes the filter.
                     (None, None) => Ok(true),
-                    //  There's only a lesson filter. Return true so that the lessons in the course
-                    //  are reached by the search.
-                    (Some(_), None) => Ok(true),
+                    //  There's only a lesson filter. Return false so that the the course is skipped
+                    //  and the decision is made based on the lesson.
+                    (Some(_), None) => Ok(false),
                     // There's only a course filter, so return whether the course passed the filter.
                     (None, Some(_)) => Ok(course_passes.unwrap_or(false)),
                     // There's both a lesson and course filter. The behavior depends on the logical
@@ -235,9 +235,9 @@ impl SchedulerData {
                     (Some(_), Some(_)) => match metadata_filter.op {
                         // If the op is All, return whether the course passed the filter.
                         FilterOp::All => Ok(course_passes.unwrap_or(false)),
-                        // If the op is Any, return true because the metadata in the lessons
-                        // ultimately decides whether the lessons pass the filter.
-                        FilterOp::Any => Ok(true),
+                        // If the op is Any, return false so that the course is skipped and the
+                        // decision is made based on the lesson.
+                        FilterOp::Any => Ok(false),
                     },
                 }
             }

@@ -32,7 +32,7 @@ pub struct SimpleScorer {}
 impl ExerciseScorer for SimpleScorer {
     fn score(&self, previous_trials: Vec<ExerciseTrial>) -> Option<f32> {
         if previous_trials.is_empty() {
-            return None;
+            return Some(0.0);
         }
 
         let now = Utc::now();

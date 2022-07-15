@@ -30,12 +30,7 @@ pub trait ExerciseScheduler {
     ) -> Result<Vec<(String, ExerciseManifest)>>;
 
     /// Records the score of the given exercise's trial.
-    fn record_exercise_score(
-        &self,
-        exercise_id: &str,
-        score: MasteryScore,
-        timestamp: i64,
-    ) -> Result<()>;
+    fn score_exercise(&self, exercise_id: &str, score: MasteryScore, timestamp: i64) -> Result<()>;
 }
 
 /// A struct representing an element in the stack used during the graph search.
@@ -219,7 +214,7 @@ impl DepthFirstScheduler {
 
         // Dependencies in the blacklist are considered as satisfied.
         let blacklisted = self.data.blacklisted_uid(dependency_uid);
-        if blacklisted.is_err() || blacklisted.unwrap() {
+        if blacklisted.unwrap_or(false) {
             return true;
         }
 
@@ -229,7 +224,7 @@ impl DepthFirstScheduler {
             .data
             .get_lesson_course_id(dependency_uid)
             .unwrap_or_default();
-        if !course_id.is_empty() && self.data.blacklisted_id(&course_id).unwrap_or(false) {
+        if self.data.blacklisted_id(&course_id).unwrap_or(false) {
             return true;
         }
 
@@ -251,7 +246,7 @@ impl DepthFirstScheduler {
     ) -> bool {
         // Any error during the filtering is ignored for the purpose of allowing the search to
         // continue if parts of the dependency graph are missing.
-        if self.data.unit_exists(unit_uid).unwrap_or(false) {
+        if !self.data.unit_exists(unit_uid).unwrap_or(false) {
             // Ignore any missing unit.
             return true;
         }
@@ -262,6 +257,16 @@ impl DepthFirstScheduler {
             .get_dependencies(unit_uid)
             .unwrap_or_default()
             .into_iter()
+            .filter(|dependency_uid| {
+                // Ignore the implicit dependency between a lesson and its course.
+                if let Some(course_uid) = self.data.unit_graph.borrow().get_lesson_course(unit_uid)
+                {
+                    if course_uid == *dependency_uid {
+                        return false;
+                    }
+                }
+                true
+            })
             .all(|dependency_uid| self.satisfied_dependency(dependency_uid, metadata_filter))
     }
 
@@ -531,12 +536,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
         filter.filter_candidates(candidates)
     }
 
-    fn record_exercise_score(
-        &self,
-        exercise_id: &str,
-        score: MasteryScore,
-        timestamp: i64,
-    ) -> Result<()> {
+    fn score_exercise(&self, exercise_id: &str, score: MasteryScore, timestamp: i64) -> Result<()> {
         let exercise_uid = self.data.get_uid(exercise_id)?;
         self.data
             .practice_stats

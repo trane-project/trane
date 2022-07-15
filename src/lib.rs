@@ -240,14 +240,8 @@ impl ExerciseScheduler for Trane {
         self.scheduler.get_exercise_batch(filter)
     }
 
-    fn record_exercise_score(
-        &self,
-        exercise_id: &str,
-        score: MasteryScore,
-        timestamp: i64,
-    ) -> Result<()> {
-        self.scheduler
-            .record_exercise_score(exercise_id, score, timestamp)
+    fn score_exercise(&self, exercise_id: &str, score: MasteryScore, timestamp: i64) -> Result<()> {
+        self.scheduler.score_exercise(exercise_id, score, timestamp)
     }
 }
 
