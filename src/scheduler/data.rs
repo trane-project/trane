@@ -148,18 +148,6 @@ impl SchedulerData {
         }
     }
 
-    /// Returns the starting lessons for the given course.
-    pub fn get_course_starting_lessons(&self, course_uid: u64) -> Result<Vec<u64>> {
-        let lessons: Vec<u64> = self
-            .unit_graph
-            .borrow()
-            .get_course_starting_lessons(course_uid)
-            .unwrap_or_default()
-            .into_iter()
-            .collect();
-        Ok(lessons)
-    }
-
     /// Returns the exercises contained within the given unit.
     pub fn get_lesson_exercises(&self, unit_uid: u64) -> Vec<u64> {
         self.unit_graph
