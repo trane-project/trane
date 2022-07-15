@@ -74,6 +74,7 @@ impl LocalCourseLibrary {
         lesson_manifest: &LessonManifest,
         exercise_manifest: ExerciseManifest,
     ) -> Result<()> {
+        ensure!(!exercise_manifest.id.is_empty(), "ID in manifest is empty",);
         ensure!(
             exercise_manifest.lesson_id == lesson_manifest.id,
             "lesson_id in manifest for exercise {} does not match the manifest for lesson {}",
@@ -102,6 +103,7 @@ impl LocalCourseLibrary {
         course_manifest: &CourseManifest,
         lesson_manifest: LessonManifest,
     ) -> Result<()> {
+        ensure!(!lesson_manifest.id.is_empty(), "ID in manifest is empty",);
         ensure!(
             lesson_manifest.course_id == course_manifest.id,
             "course_id in manifest for lesson {} does not match the manifest for course {}",
@@ -200,6 +202,8 @@ impl LocalCourseLibrary {
         dir_entry: &DirEntry,
         course_manifest: CourseManifest,
     ) -> Result<()> {
+        ensure!(!course_manifest.id.is_empty(), "ID in manifest is empty",);
+
         let course_root = dir_entry.path().parent().unwrap();
 
         // Start a new search from the course's root. Each lesson in the course must be contained in
