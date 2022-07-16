@@ -59,42 +59,23 @@ impl ScoreCache {
             }
         }
 
-        let exercise_id = self
-            .data
-            .unit_graph
-            .borrow()
-            .get_id(exercise_uid)
-            .ok_or_else(|| anyhow!("missing ID for exercise with UID {}", exercise_uid))?;
-
+        let exercise_id = self.data.get_id(exercise_uid)?;
         let scores = self
             .data
             .practice_stats
             .borrow()
             .get_scores(&exercise_id, self.options.borrow().num_scores)?;
-
         let score = self.scorer.score(scores);
-        match score {
-            None => Ok(0.0),
-            Some(score) => {
-                self.cache.borrow_mut().insert(exercise_uid, score);
-                Ok(score)
-            }
-        }
-    }
-
-    fn get_unit_id(&self, unit_uid: u64) -> Result<String> {
-        self.data
-            .unit_graph
-            .borrow()
-            .get_id(unit_uid)
-            .ok_or_else(|| anyhow!("missing ID for unit with UID {}", unit_uid))
+        self.cache.borrow_mut().insert(exercise_uid, score);
+        Ok(score)
     }
 
     /// Returns the average score of all the exercises in the given lesson.
     fn get_lesson_score(&self, lesson_uid: u64) -> Result<Option<f32>> {
-        let lesson_id = self.get_unit_id(lesson_uid)?;
+        let lesson_id = self.data.get_id(lesson_uid)?;
         let blacklisted = self.data.blacklist.borrow().blacklisted(&lesson_id);
         if blacklisted.unwrap_or(false) {
+            // Return None for blacklisted lessons to ignore them in the final score..
             return Ok(None);
         }
 
@@ -106,34 +87,27 @@ impl ScoreCache {
         match exercises {
             None => Ok(None),
             Some(uids) => {
-                let valid_uids = uids
+                let valid_exercises = uids
                     .into_iter()
                     .filter(|exercise_uid| {
-                        let exercise_id = self.get_unit_id(*exercise_uid);
-                        if exercise_id.is_err() {
-                            return false;
-                        }
-
-                        let blacklisted = self
-                            .data
-                            .blacklist
-                            .borrow()
-                            .blacklisted(&exercise_id.unwrap());
+                        let exercise_id = self.data.get_id(*exercise_uid).unwrap_or_default();
+                        let blacklisted = self.data.blacklist.borrow().blacklisted(&exercise_id);
                         !blacklisted.unwrap_or(false)
                     })
                     .collect::<Vec<u64>>();
-
-                if valid_uids.is_empty() {
+                if valid_exercises.is_empty() {
+                    // Return None for lessons with no valid exercises to ignore them in the final
+                    // score.
                     return Ok(None);
                 }
 
-                let avg_score: f32 = valid_uids
+                let avg_score: f32 = valid_exercises
                     .iter()
                     .map(|uid| self.get_exercise_score(*uid))
                     .collect::<Result<Vec<f32>>>()?
                     .into_iter()
                     .sum::<f32>()
-                    / valid_uids.len() as f32;
+                    / valid_exercises.len() as f32;
                 Ok(Some(avg_score))
             }
         }
@@ -141,7 +115,7 @@ impl ScoreCache {
 
     /// Returns the average score of all the exercises in the given course.
     fn get_course_score(&self, course_uid: u64) -> Result<Option<f32>> {
-        let course_id = self.get_unit_id(course_uid)?;
+        let course_id = self.data.get_id(course_uid)?;
         let blacklisted = self.data.blacklist.borrow().blacklisted(&course_id);
         if blacklisted.unwrap_or(false) {
             return Ok(None);
@@ -151,36 +125,25 @@ impl ScoreCache {
         match lessons {
             None => Ok(None),
             Some(uids) => {
-                let valid_scores = uids
+                let valid_lesson_scores = uids
                     .into_iter()
-                    .filter(|lesson_uid| {
-                        let lesson_id = self.get_unit_id(*lesson_uid);
-                        if lesson_id.is_err() {
-                            return false;
-                        }
-
-                        let blacklisted = self
-                            .data
-                            .blacklist
-                            .borrow()
-                            .blacklisted(&lesson_id.unwrap());
-                        !blacklisted.unwrap_or(false)
-                    })
                     .map(|uid| self.get_lesson_score(uid))
                     .filter(|score| {
-                        if score.is_err() || score.as_ref().unwrap().is_none() {
+                        if score.as_ref().unwrap_or(&None).is_none() {
                             return false;
                         }
                         true
                     })
-                    .map(|score| score.unwrap().unwrap())
+                    .map(|score| score.unwrap_or(Some(0.0)).unwrap())
                     .collect::<Vec<f32>>();
-
-                if valid_scores.is_empty() {
+                if valid_lesson_scores.is_empty() {
+                    // Return None for courses with no valid lessons to ignore them in the final
+                    // score.
                     return Ok(None);
                 }
 
-                let avg_score: f32 = valid_scores.iter().sum::<f32>() / valid_scores.len() as f32;
+                let avg_score: f32 =
+                    valid_lesson_scores.iter().sum::<f32>() / valid_lesson_scores.len() as f32;
                 Ok(Some(avg_score))
             }
         }
