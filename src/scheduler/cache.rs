@@ -75,7 +75,6 @@ impl ScoreCache {
         let lesson_id = self.data.get_id(lesson_uid)?;
         let blacklisted = self.data.blacklist.borrow().blacklisted(&lesson_id);
         if blacklisted.unwrap_or(false) {
-            // Return None for blacklisted lessons to ignore them in the final score..
             return Ok(None);
         }
 
@@ -96,8 +95,6 @@ impl ScoreCache {
                     })
                     .collect::<Vec<u64>>();
                 if valid_exercises.is_empty() {
-                    // Return None for lessons with no valid exercises to ignore them in the final
-                    // score.
                     return Ok(None);
                 }
 
@@ -137,8 +134,6 @@ impl ScoreCache {
                     .map(|score| score.unwrap_or(Some(0.0)).unwrap())
                     .collect::<Vec<f32>>();
                 if valid_lesson_scores.is_empty() {
-                    // Return None for courses with no valid lessons to ignore them in the final
-                    // score.
                     return Ok(None);
                 }
 
