@@ -48,7 +48,7 @@ impl PracticeStatsDB {
             .down("DROP TABLE practice_stats"),
             // Create an index of unit_ids.
             M::up("CREATE INDEX unit_ids ON uids (unit_id);").down("DROP INDEX unit_ids"),
-            // Originally the trials were index solely by the unit_uid. This index was replaced so
+            // Originally the trials were indexed solely by the unit_uid. This index was replaced so
             // this migration is immediately canceled by the one right below. Remove both of them
             // altogether in a later version.
             M::up("CREATE INDEX unit_scores ON practice_stats (unit_uid);")
