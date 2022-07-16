@@ -23,16 +23,16 @@ const SIMPLE_SCORER_SCORE_FACTOR: f32 = 0.1;
 /// A trait exposing functions to score an exercise based on the results of previous trials.
 pub trait ExerciseScorer {
     /// Returns a score (between 0 and 5) for the exercise based on the results of previous trials.
-    fn score(&self, previous_trials: Vec<ExerciseTrial>) -> Option<f32>;
+    fn score(&self, previous_trials: Vec<ExerciseTrial>) -> f32;
 }
 
 /// A simple scorer that computes a score based on the weighted average of previous scores.
 pub struct SimpleScorer {}
 
 impl ExerciseScorer for SimpleScorer {
-    fn score(&self, previous_trials: Vec<ExerciseTrial>) -> Option<f32> {
+    fn score(&self, previous_trials: Vec<ExerciseTrial>) -> f32 {
         if previous_trials.is_empty() {
-            return Some(0.0);
+            return 0.0;
         }
 
         let now = Utc::now();
@@ -79,6 +79,6 @@ impl ExerciseScorer for SimpleScorer {
         // Calculate the weighted average.
         // weighted average = (cross product of scores and their weights) / (sum of weights)
         let cross_product: f32 = scores.iter().zip(weights.iter()).map(|(s, w)| s * *w).sum();
-        Some(cross_product / weights.iter().sum::<f32>())
+        cross_product / weights.iter().sum::<f32>()
     }
 }
