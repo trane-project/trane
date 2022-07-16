@@ -1,4 +1,4 @@
-//! Module containing utilities to open and manipulate collections of courses and lessons stored
+//! Module containing utilities to open and manipulate collecti&ons of courses and lessons stored
 //! under a directory, which are named a course library.
 use std::{
     cell::RefCell,
@@ -62,10 +62,26 @@ pub(crate) struct LocalCourseLibrary {
 
 impl LocalCourseLibrary {
     /// Opens the manifest located at the given path.
-    fn open_manifest<T: DeserializeOwned>(&self, path: &str) -> Result<T> {
+    fn open_manifest<T: DeserializeOwned>(path: &str) -> Result<T> {
         let file = File::open(path).map_err(|_| anyhow!("cannot open manifest file {}", path))?;
         let reader = BufReader::new(file);
         serde_json::from_reader(reader).map_err(|_| anyhow!("cannot parse manifest file {}", path))
+    }
+
+    /// Helper function to retrieve the ID of a unit.
+    fn get_id(&self, unit_uid: u64) -> Result<String> {
+        self.unit_graph
+            .borrow()
+            .get_id(unit_uid)
+            .ok_or_else(|| anyhow!("cannot find lesson ID for UID {}", unit_uid))
+    }
+
+    // Helper function to retrieve UID of a unit.
+    fn get_uid(&self, unit_id: &str) -> Result<u64> {
+        self.unit_graph
+            .borrow()
+            .get_uid(unit_id)
+            .ok_or_else(|| anyhow!("cannot find lesson UID for ID {}", unit_id))
     }
 
     /// Processes the exercise manifest located at the given DirEntry.
@@ -130,7 +146,7 @@ impl LocalCourseLibrary {
                         continue;
                     }
 
-                    let mut exercise_manifest: ExerciseManifest = self.open_manifest(path)?;
+                    let mut exercise_manifest: ExerciseManifest = Self::open_manifest(path)?;
                     exercise_manifest = exercise_manifest
                         .normalize_paths(exercise_dir_entry.path().parent().unwrap())?;
                     self.process_exercise_manifest(&lesson_manifest, exercise_manifest)?;
@@ -178,12 +194,7 @@ impl LocalCourseLibrary {
                 }
             })
             .filter(|uid| uid.is_some())
-            .map(|uid| {
-                self.unit_graph
-                    .borrow()
-                    .get_id(uid.unwrap())
-                    .ok_or_else(|| anyhow!("cannot find lesson ID for UID {}", uid.unwrap()))
-            })
+            .map(|uid| self.get_id(uid.unwrap()))
             .collect::<Result<Vec<String>>>()?;
 
         for lesson_id in first_lessons {
@@ -204,12 +215,11 @@ impl LocalCourseLibrary {
     ) -> Result<()> {
         ensure!(!course_manifest.id.is_empty(), "ID in manifest is empty",);
 
-        let course_root = dir_entry.path().parent().unwrap();
-
         // Start a new search from the course's root. Each lesson in the course must be contained in
         // a directory that is a direct descendent of the root. Therefore, all the lesson manifests
         // will be at a depth of two from the root.
         let mut lesson_uids = HashSet::new();
+        let course_root = dir_entry.path().parent().unwrap();
         for entry in WalkDir::new(course_root).min_depth(2).max_depth(2) {
             match entry {
                 Err(_) => continue,
@@ -221,7 +231,7 @@ impl LocalCourseLibrary {
                         continue;
                     }
 
-                    let mut lesson_manifest: LessonManifest = self.open_manifest(path)?;
+                    let mut lesson_manifest: LessonManifest = Self::open_manifest(path)?;
                     lesson_manifest = lesson_manifest
                         .normalize_paths(lesson_dir_entry.path().parent().unwrap())?;
                     let lesson_id = lesson_manifest.id.clone();
@@ -233,11 +243,7 @@ impl LocalCourseLibrary {
 
                     // Gather all of the uids of the lessons in this course to build the implicit
                     // dependencies between the course and its lessons.
-                    let lesson_uid = self
-                        .unit_graph
-                        .borrow()
-                        .get_uid(&lesson_id)
-                        .ok_or_else(|| anyhow!("cannot find lesson UID for ID {}", lesson_id))?;
+                    let lesson_uid = self.get_uid(&lesson_id)?;
                     lesson_uids.insert(lesson_uid);
                 }
             }
@@ -285,7 +291,7 @@ impl LocalCourseLibrary {
                         continue;
                     }
 
-                    let mut course_manifest: CourseManifest = library.open_manifest(path)?;
+                    let mut course_manifest: CourseManifest = Self::open_manifest(path)?;
                     course_manifest =
                         course_manifest.normalize_paths(dir_entry.path().parent().unwrap())?;
                     library.process_course_manifest(&dir_entry, course_manifest)?;
@@ -318,46 +324,28 @@ impl CourseLibrary for LocalCourseLibrary {
     }
 
     fn get_lesson_ids(&self, course_id: &str) -> Result<Vec<String>> {
-        let course_uid = self
-            .unit_graph
-            .borrow()
-            .get_uid(course_id)
-            .ok_or_else(|| anyhow!("cannot find course UID for ID {}", course_id))?;
+        let course_uid = self.get_uid(course_id)?;
         let mut lessons = self
             .unit_graph
             .borrow()
             .get_course_lessons(course_uid)
             .unwrap_or_default()
             .into_iter()
-            .map(|uid| {
-                self.unit_graph
-                    .borrow()
-                    .get_id(uid)
-                    .ok_or_else(|| anyhow!("cannot find lesson ID for UID {}", uid))
-            })
+            .map(|uid| self.get_id(uid))
             .collect::<Result<Vec<String>>>()?;
         lessons.sort();
         Ok(lessons)
     }
 
     fn get_exercise_ids(&self, lesson_id: &str) -> Result<Vec<String>> {
-        let lesson_uid = self
-            .unit_graph
-            .borrow()
-            .get_uid(lesson_id)
-            .ok_or_else(|| anyhow!("cannot find lesson UID for ID {}", lesson_id))?;
+        let lesson_uid = self.get_uid(lesson_id)?;
         let mut exercises = self
             .unit_graph
             .borrow()
             .get_lesson_exercises(lesson_uid)
             .unwrap_or_default()
             .into_iter()
-            .map(|uid| {
-                self.unit_graph
-                    .borrow()
-                    .get_id(uid)
-                    .ok_or_else(|| anyhow!("cannot find exercise ID for UID {}", uid))
-            })
+            .map(|uid| self.get_id(uid))
             .collect::<Result<Vec<String>>>()?;
         exercises.sort();
         Ok(exercises)
