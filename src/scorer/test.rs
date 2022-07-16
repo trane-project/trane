@@ -13,7 +13,7 @@ fn generate_timestamp(num_days: i64) -> i64 {
 
 #[test]
 fn no_previous_trials() {
-    assert_eq!(None, SCORER.score(vec![]))
+    assert_eq!(Some(0.0), SCORER.score(vec![]))
 }
 
 #[test]
