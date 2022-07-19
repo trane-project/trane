@@ -82,3 +82,6 @@ impl ExerciseScorer for SimpleScorer {
         cross_product / weights.iter().sum::<f32>()
     }
 }
+
+unsafe impl Send for SimpleScorer {}
+unsafe impl Sync for SimpleScorer {}

@@ -27,7 +27,7 @@ pub mod practice_stats;
 pub mod scheduler;
 pub mod scorer;
 
-use std::{cell::RefCell, fs::create_dir, path::Path, rc::Rc};
+use std::{fs::create_dir, path::Path, sync::Arc};
 
 use anyhow::{anyhow, Context, Result};
 use blacklist::{BlackListDB, Blacklist};
@@ -35,6 +35,7 @@ use course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary};
 use data::{filter::*, *};
 use filter_manager::{FilterManager, LocalFilterManager};
 use graph::{DebugUnitGraph, UnitGraph};
+use parking_lot::RwLock;
 use practice_stats::{PracticeStats, PracticeStatsDB};
 use scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseScheduler};
 
@@ -60,22 +61,22 @@ pub struct Trane {
     library_root: String,
 
     /// The object containing the list of courses, lessons, and exercises to be skipped.
-    blacklist: Rc<RefCell<dyn Blacklist>>,
+    blacklist: Arc<RwLock<dyn Blacklist + Send + Sync>>,
 
     /// The object containing all the course, lesson, and exercise info.
-    course_library: Rc<RefCell<dyn CourseLibrary>>,
+    course_library: Arc<RwLock<dyn CourseLibrary + Send + Sync>>,
 
     /// The object containing unit filters saved by the user.
-    filter_manager: Rc<RefCell<dyn FilterManager>>,
+    filter_manager: Arc<RwLock<dyn FilterManager + Send + Sync>>,
 
     /// The object containing the information on previous exercise trials.
-    practice_stats: Rc<RefCell<dyn PracticeStats>>,
+    practice_stats: Arc<RwLock<dyn PracticeStats + Send + Sync>>,
 
     /// The object containing the scheduling algorithm.
     scheduler: DepthFirstScheduler,
 
     /// The dependency graph of courses and lessons in the course library.
-    unit_graph: Rc<RefCell<dyn UnitGraph>>,
+    unit_graph: Arc<RwLock<dyn UnitGraph + Send + Sync>>,
 }
 
 impl Trane {
@@ -121,15 +122,15 @@ impl Trane {
         Self::init_config_directory(library_root)?;
         let config_path = Path::new(library_root).join(Path::new(TRANE_CONFIG_DIR_PATH));
 
-        let course_library = Rc::new(RefCell::new(LocalCourseLibrary::new(library_root)?));
-        let unit_graph = course_library.borrow().get_unit_graph();
-        let practice_stats = Rc::new(RefCell::new(PracticeStatsDB::new_from_disk(
+        let course_library = Arc::new(RwLock::new(LocalCourseLibrary::new(library_root)?));
+        let unit_graph = course_library.write().get_unit_graph();
+        let practice_stats = Arc::new(RwLock::new(PracticeStatsDB::new_from_disk(
             config_path.join(PRACTICE_STATS_PATH).to_str().unwrap(),
         )?));
-        let blacklist = Rc::new(RefCell::new(BlackListDB::new_from_disk(
+        let blacklist = Arc::new(RwLock::new(BlackListDB::new_from_disk(
             config_path.join(BLACKLIST_PATH).to_str().unwrap(),
         )?));
-        let filter_manager = Rc::new(RefCell::new(LocalFilterManager::new(
+        let filter_manager = Arc::new(RwLock::new(LocalFilterManager::new(
             config_path.join(FILTERS_DIR).to_str().unwrap(),
         )?));
         let scheduler_data = SchedulerData {
@@ -159,64 +160,64 @@ impl Trane {
 
 impl Blacklist for Trane {
     fn add_unit(&mut self, unit_id: &str) -> Result<()> {
-        self.blacklist.borrow_mut().add_unit(unit_id)
+        self.blacklist.write().add_unit(unit_id)
     }
 
     fn remove_unit(&mut self, unit_id: &str) -> Result<()> {
-        self.blacklist.borrow_mut().remove_unit(unit_id)
+        self.blacklist.write().remove_unit(unit_id)
     }
 
     fn blacklisted(&self, unit_id: &str) -> Result<bool> {
-        self.blacklist.borrow().blacklisted(unit_id)
+        self.blacklist.read().blacklisted(unit_id)
     }
 
     fn all_entries(&self) -> Result<Vec<String>> {
-        self.blacklist.borrow().all_entries()
+        self.blacklist.read().all_entries()
     }
 }
 
 impl CourseLibrary for Trane {
     fn get_course_manifest(&self, course_id: &str) -> Option<CourseManifest> {
-        self.course_library.borrow().get_course_manifest(course_id)
+        self.course_library.read().get_course_manifest(course_id)
     }
 
     fn get_lesson_manifest(&self, lesson_id: &str) -> Option<LessonManifest> {
-        self.course_library.borrow().get_lesson_manifest(lesson_id)
+        self.course_library.read().get_lesson_manifest(lesson_id)
     }
 
     fn get_exercise_manifest(&self, exercise_id: &str) -> Option<ExerciseManifest> {
         self.course_library
-            .borrow()
+            .read()
             .get_exercise_manifest(exercise_id)
     }
 
     fn get_course_ids(&self) -> Vec<String> {
-        self.course_library.borrow().get_course_ids()
+        self.course_library.read().get_course_ids()
     }
 
     fn get_lesson_ids(&self, course_id: &str) -> Result<Vec<String>> {
-        self.course_library.borrow().get_lesson_ids(course_id)
+        self.course_library.read().get_lesson_ids(course_id)
     }
 
     fn get_exercise_ids(&self, lesson_id: &str) -> Result<Vec<String>> {
-        self.course_library.borrow().get_exercise_ids(lesson_id)
+        self.course_library.read().get_exercise_ids(lesson_id)
     }
 }
 
 impl FilterManager for Trane {
     fn get_filter(&self, id: &str) -> Option<NamedFilter> {
-        self.filter_manager.borrow().get_filter(id)
+        self.filter_manager.read().get_filter(id)
     }
 
     fn list_filters(&self) -> Vec<(String, String)> {
-        self.filter_manager.borrow().list_filters()
+        self.filter_manager.read().list_filters()
     }
 }
 
 impl PracticeStats for Trane {
     fn get_scores(&self, exercise_id: &str, num_scores: usize) -> Result<Vec<ExerciseTrial>> {
         self.practice_stats
-            .borrow()
+            .read()
             .get_scores(exercise_id, num_scores)
     }
 
@@ -227,7 +228,7 @@ impl PracticeStats for Trane {
         timestamp: i64,
     ) -> Result<()> {
         self.practice_stats
-            .borrow_mut()
+            .write()
             .record_exercise_score(exercise_id, score, timestamp)
     }
 }
@@ -247,14 +248,14 @@ impl ExerciseScheduler for Trane {
 
 impl DebugUnitGraph for Trane {
     fn get_uid(&self, unit_id: &str) -> Option<u64> {
-        self.unit_graph.borrow().get_uid(unit_id)
+        self.unit_graph.read().get_uid(unit_id)
     }
 
     fn get_id(&self, unit_uid: u64) -> Option<String> {
-        self.unit_graph.borrow().get_id(unit_uid)
+        self.unit_graph.read().get_id(unit_uid)
     }
 
     fn get_unit_type(&self, unit_uid: u64) -> Option<UnitType> {
-        self.unit_graph.borrow().get_unit_type(unit_uid)
+        self.unit_graph.read().get_unit_type(unit_uid)
     }
 }

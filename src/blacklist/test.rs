@@ -1,11 +1,11 @@
 use anyhow::Result;
-use rusqlite::Connection;
+use r2d2_sqlite::SqliteConnectionManager;
 
 use super::{BlackListDB, Blacklist};
 
 fn new_test_blacklist() -> Result<Box<dyn Blacklist>> {
-    let connection = Connection::open_in_memory()?;
-    let blacklist = BlackListDB::new(connection)?;
+    let connection_manager = SqliteConnectionManager::memory();
+    let blacklist = BlackListDB::new(connection_manager)?;
     Ok(Box::new(blacklist))
 }
 
