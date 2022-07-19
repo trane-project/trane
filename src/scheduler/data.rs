@@ -2,6 +2,7 @@
 use anyhow::{anyhow, Result};
 use parking_lot::RwLock;
 use std::{collections::HashSet, sync::Arc};
+use ustr::Ustr;
 
 use crate::{
     blacklist::Blacklist,
@@ -35,7 +36,7 @@ pub(crate) struct SchedulerData {
 
 impl SchedulerData {
     /// Returns the UID of the lesson with the given ID.
-    pub fn get_uid(&self, unit_id: &str) -> Result<u64> {
+    pub fn get_uid(&self, unit_id: &Ustr) -> Result<u64> {
         self.unit_graph
             .read()
             .get_uid(unit_id)
@@ -43,7 +44,7 @@ impl SchedulerData {
     }
 
     /// Returns the ID of the lesson with the given UID.
-    pub fn get_id(&self, unit_uid: u64) -> Result<String> {
+    pub fn get_id(&self, unit_uid: u64) -> Result<Ustr> {
         self.unit_graph
             .read()
             .get_id(unit_uid)
@@ -100,7 +101,7 @@ impl SchedulerData {
     }
 
     /// Returns whether the unit with the given ID is blacklisted.
-    pub fn blacklisted_id(&self, unit_id: &str) -> Result<bool> {
+    pub fn blacklisted_id(&self, unit_id: &Ustr) -> Result<bool> {
         self.blacklist.read().blacklisted(unit_id)
     }
 
@@ -116,7 +117,7 @@ impl SchedulerData {
     }
 
     /// Returns the value of the course_id field in the manifest of the given lesson.
-    pub fn get_lesson_course_id(&self, lesson_uid: u64) -> Result<String> {
+    pub fn get_lesson_course_id(&self, lesson_uid: u64) -> Result<Ustr> {
         Ok(self.get_lesson_manifest(lesson_uid)?.course_id)
     }
 

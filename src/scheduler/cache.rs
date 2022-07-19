@@ -6,6 +6,7 @@ use std::collections::HashMap;
 
 use crate::{
     data::{SchedulerOptions, UnitType},
+    graph::UnitGraph,
     scheduler::SchedulerData,
     scorer::{ExerciseScorer, SimpleScorer},
 };

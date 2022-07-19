@@ -7,12 +7,14 @@ mod filter;
 use anyhow::Result;
 use rand::{seq::SliceRandom, thread_rng};
 use std::collections::{HashMap, HashSet};
+use ustr::Ustr;
 
 use crate::{
     data::{
         filter::{MetadataFilter, UnitFilter},
         ExerciseManifest, MasteryScore, SchedulerOptions, UnitType,
     },
+    graph::UnitGraph,
     scheduler::{cache::ScoreCache, data::SchedulerData, filter::CandidateFilter},
 };
 
@@ -27,10 +29,11 @@ pub trait ExerciseScheduler {
     fn get_exercise_batch(
         &self,
         filter: Option<&UnitFilter>,
-    ) -> Result<Vec<(String, ExerciseManifest)>>;
+    ) -> Result<Vec<(Ustr, ExerciseManifest)>>;
 
     /// Records the score of the given exercise's trial.
-    fn score_exercise(&self, exercise_id: &str, score: MasteryScore, timestamp: i64) -> Result<()>;
+    fn score_exercise(&self, exercise_id: &Ustr, score: MasteryScore, timestamp: i64)
+        -> Result<()>;
 }
 
 /// A struct representing an element in the stack used during the graph search.
@@ -411,7 +414,7 @@ impl DepthFirstScheduler {
     }
 
     /// Searches for candidates from the given course.
-    fn get_candidates_from_course(&self, course_ids: &[String]) -> Result<Vec<Candidate>> {
+    fn get_candidates_from_course(&self, course_ids: &[Ustr]) -> Result<Vec<Candidate>> {
         // Start the search with the starting lessons from the courses.
         let mut stack: Vec<StackItem> = Vec::new();
         let mut visited: HashSet<u64> = HashSet::new();
@@ -490,7 +493,7 @@ impl DepthFirstScheduler {
     }
 
     /// Searches for candidates from the given lesson.
-    fn get_candidates_from_lesson(&self, lesson_id: &str) -> Result<Vec<Candidate>> {
+    fn get_candidates_from_lesson(&self, lesson_id: &Ustr) -> Result<Vec<Candidate>> {
         let lesson_uid = self.data.get_uid(lesson_id)?;
         let (candidates, _) = self.get_candidates_from_lesson_helper(&StackItem {
             unit_uid: lesson_uid,
@@ -504,7 +507,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
     fn get_exercise_batch(
         &self,
         filter: Option<&UnitFilter>,
-    ) -> Result<Vec<(String, ExerciseManifest)>> {
+    ) -> Result<Vec<(Ustr, ExerciseManifest)>> {
         let candidates = match filter {
             None => {
                 // Retrieve candidates from the entire graph.
@@ -535,7 +538,12 @@ impl ExerciseScheduler for DepthFirstScheduler {
         filter.filter_candidates(candidates)
     }
 
-    fn score_exercise(&self, exercise_id: &str, score: MasteryScore, timestamp: i64) -> Result<()> {
+    fn score_exercise(
+        &self,
+        exercise_id: &Ustr,
+        score: MasteryScore,
+        timestamp: i64,
+    ) -> Result<()> {
         let exercise_uid = self.data.get_uid(exercise_id)?;
         self.data
             .practice_stats

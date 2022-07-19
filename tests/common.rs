@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    path::PathBuf,
-};
+use std::{collections::BTreeMap, path::PathBuf};
 
 use anyhow::{anyhow, Result};
 use chrono::Utc;
@@ -16,6 +13,7 @@ use trane::{
     scheduler::ExerciseScheduler,
     Trane,
 };
+use ustr::{Ustr, UstrMap};
 
 /// Represents the ID of a tests unit. First element is the course ID, followed by optional lesson
 /// and exercise IDs.
@@ -33,6 +31,10 @@ impl TestId {
     #[allow(dead_code)]
     pub fn exercise_in_course(&self, course: &TestId) -> bool {
         self.0 == course.0 && self.1.is_some() && self.2.is_some()
+    }
+
+    pub fn to_ustr(&self) -> Ustr {
+        Ustr::from(&self.to_string())
     }
 }
 
@@ -83,7 +85,7 @@ impl TestLesson {
                     directory_name: format! {"exercise_{}", i.to_string()},
                     manifest_closure: Box::new(move |m| {
                         m.clone()
-                            .id(TestId(id_clone.0, id_clone.1, Some(i as u32)).to_string())
+                            .id(TestId(id_clone.0, id_clone.1, Some(i as u32)).to_ustr())
                             .name(format! {"Exercise {}", i})
                             .clone()
                     }),
@@ -108,15 +110,15 @@ impl TestLesson {
             directory_name: format!("lesson_{}", self.id.1.unwrap()),
             manifest_closure: Box::new(move |m| {
                 m.clone()
-                    .id(id_clone.to_string())
+                    .id(id_clone.to_ustr())
                     .name(format! {"Lesson {}", id_clone.1.unwrap()})
-                    .dependencies(dependencies_clone.iter().map(|id| id.to_string()).collect())
+                    .dependencies(dependencies_clone.iter().map(|id| id.to_ustr()).collect())
                     .metadata(Some(metadata_clone.clone()))
                     .clone()
             }),
             exercise_manifest_template: ExerciseManifestBuilder::default()
-                .course_id(TestId(self.id.0, None, None).to_string())
-                .lesson_id(self.id.to_string())
+                .course_id(TestId(self.id.0, None, None).to_ustr())
+                .lesson_id(self.id.to_ustr())
                 .exercise_type(ExerciseType::Procedural)
                 .exercise_asset(ExerciseAsset::FlashcardAsset {
                     front_path: "question.md".to_string(),
@@ -166,9 +168,9 @@ impl TestCourse {
         Ok(CourseBuilder {
             directory_name: format!("course_{}", self.id.0),
             course_manifest: CourseManifest {
-                id: self.id.to_string(),
+                id: self.id.to_ustr(),
                 name: format!("Course {}", self.id.0),
-                dependencies: self.dependencies.iter().map(|id| id.to_string()).collect(),
+                dependencies: self.dependencies.iter().map(|id| id.to_ustr()).collect(),
                 description: None,
                 authors: None,
                 metadata: Some(self.metadata.clone()),
@@ -176,7 +178,7 @@ impl TestCourse {
                 course_instructions: None,
             },
             lesson_manifest_template: LessonManifestBuilder::default()
-                .course_id(self.id.to_string())
+                .course_id(self.id.to_ustr())
                 .clone(),
             lesson_builders,
             asset_builders: vec![],
@@ -217,7 +219,7 @@ pub struct TraneSimulation {
     pub answer_closure: Box<dyn Fn(&str) -> Option<MasteryScore>>,
 
     /// Stores the entire history of exercises and their answers during the simulation.
-    pub answer_history: HashMap<String, Vec<MasteryScore>>,
+    pub answer_history: UstrMap<Vec<MasteryScore>>,
 }
 
 impl TraneSimulation {
@@ -229,7 +231,7 @@ impl TraneSimulation {
         Self {
             num_exercises: num_questions,
             answer_closure,
-            answer_history: HashMap::new(),
+            answer_history: UstrMap::default(),
         }
     }
 
@@ -241,11 +243,11 @@ impl TraneSimulation {
         filter: Option<&UnitFilter>,
     ) -> Result<()> {
         for unit_id in blacklist {
-            trane.add_unit(&unit_id.to_string())?;
+            trane.add_unit(&unit_id.to_ustr())?;
         }
 
         let mut completed_exercises = 0;
-        let mut batch: Vec<(String, ExerciseManifest)> = vec![];
+        let mut batch: Vec<(Ustr, ExerciseManifest)> = vec![];
         while completed_exercises < self.num_exercises {
             completed_exercises += 1;
             if batch.is_empty() {
@@ -264,7 +266,7 @@ impl TraneSimulation {
                     Utc::now().timestamp(),
                 )?;
                 self.answer_history
-                    .entry(exercise_id.to_string())
+                    .entry(exercise_id)
                     .or_insert(vec![])
                     .push(score.unwrap());
             }
@@ -287,20 +289,18 @@ pub fn init_trane(library_directory: &PathBuf, courses: &Vec<TestCourse>) -> Res
 /// Asserts that the scores in the simulation match the scores reported by Trane for the given
 /// exercise.
 pub fn assert_scores(
-    exercise_id: &TestId,
+    exercise_id: &Ustr,
     trane: &Trane,
-    simulation_scores: &HashMap<String, Vec<MasteryScore>>,
+    simulation_scores: &UstrMap<Vec<MasteryScore>>,
 ) -> Result<()> {
     // Get the last ten scores in the interest of saving time.
-    let trane_scores = trane.get_scores(&exercise_id.to_string(), 10)?;
+    let trane_scores = trane.get_scores(exercise_id, 10)?;
 
     // Check that the last ten simulation scores equal trane_scores.
-    let simulation_scores = simulation_scores
-        .get(&exercise_id.to_string())
-        .ok_or(anyhow!(
-            "No simulation scores for exercise with ID {:?}",
-            exercise_id
-        ))?;
+    let simulation_scores = simulation_scores.get(exercise_id).ok_or(anyhow!(
+        "No simulation scores for exercise with ID {:?}",
+        exercise_id
+    ))?;
     let most_recent_scores = simulation_scores.iter().rev().take(trane_scores.len());
     let _: Vec<()> =
         most_recent_scores

@@ -400,14 +400,13 @@ fn all_exercises_scheduled() -> Result<()> {
     // Every exercise ID should be in simulation.answer_history.
     let exercise_ids = all_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
         assert!(
-            simulation
-                .answer_history
-                .contains_key(&exercise_id.to_string()),
+            simulation.answer_history.contains_key(&exercise_ustr),
             "exercise {:?} should have been scheduled",
             exercise_id
         );
-        assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
     }
     Ok(())
 }
@@ -431,23 +430,20 @@ fn bad_score_prevents_advancing() -> Result<()> {
     ];
     let exercise_ids = all_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
         if first_lessons
             .iter()
             .any(|lesson| exercise_id.exercise_in_lesson(&lesson))
         {
             assert!(
-                simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_string()),
+                simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
-                !simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_string()),
+                !simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should not have been scheduled",
                 exercise_id
             );
@@ -473,23 +469,20 @@ fn avoid_scheduling_courses_in_blacklist() -> Result<()> {
     // courses in the blacklist.
     let exercise_ids = all_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
         if !course_blacklist
             .iter()
             .any(|course_id| exercise_id.exercise_in_course(&course_id))
         {
             assert!(
-                simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_string()),
+                simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
-                !simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_string()),
+                !simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should not have been scheduled",
                 exercise_id
             );
@@ -515,23 +508,20 @@ fn avoid_scheduling_lessons_in_blacklist() -> Result<()> {
     // lessons in the blacklist.
     let exercise_ids = all_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
         if !lesson_blacklist
             .iter()
             .any(|lesson_id| exercise_id.exercise_in_lesson(&lesson_id))
         {
             assert!(
-                simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_string()),
+                simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
-                !simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_string()),
+                !simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should not have been scheduled",
                 exercise_id
             );
@@ -555,23 +545,20 @@ fn avoid_scheduling_exercises_in_blacklist() -> Result<()> {
     // Every exercise ID should be in simulation.answer_history except for those in the blacklist.
     let exercise_ids = all_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
         if !exercise_blacklist
             .iter()
             .any(|blacklisted_id| *blacklisted_id == exercise_id)
         {
             assert!(
-                simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_string()),
+                simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
-                !simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_string()),
+                !simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should not have been scheduled",
                 exercise_id
             );
@@ -592,30 +579,27 @@ fn scheduler_respects_course_filter() -> Result<()> {
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
     let selected_courses = vec![TestId(1, None, None), TestId(5, None, None)];
     let course_filter = UnitFilter::CourseFilter {
-        course_ids: selected_courses.iter().map(|id| id.to_string()).collect(),
+        course_ids: selected_courses.iter().map(|id| id.to_ustr()).collect(),
     };
     simulation.run_simulation(&mut trane, &vec![], Some(&course_filter))?;
 
     // Every exercise ID should be in simulation.answer_history.
     let exercise_ids = all_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
         if selected_courses
             .iter()
             .any(|course_id| exercise_id.exercise_in_course(course_id))
         {
             assert!(
-                simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_string()),
+                simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
-                !simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_string()),
+                !simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should not have been scheduled",
                 exercise_id
             );
@@ -636,30 +620,27 @@ fn scheduler_respects_lesson_filter() -> Result<()> {
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
     let selected_lessons = vec![TestId(2, Some(0), None), TestId(4, Some(1), None)];
     let lesson_filter = UnitFilter::LessonFilter {
-        lesson_ids: selected_lessons.iter().map(|id| id.to_string()).collect(),
+        lesson_ids: selected_lessons.iter().map(|id| id.to_ustr()).collect(),
     };
     simulation.run_simulation(&mut trane, &vec![], Some(&lesson_filter))?;
 
     // Every exercise ID should be in simulation.answer_history.
     let exercise_ids = all_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
         if selected_lessons
             .iter()
             .any(|lesson_id| exercise_id.exercise_in_lesson(lesson_id))
         {
             assert!(
-                simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_string()),
+                simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
-                !simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_string()),
+                !simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should not have been scheduled",
                 exercise_id
             );
@@ -703,23 +684,20 @@ fn scheduler_respects_metadata_filter_op_all() -> Result<()> {
     ];
     let exercise_ids = all_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
         if matching_lessons
             .iter()
             .any(|lesson| exercise_id.exercise_in_lesson(lesson))
         {
             assert!(
-                simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_string()),
+                simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
-                !simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_string()),
+                !simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should not have been scheduled",
                 exercise_id
             );
@@ -765,23 +743,20 @@ fn scheduler_respects_metadata_filter_op_any() -> Result<()> {
     ];
     let exercise_ids = all_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
         if matching_lessons
             .iter()
             .any(|lesson| exercise_id.exercise_in_lesson(lesson))
         {
             assert!(
-                simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_string()),
+                simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
-                !simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_string()),
+                !simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should not have been scheduled",
                 exercise_id
             );
@@ -821,23 +796,20 @@ fn scheduler_respects_lesson_metadata_filter() -> Result<()> {
     ];
     let exercise_ids = all_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
         if matching_lessons
             .iter()
             .any(|lesson| exercise_id.exercise_in_lesson(lesson))
         {
             assert!(
-                simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_string()),
+                simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
-                !simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_string()),
+                !simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should not have been scheduled",
                 exercise_id
             );
@@ -873,23 +845,20 @@ fn scheduler_respects_course_metadata_filter() -> Result<()> {
     let matching_courses = vec![TestId(2, None, None), TestId(5, None, None)];
     let exercise_ids = all_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
         if matching_courses
             .iter()
             .any(|course| exercise_id.exercise_in_course(course))
         {
             assert!(
-                simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_string()),
+                simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
-                !simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_string()),
+                !simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should not have been scheduled",
                 exercise_id
             );
@@ -930,23 +899,20 @@ fn scheduler_respects_metadata_filter_and_blacklist() -> Result<()> {
     let matching_lessons = vec![TestId(5, Some(0), None)];
     let exercise_ids = all_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
         if matching_lessons
             .iter()
             .any(|lesson| exercise_id.exercise_in_lesson(lesson))
         {
             assert!(
-                simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_string()),
+                simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_id, &trane, &simulation.answer_history)?;
+            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
-                !simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_string()),
+                !simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should not have been scheduled",
                 exercise_id
             );

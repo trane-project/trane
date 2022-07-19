@@ -1,16 +1,11 @@
 //! Module containing utilities to open and manipulate collecti&ons of courses and lessons stored
 //! under a directory, which are named a course library.
-use std::{
-    collections::{HashMap, HashSet},
-    fs::File,
-    io::BufReader,
-    path::Path,
-    sync::Arc,
-};
+use std::{collections::HashSet, fs::File, io::BufReader, path::Path, sync::Arc};
 
 use anyhow::{anyhow, ensure, Result};
 use parking_lot::RwLock;
 use serde::de::DeserializeOwned;
+use ustr::{Ustr, UstrMap};
 use walkdir::{DirEntry, WalkDir};
 
 use crate::{
@@ -21,22 +16,22 @@ use crate::{
 /// Manages a course library and its corresponding course, lessons, and exercise manifests.
 pub trait CourseLibrary {
     /// Returns the manifest for the given course.
-    fn get_course_manifest(&self, course_id: &str) -> Option<CourseManifest>;
+    fn get_course_manifest(&self, course_id: &Ustr) -> Option<CourseManifest>;
 
     /// Returns the manifest for the given lesson.
-    fn get_lesson_manifest(&self, lesson_id: &str) -> Option<LessonManifest>;
+    fn get_lesson_manifest(&self, lesson_id: &Ustr) -> Option<LessonManifest>;
 
     /// Returns the manfifest for the given exercise.
-    fn get_exercise_manifest(&self, exercise_id: &str) -> Option<ExerciseManifest>;
+    fn get_exercise_manifest(&self, exercise_id: &Ustr) -> Option<ExerciseManifest>;
 
     /// Returns the IDs of all courses in the library.
-    fn get_course_ids(&self) -> Vec<String>;
+    fn get_course_ids(&self) -> Vec<Ustr>;
 
     /// Returns the IDs of all lessons in the given course.
-    fn get_lesson_ids(&self, course_id: &str) -> Result<Vec<String>>;
+    fn get_lesson_ids(&self, course_id: &Ustr) -> Result<Vec<Ustr>>;
 
     /// Returns the IDs of all exercises in the given lesson.
-    fn get_exercise_ids(&self, lesson_id: &str) -> Result<Vec<String>>;
+    fn get_exercise_ids(&self, lesson_id: &Ustr) -> Result<Vec<Ustr>>;
 }
 
 pub(crate) trait GetUnitGraph {
@@ -51,13 +46,13 @@ pub(crate) struct LocalCourseLibrary {
     unit_graph: Arc<RwLock<dyn UnitGraph + Send + Sync>>,
 
     /// A map of course ID to the path of its manifest.
-    course_map: HashMap<String, CourseManifest>,
+    course_map: UstrMap<CourseManifest>,
 
     /// A map of lesson ID to the path of its manifest.
-    lesson_map: HashMap<String, LessonManifest>,
+    lesson_map: UstrMap<LessonManifest>,
 
     /// A map of exercise ID to the path its manifest.
-    exercise_map: HashMap<String, ExerciseManifest>,
+    exercise_map: UstrMap<ExerciseManifest>,
 }
 
 impl LocalCourseLibrary {
@@ -69,7 +64,7 @@ impl LocalCourseLibrary {
     }
 
     /// Helper function to retrieve the ID of a unit.
-    fn get_id(&self, unit_uid: u64) -> Result<String> {
+    fn get_id(&self, unit_uid: u64) -> Result<Ustr> {
         self.unit_graph
             .read()
             .get_id(unit_uid)
@@ -77,7 +72,7 @@ impl LocalCourseLibrary {
     }
 
     // Helper function to retrieve UID of a unit.
-    fn get_uid(&self, unit_id: &str) -> Result<u64> {
+    fn get_uid(&self, unit_id: &Ustr) -> Result<u64> {
         self.unit_graph
             .read()
             .get_uid(unit_id)
@@ -175,10 +170,10 @@ impl LocalCourseLibrary {
     // the scheduler can add a course's lessons in the correct order.
     fn add_implicit_dependencies(
         &mut self,
-        course_id: String,
+        course_id: Ustr,
         lesson_uids: HashSet<u64>,
     ) -> Result<()> {
-        let first_lessons: Vec<String> = lesson_uids
+        let first_lessons: Vec<Ustr> = lesson_uids
             .iter()
             .map(|uid| {
                 let dependencies = self.unit_graph.read().get_dependencies(*uid);
@@ -195,14 +190,12 @@ impl LocalCourseLibrary {
             })
             .filter(|uid| uid.is_some())
             .map(|uid| self.get_id(uid.unwrap()))
-            .collect::<Result<Vec<String>>>()?;
+            .collect::<Result<Vec<Ustr>>>()?;
 
         for lesson_id in first_lessons {
-            self.unit_graph.write().add_dependencies(
-                &lesson_id,
-                UnitType::Lesson,
-                &[course_id.clone()],
-            )?;
+            self.unit_graph
+                .write()
+                .add_dependencies(&lesson_id, UnitType::Lesson, &[course_id])?;
         }
         Ok(())
     }
@@ -271,9 +264,9 @@ impl LocalCourseLibrary {
         }
 
         let mut library = LocalCourseLibrary {
-            course_map: HashMap::new(),
-            lesson_map: HashMap::new(),
-            exercise_map: HashMap::new(),
+            course_map: UstrMap::default(),
+            lesson_map: UstrMap::default(),
+            exercise_map: UstrMap::default(),
             unit_graph: Arc::new(RwLock::new(InMemoryUnitGraph::default())),
         };
 
@@ -305,25 +298,25 @@ impl LocalCourseLibrary {
 }
 
 impl CourseLibrary for LocalCourseLibrary {
-    fn get_course_manifest(&self, course_id: &str) -> Option<CourseManifest> {
+    fn get_course_manifest(&self, course_id: &Ustr) -> Option<CourseManifest> {
         self.course_map.get(course_id).cloned()
     }
 
-    fn get_lesson_manifest(&self, lesson_id: &str) -> Option<LessonManifest> {
+    fn get_lesson_manifest(&self, lesson_id: &Ustr) -> Option<LessonManifest> {
         self.lesson_map.get(lesson_id).cloned()
     }
 
-    fn get_exercise_manifest(&self, exercise_id: &str) -> Option<ExerciseManifest> {
+    fn get_exercise_manifest(&self, exercise_id: &Ustr) -> Option<ExerciseManifest> {
         self.exercise_map.get(exercise_id).cloned()
     }
 
-    fn get_course_ids(&self) -> Vec<String> {
-        let mut courses = self.course_map.keys().cloned().collect::<Vec<String>>();
+    fn get_course_ids(&self) -> Vec<Ustr> {
+        let mut courses = self.course_map.keys().cloned().collect::<Vec<Ustr>>();
         courses.sort();
         courses
     }
 
-    fn get_lesson_ids(&self, course_id: &str) -> Result<Vec<String>> {
+    fn get_lesson_ids(&self, course_id: &Ustr) -> Result<Vec<Ustr>> {
         let course_uid = self.get_uid(course_id)?;
         let mut lessons = self
             .unit_graph
@@ -332,12 +325,12 @@ impl CourseLibrary for LocalCourseLibrary {
             .unwrap_or_default()
             .into_iter()
             .map(|uid| self.get_id(uid))
-            .collect::<Result<Vec<String>>>()?;
+            .collect::<Result<Vec<Ustr>>>()?;
         lessons.sort();
         Ok(lessons)
     }
 
-    fn get_exercise_ids(&self, lesson_id: &str) -> Result<Vec<String>> {
+    fn get_exercise_ids(&self, lesson_id: &Ustr) -> Result<Vec<Ustr>> {
         let lesson_uid = self.get_uid(lesson_id)?;
         let mut exercises = self
             .unit_graph
@@ -346,7 +339,7 @@ impl CourseLibrary for LocalCourseLibrary {
             .unwrap_or_default()
             .into_iter()
             .map(|uid| self.get_id(uid))
-            .collect::<Result<Vec<String>>>()?;
+            .collect::<Result<Vec<Ustr>>>()?;
         exercises.sort();
         Ok(exercises)
     }

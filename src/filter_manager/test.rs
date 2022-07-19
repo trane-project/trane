@@ -2,6 +2,7 @@ use std::path::Path;
 
 use anyhow::{Ok, Result};
 use tempfile::TempDir;
+use ustr::Ustr;
 
 use crate::{
     data::filter::{FilterOp, FilterType, KeyValueFilter, MetadataFilter, NamedFilter, UnitFilter},
@@ -17,7 +18,7 @@ fn test_filters() -> Vec<NamedFilter> {
             id: "filter1".to_string(),
             description: "Filter 1".to_string(),
             filter: UnitFilter::CourseFilter {
-                course_ids: vec!["course1".to_string()],
+                course_ids: vec![Ustr::from("course1")],
             },
         },
         NamedFilter {

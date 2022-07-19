@@ -6,6 +6,7 @@ use std::{collections::BTreeMap, path::Path};
 use anyhow::Result;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
+use ustr::Ustr;
 
 /// Score used by students to evaluate their mastery of a particular exercise after a trial. More
 /// detailed descriptions of the levels are provided using the example of an exercise that requires
@@ -180,14 +181,14 @@ impl VerifyPaths for BasicAsset {
 pub struct CourseManifest {
     /// The ID assigned to this course.
     /// For example, "music::instrument::guitar::basic_jazz_chords".
-    pub id: String,
+    pub id: Ustr,
 
     /// The name of the course to be presented to the user.
     /// For example, "Basic Jazz Chords on Guitar".
     pub name: String,
 
     /// The IDs of all dependencies of this course.
-    pub dependencies: Vec<String>,
+    pub dependencies: Vec<Ustr>,
 
     /// An optional description of the course.
     #[builder(default)]
@@ -249,13 +250,13 @@ impl GetUnitType for CourseManifest {
 pub struct LessonManifest {
     /// The ID assigned to this lesson. For example,
     /// "music::instrument::guitar::basic_jazz_chords::major_chords".
-    pub id: String,
+    pub id: Ustr,
 
     /// The IDs of all dependencies of this lesson.
-    pub dependencies: Vec<String>,
+    pub dependencies: Vec<Ustr>,
 
     /// The ID of the course to which the lesson belongs.
-    pub course_id: String,
+    pub course_id: Ustr,
 
     /// The name of the lesson to be presented to the user. For example, "Basic Jazz Major Chords".
     pub name: String,
@@ -406,13 +407,13 @@ impl VerifyPaths for ExerciseAsset {
 pub struct ExerciseManifest {
     /// The ID assigned to this exercise. For example,
     /// "music::instrument::guitar::basic_jazz_chords::major_chords::ex_1".
-    pub id: String,
+    pub id: Ustr,
 
     /// The ID of the lesson to which this exercise belongs.
-    pub lesson_id: String,
+    pub lesson_id: Ustr,
 
     /// The ID of the course to which this exercise belongs.
-    pub course_id: String,
+    pub course_id: Ustr,
 
     /// The name of the lesson to be presented to the user.
     /// For example, "Exercise 1".

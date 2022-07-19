@@ -5,6 +5,7 @@ mod tests;
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
+use ustr::Ustr;
 
 use crate::data::GetMetadata;
 
@@ -115,13 +116,13 @@ pub enum UnitFilter {
     /// A filter to show exercises belonging to the given courses.
     CourseFilter {
         /// The IDs of the courses to filter.
-        course_ids: Vec<String>,
+        course_ids: Vec<Ustr>,
     },
 
     /// A filter to show exercises belonging to the given lessons.
     LessonFilter {
         /// The IDs of the lessons to filter.
-        lesson_ids: Vec<String>,
+        lesson_ids: Vec<Ustr>,
     },
 
     /// A filter on the metadata of a course or lesson.
@@ -133,17 +134,17 @@ pub enum UnitFilter {
 
 impl UnitFilter {
     /// Applies the course filter to the course with the given ID.
-    pub fn apply_course_id(&self, course_id: &str) -> bool {
+    pub fn apply_course_id(&self, course_id: &Ustr) -> bool {
         match self {
-            UnitFilter::CourseFilter { course_ids } => course_ids.contains(&course_id.to_string()),
+            UnitFilter::CourseFilter { course_ids } => course_ids.contains(course_id),
             _ => false,
         }
     }
 
     /// Applies the lesson filter to the lesson with the given ID.
-    pub fn apply_lesson_id(&self, lesson_id: &str) -> bool {
+    pub fn apply_lesson_id(&self, lesson_id: &Ustr) -> bool {
         match self {
-            UnitFilter::LessonFilter { lesson_ids } => lesson_ids.contains(&lesson_id.to_string()),
+            UnitFilter::LessonFilter { lesson_ids } => lesson_ids.contains(lesson_id),
             _ => false,
         }
     }
