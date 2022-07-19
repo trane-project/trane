@@ -1,7 +1,8 @@
 //! Module defining a cache of previously computed exercises scores and utilities to compute the
 //! scores of lessons and courses.
 use anyhow::{anyhow, Result};
-use std::{cell::RefCell, collections::HashMap};
+use parking_lot::RwLock;
+use std::collections::HashMap;
 
 use crate::{
     data::{SchedulerOptions, UnitType},
@@ -13,42 +14,42 @@ use crate::{
 /// lesson or course.
 pub(super) struct ScoreCache {
     /// A mapping of exercise uid to cached score.
-    cache: RefCell<HashMap<u64, f32>>,
+    cache: RwLock<HashMap<u64, f32>>,
 
     /// The data used schedule exercises.
     data: SchedulerData,
 
     /// The options used to schedule exercises.
-    options: RefCell<SchedulerOptions>,
+    options: RwLock<SchedulerOptions>,
 
     /// The scorer used to score the exercises found during the search.
-    scorer: Box<dyn ExerciseScorer>,
+    scorer: Box<dyn ExerciseScorer + Send + Sync>,
 }
 
 impl ScoreCache {
     /// Constructs a new score cache.
     pub(super) fn new(data: SchedulerData, options: SchedulerOptions) -> Self {
         Self {
-            cache: RefCell::new(HashMap::new()),
+            cache: RwLock::new(HashMap::new()),
             data,
-            options: RefCell::new(options),
+            options: RwLock::new(options),
             scorer: Box::new(SimpleScorer {}),
         }
     }
 
     /// Removes the cached score for the given exercise.
     pub(super) fn invalidate_cached_score(&self, exercise_uid: u64) {
-        self.cache.borrow_mut().remove(&exercise_uid);
+        self.cache.write().remove(&exercise_uid);
     }
 
     /// Returns the score for the given exercise.
     pub(super) fn get_exercise_score(&self, exercise_uid: u64) -> Result<f32> {
-        let cached_score = self.cache.borrow_mut().get(&exercise_uid).cloned();
+        let cached_score = self.cache.read().get(&exercise_uid).cloned();
         if let Some(score) = cached_score {
             return Ok(score);
         }
 
-        let unit_type = self.data.unit_graph.borrow().get_unit_type(exercise_uid);
+        let unit_type = self.data.unit_graph.read().get_unit_type(exercise_uid);
         match unit_type {
             Some(UnitType::Exercise) => (),
             _ => {
@@ -63,26 +64,22 @@ impl ScoreCache {
         let scores = self
             .data
             .practice_stats
-            .borrow()
-            .get_scores(&exercise_id, self.options.borrow().num_scores)?;
+            .read()
+            .get_scores(&exercise_id, self.options.read().num_scores)?;
         let score = self.scorer.score(scores);
-        self.cache.borrow_mut().insert(exercise_uid, score);
+        self.cache.write().insert(exercise_uid, score);
         Ok(score)
     }
 
     /// Returns the average score of all the exercises in the given lesson.
     fn get_lesson_score(&self, lesson_uid: u64) -> Result<Option<f32>> {
         let lesson_id = self.data.get_id(lesson_uid)?;
-        let blacklisted = self.data.blacklist.borrow().blacklisted(&lesson_id);
+        let blacklisted = self.data.blacklist.read().blacklisted(&lesson_id);
         if blacklisted.unwrap_or(false) {
             return Ok(None);
         }
 
-        let exercises = self
-            .data
-            .unit_graph
-            .borrow()
-            .get_lesson_exercises(lesson_uid);
+        let exercises = self.data.unit_graph.read().get_lesson_exercises(lesson_uid);
         match exercises {
             None => Ok(None),
             Some(uids) => {
@@ -90,7 +87,7 @@ impl ScoreCache {
                     .into_iter()
                     .filter(|exercise_uid| {
                         let exercise_id = self.data.get_id(*exercise_uid).unwrap_or_default();
-                        let blacklisted = self.data.blacklist.borrow().blacklisted(&exercise_id);
+                        let blacklisted = self.data.blacklist.read().blacklisted(&exercise_id);
                         !blacklisted.unwrap_or(false)
                     })
                     .collect::<Vec<u64>>();
@@ -113,12 +110,12 @@ impl ScoreCache {
     /// Returns the average score of all the exercises in the given course.
     fn get_course_score(&self, course_uid: u64) -> Result<Option<f32>> {
         let course_id = self.data.get_id(course_uid)?;
-        let blacklisted = self.data.blacklist.borrow().blacklisted(&course_id);
+        let blacklisted = self.data.blacklist.read().blacklisted(&course_id);
         if blacklisted.unwrap_or(false) {
             return Ok(None);
         }
 
-        let lessons = self.data.unit_graph.borrow().get_course_lessons(course_uid);
+        let lessons = self.data.unit_graph.read().get_course_lessons(course_uid);
         match lessons {
             None => Ok(None),
             Some(uids) => {
@@ -151,7 +148,7 @@ impl ScoreCache {
         let unit_type = self
             .data
             .unit_graph
-            .borrow()
+            .read()
             .get_unit_type(unit_uid)
             .ok_or_else(|| anyhow!("missing unit type for unit with UID {}", unit_uid))?;
         match unit_type {

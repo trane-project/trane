@@ -3,6 +3,8 @@
 mod test;
 
 use anyhow::{Context, Result};
+use r2d2::Pool;
+use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{params, Connection};
 use rusqlite_migration::{Migrations, M};
 
@@ -28,7 +30,7 @@ pub trait PracticeStats {
 /// An implementation of PracticeStats backed by SQLite.
 pub(crate) struct PracticeStatsDB {
     /// A SQLite connection to the database storing the records.
-    connection: Connection,
+    pool: Pool<SqliteConnectionManager>,
 }
 
 impl PracticeStatsDB {
@@ -64,40 +66,37 @@ impl PracticeStatsDB {
     /// Initializes the database by running the migrations. If the migrations have been applied
     /// already, they will have no effect on the database.
     fn init(&mut self) -> Result<()> {
+        let mut connection = self.pool.get()?;
         let migrations = Self::migrations();
         migrations
-            .to_latest(&mut self.connection)
-            .with_context(|| "failed to initialize practice stats DB")?;
-        self.connection
-            .pragma_update(None, "temp_store", &"2")
-            .with_context(|| "failed to set temp store mode to memory")?;
-        self.connection
-            .pragma_update(None, "journal_mode", &"WAL")
-            .with_context(|| "failed to set journal mode to WAL")?;
-        self.connection
-            .pragma_update(None, "synchronous", &"NORMAL")
-            .with_context(|| "failed to set synchronous mode to NORMAL")
+            .to_latest(&mut connection)
+            .with_context(|| "failed to initialize practice stats DB")
     }
 
     /// A constructor taking a SQLite connection.
-    fn new(connection: Connection) -> Result<PracticeStatsDB> {
-        let mut stats = PracticeStatsDB { connection };
+    fn new(connection_manager: SqliteConnectionManager) -> Result<PracticeStatsDB> {
+        let pool = Pool::new(connection_manager)?;
+        let mut stats = PracticeStatsDB { pool };
         stats.init()?;
         Ok(stats)
     }
 
     /// A constructor taking the path to the database file.
     pub fn new_from_disk(db_path: &str) -> Result<PracticeStatsDB> {
-        let connection = Connection::open(db_path)
-            .with_context(|| format!("cannot open practice stats DB at path {}", db_path))?;
-        Self::new(connection)
+        let connection_manager = SqliteConnectionManager::file(db_path).with_init(
+            |connection: &mut Connection| -> Result<(), rusqlite::Error> {
+                connection.pragma_update(None, "journal_mode", &"WAL")?;
+                connection.pragma_update(None, "synchronous", &"NORMAL")
+            },
+        );
+        Self::new(connection_manager)
     }
 }
 
 impl PracticeStats for PracticeStatsDB {
     fn get_scores(&self, exercise_id: &str, num_scores: usize) -> Result<Vec<ExerciseTrial>> {
-        let mut stmt = self
-            .connection
+        let connection = self.pool.get()?;
+        let mut stmt = connection
             .prepare_cached(
                 "SELECT score, timestamp from practice_stats WHERE unit_uid = (
                     SELECT unit_uid FROM uids WHERE unit_id = ?1)
@@ -127,10 +126,10 @@ impl PracticeStats for PracticeStatsDB {
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<()> {
+        let connection = self.pool.get()?;
         // Add the exercise to the table of uids if not there already.
-        let mut uid_stmt = self
-            .connection
-            .prepare_cached("INSERT OR IGNORE INTO uids(unit_id) VALUES (?1);")?;
+        let mut uid_stmt =
+            connection.prepare_cached("INSERT OR IGNORE INTO uids(unit_id) VALUES (?1);")?;
         uid_stmt.execute(params![exercise_id]).with_context(|| {
             format!(
                 "cannot add {} to uids table in practice stats DB",
@@ -138,7 +137,7 @@ impl PracticeStats for PracticeStatsDB {
             )
         })?;
 
-        let mut stmt = self.connection.prepare_cached(
+        let mut stmt = connection.prepare_cached(
             "INSERT INTO practice_stats (unit_uid, score, timestamp) VALUES (
                 (SELECT unit_uid FROM uids WHERE unit_id = ?1), ?2, ?3);",
         )?;

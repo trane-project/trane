@@ -1,12 +1,12 @@
 use anyhow::{Ok, Result};
-use rusqlite::Connection;
+use r2d2_sqlite::SqliteConnectionManager;
 
 use super::{PracticeStats, PracticeStatsDB};
 use crate::data::{ExerciseTrial, MasteryScore};
 
 fn new_tests_stats() -> Result<Box<dyn PracticeStats>> {
-    let connection = Connection::open_in_memory()?;
-    let practice_stats = PracticeStatsDB::new(connection)?;
+    let connection_manager = SqliteConnectionManager::memory();
+    let practice_stats = PracticeStatsDB::new(connection_manager)?;
     Ok(Box::new(practice_stats))
 }
 

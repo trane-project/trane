@@ -88,7 +88,7 @@ impl DepthFirstScheduler {
     fn get_all_starting_courses(&self) -> HashSet<u64> {
         // Replace any missing courses with their dependents and repeat this process until there are
         // no missing courses.
-        let mut starting_courses = self.data.unit_graph.borrow().get_dependency_sinks();
+        let mut starting_courses = self.data.unit_graph.read().get_dependency_sinks();
         loop {
             let mut new_starting_courses = HashSet::new();
             for course_uid in &starting_courses {
@@ -110,7 +110,7 @@ impl DepthFirstScheduler {
             .filter(|course_uid| {
                 self.data
                     .unit_graph
-                    .borrow()
+                    .read()
                     .get_dependencies(*course_uid)
                     .unwrap_or_default()
                     .iter()
@@ -129,7 +129,7 @@ impl DepthFirstScheduler {
         Ok(self
             .data
             .unit_graph
-            .borrow()
+            .read()
             .get_course_starting_lessons(course_uid)
             .unwrap_or_default()
             .into_iter()
@@ -178,8 +178,8 @@ impl DepthFirstScheduler {
         let exercise_scores = self.get_exercise_scores(&exercises)?;
         let candidates = exercises
             .into_iter()
-            .filter(|uid| !self.data.blacklisted_uid(*uid).unwrap_or(false))
             .zip(exercise_scores.iter())
+            .filter(|(uid, _)| !self.data.blacklisted_uid(*uid).unwrap_or(false))
             .map(|(uid, score)| Candidate {
                 exercise_uid: uid,
                 num_hops: item.num_hops + 1,
@@ -253,14 +253,13 @@ impl DepthFirstScheduler {
 
         self.data
             .unit_graph
-            .borrow()
+            .read()
             .get_dependencies(unit_uid)
             .unwrap_or_default()
             .into_iter()
             .filter(|dependency_uid| {
                 // Ignore the implicit dependency between a lesson and its course.
-                if let Some(course_uid) = self.data.unit_graph.borrow().get_lesson_course(unit_uid)
-                {
+                if let Some(course_uid) = self.data.unit_graph.read().get_lesson_course(unit_uid) {
                     if course_uid == *dependency_uid {
                         return false;
                     }
@@ -540,7 +539,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
         let exercise_uid = self.data.get_uid(exercise_id)?;
         self.data
             .practice_stats
-            .borrow_mut()
+            .write()
             .record_exercise_score(exercise_id, score, timestamp)?;
         self.score_cache.invalidate_cached_score(exercise_uid);
         Ok(())
