@@ -27,18 +27,18 @@ pub mod practice_stats;
 pub mod scheduler;
 pub mod scorer;
 
-use std::{fs::create_dir, path::Path, sync::Arc};
-
 use anyhow::{anyhow, Context, Result};
+use parking_lot::RwLock;
+use std::{fs::create_dir, path::Path, sync::Arc};
+use ustr::Ustr;
+
 use blacklist::{BlackListDB, Blacklist};
 use course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary};
 use data::{filter::*, *};
 use filter_manager::{FilterManager, LocalFilterManager};
 use graph::{DebugUnitGraph, UnitGraph};
-use parking_lot::RwLock;
 use practice_stats::{PracticeStats, PracticeStatsDB};
 use scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseScheduler};
-use ustr::Ustr;
 
 /// The path to the folder inside each course library containing the user data.
 const TRANE_CONFIG_DIR_PATH: &str = ".trane";
@@ -134,6 +134,7 @@ impl Trane {
         let filter_manager = Arc::new(RwLock::new(LocalFilterManager::new(
             config_path.join(FILTERS_DIR).to_str().unwrap(),
         )?));
+
         let scheduler_data = SchedulerData {
             options: SchedulerOptions::default(),
             course_library: course_library.clone(),

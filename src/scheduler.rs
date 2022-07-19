@@ -15,6 +15,7 @@ use crate::{
         ExerciseManifest, MasteryScore, SchedulerOptions, UnitType,
     },
     graph::UnitGraph,
+    practice_stats::PracticeStats,
     scheduler::{cache::ScoreCache, data::SchedulerData, filter::CandidateFilter},
 };
 

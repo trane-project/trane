@@ -37,13 +37,13 @@ pub trait CourseLibrary {
 pub(crate) trait GetUnitGraph {
     /// Returns a reference to the unit graph describing the dependencies among the courses and
     /// lessons in this library.
-    fn get_unit_graph(&self) -> Arc<RwLock<dyn UnitGraph + Send + Sync>>;
+    fn get_unit_graph(&self) -> Arc<RwLock<InMemoryUnitGraph>>;
 }
 
 /// An implementation of CourseLibrary backed by the local filesystem.
 pub(crate) struct LocalCourseLibrary {
     /// A dependency graph of the course and lessons in the library.
-    unit_graph: Arc<RwLock<dyn UnitGraph + Send + Sync>>,
+    unit_graph: Arc<RwLock<InMemoryUnitGraph>>,
 
     /// A map of course ID to the path of its manifest.
     course_map: UstrMap<CourseManifest>,
@@ -346,7 +346,7 @@ impl CourseLibrary for LocalCourseLibrary {
 }
 
 impl GetUnitGraph for LocalCourseLibrary {
-    fn get_unit_graph(&self) -> Arc<RwLock<dyn UnitGraph + Send + Sync>> {
+    fn get_unit_graph(&self) -> Arc<RwLock<InMemoryUnitGraph>> {
         self.unit_graph.clone()
     }
 }

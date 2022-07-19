@@ -5,14 +5,14 @@ use std::{collections::HashSet, sync::Arc};
 use ustr::Ustr;
 
 use crate::{
-    blacklist::Blacklist,
-    course_library::CourseLibrary,
+    blacklist::{BlackListDB, Blacklist},
+    course_library::{CourseLibrary, LocalCourseLibrary},
     data::{
         filter::{FilterOp, MetadataFilter},
         CourseManifest, ExerciseManifest, LessonManifest, SchedulerOptions, UnitType,
     },
-    graph::UnitGraph,
-    practice_stats::PracticeStats,
+    graph::{InMemoryUnitGraph, UnitGraph},
+    practice_stats::PracticeStatsDB,
 };
 
 /// A struct encapsulating all the state needed to schedule exercises.
@@ -22,16 +22,16 @@ pub(crate) struct SchedulerData {
     pub options: SchedulerOptions,
 
     /// The course library storing manifests and info about units.
-    pub course_library: Arc<RwLock<dyn CourseLibrary + Send + Sync>>,
+    pub course_library: Arc<RwLock<LocalCourseLibrary>>,
 
     /// The dependency graph of courses and lessons.
-    pub unit_graph: Arc<RwLock<dyn UnitGraph + Send + Sync>>,
+    pub unit_graph: Arc<RwLock<InMemoryUnitGraph>>,
 
     /// The list of previous exercise results.
-    pub practice_stats: Arc<RwLock<dyn PracticeStats + Send + Sync>>,
+    pub practice_stats: Arc<RwLock<PracticeStatsDB>>,
 
     /// The list of units to skip during scheduling.
-    pub blacklist: Arc<RwLock<dyn Blacklist + Send + Sync>>,
+    pub blacklist: Arc<RwLock<BlackListDB>>,
 }
 
 impl SchedulerData {

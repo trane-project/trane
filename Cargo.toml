@@ -14,6 +14,7 @@ name = "trane"
 anyhow = "1.0.58"
 chrono = "0.4.19"
 derive_builder = "0.11.2"
+downcast-rs = "1.2.0"
 parking_lot = { version = "0.12.1", features = ["hardware-lock-elision"] }
 r2d2 = "0.8.10"
 r2d2_sqlite = "0.20.0"
