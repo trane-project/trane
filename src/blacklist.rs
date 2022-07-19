@@ -2,10 +2,10 @@
 #[cfg(test)]
 mod test;
 
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::HashMap;
 
 use anyhow::{anyhow, Context, Result};
-use parking_lot::Mutex;
+use parking_lot::RwLock;
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{params, Connection};
@@ -29,7 +29,7 @@ pub trait Blacklist {
 
 /// An implementation of BlackList backed by SQLite.
 pub(crate) struct BlackListDB {
-    cache: Mutex<HashMap<String, bool>>,
+    cache: RwLock<HashMap<String, bool>>,
     pool: Pool<SqliteConnectionManager>,
 }
 
@@ -40,7 +40,7 @@ impl BlackListDB {
             M::up("CREATE TABLE blacklist(unit_id TEXT NOT NULL UNIQUE);")
                 .down("DROP TABLE blacklist"),
             M::up("CREATE INDEX unit_id_index ON blacklist (unit_id);")
-                .down("DROP INDEX unit_scores"),
+                .down("DROP INDEX unit_id_index"),
         ])
     }
 
@@ -58,7 +58,7 @@ impl BlackListDB {
     fn new(connection_manager: SqliteConnectionManager) -> Result<BlackListDB> {
         let pool = Pool::new(connection_manager)?;
         let mut blacklist = BlackListDB {
-            cache: Mutex::new(HashMap::new()),
+            cache: RwLock::new(HashMap::new()),
             pool,
         };
         blacklist.init()?;
@@ -78,8 +78,8 @@ impl BlackListDB {
 
     /// Returns whether there's an entry for the given unit in the blacklist.
     fn has_entry(&self, unit_id: &str) -> Result<bool> {
-        if let Entry::Occupied(o) = self.cache.lock().entry(unit_id.to_string()) {
-            return Ok(*o.get());
+        if let Some(has_entry) = self.cache.read().get(&unit_id.to_string()) {
+            return Ok(*has_entry);
         }
 
         let connection = self.pool.get()?;
@@ -98,11 +98,11 @@ impl BlackListDB {
 
         match next.unwrap() {
             None => {
-                self.cache.lock().insert(unit_id.to_string(), false);
+                self.cache.write().insert(unit_id.to_string(), false);
                 Ok(false)
             }
             Some(_) => {
-                self.cache.lock().insert(unit_id.to_string(), true);
+                self.cache.write().insert(unit_id.to_string(), true);
                 Ok(true)
             }
         }
@@ -122,7 +122,7 @@ impl Blacklist for BlackListDB {
             .with_context(|| "cannot prepare statement to insert into blacklist DB")?;
         stmt.execute(params![unit_id])
             .with_context(|| format!("cannot insert unit {} into blacklist DB", unit_id))?;
-        self.cache.lock().insert(unit_id.to_string(), true);
+        self.cache.write().insert(unit_id.to_string(), true);
         Ok(())
     }
 
@@ -133,7 +133,7 @@ impl Blacklist for BlackListDB {
             .with_context(|| "cannot prepare statement to delete from blacklist DB")?;
         stmt.execute(params![unit_id])
             .with_context(|| format!("cannot remove unit {} from blacklist DB", unit_id))?;
-        self.cache.lock().insert(unit_id.to_string(), false);
+        self.cache.write().insert(unit_id.to_string(), false);
         Ok(())
     }
 
