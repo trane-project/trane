@@ -82,36 +82,11 @@ impl BlackListDB {
     fn has_entry(&self, unit_id: &Ustr) -> Result<bool> {
         let mut cache = self.cache.write();
         if let Some(has_entry) = cache.get(unit_id) {
-            return Ok(*has_entry);
+            Ok(*has_entry)
         } else {
             cache.insert(*unit_id, false);
-            return Ok(false);
+            Ok(false)
         }
-
-        // let connection = self.pool.get()?;
-        // let mut stmt = connection
-        //     .prepare_cached("SELECT * from blacklist WHERE unit_id = ?1;")
-        //     .with_context(|| "cannot prepare statement to query blacklist DB")?;
-
-        // let mut rows = stmt.query(params![unit_id])?;
-        // let next = rows.next();
-        // if next.is_err() {
-        //     return Err(anyhow!(
-        //         "error looking for unit {} in the blacklist",
-        //         unit_id
-        //     ));
-        // }
-
-        // match next.unwrap() {
-        //     None => {
-        //         self.cache.write().insert(unit_id.to_string(), false);
-        //         Ok(false)
-        //     }
-        //     Some(_) => {
-        //         self.cache.write().insert(unit_id.to_string(), true);
-        //         Ok(true)
-        //     }
-        // }
     }
 }
 

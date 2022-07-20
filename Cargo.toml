@@ -14,7 +14,6 @@ name = "trane"
 anyhow = "1.0.58"
 chrono = "0.4.19"
 derive_builder = "0.11.2"
-downcast-rs = "1.2.0"
 parking_lot = { version = "0.12.1", features = ["hardware-lock-elision"] }
 r2d2 = "0.8.10"
 r2d2_sqlite = "0.20.0"
@@ -23,7 +22,7 @@ rusqlite = { version = "0.27.0", features = ["bundled"] }
 rusqlite_migration = "1.0.0"
 tempfile = "3.3.0"
 walkdir = "2.3.2"
-serde = { version = "1.0.137", features = ["derive"] }
+serde = { version = "1.0.139", features = ["derive"] }
 serde_json = "1.0.82"
 strum = { version = "0.24.1", features = ["derive"] }
 ustr = { version = "0.8.1", features = ["serialization"] }

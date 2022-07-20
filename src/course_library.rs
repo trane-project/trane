@@ -103,7 +103,7 @@ impl LocalCourseLibrary {
             .write()
             .add_exercise(&exercise_manifest.id, &exercise_manifest.lesson_id)?;
         self.exercise_map
-            .insert(exercise_manifest.id.clone(), exercise_manifest);
+            .insert(exercise_manifest.id, exercise_manifest);
         Ok(())
     }
 
@@ -161,7 +161,7 @@ impl LocalCourseLibrary {
         )?;
 
         self.lesson_map
-            .insert(lesson_manifest.id.clone(), lesson_manifest);
+            .insert(lesson_manifest.id, lesson_manifest);
         Ok(())
     }
 
@@ -227,7 +227,7 @@ impl LocalCourseLibrary {
                     let mut lesson_manifest: LessonManifest = Self::open_manifest(path)?;
                     lesson_manifest = lesson_manifest
                         .normalize_paths(lesson_dir_entry.path().parent().unwrap())?;
-                    let lesson_id = lesson_manifest.id.clone();
+                    let lesson_id = lesson_manifest.id;
                     self.process_lesson_manifest(
                         &lesson_dir_entry,
                         &course_manifest,
@@ -248,9 +248,9 @@ impl LocalCourseLibrary {
             &course_manifest.dependencies,
         )?;
 
-        let course_id = course_manifest.id.clone();
+        let course_id = course_manifest.id;
         self.course_map
-            .insert(course_manifest.id.clone(), course_manifest);
+            .insert(course_manifest.id, course_manifest);
         self.add_implicit_dependencies(course_id, lesson_uids)?;
 
         Ok(())
