@@ -1,7 +1,6 @@
 use anyhow::Result;
 use rand::{prelude::SliceRandom, thread_rng};
-use std::collections::HashSet;
-use ustr::Ustr;
+use ustr::{Ustr, UstrSet};
 
 use crate::{
     data::{ExerciseManifest, MasteryWindowOpts},
@@ -52,10 +51,10 @@ impl CandidateFilter {
             })?
             .cloned()
             .collect();
-        let selected_uids: HashSet<u64> = selected.iter().map(|c| c.exercise_uid).collect();
+        let selected_ids: UstrSet = selected.iter().map(|c| c.exercise_id).collect();
         let remainder = candidates
             .iter()
-            .filter(|c| !selected_uids.contains(&c.exercise_uid))
+            .filter(|c| !selected_ids.contains(&c.exercise_id))
             .cloned()
             .collect();
         Ok((selected, remainder))
@@ -85,9 +84,8 @@ impl CandidateFilter {
         let mut exercises = candidates
             .into_iter()
             .map(|c| -> Result<(Ustr, ExerciseManifest)> {
-                let id = self.data.get_id(c.exercise_uid)?;
-                let manifest = self.data.get_exercise_manifest(c.exercise_uid)?;
-                Ok((id, manifest))
+                let manifest = self.data.get_exercise_manifest(&c.exercise_id)?;
+                Ok((c.exercise_id, manifest))
             })
             .collect::<Result<Vec<(Ustr, ExerciseManifest)>>>()?;
         exercises.shuffle(&mut thread_rng());

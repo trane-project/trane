@@ -254,15 +254,7 @@ impl ExerciseScheduler for Trane {
 }
 
 impl DebugUnitGraph for Trane {
-    fn get_uid(&self, unit_id: &Ustr) -> Option<u64> {
-        self.unit_graph.read().get_uid(unit_id)
-    }
-
-    fn get_id(&self, unit_uid: u64) -> Option<Ustr> {
-        self.unit_graph.read().get_id(unit_uid)
-    }
-
-    fn get_unit_type(&self, unit_uid: u64) -> Option<UnitType> {
-        self.unit_graph.read().get_unit_type(unit_uid)
+    fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType> {
+        self.unit_graph.read().get_unit_type(unit_id)
     }
 }

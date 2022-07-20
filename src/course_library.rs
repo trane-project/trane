@@ -1,11 +1,11 @@
 //! Module containing utilities to open and manipulate collecti&ons of courses and lessons stored
 //! under a directory, which are named a course library.
-use std::{collections::HashSet, fs::File, io::BufReader, path::Path, sync::Arc};
+use std::{fs::File, io::BufReader, path::Path, sync::Arc};
 
 use anyhow::{anyhow, ensure, Result};
 use parking_lot::RwLock;
 use serde::de::DeserializeOwned;
-use ustr::{Ustr, UstrMap};
+use ustr::{Ustr, UstrMap, UstrSet};
 use walkdir::{DirEntry, WalkDir};
 
 use crate::{
@@ -61,22 +61,6 @@ impl LocalCourseLibrary {
         let file = File::open(path).map_err(|_| anyhow!("cannot open manifest file {}", path))?;
         let reader = BufReader::new(file);
         serde_json::from_reader(reader).map_err(|_| anyhow!("cannot parse manifest file {}", path))
-    }
-
-    /// Helper function to retrieve the ID of a unit.
-    fn get_id(&self, unit_uid: u64) -> Result<Ustr> {
-        self.unit_graph
-            .read()
-            .get_id(unit_uid)
-            .ok_or_else(|| anyhow!("cannot find lesson ID for UID {}", unit_uid))
-    }
-
-    // Helper function to retrieve UID of a unit.
-    fn get_uid(&self, unit_id: &Ustr) -> Result<u64> {
-        self.unit_graph
-            .read()
-            .get_uid(unit_id)
-            .ok_or_else(|| anyhow!("cannot find lesson UID for ID {}", unit_id))
     }
 
     /// Processes the exercise manifest located at the given DirEntry.
@@ -167,29 +151,23 @@ impl LocalCourseLibrary {
     // Mark the first lesons in the course (those which do not depend on other lessons in the same
     // course and would be traversed first) as depending on the entire course. This is done so that
     // the scheduler can add a course's lessons in the correct order.
-    fn add_implicit_dependencies(
-        &mut self,
-        course_id: Ustr,
-        lesson_uids: HashSet<u64>,
-    ) -> Result<()> {
-        let first_lessons: Vec<Ustr> = lesson_uids
+    fn add_implicit_dependencies(&mut self, course_id: Ustr, lesson_ids: UstrSet) -> Result<()> {
+        let first_lessons: Vec<Ustr> = lesson_ids
             .iter()
-            .map(|uid| {
-                let dependencies = self.unit_graph.read().get_dependencies(*uid);
+            .filter_map(|lesson_id| {
+                let dependencies = self.unit_graph.read().get_dependencies(lesson_id);
                 match dependencies {
-                    None => Some(*uid),
+                    None => Some(*lesson_id),
                     Some(deps) => {
-                        if lesson_uids.is_disjoint(&deps) {
-                            Some(*uid)
+                        if lesson_ids.is_disjoint(&deps) {
+                            Some(*lesson_id)
                         } else {
                             None
                         }
                     }
                 }
             })
-            .filter(|uid| uid.is_some())
-            .map(|uid| self.get_id(uid.unwrap()))
-            .collect::<Result<Vec<Ustr>>>()?;
+            .collect::<Vec<Ustr>>();
 
         for lesson_id in first_lessons {
             self.unit_graph
@@ -210,7 +188,7 @@ impl LocalCourseLibrary {
         // Start a new search from the course's root. Each lesson in the course must be contained in
         // a directory that is a direct descendent of the root. Therefore, all the lesson manifests
         // will be at a depth of two from the root.
-        let mut lesson_uids = HashSet::new();
+        let mut lesson_ids = UstrSet::default();
         let course_root = dir_entry.path().parent().unwrap();
         for entry in WalkDir::new(course_root).min_depth(2).max_depth(2) {
             match entry {
@@ -233,10 +211,9 @@ impl LocalCourseLibrary {
                         lesson_manifest,
                     )?;
 
-                    // Gather all of the uids of the lessons in this course to build the implicit
+                    // Gather all of the IDs of the lessons in this course to build the implicit
                     // dependencies between the course and its lessons.
-                    let lesson_uid = self.get_uid(&lesson_id)?;
-                    lesson_uids.insert(lesson_uid);
+                    lesson_ids.insert(lesson_id);
                 }
             }
         }
@@ -249,7 +226,7 @@ impl LocalCourseLibrary {
 
         let course_id = course_manifest.id;
         self.course_map.insert(course_manifest.id, course_manifest);
-        self.add_implicit_dependencies(course_id, lesson_uids)?;
+        self.add_implicit_dependencies(course_id, lesson_ids)?;
 
         Ok(())
     }
@@ -315,29 +292,25 @@ impl CourseLibrary for LocalCourseLibrary {
     }
 
     fn get_lesson_ids(&self, course_id: &Ustr) -> Result<Vec<Ustr>> {
-        let course_uid = self.get_uid(course_id)?;
         let mut lessons = self
             .unit_graph
             .read()
-            .get_course_lessons(course_uid)
+            .get_course_lessons(course_id)
             .unwrap_or_default()
             .into_iter()
-            .map(|uid| self.get_id(uid))
-            .collect::<Result<Vec<Ustr>>>()?;
+            .collect::<Vec<Ustr>>();
         lessons.sort();
         Ok(lessons)
     }
 
     fn get_exercise_ids(&self, lesson_id: &Ustr) -> Result<Vec<Ustr>> {
-        let lesson_uid = self.get_uid(lesson_id)?;
         let mut exercises = self
             .unit_graph
             .read()
-            .get_lesson_exercises(lesson_uid)
+            .get_lesson_exercises(lesson_id)
             .unwrap_or_default()
             .into_iter()
-            .map(|uid| self.get_id(uid))
-            .collect::<Result<Vec<Ustr>>>()?;
+            .collect::<Vec<Ustr>>();
         exercises.sort();
         Ok(exercises)
     }
