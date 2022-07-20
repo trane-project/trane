@@ -1,6 +1,7 @@
 use anyhow::Result;
 use rand::{prelude::SliceRandom, thread_rng};
 use std::collections::HashSet;
+use ustr::Ustr;
 
 use crate::{
     data::{ExerciseManifest, MasteryWindowOpts},
@@ -80,15 +81,15 @@ impl CandidateFilter {
     fn candidates_to_exercises(
         &self,
         candidates: Vec<Candidate>,
-    ) -> Result<Vec<(String, ExerciseManifest)>> {
+    ) -> Result<Vec<(Ustr, ExerciseManifest)>> {
         let mut exercises = candidates
             .into_iter()
-            .map(|c| -> Result<(String, ExerciseManifest)> {
+            .map(|c| -> Result<(Ustr, ExerciseManifest)> {
                 let id = self.data.get_id(c.exercise_uid)?;
                 let manifest = self.data.get_exercise_manifest(c.exercise_uid)?;
                 Ok((id, manifest))
             })
-            .collect::<Result<Vec<(String, ExerciseManifest)>>>()?;
+            .collect::<Result<Vec<(Ustr, ExerciseManifest)>>>()?;
         exercises.shuffle(&mut thread_rng());
         Ok(exercises)
     }
@@ -98,7 +99,7 @@ impl CandidateFilter {
     pub fn filter_candidates(
         &self,
         candidates: Vec<Candidate>,
-    ) -> Result<Vec<(String, ExerciseManifest)>> {
+    ) -> Result<Vec<(Ustr, ExerciseManifest)>> {
         let options = &self.data.options;
         let batch_size_float = options.batch_size as f32;
 

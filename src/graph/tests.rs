@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use anyhow::Result;
+use ustr::Ustr;
 
 use crate::data::UnitType;
 
@@ -9,7 +10,7 @@ use super::{InMemoryUnitGraph, UnitGraph};
 #[test]
 fn get_uid_and_id_and_type() -> Result<()> {
     let mut graph = InMemoryUnitGraph::default();
-    let id = "id1".to_string();
+    let id = Ustr::from("id1");
     graph.add_dependencies(&id, UnitType::Course, &vec![])?;
     assert_eq!(graph.get_uid(&id), Some(1));
     assert_eq!(graph.get_id(1), Some(id));
@@ -20,13 +21,13 @@ fn get_uid_and_id_and_type() -> Result<()> {
 #[test]
 fn get_course_lessons_and_exercises() -> Result<()> {
     let mut graph = InMemoryUnitGraph::default();
-    let course_id = "course1".to_string();
-    let lesson1_id = "course1::lesson1".to_string();
-    let lesson2_id = "course1::lesson2".to_string();
-    let lesson1_exercise1_id = "course1::lesson1::exercise1".to_string();
-    let lesson1_exercise2_id = "course1::lesson1::exercise2".to_string();
-    let lesson2_exercise1_id = "course1::lesson2::exercise1".to_string();
-    let lesson2_exercise2_id = "course1::lesson2::exercise2".to_string();
+    let course_id = Ustr::from("course1");
+    let lesson1_id = Ustr::from("course1::lesson1");
+    let lesson2_id = Ustr::from("course1::lesson2");
+    let lesson1_exercise1_id = Ustr::from("course1::lesson1::exercise1");
+    let lesson1_exercise2_id = Ustr::from("course1::lesson1::exercise2");
+    let lesson2_exercise1_id = Ustr::from("course1::lesson2::exercise1");
+    let lesson2_exercise2_id = Ustr::from("course1::lesson2::exercise2");
     graph.add_dependencies(&course_id, UnitType::Course, &vec![])?;
 
     graph.add_lesson(&lesson1_id, &course_id)?;
@@ -70,11 +71,11 @@ fn get_course_lessons_and_exercises() -> Result<()> {
 #[test]
 fn dependencies() -> Result<()> {
     let mut graph = InMemoryUnitGraph::default();
-    let course1_id = "course1".to_string();
-    let course2_id = "course2".to_string();
-    let course3_id = "course3".to_string();
-    let course4_id = "course4".to_string();
-    let course5_id = "course5".to_string();
+    let course1_id = Ustr::from("course1");
+    let course2_id = Ustr::from("course2");
+    let course3_id = Ustr::from("course3");
+    let course4_id = Ustr::from("course4");
+    let course5_id = Ustr::from("course5");
     graph.add_dependencies(&course1_id, UnitType::Course, &vec![])?;
     graph.add_dependencies(&course2_id, UnitType::Course, &vec![course1_id.clone()])?;
     graph.add_dependencies(&course3_id, UnitType::Course, &vec![course1_id.clone()])?;
@@ -132,11 +133,11 @@ fn dependencies() -> Result<()> {
 #[test]
 fn dependencies_cycle() -> Result<()> {
     let mut graph = InMemoryUnitGraph::default();
-    let course1_id = "course1".to_string();
-    let course2_id = "course2".to_string();
-    let course3_id = "course3".to_string();
-    let course4_id = "course4".to_string();
-    let course5_id = "course5".to_string();
+    let course1_id = Ustr::from("course1");
+    let course2_id = Ustr::from("course2");
+    let course3_id = Ustr::from("course3");
+    let course4_id = Ustr::from("course4");
+    let course5_id = Ustr::from("course5");
     graph.add_dependencies(&course1_id, UnitType::Course, &vec![])?;
     graph.add_dependencies(&course2_id, UnitType::Course, &vec![course1_id.clone()])?;
     graph.add_dependencies(&course3_id, UnitType::Course, &vec![course1_id.clone()])?;

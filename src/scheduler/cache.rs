@@ -5,7 +5,10 @@ use parking_lot::RwLock;
 use std::collections::HashMap;
 
 use crate::{
+    blacklist::Blacklist,
     data::{SchedulerOptions, UnitType},
+    graph::UnitGraph,
+    practice_stats::PracticeStats,
     scheduler::SchedulerData,
     scorer::{ExerciseScorer, SimpleScorer},
 };

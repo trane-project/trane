@@ -27,15 +27,16 @@ pub mod practice_stats;
 pub mod scheduler;
 pub mod scorer;
 
-use std::{fs::create_dir, path::Path, sync::Arc};
-
 use anyhow::{anyhow, Context, Result};
+use parking_lot::RwLock;
+use std::{fs::create_dir, path::Path, sync::Arc};
+use ustr::Ustr;
+
 use blacklist::{BlackListDB, Blacklist};
 use course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary};
 use data::{filter::*, *};
 use filter_manager::{FilterManager, LocalFilterManager};
 use graph::{DebugUnitGraph, UnitGraph};
-use parking_lot::RwLock;
 use practice_stats::{PracticeStats, PracticeStatsDB};
 use scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseScheduler};
 
@@ -133,6 +134,7 @@ impl Trane {
         let filter_manager = Arc::new(RwLock::new(LocalFilterManager::new(
             config_path.join(FILTERS_DIR).to_str().unwrap(),
         )?));
+
         let scheduler_data = SchedulerData {
             options: SchedulerOptions::default(),
             course_library: course_library.clone(),
@@ -159,47 +161,47 @@ impl Trane {
 }
 
 impl Blacklist for Trane {
-    fn add_unit(&mut self, unit_id: &str) -> Result<()> {
+    fn add_unit(&mut self, unit_id: &Ustr) -> Result<()> {
         self.blacklist.write().add_unit(unit_id)
     }
 
-    fn remove_unit(&mut self, unit_id: &str) -> Result<()> {
+    fn remove_unit(&mut self, unit_id: &Ustr) -> Result<()> {
         self.blacklist.write().remove_unit(unit_id)
     }
 
-    fn blacklisted(&self, unit_id: &str) -> Result<bool> {
+    fn blacklisted(&self, unit_id: &Ustr) -> Result<bool> {
         self.blacklist.read().blacklisted(unit_id)
     }
 
-    fn all_entries(&self) -> Result<Vec<String>> {
+    fn all_entries(&self) -> Result<Vec<Ustr>> {
         self.blacklist.read().all_entries()
     }
 }
 
 impl CourseLibrary for Trane {
-    fn get_course_manifest(&self, course_id: &str) -> Option<CourseManifest> {
+    fn get_course_manifest(&self, course_id: &Ustr) -> Option<CourseManifest> {
         self.course_library.read().get_course_manifest(course_id)
     }
 
-    fn get_lesson_manifest(&self, lesson_id: &str) -> Option<LessonManifest> {
+    fn get_lesson_manifest(&self, lesson_id: &Ustr) -> Option<LessonManifest> {
         self.course_library.read().get_lesson_manifest(lesson_id)
     }
 
-    fn get_exercise_manifest(&self, exercise_id: &str) -> Option<ExerciseManifest> {
+    fn get_exercise_manifest(&self, exercise_id: &Ustr) -> Option<ExerciseManifest> {
         self.course_library
             .read()
             .get_exercise_manifest(exercise_id)
     }
 
-    fn get_course_ids(&self) -> Vec<String> {
+    fn get_course_ids(&self) -> Vec<Ustr> {
         self.course_library.read().get_course_ids()
     }
 
-    fn get_lesson_ids(&self, course_id: &str) -> Result<Vec<String>> {
+    fn get_lesson_ids(&self, course_id: &Ustr) -> Result<Vec<Ustr>> {
         self.course_library.read().get_lesson_ids(course_id)
     }
 
-    fn get_exercise_ids(&self, lesson_id: &str) -> Result<Vec<String>> {
+    fn get_exercise_ids(&self, lesson_id: &Ustr) -> Result<Vec<Ustr>> {
         self.course_library.read().get_exercise_ids(lesson_id)
     }
 }
@@ -215,7 +217,7 @@ impl FilterManager for Trane {
 }
 
 impl PracticeStats for Trane {
-    fn get_scores(&self, exercise_id: &str, num_scores: usize) -> Result<Vec<ExerciseTrial>> {
+    fn get_scores(&self, exercise_id: &Ustr, num_scores: usize) -> Result<Vec<ExerciseTrial>> {
         self.practice_stats
             .read()
             .get_scores(exercise_id, num_scores)
@@ -223,7 +225,7 @@ impl PracticeStats for Trane {
 
     fn record_exercise_score(
         &mut self,
-        exercise_id: &str,
+        exercise_id: &Ustr,
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<()> {
@@ -237,21 +239,26 @@ impl ExerciseScheduler for Trane {
     fn get_exercise_batch(
         &self,
         filter: Option<&UnitFilter>,
-    ) -> Result<Vec<(String, ExerciseManifest)>> {
+    ) -> Result<Vec<(Ustr, ExerciseManifest)>> {
         self.scheduler.get_exercise_batch(filter)
     }
 
-    fn score_exercise(&self, exercise_id: &str, score: MasteryScore, timestamp: i64) -> Result<()> {
+    fn score_exercise(
+        &self,
+        exercise_id: &Ustr,
+        score: MasteryScore,
+        timestamp: i64,
+    ) -> Result<()> {
         self.scheduler.score_exercise(exercise_id, score, timestamp)
     }
 }
 
 impl DebugUnitGraph for Trane {
-    fn get_uid(&self, unit_id: &str) -> Option<u64> {
+    fn get_uid(&self, unit_id: &Ustr) -> Option<u64> {
         self.unit_graph.read().get_uid(unit_id)
     }
 
-    fn get_id(&self, unit_uid: u64) -> Option<String> {
+    fn get_id(&self, unit_uid: u64) -> Option<Ustr> {
         self.unit_graph.read().get_id(unit_uid)
     }
 

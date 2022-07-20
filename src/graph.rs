@@ -5,6 +5,7 @@ mod tests;
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{anyhow, ensure, Result};
+use ustr::{Ustr, UstrMap};
 
 use crate::data::UnitType;
 
@@ -12,25 +13,25 @@ use crate::data::UnitType;
 /// the graph and query the outgoing or ingoing edges of a node.
 pub(crate) trait UnitGraph {
     /// Retrieves the assigned uid to the given unit_id.
-    fn get_uid(&self, unit_id: &str) -> Option<u64>;
+    fn get_uid(&self, unit_id: &Ustr) -> Option<u64>;
 
     /// Retrieves the human-readable ID of the unit with the given UID.
-    fn get_id(&self, unit_uid: u64) -> Option<String>;
+    fn get_id(&self, unit_uid: u64) -> Option<Ustr>;
 
     /// Adds a new lesson to the unit graph.
-    fn add_lesson(&mut self, lesson_id: &str, course_id: &str) -> Result<()>;
+    fn add_lesson(&mut self, lesson_id: &Ustr, course_id: &Ustr) -> Result<()>;
 
     /// Adds a new exercise to the unit graph.
-    fn add_exercise(&mut self, exercise_id: &str, lesson_id: &str) -> Result<()>;
+    fn add_exercise(&mut self, exercise_id: &Ustr, lesson_id: &Ustr) -> Result<()>;
 
     /// Takes a unit and its dependencies and updates the graph accordingly. Returns an error if
     /// unit_type is UnitType::Exercise as only courses and lessons are allowed to have
     /// dependencies.
     fn add_dependencies(
         &mut self,
-        unit_id: &str,
+        unit_id: &Ustr,
         unit_type: UnitType,
-        dependencies: &[String],
+        dependencies: &[Ustr],
     ) -> Result<()>;
 
     /// Returns the type of the given unit.
@@ -66,10 +67,10 @@ pub(crate) trait UnitGraph {
 /// Subset of the UnitGraph trait which only provides the functions necessary to debug the graph.
 pub trait DebugUnitGraph {
     /// Retrieves the assigned uid to the given unit_id.
-    fn get_uid(&self, unit_id: &str) -> Option<u64>;
+    fn get_uid(&self, unit_id: &Ustr) -> Option<u64>;
 
     /// Retrieves the human-readable ID of the unit with the given UID.
-    fn get_id(&self, unit_uid: u64) -> Option<String>;
+    fn get_id(&self, unit_uid: u64) -> Option<Ustr>;
 
     /// Returns the type of the given unit.
     fn get_unit_type(&self, unit_uid: u64) -> Option<UnitType>;
@@ -79,10 +80,10 @@ pub trait DebugUnitGraph {
 #[derive(Default)]
 pub(crate) struct InMemoryUnitGraph {
     /// The mapping of the unit's human-readable ID to its assigned u64 UID.
-    uid_map: HashMap<String, u64>,
+    uid_map: UstrMap<u64>,
 
     /// The mapping of the unit's assigned u64 UID to its human-readable String ID.
-    id_map: HashMap<u64, String>,
+    id_map: HashMap<u64, Ustr>,
 
     /// The mapping of a unit to its type.
     type_map: HashMap<u64, UnitType>,
@@ -112,21 +113,22 @@ pub(crate) struct InMemoryUnitGraph {
 impl InMemoryUnitGraph {
     /// Retrieves the assigned uid for the given unit_id. If the unit_id has no existing mapping, a
     /// new one is created and returned.
-    fn get_or_insert_uid(&mut self, unit_id: &str) -> u64 {
-        let maybe_uid = self.uid_map.get(unit_id);
+    fn get_or_insert_uid(&mut self, unit_id: &Ustr) -> u64 {
+        let ustr = Ustr::from(unit_id);
+        let maybe_uid = self.uid_map.get(&ustr);
         match maybe_uid {
             Some(uid) => *uid,
             None => {
                 self.uid_count += 1;
-                self.uid_map.insert(unit_id.to_string(), self.uid_count);
-                self.id_map.insert(self.uid_count, unit_id.to_string());
+                self.uid_map.insert(ustr, self.uid_count);
+                self.id_map.insert(self.uid_count, ustr);
                 self.uid_count
             }
         }
     }
 
     /// Updates the set of units with no dependencies.
-    fn update_dependency_sinks(&mut self, unit_uid: u64, dependencies: &[String]) {
+    fn update_dependency_sinks(&mut self, unit_uid: u64, dependencies: &[Ustr]) {
         let empty = HashSet::new();
         let current_dependencies = self.dependency_graph.get(&unit_uid).unwrap_or(&empty);
         if current_dependencies.is_empty() && dependencies.is_empty() {
@@ -156,17 +158,15 @@ impl InMemoryUnitGraph {
 }
 
 impl UnitGraph for InMemoryUnitGraph {
-    fn get_uid(&self, unit_id: &str) -> Option<u64> {
-        let uid = self.uid_map.get(&unit_id.to_string())?;
-        Some(*uid)
+    fn get_uid(&self, unit_id: &Ustr) -> Option<u64> {
+        self.uid_map.get(unit_id).cloned()
     }
 
-    fn get_id(&self, unit_uid: u64) -> Option<String> {
-        let id = self.id_map.get(&unit_uid)?;
-        Some(id.to_string())
+    fn get_id(&self, unit_uid: u64) -> Option<Ustr> {
+        self.id_map.get(&unit_uid).cloned()
     }
 
-    fn add_lesson(&mut self, lesson_id: &str, course_id: &str) -> Result<()> {
+    fn add_lesson(&mut self, lesson_id: &Ustr, course_id: &Ustr) -> Result<()> {
         let lesson_uid = self.get_or_insert_uid(lesson_id);
         self.update_unit_type(lesson_uid, UnitType::Lesson)?;
 
@@ -181,7 +181,7 @@ impl UnitGraph for InMemoryUnitGraph {
         Ok(())
     }
 
-    fn add_exercise(&mut self, exercise_id: &str, lesson_id: &str) -> Result<()> {
+    fn add_exercise(&mut self, exercise_id: &Ustr, lesson_id: &Ustr) -> Result<()> {
         let exercise_uid = self.get_or_insert_uid(exercise_id);
         self.update_unit_type(exercise_uid, UnitType::Exercise)?;
 
@@ -197,9 +197,9 @@ impl UnitGraph for InMemoryUnitGraph {
 
     fn add_dependencies(
         &mut self,
-        unit_id: &str,
+        unit_id: &Ustr,
         unit_type: UnitType,
-        dependencies: &[String],
+        dependencies: &[Ustr],
     ) -> Result<()> {
         ensure!(
             unit_type != UnitType::Exercise,
@@ -331,14 +331,13 @@ impl UnitGraph for InMemoryUnitGraph {
 }
 
 impl DebugUnitGraph for InMemoryUnitGraph {
-    fn get_uid(&self, unit_id: &str) -> Option<u64> {
-        let uid = self.uid_map.get(&unit_id.to_string())?;
+    fn get_uid(&self, unit_id: &Ustr) -> Option<u64> {
+        let uid = self.uid_map.get(unit_id)?;
         Some(*uid)
     }
 
-    fn get_id(&self, unit_uid: u64) -> Option<String> {
-        let id = self.id_map.get(&unit_uid)?;
-        Some(id.to_string())
+    fn get_id(&self, unit_uid: u64) -> Option<Ustr> {
+        self.id_map.get(&unit_uid).cloned()
     }
 
     fn get_unit_type(&self, unit_uid: u64) -> Option<UnitType> {

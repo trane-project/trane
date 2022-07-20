@@ -2,34 +2,33 @@
 #[cfg(test)]
 mod test;
 
-use std::collections::HashMap;
-
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use parking_lot::RwLock;
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{params, Connection};
 use rusqlite_migration::{Migrations, M};
+use ustr::{Ustr, UstrMap};
 
 /// An interface to store and read the list of units which should be skipped during scheduling.
 pub trait Blacklist {
     /// Adds the given unit to the list of blacklisted units.
-    fn add_unit(&mut self, unit_id: &str) -> Result<()>;
+    fn add_unit(&mut self, unit_id: &Ustr) -> Result<()>;
 
     /// Removes the given unit from the list of blacklisted units. Do nothing if the unit is not
     /// already in the list.
-    fn remove_unit(&mut self, unit_id: &str) -> Result<()>;
+    fn remove_unit(&mut self, unit_id: &Ustr) -> Result<()>;
 
     /// Returns whether the given unit should be skipped during scheduling.
-    fn blacklisted(&self, unit_id: &str) -> Result<bool>;
+    fn blacklisted(&self, unit_id: &Ustr) -> Result<bool>;
 
     /// Returns the list of blacklisted units.
-    fn all_entries(&self) -> Result<Vec<String>>;
+    fn all_entries(&self) -> Result<Vec<Ustr>>;
 }
 
 /// An implementation of BlackList backed by SQLite.
 pub(crate) struct BlackListDB {
-    cache: RwLock<HashMap<String, bool>>,
+    cache: RwLock<UstrMap<bool>>,
     pool: Pool<SqliteConnectionManager>,
 }
 
@@ -58,10 +57,13 @@ impl BlackListDB {
     fn new(connection_manager: SqliteConnectionManager) -> Result<BlackListDB> {
         let pool = Pool::new(connection_manager)?;
         let mut blacklist = BlackListDB {
-            cache: RwLock::new(HashMap::new()),
+            cache: RwLock::new(UstrMap::default()),
             pool,
         };
         blacklist.init()?;
+        for unit_id in blacklist.all_entries()? {
+            blacklist.cache.write().insert(unit_id, true);
+        }
         Ok(blacklist)
     }
 
@@ -77,40 +79,19 @@ impl BlackListDB {
     }
 
     /// Returns whether there's an entry for the given unit in the blacklist.
-    fn has_entry(&self, unit_id: &str) -> Result<bool> {
-        if let Some(has_entry) = self.cache.read().get(&unit_id.to_string()) {
-            return Ok(*has_entry);
-        }
-
-        let connection = self.pool.get()?;
-        let mut stmt = connection
-            .prepare_cached("SELECT * from blacklist WHERE unit_id = ?1;")
-            .with_context(|| "cannot prepare statement to query blacklist DB")?;
-
-        let mut rows = stmt.query(params![unit_id])?;
-        let next = rows.next();
-        if next.is_err() {
-            return Err(anyhow!(
-                "error looking for unit {} in the blacklist",
-                unit_id
-            ));
-        }
-
-        match next.unwrap() {
-            None => {
-                self.cache.write().insert(unit_id.to_string(), false);
-                Ok(false)
-            }
-            Some(_) => {
-                self.cache.write().insert(unit_id.to_string(), true);
-                Ok(true)
-            }
+    fn has_entry(&self, unit_id: &Ustr) -> Result<bool> {
+        let mut cache = self.cache.write();
+        if let Some(has_entry) = cache.get(unit_id) {
+            Ok(*has_entry)
+        } else {
+            cache.insert(*unit_id, false);
+            Ok(false)
         }
     }
 }
 
 impl Blacklist for BlackListDB {
-    fn add_unit(&mut self, unit_id: &str) -> Result<()> {
+    fn add_unit(&mut self, unit_id: &Ustr) -> Result<()> {
         let has_entry = self.has_entry(unit_id)?;
         if has_entry {
             return Ok(());
@@ -120,28 +101,28 @@ impl Blacklist for BlackListDB {
         let mut stmt = connection
             .prepare_cached("INSERT INTO blacklist (unit_id) VALUES (?1)")
             .with_context(|| "cannot prepare statement to insert into blacklist DB")?;
-        stmt.execute(params![unit_id])
+        stmt.execute(params![unit_id.as_str()])
             .with_context(|| format!("cannot insert unit {} into blacklist DB", unit_id))?;
-        self.cache.write().insert(unit_id.to_string(), true);
+        self.cache.write().insert(*unit_id, true);
         Ok(())
     }
 
-    fn remove_unit(&mut self, unit_id: &str) -> Result<()> {
+    fn remove_unit(&mut self, unit_id: &Ustr) -> Result<()> {
         let connection = self.pool.get()?;
         let mut stmt = connection
             .prepare_cached("DELETE FROM blacklist WHERE unit_id = $1")
             .with_context(|| "cannot prepare statement to delete from blacklist DB")?;
-        stmt.execute(params![unit_id])
+        stmt.execute(params![unit_id.as_str()])
             .with_context(|| format!("cannot remove unit {} from blacklist DB", unit_id))?;
-        self.cache.write().insert(unit_id.to_string(), false);
+        self.cache.write().insert(*unit_id, false);
         Ok(())
     }
 
-    fn blacklisted(&self, unit_id: &str) -> Result<bool> {
+    fn blacklisted(&self, unit_id: &Ustr) -> Result<bool> {
         self.has_entry(unit_id)
     }
 
-    fn all_entries(&self) -> Result<Vec<String>> {
+    fn all_entries(&self) -> Result<Vec<Ustr>> {
         let connection = self.pool.get()?;
         let mut stmt = connection
             .prepare_cached("SELECT unit_id from blacklist;")
@@ -149,8 +130,8 @@ impl Blacklist for BlackListDB {
         let mut rows = stmt.query(params![])?;
         let mut entries = Vec::new();
         while let Some(row) = rows.next()? {
-            let unit_id = row.get(0)?;
-            entries.push(unit_id);
+            let unit_id: String = row.get(0)?;
+            entries.push(Ustr::from(&unit_id));
         }
         Ok(entries)
     }

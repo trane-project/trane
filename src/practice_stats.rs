@@ -7,13 +7,14 @@ use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{params, Connection};
 use rusqlite_migration::{Migrations, M};
+use ustr::Ustr;
 
 use crate::data::{ExerciseTrial, MasteryScore};
 
 /// Contains functions to retrieve and record the scores from each exercise trial.
 pub trait PracticeStats {
     /// Retrieves the last num_scores scores of a particular exercese.
-    fn get_scores(&self, exercise_id: &str, num_scores: usize) -> Result<Vec<ExerciseTrial>>;
+    fn get_scores(&self, exercise_id: &Ustr, num_scores: usize) -> Result<Vec<ExerciseTrial>>;
 
     /// Records the score assigned to the exercise in a particular trial. Therefore, the score is a
     /// value of the MasteryScore enum instead of a float. Only units of type UnitType::Exercise
@@ -21,7 +22,7 @@ pub trait PracticeStats {
     /// caller.
     fn record_exercise_score(
         &mut self,
-        exercise_id: &str,
+        exercise_id: &Ustr,
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<()>;
@@ -94,7 +95,7 @@ impl PracticeStatsDB {
 }
 
 impl PracticeStats for PracticeStatsDB {
-    fn get_scores(&self, exercise_id: &str, num_scores: usize) -> Result<Vec<ExerciseTrial>> {
+    fn get_scores(&self, exercise_id: &Ustr, num_scores: usize) -> Result<Vec<ExerciseTrial>> {
         let connection = self.pool.get()?;
         let mut stmt = connection
             .prepare_cached(
@@ -105,7 +106,7 @@ impl PracticeStats for PracticeStatsDB {
             .with_context(|| "cannot prepare statement to query practice stats DB")?;
 
         let rows = stmt
-            .query_map(params![exercise_id, num_scores], |row| {
+            .query_map(params![exercise_id.as_str(), num_scores], |row| {
                 Ok(ExerciseTrial {
                     score: row.get(0)?,
                     timestamp: row.get(1)?,
@@ -122,7 +123,7 @@ impl PracticeStats for PracticeStatsDB {
 
     fn record_exercise_score(
         &mut self,
-        exercise_id: &str,
+        exercise_id: &Ustr,
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<()> {
@@ -130,24 +131,30 @@ impl PracticeStats for PracticeStatsDB {
         // Add the exercise to the table of uids if not there already.
         let mut uid_stmt =
             connection.prepare_cached("INSERT OR IGNORE INTO uids(unit_id) VALUES (?1);")?;
-        uid_stmt.execute(params![exercise_id]).with_context(|| {
-            format!(
-                "cannot add {} to uids table in practice stats DB",
-                exercise_id
-            )
-        })?;
+        uid_stmt
+            .execute(params![exercise_id.as_str()])
+            .with_context(|| {
+                format!(
+                    "cannot add {} to uids table in practice stats DB",
+                    exercise_id
+                )
+            })?;
 
         let mut stmt = connection.prepare_cached(
             "INSERT INTO practice_stats (unit_uid, score, timestamp) VALUES (
                 (SELECT unit_uid FROM uids WHERE unit_id = ?1), ?2, ?3);",
         )?;
-        stmt.execute(params![exercise_id, score.float_score(), timestamp])
-            .with_context(|| {
-                format!(
-                    "cannot record score {:?} for exercise {} to practice stats DB",
-                    score, exercise_id
-                )
-            })?;
+        stmt.execute(params![
+            exercise_id.as_str(),
+            score.float_score(),
+            timestamp
+        ])
+        .with_context(|| {
+            format!(
+                "cannot record score {:?} for exercise {} to practice stats DB",
+                score, exercise_id
+            )
+        })?;
         Ok(())
     }
 }
