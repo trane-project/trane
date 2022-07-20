@@ -160,8 +160,7 @@ impl LocalCourseLibrary {
             &lesson_manifest.dependencies,
         )?;
 
-        self.lesson_map
-            .insert(lesson_manifest.id, lesson_manifest);
+        self.lesson_map.insert(lesson_manifest.id, lesson_manifest);
         Ok(())
     }
 
@@ -249,8 +248,7 @@ impl LocalCourseLibrary {
         )?;
 
         let course_id = course_manifest.id;
-        self.course_map
-            .insert(course_manifest.id, course_manifest);
+        self.course_map.insert(course_manifest.id, course_manifest);
         self.add_implicit_dependencies(course_id, lesson_uids)?;
 
         Ok(())
