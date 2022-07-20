@@ -1,8 +1,8 @@
 //! Module containing the data used by the scheduler and functions to make it easier to use.
 use anyhow::{anyhow, Result};
 use parking_lot::RwLock;
-use std::{collections::HashSet, sync::Arc};
-use ustr::Ustr;
+use std::sync::Arc;
+use ustr::{Ustr, UstrSet};
 
 use crate::{
     blacklist::{BlackListDB, Blacklist},
@@ -35,115 +35,86 @@ pub(crate) struct SchedulerData {
 }
 
 impl SchedulerData {
-    /// Returns the UID of the lesson with the given ID.
-    pub fn get_uid(&self, unit_id: &Ustr) -> Result<u64> {
+    /// Returns the ID of the course to which the lesson with the given ID belongs.
+    pub fn get_course_id(&self, lesson_id: &Ustr) -> Result<Ustr> {
         self.unit_graph
             .read()
-            .get_uid(unit_id)
-            .ok_or_else(|| anyhow!("missing UID for unit with ID {}", unit_id))
-    }
-
-    /// Returns the ID of the lesson with the given UID.
-    pub fn get_id(&self, unit_uid: u64) -> Result<Ustr> {
-        self.unit_graph
-            .read()
-            .get_id(unit_uid)
-            .ok_or_else(|| anyhow!("missing ID for unit with UID {}", unit_uid))
-    }
-
-    /// Returns the uid of the course to which the lesson with the given UID belongs.
-    pub fn get_course_uid(&self, lesson_uid: u64) -> Result<u64> {
-        self.unit_graph
-            .read()
-            .get_lesson_course(lesson_uid)
-            .ok_or_else(|| anyhow!("missing course UID for lesson with UID {}", lesson_uid))
+            .get_lesson_course(lesson_id)
+            .ok_or_else(|| anyhow!("missing course ID for lesson with ID {}", lesson_id))
     }
 
     /// Returns the type of the given unit.
-    pub fn get_unit_type(&self, unit_uid: u64) -> Result<UnitType> {
+    pub fn get_unit_type(&self, unit_id: &Ustr) -> Result<UnitType> {
         self.unit_graph
             .read()
-            .get_unit_type(unit_uid)
-            .ok_or_else(|| anyhow!("missing unit type for unit with UID {}", unit_uid))
+            .get_unit_type(unit_id)
+            .ok_or_else(|| anyhow!("missing unit type for unit with ID {}", unit_id))
     }
 
-    /// Returns the manifest for the course with the given UID.
-    pub fn get_course_manifest(&self, course_uid: u64) -> Result<CourseManifest> {
-        let course_id = self.get_id(course_uid)?;
+    /// Returns the manifest for the course with the given ID.
+    pub fn get_course_manifest(&self, course_id: &Ustr) -> Result<CourseManifest> {
         self.course_library
             .read()
-            .get_course_manifest(&course_id)
+            .get_course_manifest(course_id)
             .ok_or_else(|| anyhow!("missing manifest for course with ID {}", course_id))
     }
 
-    /// Returns the manifest for the course with the given UID.
-    pub fn get_lesson_manifest(&self, lesson_uid: u64) -> Result<LessonManifest> {
-        let lesson_id = self.get_id(lesson_uid)?;
+    /// Returns the manifest for the course with the given ID.
+    pub fn get_lesson_manifest(&self, lesson_id: &Ustr) -> Result<LessonManifest> {
         self.course_library
             .read()
-            .get_lesson_manifest(&lesson_id)
+            .get_lesson_manifest(lesson_id)
             .ok_or_else(|| anyhow!("missing manifest for lesson with ID {}", lesson_id))
     }
 
-    /// Returns the manifest for the exercise with the given UID.
-    pub fn get_exercise_manifest(&self, exercise_uid: u64) -> Result<ExerciseManifest> {
-        let exercise_id = self.get_id(exercise_uid)?;
+    /// Returns the manifest for the exercise with the given ID.
+    pub fn get_exercise_manifest(&self, exercise_id: &Ustr) -> Result<ExerciseManifest> {
         self.course_library
             .read()
-            .get_exercise_manifest(&exercise_id)
+            .get_exercise_manifest(exercise_id)
             .ok_or_else(|| anyhow!("missing manifest for exercise with ID {}", exercise_id))
     }
 
-    /// Returns whether the unit with the given UID is blacklisted.
-    pub fn blacklisted_uid(&self, unit_uid: u64) -> Result<bool> {
-        let unit_id = self.get_id(unit_uid)?;
-        self.blacklist.read().blacklisted(&unit_id)
-    }
-
     /// Returns whether the unit with the given ID is blacklisted.
-    pub fn blacklisted_id(&self, unit_id: &Ustr) -> Result<bool> {
+    pub fn blacklisted(&self, unit_id: &Ustr) -> Result<bool> {
         self.blacklist.read().blacklisted(unit_id)
     }
 
-    /// Returns all the units that are dependencies of the unit with the given UID.
-    pub fn get_all_dependents(&self, unit_uid: u64) -> Vec<u64> {
+    /// Returns all the units that are dependencies of the unit with the given ID.
+    pub fn get_all_dependents(&self, unit_id: &Ustr) -> Vec<Ustr> {
         return self
             .unit_graph
             .read()
-            .get_dependents(unit_uid)
+            .get_dependents(unit_id)
             .unwrap_or_default()
             .into_iter()
             .collect();
     }
 
     /// Returns the value of the course_id field in the manifest of the given lesson.
-    pub fn get_lesson_course_id(&self, lesson_uid: u64) -> Result<Ustr> {
-        Ok(self.get_lesson_manifest(lesson_uid)?.course_id)
+    pub fn get_lesson_course_id(&self, lesson_id: &Ustr) -> Result<Ustr> {
+        Ok(self.get_lesson_manifest(lesson_id)?.course_id)
     }
 
     /// Returns whether the unit exists in the library. Some units will exists in the unit graph
     /// because they are a dependency of another but their data might not exist in the library.
-    pub fn unit_exists(&self, unit_uid: u64) -> Result<bool, String> {
-        let unit_id = self.unit_graph.read().get_id(unit_uid);
-        if unit_id.is_none() {
-            return Ok(false);
-        }
-        let unit_type = self.unit_graph.read().get_unit_type(unit_uid);
+    pub fn unit_exists(&self, unit_id: &Ustr) -> Result<bool, String> {
+        let unit_type = self.unit_graph.read().get_unit_type(unit_id);
         if unit_type.is_none() {
             return Ok(false);
         }
 
         let library = self.course_library.read();
         match unit_type.unwrap() {
-            UnitType::Course => match library.get_course_manifest(&unit_id.unwrap()) {
+            UnitType::Course => match library.get_course_manifest(unit_id) {
                 None => Ok(false),
                 Some(_) => Ok(true),
             },
-            UnitType::Lesson => match library.get_lesson_manifest(&unit_id.unwrap()) {
+            UnitType::Lesson => match library.get_lesson_manifest(unit_id) {
                 None => Ok(false),
                 Some(_) => Ok(true),
             },
-            UnitType::Exercise => match library.get_exercise_manifest(&unit_id.unwrap()) {
+            UnitType::Exercise => match library.get_exercise_manifest(unit_id) {
                 None => Ok(false),
                 Some(_) => Ok(true),
             },
@@ -151,21 +122,21 @@ impl SchedulerData {
     }
 
     /// Returns the exercises contained within the given unit.
-    pub fn get_lesson_exercises(&self, unit_uid: u64) -> Vec<u64> {
+    pub fn get_lesson_exercises(&self, unit_id: &Ustr) -> Vec<Ustr> {
         self.unit_graph
             .read()
-            .get_lesson_exercises(unit_uid)
+            .get_lesson_exercises(unit_id)
             .unwrap_or_default()
             .into_iter()
             .collect()
     }
 
     /// Returns the number of lessons in the given course.
-    pub fn get_num_lessons_in_course(&self, course_uid: u64) -> i64 {
-        let lessons: HashSet<u64> = self
+    pub fn get_num_lessons_in_course(&self, course_id: &Ustr) -> i64 {
+        let lessons: UstrSet = self
             .unit_graph
             .read()
-            .get_course_lessons(course_uid)
+            .get_course_lessons(course_id)
             .unwrap_or_default();
         lessons.len() as i64
     }
@@ -173,28 +144,28 @@ impl SchedulerData {
     /// Applies the metadata filter to the given unit.
     pub fn apply_metadata_filter(
         &self,
-        unit_uid: u64,
+        unit_id: &Ustr,
         metadata_filter: &MetadataFilter,
     ) -> Result<Option<bool>> {
-        let unit_type = self.get_unit_type(unit_uid)?;
+        let unit_type = self.get_unit_type(unit_id)?;
         match unit_type {
             UnitType::Course => match &metadata_filter.course_filter {
                 None => Ok(None),
                 Some(filter) => {
-                    let manifest = self.get_course_manifest(unit_uid)?;
+                    let manifest = self.get_course_manifest(unit_id)?;
                     Ok(Some(filter.apply(&manifest)))
                 }
             },
             UnitType::Lesson => match &metadata_filter.lesson_filter {
                 None => Ok(None),
                 Some(filter) => {
-                    let manifest = self.get_lesson_manifest(unit_uid)?;
+                    let manifest = self.get_lesson_manifest(unit_id)?;
                     Ok(Some(filter.apply(&manifest)))
                 }
             },
             UnitType::Exercise => Err(anyhow!(
-                "cannot apply metadata filter to exercise with UID {}",
-                unit_uid
+                "cannot apply metadata filter to exercise with ID {}",
+                unit_id
             )),
         }
     }
@@ -203,7 +174,7 @@ impl SchedulerData {
     /// lessons and course metadata filters.
     pub fn unit_passes_filter(
         &self,
-        unit_uid: u64,
+        unit_id: &Ustr,
         metadata_filter: Option<&MetadataFilter>,
     ) -> Result<bool> {
         if metadata_filter.is_none() {
@@ -211,15 +182,15 @@ impl SchedulerData {
         }
         let metadata_filter = metadata_filter.unwrap();
 
-        let unit_type = self.get_unit_type(unit_uid)?;
+        let unit_type = self.get_unit_type(unit_id)?;
         match unit_type {
             UnitType::Exercise => Err(anyhow!(
-                "cannot apply metadata filter to exercise with UID {}",
-                unit_uid
+                "cannot apply metadata filter to exercise with ID {}",
+                unit_id
             )),
             UnitType::Course => {
                 let course_passes = self
-                    .apply_metadata_filter(unit_uid, metadata_filter)
+                    .apply_metadata_filter(unit_id, metadata_filter)
                     .unwrap_or(None);
                 match (
                     metadata_filter.lesson_filter.as_ref(),
@@ -244,14 +215,12 @@ impl SchedulerData {
                 }
             }
             UnitType::Lesson => {
-                let lesson_manifest = self.get_lesson_manifest(unit_uid)?;
-                let course_uid = self.get_uid(&lesson_manifest.course_id)?;
-
+                let lesson_manifest = self.get_lesson_manifest(unit_id)?;
                 let lesson_passes = self
-                    .apply_metadata_filter(unit_uid, metadata_filter)
+                    .apply_metadata_filter(unit_id, metadata_filter)
                     .unwrap_or(None);
                 let course_passes = self
-                    .apply_metadata_filter(course_uid, metadata_filter)
+                    .apply_metadata_filter(&lesson_manifest.course_id, metadata_filter)
                     .unwrap_or(None);
 
                 match (

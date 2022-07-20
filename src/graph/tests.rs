@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use anyhow::Result;
 use ustr::Ustr;
 
@@ -8,13 +6,11 @@ use crate::data::UnitType;
 use super::{InMemoryUnitGraph, UnitGraph};
 
 #[test]
-fn get_uid_and_id_and_type() -> Result<()> {
+fn get_unit_type() -> Result<()> {
     let mut graph = InMemoryUnitGraph::default();
     let id = Ustr::from("id1");
     graph.add_dependencies(&id, UnitType::Course, &vec![])?;
-    assert_eq!(graph.get_uid(&id), Some(1));
-    assert_eq!(graph.get_id(1), Some(id));
-    assert_eq!(graph.get_unit_type(1), Some(UnitType::Course));
+    assert_eq!(graph.get_unit_type(&id), Some(UnitType::Course));
     Ok(())
 }
 
@@ -37,33 +33,20 @@ fn get_course_lessons_and_exercises() -> Result<()> {
     graph.add_exercise(&lesson2_exercise1_id, &lesson2_id)?;
     graph.add_exercise(&lesson2_exercise2_id, &lesson2_id)?;
 
-    assert_eq!(
-        graph
-            .get_course_lessons(graph.get_uid(&course_id).unwrap())
-            .unwrap(),
-        HashSet::from([
-            graph.get_uid(&lesson1_id).unwrap(),
-            graph.get_uid(&lesson2_id).unwrap(),
-        ])
-    );
-    assert_eq!(
-        graph
-            .get_lesson_exercises(graph.get_uid(&lesson1_id).unwrap())
-            .unwrap(),
-        HashSet::from([
-            graph.get_uid(&lesson1_exercise1_id).unwrap(),
-            graph.get_uid(&lesson1_exercise2_id).unwrap(),
-        ])
-    );
-    assert_eq!(
-        graph
-            .get_lesson_exercises(graph.get_uid(&lesson2_id).unwrap())
-            .unwrap(),
-        HashSet::from([
-            graph.get_uid(&lesson2_exercise1_id).unwrap(),
-            graph.get_uid(&lesson2_exercise2_id).unwrap(),
-        ])
-    );
+    let course_lessons = graph.get_course_lessons(&course_id).unwrap();
+    assert_eq!(course_lessons.len(), 2);
+    assert!(course_lessons.contains(&lesson1_id));
+    assert!(course_lessons.contains(&lesson2_id));
+
+    let lesson1_exercises = graph.get_lesson_exercises(&lesson1_id).unwrap();
+    assert_eq!(lesson1_exercises.len(), 2);
+    assert!(lesson1_exercises.contains(&lesson1_exercise1_id));
+    assert!(lesson1_exercises.contains(&lesson1_exercise2_id));
+
+    let lesson2_exercises = graph.get_lesson_exercises(&lesson2_id).unwrap();
+    assert_eq!(lesson2_exercises.len(), 2);
+    assert!(lesson2_exercises.contains(&lesson2_exercise1_id));
+    assert!(lesson2_exercises.contains(&lesson2_exercise2_id));
 
     Ok(())
 }
@@ -82,51 +65,66 @@ fn dependencies() -> Result<()> {
     graph.add_dependencies(&course4_id, UnitType::Course, &vec![course2_id.clone()])?;
     graph.add_dependencies(&course5_id, UnitType::Course, &vec![course3_id.clone()])?;
 
-    assert_eq!(
-        graph
-            .get_dependents(graph.get_uid(&course1_id).unwrap())
-            .unwrap(),
-        HashSet::from([
-            graph.get_uid(&course2_id).unwrap(),
-            graph.get_uid(&course3_id).unwrap(),
-        ])
-    );
-    assert_eq!(
-        graph
-            .get_dependencies(graph.get_uid(&course2_id).unwrap())
-            .unwrap(),
-        HashSet::from([graph.get_uid(&course1_id).unwrap()])
-    );
-    assert_eq!(
-        graph
-            .get_dependents(graph.get_uid(&course2_id).unwrap())
-            .unwrap(),
-        HashSet::from([graph.get_uid(&course4_id).unwrap()])
-    );
-    assert_eq!(
-        graph
-            .get_dependencies(graph.get_uid(&course4_id).unwrap())
-            .unwrap(),
-        HashSet::from([graph.get_uid(&course2_id).unwrap()])
-    );
-    assert_eq!(
-        graph
-            .get_dependents(graph.get_uid(&course3_id).unwrap())
-            .unwrap(),
-        HashSet::from([graph.get_uid(&course5_id).unwrap()])
-    );
-    assert_eq!(
-        graph
-            .get_dependencies(graph.get_uid(&course5_id).unwrap())
-            .unwrap(),
-        HashSet::from([graph.get_uid(&course3_id).unwrap()])
-    );
-    assert_eq!(
-        graph.get_dependency_sinks(),
-        HashSet::from([graph.get_uid(&course1_id).unwrap(),])
-    );
-    graph.check_cycles()?;
+    {
+        let dependents = graph.get_dependents(&course1_id).unwrap();
+        assert_eq!(dependents.len(), 2);
+        assert!(dependents.contains(&course2_id));
+        assert!(dependents.contains(&course3_id));
 
+        assert!(graph.get_dependencies(&course1_id).unwrap().is_empty());
+    }
+
+    {
+        let dependents = graph.get_dependents(&course2_id).unwrap();
+        assert_eq!(dependents.len(), 1);
+        assert!(dependents.contains(&course4_id));
+
+        let dependencies = graph.get_dependencies(&course2_id).unwrap();
+        assert_eq!(dependencies.len(), 1);
+        assert!(dependencies.contains(&course1_id));
+    }
+
+    {
+        let dependents = graph.get_dependents(&course2_id).unwrap();
+        assert_eq!(dependents.len(), 1);
+        assert!(dependents.contains(&course4_id));
+
+        let dependencies = graph.get_dependencies(&course2_id).unwrap();
+        assert_eq!(dependencies.len(), 1);
+        assert!(dependencies.contains(&course1_id));
+    }
+
+    {
+        let dependents = graph.get_dependents(&course3_id).unwrap();
+        assert_eq!(dependents.len(), 1);
+        assert!(dependents.contains(&course5_id));
+
+        let dependencies = graph.get_dependencies(&course3_id).unwrap();
+        assert_eq!(dependencies.len(), 1);
+        assert!(dependencies.contains(&course1_id));
+    }
+
+    {
+        assert!(graph.get_dependents(&course4_id).is_none());
+
+        let dependencies = graph.get_dependencies(&course4_id).unwrap();
+        assert_eq!(dependencies.len(), 1);
+        assert!(dependencies.contains(&course2_id));
+    }
+
+    {
+        assert!(graph.get_dependents(&course5_id).is_none());
+
+        let dependencies = graph.get_dependencies(&course5_id).unwrap();
+        assert_eq!(dependencies.len(), 1);
+        assert!(dependencies.contains(&course3_id));
+    }
+
+    let sinks = graph.get_dependency_sinks();
+    assert_eq!(sinks.len(), 1);
+    assert!(sinks.contains(&course1_id));
+
+    graph.check_cycles()?;
     Ok(())
 }
 
