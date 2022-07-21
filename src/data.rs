@@ -181,6 +181,7 @@ impl VerifyPaths for BasicAsset {
 pub struct CourseManifest {
     /// The ID assigned to this course.
     /// For example, "music::instrument::guitar::basic_jazz_chords".
+    #[builder(setter(into))]
     pub id: Ustr,
 
     /// The name of the course to be presented to the user.
@@ -250,12 +251,14 @@ impl GetUnitType for CourseManifest {
 pub struct LessonManifest {
     /// The ID assigned to this lesson. For example,
     /// "music::instrument::guitar::basic_jazz_chords::major_chords".
+    #[builder(setter(into))]
     pub id: Ustr,
 
     /// The IDs of all dependencies of this lesson.
     pub dependencies: Vec<Ustr>,
 
     /// The ID of the course to which the lesson belongs.
+    #[builder(setter(into))]
     pub course_id: Ustr,
 
     /// The name of the lesson to be presented to the user. For example, "Basic Jazz Major Chords".
@@ -407,12 +410,15 @@ impl VerifyPaths for ExerciseAsset {
 pub struct ExerciseManifest {
     /// The ID assigned to this exercise. For example,
     /// "music::instrument::guitar::basic_jazz_chords::major_chords::ex_1".
+    #[builder(setter(into))]
     pub id: Ustr,
 
     /// The ID of the lesson to which this exercise belongs.
+    #[builder(setter(into))]
     pub lesson_id: Ustr,
 
     /// The ID of the course to which this exercise belongs.
+    #[builder(setter(into))]
     pub course_id: Ustr,
 
     /// The name of the lesson to be presented to the user.
