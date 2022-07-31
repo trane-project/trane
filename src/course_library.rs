@@ -5,7 +5,7 @@ use std::{fs::File, io::BufReader, path::Path, sync::Arc};
 use anyhow::{anyhow, ensure, Result};
 use parking_lot::RwLock;
 use serde::de::DeserializeOwned;
-use ustr::{Ustr, UstrMap, UstrSet};
+use ustr::{Ustr, UstrMap};
 use walkdir::{DirEntry, WalkDir};
 
 use crate::{
@@ -148,35 +148,6 @@ impl LocalCourseLibrary {
         Ok(())
     }
 
-    // Mark the first lesons in the course (those which do not depend on other lessons in the same
-    // course and would be traversed first) as depending on the entire course. This is done so that
-    // the scheduler can add a course's lessons in the correct order.
-    fn add_implicit_dependencies(&mut self, course_id: Ustr, lesson_ids: UstrSet) -> Result<()> {
-        let first_lessons: Vec<Ustr> = lesson_ids
-            .iter()
-            .filter_map(|lesson_id| {
-                let dependencies = self.unit_graph.read().get_dependencies(lesson_id);
-                match dependencies {
-                    None => Some(*lesson_id),
-                    Some(deps) => {
-                        if lesson_ids.is_disjoint(&deps) {
-                            Some(*lesson_id)
-                        } else {
-                            None
-                        }
-                    }
-                }
-            })
-            .collect::<Vec<Ustr>>();
-
-        for lesson_id in first_lessons {
-            self.unit_graph
-                .write()
-                .add_dependencies(&lesson_id, UnitType::Lesson, &[course_id])?;
-        }
-        Ok(())
-    }
-
     /// Processes the course manifest located at the given DirEntry.
     fn process_course_manifest(
         &mut self,
@@ -188,7 +159,6 @@ impl LocalCourseLibrary {
         // Start a new search from the course's root. Each lesson in the course must be contained in
         // a directory that is a direct descendent of the root. Therefore, all the lesson manifests
         // will be at a depth of two from the root.
-        let mut lesson_ids = UstrSet::default();
         let course_root = dir_entry.path().parent().unwrap();
         for entry in WalkDir::new(course_root).min_depth(2).max_depth(2) {
             match entry {
@@ -204,16 +174,11 @@ impl LocalCourseLibrary {
                     let mut lesson_manifest: LessonManifest = Self::open_manifest(path)?;
                     lesson_manifest = lesson_manifest
                         .normalize_paths(lesson_dir_entry.path().parent().unwrap())?;
-                    let lesson_id = lesson_manifest.id;
                     self.process_lesson_manifest(
                         &lesson_dir_entry,
                         &course_manifest,
                         lesson_manifest,
                     )?;
-
-                    // Gather all of the IDs of the lessons in this course to build the implicit
-                    // dependencies between the course and its lessons.
-                    lesson_ids.insert(lesson_id);
                 }
             }
         }
@@ -224,10 +189,7 @@ impl LocalCourseLibrary {
             &course_manifest.dependencies,
         )?;
 
-        let course_id = course_manifest.id;
         self.course_map.insert(course_manifest.id, course_manifest);
-        self.add_implicit_dependencies(course_id, lesson_ids)?;
-
         Ok(())
     }
 

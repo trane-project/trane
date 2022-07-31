@@ -162,8 +162,8 @@ impl UnitGraph for InMemoryUnitGraph {
         self.update_unit_type(unit_id, unit_type)?;
         self.update_dependency_sinks(unit_id, dependencies);
         for dep_id in dependencies {
-            // Update the dependency sinks for all dependencies so that the scheduler work even in
-            // the case somme dependencies are missing.
+            // Update the dependency sinks for all dependencies so that the scheduler works even in
+            // the case some dependencies are missing.
             self.update_dependency_sinks(dep_id, &[]);
         }
 
@@ -194,11 +194,11 @@ impl UnitGraph for InMemoryUnitGraph {
         let starting_lessons = lessons
             .iter()
             .copied()
-            .filter(|id| {
-                let dependencies = self.get_dependencies(id);
+            .filter(|lesson_id| {
+                let dependencies = self.get_dependencies(lesson_id);
                 match dependencies {
                     None => true,
-                    Some(deps) => lessons.is_disjoint(&deps),
+                    Some(dependencies) => lessons.is_disjoint(&dependencies),
                 }
             })
             .collect();
@@ -232,10 +232,12 @@ impl UnitGraph for InMemoryUnitGraph {
                 continue;
             }
 
+            // Start a depth-first search from the given unit and return an error if the same unit
+            // is found more than once in any path.
             let mut stack: Vec<Vec<Ustr>> = Vec::new();
             stack.push(vec![*unit_id]);
             while let Some(path) = stack.pop() {
-                let current_id = *path.last().unwrap();
+                let current_id = *path.last().unwrap_or(&Ustr::default());
                 if visited.contains(&current_id) {
                     continue;
                 } else {
@@ -244,18 +246,23 @@ impl UnitGraph for InMemoryUnitGraph {
 
                 let dependencies = self.get_dependencies(&current_id);
                 if let Some(dependencies) = dependencies {
-                    // Check that the dependencies of the current unit list it as a dependent.
                     for dependency_id in dependencies {
                         let dependents = self.get_dependents(&dependency_id);
                         if let Some(dependents) = dependents {
+                            // Verify the integrity of the graph by checking that the dependencies
+                            // of the current unit list it as a dependent.
                             if !dependents.contains(&current_id) {
                                 return Err(anyhow!(
-                                    "dependents and dependency graph do not match for unit {}",
+                                    "unit {} lists unit {} as a dependency but the reverse \
+                                    relationship does not exist",
                                     current_id,
+                                    dependency_id
                                 ));
                             }
                         }
 
+                        // Return with an error if there's a cycle in the path and continue the
+                        // search otherwise.
                         if path.contains(&dependency_id) {
                             return Err(anyhow!("cycle in dependency graph detected"));
                         }
