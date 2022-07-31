@@ -53,7 +53,7 @@ impl BlackListDB {
             .with_context(|| "failed to initialize blacklist DB")
     }
 
-    /// A constructor taking a SQLite connection.
+    /// A constructor taking a connection manager.
     fn new(connection_manager: SqliteConnectionManager) -> Result<BlackListDB> {
         let pool = Pool::new(connection_manager)?;
         let mut blacklist = BlackListDB {
