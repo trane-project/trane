@@ -30,13 +30,13 @@ pub mod scorer;
 use anyhow::{anyhow, Context, Result};
 use parking_lot::RwLock;
 use std::{fs::create_dir, path::Path, sync::Arc};
-use ustr::Ustr;
+use ustr::{Ustr, UstrSet};
 
 use blacklist::{BlackListDB, Blacklist};
 use course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary};
 use data::{filter::*, *};
 use filter_manager::{FilterManager, LocalFilterManager};
-use graph::{DebugUnitGraph, UnitGraph};
+use graph::UnitGraph;
 use practice_stats::{PracticeStats, PracticeStatsDB};
 use scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseScheduler};
 
@@ -253,9 +253,62 @@ impl ExerciseScheduler for Trane {
     }
 }
 
-impl DebugUnitGraph for Trane {
+impl UnitGraph for Trane {
+    fn add_lesson(&mut self, lesson_id: &Ustr, course_id: &Ustr) -> Result<()> {
+        self.unit_graph.write().add_lesson(lesson_id, course_id)
+    }
+
+    fn add_exercise(&mut self, exercise_id: &Ustr, lesson_id: &Ustr) -> Result<()> {
+        self.unit_graph.write().add_exercise(exercise_id, lesson_id)
+    }
+
+    fn add_dependencies(
+        &mut self,
+        unit_id: &Ustr,
+        unit_type: UnitType,
+        dependencies: &[Ustr],
+    ) -> Result<()> {
+        self.unit_graph
+            .write()
+            .add_dependencies(unit_id, unit_type, dependencies)
+    }
+
     fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType> {
         self.unit_graph.read().get_unit_type(unit_id)
+    }
+
+    fn get_course_lessons(&self, course_id: &Ustr) -> Option<UstrSet> {
+        self.unit_graph.read().get_course_lessons(course_id)
+    }
+
+    fn get_course_starting_lessons(&self, course_id: &Ustr) -> Option<UstrSet> {
+        self.unit_graph
+            .read()
+            .get_course_starting_lessons(course_id)
+    }
+
+    fn get_lesson_course(&self, lesson_id: &Ustr) -> Option<Ustr> {
+        self.unit_graph.read().get_lesson_course(lesson_id)
+    }
+
+    fn get_lesson_exercises(&self, lesson_id: &Ustr) -> Option<UstrSet> {
+        self.unit_graph.read().get_lesson_exercises(lesson_id)
+    }
+
+    fn get_dependencies(&self, unit_id: &Ustr) -> Option<UstrSet> {
+        self.unit_graph.read().get_dependencies(unit_id)
+    }
+
+    fn get_dependents(&self, unit_id: &Ustr) -> Option<UstrSet> {
+        self.unit_graph.read().get_dependents(unit_id)
+    }
+
+    fn get_dependency_sinks(&self) -> UstrSet {
+        self.unit_graph.read().get_dependency_sinks()
+    }
+
+    fn check_cycles(&self) -> Result<()> {
+        self.unit_graph.read().check_cycles()
     }
 
     fn generate_dot_graph(&self) -> String {
