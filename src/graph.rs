@@ -2,6 +2,8 @@
 #[cfg(test)]
 mod tests;
 
+use std::fmt::Write;
+
 use anyhow::{anyhow, ensure, Result};
 use ustr::{Ustr, UstrMap, UstrSet};
 
@@ -152,7 +154,7 @@ impl InMemoryUnitGraph {
             dependents.sort();
 
             for dependent in dependents {
-                output.push_str(&format!("    \"{}\" -> \"{}\"\n", course_id, dependent));
+                let _ = writeln!(output, "    \"{}\" -> \"{}\"", course_id, dependent);
             }
 
             // Add the dependents of each lesson in the course to the graph.
@@ -171,7 +173,7 @@ impl InMemoryUnitGraph {
                 dependents.sort();
 
                 for dependent in dependents {
-                    output.push_str(&format!("    \"{}\" -> \"{}\"\n", lesson_id, dependent));
+                    let _ = writeln!(output, "    \"{}\" -> \"{}\"", lesson_id, dependent);
                 }
             }
         }
