@@ -11,7 +11,7 @@ use crate::data::UnitType;
 
 /// Stores the dependency relationships between units. It only provides basic functions to update
 /// the graph and query the outgoing or ingoing edges of a node.
-pub(crate) trait UnitGraph {
+pub trait UnitGraph {
     /// Adds a new lesson to the unit graph.
     fn add_lesson(&mut self, lesson_id: &Ustr, course_id: &Ustr) -> Result<()>;
 
@@ -56,16 +56,6 @@ pub(crate) trait UnitGraph {
 
     /// Checks that there are no cycles in the graph.
     fn check_cycles(&self) -> Result<()>;
-
-    /// Generates a DOT graph of the dependent graph. The dependent graph is outputted instead of
-    /// the dependency graph so that the output is easier to follow along.
-    fn generate_dot_graph(&self) -> String;
-}
-
-/// Subset of the UnitGraph trait which only provides the functions necessary to debug the graph.
-pub trait DebugUnitGraph {
-    /// Returns the type of the given unit.
-    fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType>;
 
     /// Generates a DOT graph of the dependent graph. The dependent graph is outputted instead of
     /// the dependency graph so that the output is easier to follow along.
@@ -338,16 +328,6 @@ impl UnitGraph for InMemoryUnitGraph {
             }
         }
         Ok(())
-    }
-
-    fn generate_dot_graph(&self) -> String {
-        self.generate_dot_graph_internal()
-    }
-}
-
-impl DebugUnitGraph for InMemoryUnitGraph {
-    fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType> {
-        self.type_map.get(unit_id).cloned()
     }
 
     fn generate_dot_graph(&self) -> String {
