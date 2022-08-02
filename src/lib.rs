@@ -257,4 +257,8 @@ impl DebugUnitGraph for Trane {
     fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType> {
         self.unit_graph.read().get_unit_type(unit_id)
     }
+
+    fn generate_dot_graph(&self) -> String {
+        self.unit_graph.read().generate_dot_graph()
+    }
 }

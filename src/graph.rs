@@ -54,12 +54,20 @@ pub(crate) trait UnitGraph {
 
     /// Checks that there are no cycles in the graph.
     fn check_cycles(&self) -> Result<()>;
+
+    /// Generates a DOT graph of the dependent graph. The dependent graph is outputted instead of
+    /// the dependency graph so that the output is easier to follow along.
+    fn generate_dot_graph(&self) -> String;
 }
 
 /// Subset of the UnitGraph trait which only provides the functions necessary to debug the graph.
 pub trait DebugUnitGraph {
     /// Returns the type of the given unit.
     fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType>;
+
+    /// Generates a DOT graph of the dependent graph. The dependent graph is outputted instead of
+    /// the dependency graph so that the output is easier to follow along.
+    fn generate_dot_graph(&self) -> String;
 }
 
 /// Implements the UnitGraph trait based on two hash maps storing the dependency relationships.
@@ -115,6 +123,60 @@ impl InMemoryUnitGraph {
                 }
             }
         }
+    }
+
+    /// Helper function to generate a dot file from the dependent graph.
+    fn generate_dot_graph_internal(&self) -> String {
+        let mut output = String::from("digraph dependent_graph {\n");
+        let mut courses = self.course_lesson_map.keys().cloned().collect::<Vec<_>>();
+        courses.sort();
+
+        for course_id in courses {
+            // Add all the dependents of the course to the graph.
+            let mut dependents = self
+                .get_dependents(&course_id)
+                .unwrap_or_default()
+                .into_iter()
+                .collect::<Vec<_>>();
+
+            // A course's lessons are attached to the graph by making the starting lessons a
+            // dependent of the course. This is not exactly accurate, but properly adding them to
+            // the graph would require each course to have two nodes, one inboud, connected to the
+            // starting lessons, and one outbound, connected to the ending lessons and to the
+            // dependents of the course.
+            dependents.extend(
+                self.get_course_starting_lessons(&course_id)
+                    .unwrap_or_default()
+                    .iter(),
+            );
+            dependents.sort();
+
+            for dependent in dependents {
+                output.push_str(&format!("    \"{}\" -> \"{}\"\n", course_id, dependent));
+            }
+
+            // Add the dependents of each lesson in the course to the graph.
+            let mut lessons = self
+                .get_course_lessons(&course_id)
+                .unwrap_or_default()
+                .into_iter()
+                .collect::<Vec<_>>();
+            lessons.sort();
+            for lesson_id in lessons {
+                let mut dependents = self
+                    .get_dependents(&lesson_id)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .collect::<Vec<_>>();
+                dependents.sort();
+
+                for dependent in dependents {
+                    output.push_str(&format!("    \"{}\" -> \"{}\"\n", lesson_id, dependent));
+                }
+            }
+        }
+        output.push_str("}\n");
+        output
     }
 }
 
@@ -275,10 +337,18 @@ impl UnitGraph for InMemoryUnitGraph {
         }
         Ok(())
     }
+
+    fn generate_dot_graph(&self) -> String {
+        self.generate_dot_graph_internal()
+    }
 }
 
 impl DebugUnitGraph for InMemoryUnitGraph {
     fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType> {
         self.type_map.get(unit_id).cloned()
+    }
+
+    fn generate_dot_graph(&self) -> String {
+        self.generate_dot_graph_internal()
     }
 }

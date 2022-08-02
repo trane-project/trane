@@ -1,4 +1,5 @@
 use anyhow::Result;
+use indoc::indoc;
 use ustr::Ustr;
 
 use crate::data::UnitType;
@@ -146,5 +147,53 @@ fn dependencies_cycle() -> Result<()> {
     graph.add_dependencies(&course1_id, UnitType::Course, &vec![course5_id.clone()])?;
     assert!(graph.check_cycles().is_err());
 
+    Ok(())
+}
+
+#[test]
+fn generate_dot_graph() -> Result<()> {
+    let mut graph = InMemoryUnitGraph::default();
+    let course1_id = Ustr::from("1");
+    let course1_lesson1_id = Ustr::from("1::1");
+    let course1_lesson2_id = Ustr::from("1::2");
+    let course2_id = Ustr::from("2");
+    let course2_lesson1_id = Ustr::from("2::1");
+    let course3_id = Ustr::from("3");
+    let course3_lesson1_id = Ustr::from("3::1");
+    let course3_lesson2_id = Ustr::from("3::2");
+
+    graph.add_lesson(&course1_lesson1_id, &course1_id)?;
+    graph.add_lesson(&course1_lesson2_id, &course1_id)?;
+    graph.add_lesson(&course2_lesson1_id, &course2_id)?;
+    graph.add_lesson(&course3_lesson1_id, &course3_id)?;
+    graph.add_lesson(&course3_lesson2_id, &course3_id)?;
+
+    graph.add_dependencies(&course1_id, UnitType::Course, &vec![])?;
+    graph.add_dependencies(
+        &course1_lesson2_id,
+        UnitType::Lesson,
+        &vec![course1_lesson1_id.clone()],
+    )?;
+    graph.add_dependencies(&course2_id, UnitType::Course, &vec![course1_id.clone()])?;
+    graph.add_dependencies(&course3_id, UnitType::Course, &vec![course2_id.clone()])?;
+    graph.add_dependencies(
+        &course3_lesson2_id,
+        UnitType::Lesson,
+        &vec![course3_lesson1_id.clone()],
+    )?;
+
+    let dot = graph.generate_dot_graph();
+    let expected = indoc! {r#"
+    digraph dependent_graph {
+        "1" -> "1::1"
+        "1" -> "2"
+        "1::1" -> "1::2"
+        "2" -> "2::1"
+        "2" -> "3"
+        "3" -> "3::1"
+        "3::1" -> "3::2"
+    }
+    "#};
+    assert_eq!(dot, expected);
     Ok(())
 }
