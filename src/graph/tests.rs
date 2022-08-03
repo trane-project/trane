@@ -181,6 +181,7 @@ fn generate_dot_graph() -> Result<()> {
         UnitType::Lesson,
         &vec![course3_lesson1_id.clone()],
     )?;
+    graph.update_starting_lessons();
 
     let dot = graph.generate_dot_graph();
     let expected = indoc! {r#"

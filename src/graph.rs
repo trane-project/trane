@@ -38,6 +38,9 @@ pub trait UnitGraph {
     /// the course.
     fn get_course_starting_lessons(&self, course_id: &Ustr) -> Option<UstrSet>;
 
+    /// Updates the starting lessons for all courses.
+    fn update_starting_lessons(&mut self);
+
     /// Returns the course to which the given lesson belongs.
     fn get_lesson_course(&self, lesson_id: &Ustr) -> Option<Ustr>;
 
@@ -70,6 +73,10 @@ pub(crate) struct InMemoryUnitGraph {
 
     /// The mapping of a course to its lessons.
     course_lesson_map: UstrMap<UstrSet>,
+
+    /// The mapping of a course to its starting lessons. Starting lessons are those lessons in a
+    /// course which do not depend on any other lesson in the course.
+    starting_lessons_map: UstrMap<UstrSet>,
 
     /// The mapping of a lesson to its course.
     lesson_course_map: UstrMap<Ustr>,
@@ -115,60 +122,6 @@ impl InMemoryUnitGraph {
                 }
             }
         }
-    }
-
-    /// Helper function to generate a dot file from the dependent graph.
-    fn generate_dot_graph_internal(&self) -> String {
-        let mut output = String::from("digraph dependent_graph {\n");
-        let mut courses = self.course_lesson_map.keys().cloned().collect::<Vec<_>>();
-        courses.sort();
-
-        for course_id in courses {
-            // Add all the dependents of the course to the graph.
-            let mut dependents = self
-                .get_dependents(&course_id)
-                .unwrap_or_default()
-                .into_iter()
-                .collect::<Vec<_>>();
-
-            // A course's lessons are attached to the graph by making the starting lessons a
-            // dependent of the course. This is not exactly accurate, but properly adding them to
-            // the graph would require each course to have two nodes, one inboud, connected to the
-            // starting lessons, and one outbound, connected to the ending lessons and to the
-            // dependents of the course.
-            dependents.extend(
-                self.get_course_starting_lessons(&course_id)
-                    .unwrap_or_default()
-                    .iter(),
-            );
-            dependents.sort();
-
-            for dependent in dependents {
-                let _ = writeln!(output, "    \"{}\" -> \"{}\"", course_id, dependent);
-            }
-
-            // Add the dependents of each lesson in the course to the graph.
-            let mut lessons = self
-                .get_course_lessons(&course_id)
-                .unwrap_or_default()
-                .into_iter()
-                .collect::<Vec<_>>();
-            lessons.sort();
-            for lesson_id in lessons {
-                let mut dependents = self
-                    .get_dependents(&lesson_id)
-                    .unwrap_or_default()
-                    .into_iter()
-                    .collect::<Vec<_>>();
-                dependents.sort();
-
-                for dependent in dependents {
-                    let _ = writeln!(output, "    \"{}\" -> \"{}\"", lesson_id, dependent);
-                }
-            }
-        }
-        output.push_str("}\n");
-        output
     }
 }
 
@@ -243,20 +196,28 @@ impl UnitGraph for InMemoryUnitGraph {
     }
 
     fn get_course_starting_lessons(&self, course_id: &Ustr) -> Option<UstrSet> {
-        let lessons = self.course_lesson_map.get(course_id)?;
+        self.starting_lessons_map.get(course_id).cloned()
+    }
 
-        let starting_lessons = lessons
-            .iter()
-            .copied()
-            .filter(|lesson_id| {
-                let dependencies = self.get_dependencies(lesson_id);
-                match dependencies {
-                    None => true,
-                    Some(dependencies) => lessons.is_disjoint(&dependencies),
-                }
-            })
-            .collect();
-        Some(starting_lessons)
+    fn update_starting_lessons(&mut self) {
+        let empty = UstrSet::default();
+        for course_id in self.course_lesson_map.keys() {
+            let lessons = self.course_lesson_map.get(course_id).unwrap_or(&empty);
+
+            let starting_lessons = lessons
+                .iter()
+                .copied()
+                .filter(|lesson_id| {
+                    let dependencies = self.get_dependencies(lesson_id);
+                    match dependencies {
+                        None => true,
+                        Some(dependencies) => lessons.is_disjoint(&dependencies),
+                    }
+                })
+                .collect();
+            self.starting_lessons_map
+                .insert(*course_id, starting_lessons);
+        }
     }
 
     fn get_lesson_course(&self, lesson_id: &Ustr) -> Option<Ustr> {
@@ -331,6 +292,55 @@ impl UnitGraph for InMemoryUnitGraph {
     }
 
     fn generate_dot_graph(&self) -> String {
-        self.generate_dot_graph_internal()
+        let mut output = String::from("digraph dependent_graph {\n");
+        let mut courses = self.course_lesson_map.keys().cloned().collect::<Vec<_>>();
+        courses.sort();
+
+        for course_id in courses {
+            // Add all the dependents of the course to the graph.
+            let mut dependents = self
+                .get_dependents(&course_id)
+                .unwrap_or_default()
+                .into_iter()
+                .collect::<Vec<_>>();
+
+            // A course's lessons are attached to the graph by making the starting lessons a
+            // dependent of the course. This is not exactly accurate, but properly adding them to
+            // the graph would require each course to have two nodes, one inboud, connected to the
+            // starting lessons, and one outbound, connected to the ending lessons and to the
+            // dependents of the course.
+            dependents.extend(
+                self.get_course_starting_lessons(&course_id)
+                    .unwrap_or_default()
+                    .iter(),
+            );
+            dependents.sort();
+
+            for dependent in dependents {
+                let _ = writeln!(output, "    \"{}\" -> \"{}\"", course_id, dependent);
+            }
+
+            // Add the dependents of each lesson in the course to the graph.
+            let mut lessons = self
+                .get_course_lessons(&course_id)
+                .unwrap_or_default()
+                .into_iter()
+                .collect::<Vec<_>>();
+            lessons.sort();
+            for lesson_id in lessons {
+                let mut dependents = self
+                    .get_dependents(&lesson_id)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .collect::<Vec<_>>();
+                dependents.sort();
+
+                for dependent in dependents {
+                    let _ = writeln!(output, "    \"{}\" -> \"{}\"", lesson_id, dependent);
+                }
+            }
+        }
+        output.push_str("}\n");
+        output
     }
 }

@@ -229,6 +229,7 @@ impl LocalCourseLibrary {
             }
         }
 
+        library.unit_graph.write().update_starting_lessons();
         library.unit_graph.read().check_cycles()?;
         Ok(library)
     }
