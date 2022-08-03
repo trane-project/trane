@@ -55,12 +55,7 @@ impl ScoreCache {
         let unit_type = self.data.unit_graph.read().get_unit_type(exercise_id);
         match unit_type {
             Some(UnitType::Exercise) => (),
-            _ => {
-                return Err(anyhow!(
-                    "invalid unit type for exercise with ID {}",
-                    exercise_id
-                ))?
-            }
+            _ => return Err(anyhow!("unit with ID {} must be an exercise", exercise_id))?,
         }
 
         let scores = self
