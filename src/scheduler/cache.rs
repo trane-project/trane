@@ -17,7 +17,10 @@ use crate::{
 /// lesson or course.
 pub(super) struct ScoreCache {
     /// A mapping of exercise ID to cached score.
-    cache: RwLock<UstrMap<f32>>,
+    exercise_cache: RwLock<UstrMap<f32>>,
+
+    /// A mapping of lesson ID to cached score.
+    lesson_cache: RwLock<UstrMap<Option<f32>>>,
 
     /// The data used schedule exercises.
     data: SchedulerData,
@@ -33,21 +36,33 @@ impl ScoreCache {
     /// Constructs a new score cache.
     pub(super) fn new(data: SchedulerData, options: SchedulerOptions) -> Self {
         Self {
-            cache: RwLock::new(UstrMap::default()),
+            exercise_cache: RwLock::new(UstrMap::default()),
+            lesson_cache: RwLock::new(UstrMap::default()),
             data,
             options: RwLock::new(options),
             scorer: Box::new(SimpleScorer {}),
         }
     }
 
-    /// Removes the cached score for the given exercise.
-    pub(super) fn invalidate_cached_score(&self, exercise_id: &Ustr) {
-        self.cache.write().remove(exercise_id);
+    /// Removes the cached score for the given unit.
+    pub(super) fn invalidate_cached_score(&self, unit_id: &Ustr) {
+        self.exercise_cache.write().remove(unit_id);
+        self.lesson_cache.write().remove(unit_id);
+
+        if let Some(lesson_id) = self.data.unit_graph.read().get_exercise_lesson(unit_id) {
+            self.lesson_cache.write().remove(&lesson_id);
+        }
+    }
+
+    /// Clears the entire lesson score cache. Updating the blacklist requires that this cache is
+    /// cleared because the score of a lesson and all its possible dependents might change.
+    pub(super) fn clear_cached_lesson_scores(&self) {
+        self.lesson_cache.write().clear();
     }
 
     /// Returns the score for the given exercise.
     pub(super) fn get_exercise_score(&self, exercise_id: &Ustr) -> Result<f32> {
-        let cached_score = self.cache.read().get(exercise_id).cloned();
+        let cached_score = self.exercise_cache.read().get(exercise_id).cloned();
         if let Some(score) = cached_score {
             return Ok(score);
         }
@@ -64,7 +79,7 @@ impl ScoreCache {
             .read()
             .get_scores(exercise_id, self.options.read().num_scores)?;
         let score = self.scorer.score(scores);
-        self.cache.write().insert(*exercise_id, score);
+        self.exercise_cache.write().insert(*exercise_id, score);
         Ok(score)
     }
 
@@ -75,8 +90,13 @@ impl ScoreCache {
             return Ok(None);
         }
 
+        let cached_score = self.lesson_cache.read().get(lesson_id).cloned();
+        if let Some(score) = cached_score {
+            return Ok(score);
+        }
+
         let exercises = self.data.unit_graph.read().get_lesson_exercises(lesson_id);
-        match exercises {
+        let score = match exercises {
             None => Ok(None),
             Some(exercise_ids) => {
                 let valid_exercises = exercise_ids
@@ -99,7 +119,14 @@ impl ScoreCache {
                     / valid_exercises.len() as f32;
                 Ok(Some(avg_score))
             }
+        };
+
+        if score.is_ok() {
+            self.lesson_cache
+                .write()
+                .insert(*lesson_id, *score.as_ref().unwrap());
         }
+        score
     }
 
     /// Returns the average score of all the exercises in the given course.

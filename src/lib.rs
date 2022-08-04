@@ -162,10 +162,14 @@ impl Trane {
 
 impl Blacklist for Trane {
     fn add_unit(&mut self, unit_id: &Ustr) -> Result<()> {
+        self.scheduler.clear_cached_lesson_scores();
+        self.scheduler.invalidate_cached_score(unit_id);
         self.blacklist.write().add_unit(unit_id)
     }
 
     fn remove_unit(&mut self, unit_id: &Ustr) -> Result<()> {
+        self.scheduler.clear_cached_lesson_scores();
+        self.scheduler.invalidate_cached_score(unit_id);
         self.blacklist.write().remove_unit(unit_id)
     }
 
@@ -251,6 +255,14 @@ impl ExerciseScheduler for Trane {
     ) -> Result<()> {
         self.scheduler.score_exercise(exercise_id, score, timestamp)
     }
+
+    fn invalidate_cached_score(&self, unit_id: &Ustr) {
+        self.scheduler.invalidate_cached_score(unit_id)
+    }
+
+    fn clear_cached_lesson_scores(&self) {
+        self.scheduler.clear_cached_lesson_scores()
+    }
 }
 
 impl UnitGraph for Trane {
@@ -297,6 +309,10 @@ impl UnitGraph for Trane {
 
     fn get_lesson_exercises(&self, lesson_id: &Ustr) -> Option<UstrSet> {
         self.unit_graph.read().get_lesson_exercises(lesson_id)
+    }
+
+    fn get_exercise_lesson(&self, exercise_id: &Ustr) -> Option<Ustr> {
+        self.unit_graph.read().get_exercise_lesson(exercise_id)
     }
 
     fn get_dependencies(&self, unit_id: &Ustr) -> Option<UstrSet> {
