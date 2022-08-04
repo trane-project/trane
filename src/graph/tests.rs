@@ -43,11 +43,27 @@ fn get_course_lessons_and_exercises() -> Result<()> {
     assert_eq!(lesson1_exercises.len(), 2);
     assert!(lesson1_exercises.contains(&lesson1_exercise1_id));
     assert!(lesson1_exercises.contains(&lesson1_exercise2_id));
+    assert_eq!(
+        graph.get_exercise_lesson(&lesson1_exercise1_id).unwrap(),
+        lesson1_id
+    );
+    assert_eq!(
+        graph.get_exercise_lesson(&lesson1_exercise2_id).unwrap(),
+        lesson1_id
+    );
 
     let lesson2_exercises = graph.get_lesson_exercises(&lesson2_id).unwrap();
     assert_eq!(lesson2_exercises.len(), 2);
     assert!(lesson2_exercises.contains(&lesson2_exercise1_id));
     assert!(lesson2_exercises.contains(&lesson2_exercise2_id));
+    assert_eq!(
+        graph.get_exercise_lesson(&lesson2_exercise1_id).unwrap(),
+        lesson2_id
+    );
+    assert_eq!(
+        graph.get_exercise_lesson(&lesson2_exercise2_id).unwrap(),
+        lesson2_id
+    );
 
     Ok(())
 }

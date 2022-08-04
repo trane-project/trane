@@ -47,6 +47,9 @@ pub trait UnitGraph {
     /// Returns the exercises belonging to the given lesson.
     fn get_lesson_exercises(&self, lesson_id: &Ustr) -> Option<UstrSet>;
 
+    /// Returns the lesson to which the given exercise belongs.
+    fn get_exercise_lesson(&self, exercise_id: &Ustr) -> Option<Ustr>;
+
     /// Returns the dependencies of the given unit.
     fn get_dependencies(&self, unit_id: &Ustr) -> Option<UstrSet>;
 
@@ -83,6 +86,9 @@ pub(crate) struct InMemoryUnitGraph {
 
     /// The mapping of a lesson to its exercises.
     lesson_exercise_map: UstrMap<UstrSet>,
+
+    /// The mapping of an exercise to its lesson.
+    exercise_lesson_map: UstrMap<Ustr>,
 
     /// The mapping of a unit to its dependencies.
     dependency_graph: UstrMap<UstrSet>,
@@ -146,6 +152,7 @@ impl UnitGraph for InMemoryUnitGraph {
             .entry(*lesson_id)
             .or_insert_with(UstrSet::default)
             .insert(*exercise_id);
+        self.exercise_lesson_map.insert(*exercise_id, *lesson_id);
         Ok(())
     }
 
@@ -226,6 +233,10 @@ impl UnitGraph for InMemoryUnitGraph {
 
     fn get_lesson_exercises(&self, lesson_id: &Ustr) -> Option<UstrSet> {
         self.lesson_exercise_map.get(lesson_id).cloned()
+    }
+
+    fn get_exercise_lesson(&self, exercise_id: &Ustr) -> Option<Ustr> {
+        self.exercise_lesson_map.get(exercise_id).cloned()
     }
 
     fn get_dependencies(&self, unit_id: &Ustr) -> Option<UstrSet> {
