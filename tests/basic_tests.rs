@@ -577,10 +577,6 @@ fn invalidate_cache_on_blacklist_update() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
 
-    // First run the simulation without the blacklist to populate the cache.
-    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
-    simulation.run_simulation(&mut trane, &vec![], None)?;
-
     // Run the simulation with a valid blacklist.
     let exercise_blacklist = vec![
         TestId(1, Some(0), Some(0)),
@@ -604,7 +600,7 @@ fn invalidate_cache_on_blacklist_update() -> Result<()> {
         TestId(1, Some(1), Some(8)),
         TestId(1, Some(1), Some(9)),
     ];
-    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    let mut simulation = TraneSimulation::new(5000, Box::new(|_| Some(MasteryScore::Five)));
     simulation.run_simulation(&mut trane, &exercise_blacklist, None)?;
 
     // Every blacklisted exercise should not have been scheduled.
