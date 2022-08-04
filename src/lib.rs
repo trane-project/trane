@@ -162,13 +162,11 @@ impl Trane {
 
 impl Blacklist for Trane {
     fn add_unit(&mut self, unit_id: &Ustr) -> Result<()> {
-        self.scheduler.clear_cached_lesson_scores();
         self.scheduler.invalidate_cached_score(unit_id);
         self.blacklist.write().add_unit(unit_id)
     }
 
     fn remove_unit(&mut self, unit_id: &Ustr) -> Result<()> {
-        self.scheduler.clear_cached_lesson_scores();
         self.scheduler.invalidate_cached_score(unit_id);
         self.blacklist.write().remove_unit(unit_id)
     }
@@ -258,10 +256,6 @@ impl ExerciseScheduler for Trane {
 
     fn invalidate_cached_score(&self, unit_id: &Ustr) {
         self.scheduler.invalidate_cached_score(unit_id)
-    }
-
-    fn clear_cached_lesson_scores(&self) {
-        self.scheduler.clear_cached_lesson_scores()
     }
 }
 

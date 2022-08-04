@@ -37,9 +37,6 @@ pub trait ExerciseScheduler {
 
     /// Removes any cached scores for the given unit.
     fn invalidate_cached_score(&self, unit_id: &Ustr);
-
-    /// Removes any cached lesson scores.
-    fn clear_cached_lesson_scores(&self);
 }
 
 /// A struct representing an element in the stack used during the graph search.
@@ -555,9 +552,5 @@ impl ExerciseScheduler for DepthFirstScheduler {
 
     fn invalidate_cached_score(&self, unit_id: &Ustr) {
         self.score_cache.invalidate_cached_score(unit_id);
-    }
-
-    fn clear_cached_lesson_scores(&self) {
-        self.score_cache.clear_cached_lesson_scores();
     }
 }
