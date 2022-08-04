@@ -54,12 +54,6 @@ impl ScoreCache {
         }
     }
 
-    /// Clears the entire lesson score cache. Updating the blacklist requires that this cache is
-    /// cleared because the score of a lesson and all its possible dependents might change.
-    pub(super) fn clear_cached_lesson_scores(&self) {
-        self.lesson_cache.write().clear();
-    }
-
     /// Returns the score for the given exercise.
     pub(super) fn get_exercise_score(&self, exercise_id: &Ustr) -> Result<f32> {
         let cached_score = self.exercise_cache.read().get(exercise_id).cloned();
