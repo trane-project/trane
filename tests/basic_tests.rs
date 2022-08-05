@@ -577,30 +577,101 @@ fn invalidate_cache_on_blacklist_update() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
 
-    // Run the simulation with a valid blacklist.
+    // Run the simulation with a valid blacklist and give each exercise a score of 5.
+    // All exercises except for those in the blacklist should be scheduled.
     let exercise_blacklist = vec![
-        TestId(1, Some(0), Some(0)),
-        TestId(1, Some(0), Some(1)),
-        TestId(1, Some(0), Some(2)),
-        TestId(1, Some(0), Some(3)),
-        TestId(1, Some(0), Some(4)),
-        TestId(1, Some(0), Some(5)),
-        TestId(1, Some(0), Some(6)),
-        TestId(1, Some(0), Some(7)),
-        TestId(1, Some(0), Some(8)),
-        TestId(1, Some(0), Some(9)),
-        TestId(1, Some(1), Some(0)),
-        TestId(1, Some(1), Some(1)),
-        TestId(1, Some(1), Some(2)),
-        TestId(1, Some(1), Some(3)),
-        TestId(1, Some(1), Some(4)),
-        TestId(1, Some(1), Some(5)),
-        TestId(1, Some(1), Some(6)),
-        TestId(1, Some(1), Some(7)),
-        TestId(1, Some(1), Some(8)),
-        TestId(1, Some(1), Some(9)),
+        TestId(0, Some(0), Some(0)),
+        TestId(0, Some(0), Some(1)),
+        TestId(0, Some(0), Some(2)),
+        TestId(0, Some(0), Some(3)),
+        TestId(0, Some(0), Some(4)),
+        TestId(0, Some(0), Some(5)),
+        TestId(0, Some(0), Some(6)),
+        TestId(0, Some(0), Some(7)),
+        TestId(0, Some(0), Some(8)),
+        TestId(0, Some(0), Some(9)),
+        TestId(0, Some(1), Some(0)),
+        TestId(0, Some(1), Some(1)),
+        TestId(0, Some(1), Some(2)),
+        TestId(0, Some(1), Some(3)),
+        TestId(0, Some(1), Some(4)),
+        TestId(0, Some(1), Some(5)),
+        TestId(0, Some(1), Some(6)),
+        TestId(0, Some(1), Some(7)),
+        TestId(0, Some(1), Some(8)),
+        TestId(0, Some(1), Some(9)),
     ];
-    let mut simulation = TraneSimulation::new(5000, Box::new(|_| Some(MasteryScore::Five)));
+    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    simulation.run_simulation(&mut trane, &exercise_blacklist, None)?;
+
+    // Every blacklisted exercise should not have been scheduled.
+    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    for exercise_id in &exercise_ids {
+        if exercise_blacklist
+            .iter()
+            .any(|blacklisted_id| *blacklisted_id == *exercise_id)
+        {
+            let exercise_ustr = exercise_id.to_ustr();
+            assert!(
+                !simulation.answer_history.contains_key(&exercise_ustr),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        } else {
+            assert!(
+                simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_ustr()),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+        }
+    }
+
+    // Remove those units from the blacklist and re-run the simulation, but this time assign a score
+    // of one to all exercises. Trane should not schedule any lesson or course depending on the
+    // lesson with ID TestId(0, Some(0), None).
+    for exercise_id in &exercise_blacklist {
+        trane.remove_unit(&exercise_id.to_ustr())?;
+    }
+    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::One)));
+    simulation.run_simulation(&mut trane, &vec![], None)?;
+
+    let unscheduled_lessons = vec![
+        TestId(0, Some(1), None),
+        TestId(1, Some(0), None),
+        TestId(1, Some(1), None),
+        TestId(2, Some(0), None),
+        TestId(2, Some(1), None),
+        TestId(2, Some(0), None),
+        TestId(7, Some(0), None),
+        TestId(7, Some(1), None),
+    ];
+    for exercise_id in &exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
+        if exercise_id.exercise_in_lesson(&TestId(0, Some(0), None)) {
+            // The first unit scheduled by Trane. Since all the scores are 1, Trane should not move
+            // past this unit.
+            assert!(
+                simulation.answer_history.contains_key(&exercise_ustr),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+        } else if unscheduled_lessons
+            .iter()
+            .any(|lesson_id| exercise_id.exercise_in_lesson(&lesson_id))
+        {
+            // None of the units depending on lesson TestId(0, Some(0), None) should have been
+            // scheduled.
+            assert!(
+                !simulation.answer_history.contains_key(&exercise_ustr),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        }
+    }
+
+    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
     simulation.run_simulation(&mut trane, &exercise_blacklist, None)?;
 
     // Every blacklisted exercise should not have been scheduled.
@@ -613,22 +684,33 @@ fn invalidate_cache_on_blacklist_update() -> Result<()> {
         );
     }
 
-    // Remove those units from the blacklist and re-run the simulation.
-    for exercise_id in &exercise_blacklist {
-        trane.remove_unit(&exercise_id.to_ustr())?;
-    }
-    let mut simulation = TraneSimulation::new(5000, Box::new(|_| Some(MasteryScore::Five)));
-    simulation.run_simulation(&mut trane, &vec![], None)?;
+    // Re-run the first simulation with the same blacklist and verify that the blacklisted exercises
+    // are not scheduled anymore. Every other exercise should be scheduled. Run the simulation with
+    // 10000 exercises so that every exercise has a high probability of being scheduled.
+    let mut simulation = TraneSimulation::new(10000, Box::new(|_| Some(MasteryScore::Five)));
+    simulation.run_simulation(&mut trane, &exercise_blacklist, None)?;
 
-    // Every previously blacklisted exercise should have been scheduled.
-    for exercise_id in &exercise_blacklist {
-        let exercise_ustr = exercise_id.to_ustr();
-        assert!(
-            simulation.answer_history.contains_key(&exercise_ustr),
-            "exercise {:?} should have been scheduled",
-            exercise_id
-        );
-        assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+    // Every blacklisted exercise should not have been scheduled.
+    for exercise_id in &exercise_ids {
+        if exercise_blacklist
+            .iter()
+            .any(|blacklisted_id| *blacklisted_id == *exercise_id)
+        {
+            let exercise_ustr = exercise_id.to_ustr();
+            assert!(
+                !simulation.answer_history.contains_key(&exercise_ustr),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        } else {
+            assert!(
+                simulation
+                    .answer_history
+                    .contains_key(&exercise_id.to_ustr()),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+        }
     }
     Ok(())
 }

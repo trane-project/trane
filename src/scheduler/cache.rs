@@ -100,18 +100,19 @@ impl ScoreCache {
                         !blacklisted.unwrap_or(false)
                     })
                     .collect::<Vec<Ustr>>();
-                if valid_exercises.is_empty() {
-                    return Ok(None);
-                }
 
-                let avg_score: f32 = valid_exercises
-                    .iter()
-                    .map(|id| self.get_exercise_score(id))
-                    .collect::<Result<Vec<f32>>>()?
-                    .into_iter()
-                    .sum::<f32>()
-                    / valid_exercises.len() as f32;
-                Ok(Some(avg_score))
+                if valid_exercises.is_empty() {
+                    Ok(None)
+                } else {
+                    let avg_score: f32 = valid_exercises
+                        .iter()
+                        .map(|id| self.get_exercise_score(id))
+                        .collect::<Result<Vec<f32>>>()?
+                        .into_iter()
+                        .sum::<f32>()
+                        / valid_exercises.len() as f32;
+                    Ok(Some(avg_score))
+                }
             }
         };
 
