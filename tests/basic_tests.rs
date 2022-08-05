@@ -630,7 +630,7 @@ fn invalidate_cache_on_blacklist_update() -> Result<()> {
 
     // Remove those units from the blacklist and re-run the simulation, but this time assign a score
     // of one to all exercises. Trane should not schedule any lesson or course depending on the
-    // course with ID TestId(0, Some(0), None).
+    // lesson with ID TestId(0, Some(0), None).
     for exercise_id in &exercise_blacklist {
         trane.remove_unit(&exercise_id.to_ustr())?;
     }
