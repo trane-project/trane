@@ -131,18 +131,18 @@ impl CandidateFilter {
         let (target_selected, _) = Self::select_candidates(target_candidates, remainder)?;
         final_candidates.extend(target_selected);
 
-        // Go through the remainders in descending order of difficulty and add them to the list of
+        // Go through the remainders in ascending order of difficulty and add them to the list of
         // final candidates if there's still space left in the batch.
         Self::add_remainder(
             options.batch_size,
             &mut final_candidates,
-            &current_remainder,
+            &mastered_remainder,
         );
         Self::add_remainder(options.batch_size, &mut final_candidates, &easy_remainder);
         Self::add_remainder(
             options.batch_size,
             &mut final_candidates,
-            &mastered_remainder,
+            &current_remainder,
         );
 
         self.candidates_to_exercises(final_candidates)

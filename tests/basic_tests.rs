@@ -686,8 +686,8 @@ fn invalidate_cache_on_blacklist_update() -> Result<()> {
 
     // Re-run the first simulation with the same blacklist and verify that the blacklisted exercises
     // are not scheduled anymore. Every other exercise should be scheduled. Run the simulation with
-    // 10000 exercises so that every exercise has a high probability of being scheduled.
-    let mut simulation = TraneSimulation::new(10000, Box::new(|_| Some(MasteryScore::Five)));
+    // 5000 exercises so that every exercise has a high probability of being scheduled.
+    let mut simulation = TraneSimulation::new(5000, Box::new(|_| Some(MasteryScore::Five)));
     simulation.run_simulation(&mut trane, &exercise_blacklist, None)?;
 
     // Every blacklisted exercise should not have been scheduled.
