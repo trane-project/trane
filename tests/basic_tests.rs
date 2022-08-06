@@ -671,6 +671,8 @@ fn invalidate_cache_on_blacklist_update() -> Result<()> {
         }
     }
 
+    // Re-run the first simulation with the same blacklist and verify that the blacklisted exercises
+    // are not scheduled anymore.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
     simulation.run_simulation(&mut trane, &exercise_blacklist, None)?;
 
@@ -682,35 +684,6 @@ fn invalidate_cache_on_blacklist_update() -> Result<()> {
             "exercise {:?} should not have been scheduled",
             exercise_id
         );
-    }
-
-    // Re-run the first simulation with the same blacklist and verify that the blacklisted exercises
-    // are not scheduled anymore. Every other exercise should be scheduled. Run the simulation with
-    // 5000 exercises so that every exercise has a high probability of being scheduled.
-    let mut simulation = TraneSimulation::new(5000, Box::new(|_| Some(MasteryScore::Five)));
-    simulation.run_simulation(&mut trane, &exercise_blacklist, None)?;
-
-    // Every blacklisted exercise should not have been scheduled.
-    for exercise_id in &exercise_ids {
-        if exercise_blacklist
-            .iter()
-            .any(|blacklisted_id| *blacklisted_id == *exercise_id)
-        {
-            let exercise_ustr = exercise_id.to_ustr();
-            assert!(
-                !simulation.answer_history.contains_key(&exercise_ustr),
-                "exercise {:?} should not have been scheduled",
-                exercise_id
-            );
-        } else {
-            assert!(
-                simulation
-                    .answer_history
-                    .contains_key(&exercise_id.to_ustr()),
-                "exercise {:?} should have been scheduled",
-                exercise_id
-            );
-        }
     }
     Ok(())
 }

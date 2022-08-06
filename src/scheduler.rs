@@ -56,10 +56,14 @@ struct Candidate {
     exercise_id: Ustr,
 
     /// The number of hops the graph search needed to reach this exercise.
-    num_hops: usize,
+    num_hops: f32,
 
     /// The exercise score.
     score: f32,
+
+    /// The number of times this exercise has been scheduled during the run of this scheduler. This
+    /// value will be used to assign more weight to exercises that have been scheduled less often.
+    frequency: f32,
 }
 
 /// An exercise scheduler based on depth-first search.
@@ -69,6 +73,8 @@ pub(crate) struct DepthFirstScheduler {
 
     /// A cache of unit scores.
     score_cache: ScoreCache,
+
+    filter: CandidateFilter,
 }
 
 impl DepthFirstScheduler {
@@ -76,7 +82,8 @@ impl DepthFirstScheduler {
     pub fn new(data: SchedulerData, options: SchedulerOptions) -> Self {
         Self {
             data: data.clone(),
-            score_cache: ScoreCache::new(data, options),
+            score_cache: ScoreCache::new(data.clone(), options),
+            filter: CandidateFilter::new(data),
         }
     }
 
@@ -188,8 +195,9 @@ impl DepthFirstScheduler {
             .filter(|(exercise_id, _)| !self.data.blacklisted(exercise_id).unwrap_or(false))
             .map(|(exercise_id, score)| Candidate {
                 exercise_id,
-                num_hops: item.num_hops + 1,
+                num_hops: (item.num_hops + 1) as f32,
                 score: *score,
+                frequency: self.data.get_exercise_frequency(&exercise_id),
             })
             .collect::<Vec<Candidate>>();
 
@@ -532,8 +540,11 @@ impl ExerciseScheduler for DepthFirstScheduler {
             },
         };
 
-        let filter = CandidateFilter::new(self.data.clone());
-        filter.filter_candidates(candidates)
+        let final_candidates = self.filter.filter_candidates(candidates)?;
+        for (exercise_id, _) in &final_candidates {
+            self.data.increase_exercise_frequency(exercise_id);
+        }
+        Ok(final_candidates)
     }
 
     fn score_exercise(

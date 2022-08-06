@@ -2,7 +2,7 @@
 use anyhow::{anyhow, Result};
 use parking_lot::RwLock;
 use std::sync::Arc;
-use ustr::{Ustr, UstrSet};
+use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
     blacklist::{BlackListDB, Blacklist},
@@ -32,6 +32,10 @@ pub(crate) struct SchedulerData {
 
     /// The list of units to skip during scheduling.
     pub blacklist: Arc<RwLock<BlackListDB>>,
+
+    /// A map storing the number of times an exercise has been scheduled during the lifetime of this
+    /// scheduler.
+    pub frequency_map: Arc<RwLock<UstrMap<f32>>>,
 }
 
 impl SchedulerData {
@@ -250,5 +254,21 @@ impl SchedulerData {
                 }
             }
         }
+    }
+
+    /// Increases the value in the frequency map for the given exercise ID.
+    pub fn increase_exercise_frequency(&self, exercise_id: &Ustr) {
+        let mut frequency_map = self.frequency_map.write();
+        let frequency = frequency_map.entry(*exercise_id).or_insert(0.0);
+        *frequency += 1.0;
+    }
+
+    /// Returns the frequency of the given exercise ID.
+    pub fn get_exercise_frequency(&self, exercise_id: &Ustr) -> f32 {
+        self.frequency_map
+            .read()
+            .get(exercise_id)
+            .copied()
+            .unwrap_or(0.0)
     }
 }
