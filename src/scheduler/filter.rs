@@ -32,10 +32,12 @@ impl CandidateFilter {
     }
 
     /// Takes a list of candidates and randomly selectes num_selected candidates among them. The
-    /// probabilities of selecting a candidate are weighted based on their score and the number of
-    /// hops taken by the graph search to find them. Lower scores and higher number of hops give the
-    /// candidate a higher chance of being selected. The function returns a tuple of the selected
-    /// candidates and the remainder.
+    /// probabilities of selecting a candidate are weighted based on their score, the number of hops
+    /// taken by the graph search to find them, and the number of times they have been scheduled
+    /// during the run of the scheduler. Lower scores, higher number of hops, and lower frequencies
+    /// give the candidate a higher chance of being selected.
+    ///
+    /// The function returns a tuple of the selected candidates and those exercises not selected..
     fn select_candidates(
         candidates: Vec<Candidate>,
         num_selected: usize,
@@ -47,7 +49,7 @@ impl CandidateFilter {
         let mut rng = thread_rng();
         let selected: Vec<Candidate> = candidates
             .choose_multiple_weighted(&mut rng, num_selected, |c| {
-                1.0 + (5.0 - c.score) + (c.num_hops as f32)
+                1.0 + (5.0 - c.score).max(0.0) + c.num_hops + (10.0 - c.frequency).max(0.0)
             })?
             .cloned()
             .collect();

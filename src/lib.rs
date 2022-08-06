@@ -30,7 +30,7 @@ pub mod scorer;
 use anyhow::{anyhow, Context, Result};
 use parking_lot::RwLock;
 use std::{fs::create_dir, path::Path, sync::Arc};
-use ustr::{Ustr, UstrSet};
+use ustr::{Ustr, UstrMap, UstrSet};
 
 use blacklist::{BlackListDB, Blacklist};
 use course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary};
@@ -141,6 +141,7 @@ impl Trane {
             unit_graph: unit_graph.clone(),
             practice_stats: practice_stats.clone(),
             blacklist: blacklist.clone(),
+            frequency_map: Arc::new(RwLock::new(UstrMap::default())),
         };
 
         Ok(Trane {
