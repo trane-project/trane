@@ -111,6 +111,18 @@ impl LocalCourseLibrary {
             .parent()
             .ok_or_else(|| anyhow!("cannot get lesson's parent directory"))?;
 
+        // Add the lesson and the dependencies explicitly listed in the manifest.
+        self.unit_graph
+            .write()
+            .add_lesson(&lesson_manifest.id, &lesson_manifest.course_id)?;
+        self.unit_graph.write().add_dependencies(
+            &lesson_manifest.id,
+            UnitType::Lesson,
+            &lesson_manifest.dependencies,
+        )?;
+        self.lesson_map
+            .insert(lesson_manifest.id, lesson_manifest.clone());
+
         // Start a new search from the lesson's root. Each exercise in the lesson must be contained
         // in a directory that is a direct descendent of the root. Therefore, all the exercise
         // manifests will be at a depth of two from the root.
@@ -132,19 +144,6 @@ impl LocalCourseLibrary {
                 }
             }
         }
-
-        self.unit_graph
-            .write()
-            .add_lesson(&lesson_manifest.id, &lesson_manifest.course_id)?;
-
-        // Add the dependencies explicitly stated by the manifest.
-        self.unit_graph.write().add_dependencies(
-            &lesson_manifest.id,
-            UnitType::Lesson,
-            &lesson_manifest.dependencies,
-        )?;
-
-        self.lesson_map.insert(lesson_manifest.id, lesson_manifest);
         Ok(())
     }
 
@@ -155,6 +154,16 @@ impl LocalCourseLibrary {
         course_manifest: CourseManifest,
     ) -> Result<()> {
         ensure!(!course_manifest.id.is_empty(), "ID in manifest is empty",);
+
+        // Add the course and the dependencies explicitly listed in the manifest.
+        self.unit_graph.write().add_course(&course_manifest.id)?;
+        self.unit_graph.write().add_dependencies(
+            &course_manifest.id,
+            UnitType::Course,
+            &course_manifest.dependencies,
+        )?;
+        self.course_map
+            .insert(course_manifest.id, course_manifest.clone());
 
         // Start a new search from the course's root. Each lesson in the course must be contained in
         // a directory that is a direct descendent of the root. Therefore, all the lesson manifests
@@ -182,14 +191,6 @@ impl LocalCourseLibrary {
                 }
             }
         }
-
-        self.unit_graph.write().add_dependencies(
-            &course_manifest.id,
-            UnitType::Course,
-            &course_manifest.dependencies,
-        )?;
-
-        self.course_map.insert(course_manifest.id, course_manifest);
         Ok(())
     }
 

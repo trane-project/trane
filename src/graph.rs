@@ -12,7 +12,12 @@ use crate::data::UnitType;
 /// Stores the dependency relationships between units. It only provides basic functions to update
 /// the graph and query the outgoing or ingoing edges of a node.
 pub trait UnitGraph {
-    /// Adds a new lesson to the unit graph.
+    /// Adds a new course to the unit graph. This function should be called before the dependencies
+    /// and lessons of this course are added to properly check that the course ID is unique.
+    fn add_course(&mut self, course_id: &Ustr) -> Result<()>;
+
+    /// Adds a new lesson to the unit graph. This lesson should be called before the dependencies
+    /// and exercises of this lesson are added to properly check that the lesson ID is unique.
     fn add_lesson(&mut self, lesson_id: &Ustr, course_id: &Ustr) -> Result<()>;
 
     /// Adds a new exercise to the unit graph.
@@ -132,7 +137,19 @@ impl InMemoryUnitGraph {
 }
 
 impl UnitGraph for InMemoryUnitGraph {
+    fn add_course(&mut self, course_id: &Ustr) -> Result<()> {
+        if self.type_map.contains_key(course_id) {
+            return Err(anyhow!("course with ID {} already exists", course_id));
+        }
+
+        self.update_unit_type(course_id, UnitType::Course)?;
+        Ok(())
+    }
+
     fn add_lesson(&mut self, lesson_id: &Ustr, course_id: &Ustr) -> Result<()> {
+        if self.type_map.contains_key(lesson_id) {
+            return Err(anyhow!("lesson with ID {} already exists", lesson_id));
+        }
         self.update_unit_type(lesson_id, UnitType::Lesson)?;
         self.update_unit_type(course_id, UnitType::Course)?;
 
@@ -145,6 +162,9 @@ impl UnitGraph for InMemoryUnitGraph {
     }
 
     fn add_exercise(&mut self, exercise_id: &Ustr, lesson_id: &Ustr) -> Result<()> {
+        if self.type_map.contains_key(exercise_id) {
+            return Err(anyhow!("exercise with ID {} already exists", exercise_id));
+        }
         self.update_unit_type(exercise_id, UnitType::Exercise)?;
         self.update_unit_type(lesson_id, UnitType::Lesson)?;
 
@@ -172,8 +192,13 @@ impl UnitGraph for InMemoryUnitGraph {
             "unit {} cannot depend on itself",
             unit_id,
         );
+        ensure!(
+            self.type_map.contains_key(unit_id),
+            "unit {} of type {:?} must be explicitly added before adding dependencies",
+            unit_id,
+            unit_type,
+        );
 
-        self.update_unit_type(unit_id, unit_type)?;
         self.update_dependency_sinks(unit_id, dependencies);
         for dep_id in dependencies {
             // Update the dependency sinks for all dependencies so that the scheduler works even in
