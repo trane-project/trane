@@ -10,6 +10,7 @@ use super::{InMemoryUnitGraph, UnitGraph};
 fn get_unit_type() -> Result<()> {
     let mut graph = InMemoryUnitGraph::default();
     let id = Ustr::from("id1");
+    graph.add_course(&id)?;
     graph.add_dependencies(&id, UnitType::Course, &vec![])?;
     assert_eq!(graph.get_unit_type(&id), Some(UnitType::Course));
     Ok(())
@@ -25,8 +26,9 @@ fn get_course_lessons_and_exercises() -> Result<()> {
     let lesson1_exercise2_id = Ustr::from("course1::lesson1::exercise2");
     let lesson2_exercise1_id = Ustr::from("course1::lesson2::exercise1");
     let lesson2_exercise2_id = Ustr::from("course1::lesson2::exercise2");
-    graph.add_dependencies(&course_id, UnitType::Course, &vec![])?;
 
+    graph.add_course(&course_id)?;
+    graph.add_dependencies(&course_id, UnitType::Course, &vec![])?;
     graph.add_lesson(&lesson1_id, &course_id)?;
     graph.add_exercise(&lesson1_exercise1_id, &lesson1_id)?;
     graph.add_exercise(&lesson1_exercise2_id, &lesson1_id)?;
@@ -76,6 +78,11 @@ fn dependencies() -> Result<()> {
     let course3_id = Ustr::from("course3");
     let course4_id = Ustr::from("course4");
     let course5_id = Ustr::from("course5");
+    graph.add_course(&course1_id)?;
+    graph.add_course(&course2_id)?;
+    graph.add_course(&course3_id)?;
+    graph.add_course(&course4_id)?;
+    graph.add_course(&course5_id)?;
     graph.add_dependencies(&course1_id, UnitType::Course, &vec![])?;
     graph.add_dependencies(&course2_id, UnitType::Course, &vec![course1_id.clone()])?;
     graph.add_dependencies(&course3_id, UnitType::Course, &vec![course1_id.clone()])?;
@@ -153,6 +160,11 @@ fn dependencies_cycle() -> Result<()> {
     let course3_id = Ustr::from("course3");
     let course4_id = Ustr::from("course4");
     let course5_id = Ustr::from("course5");
+    graph.add_course(&course1_id)?;
+    graph.add_course(&course2_id)?;
+    graph.add_course(&course3_id)?;
+    graph.add_course(&course4_id)?;
+    graph.add_course(&course5_id)?;
     graph.add_dependencies(&course1_id, UnitType::Course, &vec![])?;
     graph.add_dependencies(&course2_id, UnitType::Course, &vec![course1_id.clone()])?;
     graph.add_dependencies(&course3_id, UnitType::Course, &vec![course1_id.clone()])?;
@@ -212,5 +224,24 @@ fn generate_dot_graph() -> Result<()> {
     }
     "#};
     assert_eq!(dot, expected);
+    Ok(())
+}
+
+#[test]
+fn duplicate_ids() -> Result<()> {
+    let mut graph = InMemoryUnitGraph::default();
+
+    let course_id = Ustr::from("course_id");
+    graph.add_course(&course_id)?;
+    let _ = graph.add_course(&course_id).is_err();
+
+    let lesson_id = Ustr::from("lesson_id");
+    graph.add_lesson(&lesson_id, &course_id)?;
+    let _ = graph.add_lesson(&lesson_id, &course_id).is_err();
+
+    let exercise_id = Ustr::from("exercise_id");
+    graph.add_exercise(&exercise_id, &lesson_id)?;
+    let _ = graph.add_exercise(&exercise_id, &lesson_id).is_err();
+
     Ok(())
 }

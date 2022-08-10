@@ -261,6 +261,10 @@ impl ExerciseScheduler for Trane {
 }
 
 impl UnitGraph for Trane {
+    fn add_course(&mut self, course_id: &Ustr) -> Result<()> {
+        self.unit_graph.write().add_course(course_id)
+    }
+
     fn add_lesson(&mut self, lesson_id: &Ustr, course_id: &Ustr) -> Result<()> {
         self.unit_graph.write().add_lesson(lesson_id, course_id)
     }
