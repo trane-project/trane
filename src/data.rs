@@ -91,7 +91,7 @@ pub struct ExerciseTrial {
 }
 
 /// The type of a unit.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum UnitType {
     /// A single task, which the student is meant to perform and assess.
     Exercise,

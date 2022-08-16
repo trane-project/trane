@@ -10,7 +10,7 @@ use ustr::Ustr;
 use crate::data::GetMetadata;
 
 /// The logical operation used to combine multiple filters.
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum FilterOp {
     /// A filter returns true if all its filters pass.
     All,
@@ -20,7 +20,7 @@ pub enum FilterOp {
 }
 
 /// The type of filter according to how they treat the items which match the filter.
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum FilterType {
     /// A filter which includes the items that match it.
     Include,
@@ -30,7 +30,7 @@ pub enum FilterType {
 }
 
 /// A filter on the metadata of a course.
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum KeyValueFilter {
     /// A basic filter that matches a key value pair.
     BasicFilter {
@@ -98,7 +98,7 @@ impl KeyValueFilter {
 }
 
 /// A filter on course and/or lesson metadata.
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MetadataFilter {
     /// The filter to apply to the course metadata.
     pub course_filter: Option<KeyValueFilter>,
@@ -111,7 +111,7 @@ pub struct MetadataFilter {
 }
 
 /// A filter on a course or lesson manifest.
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum UnitFilter {
     /// A filter to show exercises belonging to the given courses.
     CourseFilter {
@@ -201,7 +201,7 @@ impl UnitFilter {
 }
 
 /// A named filter for easy reference.
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct NamedFilter {
     /// A unique ID for the filter.
     pub id: String,

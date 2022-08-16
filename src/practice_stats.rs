@@ -105,6 +105,7 @@ impl PracticeStats for PracticeStatsDB {
             )
             .with_context(|| "cannot prepare statement to query practice stats DB")?;
 
+        #[allow(clippy::let_and_return)]
         let rows = stmt
             .query_map(params![exercise_id.as_str(), num_scores], |row| {
                 Ok(ExerciseTrial {
