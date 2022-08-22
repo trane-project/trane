@@ -243,7 +243,7 @@ impl TraneSimulation {
         filter: Option<&UnitFilter>,
     ) -> Result<()> {
         for unit_id in blacklist {
-            trane.add_unit(&unit_id.to_ustr())?;
+            trane.add_to_blacklist(&unit_id.to_ustr())?;
         }
 
         let mut completed_exercises = 0;

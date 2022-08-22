@@ -22,9 +22,9 @@ fn add_and_remove_from_blacklist() -> Result<()> {
     let mut blacklist = new_test_blacklist()?;
 
     let unit_id = Ustr::from("unit_id");
-    blacklist.add_unit(&unit_id)?;
+    blacklist.add_to_blacklist(&unit_id)?;
     assert!(blacklist.blacklisted(&unit_id)?);
-    blacklist.remove_unit(&unit_id)?;
+    blacklist.remove_from_blacklist(&unit_id)?;
     assert!(!blacklist.blacklisted(&unit_id)?);
     Ok(())
 }
@@ -33,11 +33,11 @@ fn add_and_remove_from_blacklist() -> Result<()> {
 fn readd_to_blacklist() -> Result<()> {
     let mut blacklist = new_test_blacklist()?;
     let unit_id = Ustr::from("unit_id");
-    blacklist.add_unit(&unit_id)?;
+    blacklist.add_to_blacklist(&unit_id)?;
     assert!(blacklist.blacklisted(&unit_id)?);
-    blacklist.remove_unit(&unit_id)?;
+    blacklist.remove_from_blacklist(&unit_id)?;
     assert!(!blacklist.blacklisted(&unit_id)?);
-    blacklist.add_unit(&unit_id)?;
+    blacklist.add_to_blacklist(&unit_id)?;
     assert!(blacklist.blacklisted(&unit_id)?);
     Ok(())
 }
@@ -47,10 +47,10 @@ fn all_entries() -> Result<()> {
     let mut blacklist = new_test_blacklist()?;
     let unit_id = Ustr::from("unit_id");
     let unit_id2 = Ustr::from("unit_id2");
-    blacklist.add_unit(&unit_id)?;
+    blacklist.add_to_blacklist(&unit_id)?;
     assert!(blacklist.blacklisted(&unit_id)?);
-    blacklist.add_unit(&unit_id2)?;
+    blacklist.add_to_blacklist(&unit_id2)?;
     assert!(blacklist.blacklisted(&unit_id2)?);
-    assert_eq!(blacklist.all_entries()?, vec![unit_id, unit_id2]);
+    assert_eq!(blacklist.all_blacklist_entries()?, vec![unit_id, unit_id2]);
     Ok(())
 }

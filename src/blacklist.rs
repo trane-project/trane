@@ -12,18 +12,18 @@ use ustr::{Ustr, UstrMap};
 
 /// An interface to store and read the list of units which should be skipped during scheduling.
 pub trait Blacklist {
-    /// Adds the given unit to the list of blacklisted units.
-    fn add_unit(&mut self, unit_id: &Ustr) -> Result<()>;
+    /// Adds the given unit to the blacklist.
+    fn add_to_blacklist(&mut self, unit_id: &Ustr) -> Result<()>;
 
-    /// Removes the given unit from the list of blacklisted units. Do nothing if the unit is not
-    /// already in the list.
-    fn remove_unit(&mut self, unit_id: &Ustr) -> Result<()>;
+    /// Removes the given unit from the blacklist. Do nothing if the unit is not already in the
+    /// list.
+    fn remove_from_blacklist(&mut self, unit_id: &Ustr) -> Result<()>;
 
-    /// Returns whether the given unit should be skipped during scheduling.
+    /// Returns whether the given unit is in the blacklist and should be skipped during scheduling.
     fn blacklisted(&self, unit_id: &Ustr) -> Result<bool>;
 
-    /// Returns the list of blacklisted units.
-    fn all_entries(&self) -> Result<Vec<Ustr>>;
+    /// Returns all the entries in the blacklist.
+    fn all_blacklist_entries(&self) -> Result<Vec<Ustr>>;
 }
 
 /// An implementation of BlackList backed by SQLite.
@@ -61,7 +61,7 @@ impl BlackListDB {
             pool,
         };
         blacklist.init()?;
-        for unit_id in blacklist.all_entries()? {
+        for unit_id in blacklist.all_blacklist_entries()? {
             blacklist.cache.write().insert(unit_id, true);
         }
         Ok(blacklist)
@@ -91,7 +91,7 @@ impl BlackListDB {
 }
 
 impl Blacklist for BlackListDB {
-    fn add_unit(&mut self, unit_id: &Ustr) -> Result<()> {
+    fn add_to_blacklist(&mut self, unit_id: &Ustr) -> Result<()> {
         let has_entry = self.has_entry(unit_id)?;
         if has_entry {
             return Ok(());
@@ -107,7 +107,7 @@ impl Blacklist for BlackListDB {
         Ok(())
     }
 
-    fn remove_unit(&mut self, unit_id: &Ustr) -> Result<()> {
+    fn remove_from_blacklist(&mut self, unit_id: &Ustr) -> Result<()> {
         let connection = self.pool.get()?;
         let mut stmt = connection
             .prepare_cached("DELETE FROM blacklist WHERE unit_id = $1")
@@ -122,7 +122,7 @@ impl Blacklist for BlackListDB {
         self.has_entry(unit_id)
     }
 
-    fn all_entries(&self) -> Result<Vec<Ustr>> {
+    fn all_blacklist_entries(&self) -> Result<Vec<Ustr>> {
         let connection = self.pool.get()?;
         let mut stmt = connection
             .prepare_cached("SELECT unit_id from blacklist;")
