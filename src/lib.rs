@@ -24,11 +24,13 @@ pub mod data;
 pub mod filter_manager;
 pub mod graph;
 pub mod practice_stats;
+pub mod review_list;
 pub mod scheduler;
 pub mod scorer;
 
 use anyhow::{anyhow, Context, Result};
 use parking_lot::RwLock;
+use review_list::{ReviewList, ReviewListDB};
 use std::{fs::create_dir, path::Path, sync::Arc};
 use ustr::{Ustr, UstrMap, UstrSet};
 
@@ -48,6 +50,9 @@ const PRACTICE_STATS_PATH: &str = "practice_stats.db";
 
 /// The path to the SQLite database containing the list of units to be skipped during scheduling.
 const BLACKLIST_PATH: &str = "blacklist.db";
+
+/// The path to the SQLite database containing the review list.
+const REVIEW_LIST_PATH: &str = "review_list.db";
 
 /// The path to the directory containing unit filters saved by the user.
 const FILTERS_DIR: &str = "filters";
@@ -72,6 +77,9 @@ pub struct Trane {
 
     /// The object containing the information on previous exercise trials.
     practice_stats: Arc<RwLock<dyn PracticeStats + Send + Sync>>,
+
+    /// The object containing the list of units to review.
+    review_list: Arc<RwLock<dyn ReviewList + Send + Sync>>,
 
     /// The object containing the scheduling algorithm.
     scheduler: DepthFirstScheduler,
@@ -131,6 +139,9 @@ impl Trane {
         let blacklist = Arc::new(RwLock::new(BlackListDB::new_from_disk(
             config_path.join(BLACKLIST_PATH).to_str().unwrap(),
         )?));
+        let review_list = Arc::new(RwLock::new(ReviewListDB::new_from_disk(
+            config_path.join(REVIEW_LIST_PATH).to_str().unwrap(),
+        )?));
         let filter_manager = Arc::new(RwLock::new(LocalFilterManager::new(
             config_path.join(FILTERS_DIR).to_str().unwrap(),
         )?));
@@ -150,6 +161,7 @@ impl Trane {
             filter_manager,
             library_root: library_root.to_string(),
             practice_stats,
+            review_list,
             scheduler: DepthFirstScheduler::new(scheduler_data, SchedulerOptions::default()),
             unit_graph,
         })
@@ -162,22 +174,22 @@ impl Trane {
 }
 
 impl Blacklist for Trane {
-    fn add_unit(&mut self, unit_id: &Ustr) -> Result<()> {
+    fn add_to_blacklist(&mut self, unit_id: &Ustr) -> Result<()> {
         self.scheduler.invalidate_cached_score(unit_id);
-        self.blacklist.write().add_unit(unit_id)
+        self.blacklist.write().add_to_blacklist(unit_id)
     }
 
-    fn remove_unit(&mut self, unit_id: &Ustr) -> Result<()> {
+    fn remove_from_blacklist(&mut self, unit_id: &Ustr) -> Result<()> {
         self.scheduler.invalidate_cached_score(unit_id);
-        self.blacklist.write().remove_unit(unit_id)
+        self.blacklist.write().remove_from_blacklist(unit_id)
     }
 
     fn blacklisted(&self, unit_id: &Ustr) -> Result<bool> {
         self.blacklist.read().blacklisted(unit_id)
     }
 
-    fn all_entries(&self) -> Result<Vec<Ustr>> {
-        self.blacklist.read().all_entries()
+    fn all_blacklist_entries(&self) -> Result<Vec<Ustr>> {
+        self.blacklist.read().all_blacklist_entries()
     }
 }
 
@@ -235,6 +247,20 @@ impl PracticeStats for Trane {
         self.practice_stats
             .write()
             .record_exercise_score(exercise_id, score, timestamp)
+    }
+}
+
+impl ReviewList for Trane {
+    fn add_to_review_list(&mut self, unit_id: &Ustr) -> Result<()> {
+        self.review_list.write().add_to_review_list(unit_id)
+    }
+
+    fn remove_from_review_list(&mut self, unit_id: &Ustr) -> Result<()> {
+        self.review_list.write().remove_from_review_list(unit_id)
+    }
+
+    fn all_review_list_entries(&self) -> Result<Vec<Ustr>> {
+        self.review_list.read().all_review_list_entries()
     }
 }
 

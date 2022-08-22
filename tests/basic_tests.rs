@@ -632,7 +632,7 @@ fn invalidate_cache_on_blacklist_update() -> Result<()> {
     // of one to all exercises. Trane should not schedule any lesson or course depending on the
     // lesson with ID TestId(0, Some(0), None).
     for exercise_id in &exercise_blacklist {
-        trane.remove_unit(&exercise_id.to_ustr())?;
+        trane.remove_from_blacklist(&exercise_id.to_ustr())?;
     }
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::One)));
     simulation.run_simulation(&mut trane, &vec![], None)?;
