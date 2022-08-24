@@ -13,6 +13,7 @@ use crate::{
     },
     graph::{InMemoryUnitGraph, UnitGraph},
     practice_stats::PracticeStatsDB,
+    review_list::ReviewListDB,
 };
 
 /// A struct encapsulating all the state needed to schedule exercises.
@@ -32,6 +33,9 @@ pub(crate) struct SchedulerData {
 
     /// The list of units to skip during scheduling.
     pub blacklist: Arc<RwLock<BlackListDB>>,
+
+    /// The list of units which should be reviewed by the student.
+    pub review_list: Arc<RwLock<ReviewListDB>>,
 
     /// A map storing the number of times an exercise has been scheduled during the lifetime of this
     /// scheduler.

@@ -152,6 +152,7 @@ impl Trane {
             unit_graph: unit_graph.clone(),
             practice_stats: practice_stats.clone(),
             blacklist: blacklist.clone(),
+            review_list: review_list.clone(),
             frequency_map: Arc::new(RwLock::new(UstrMap::default())),
         };
 

@@ -6,12 +6,12 @@ use super::{ReviewList, ReviewListDB};
 
 fn new_test_review_list() -> Result<Box<dyn ReviewList>> {
     let connection_manager = SqliteConnectionManager::memory();
-    let blacklist = ReviewListDB::new(connection_manager)?;
-    Ok(Box::new(blacklist))
+    let review_list = ReviewListDB::new(connection_manager)?;
+    Ok(Box::new(review_list))
 }
 
 #[test]
-fn add_and_remove_from_blacklist() -> Result<()> {
+fn add_and_remove_from_review_list() -> Result<()> {
     let mut review_list = new_test_review_list()?;
 
     let unit_id = Ustr::from("unit_id");
