@@ -15,6 +15,7 @@ use crate::{
     },
     graph::UnitGraph,
     practice_stats::PracticeStats,
+    review_list::ReviewList,
     scheduler::{cache::ScoreCache, data::SchedulerData, filter::CandidateFilter},
 };
 
@@ -507,6 +508,33 @@ impl DepthFirstScheduler {
         })?;
         Ok(candidates)
     }
+
+    /// Searches from candidates from the units in the review list.
+    fn get_candidates_from_review_list(&self) -> Result<Vec<Candidate>> {
+        let mut candidates = vec![];
+        let review_list = self.data.review_list.read().all_review_list_entries()?;
+        for unit_id in &review_list {
+            match self.data.get_unit_type(unit_id)? {
+                UnitType::Course => {
+                    let course_ids = vec![*unit_id];
+                    candidates.extend(self.get_candidates_from_course(&course_ids)?);
+                }
+                UnitType::Lesson => {
+                    candidates.extend(self.get_candidates_from_lesson(unit_id)?);
+                }
+                UnitType::Exercise => {
+                    candidates.push(Candidate {
+                        exercise_id: *unit_id,
+                        num_hops: 0.0,
+                        score: self.score_cache.get_exercise_score(unit_id)?,
+                        frequency: *self.data.frequency_map.read().get(unit_id).unwrap_or(&0.0),
+                    });
+                }
+            }
+        }
+
+        Ok(candidates)
+    }
 }
 
 impl ExerciseScheduler for DepthFirstScheduler {
@@ -537,6 +565,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
                     // to a course or lesson matching the given metadata filter.
                     self.get_candidates_from_graph(Some(filter))?
                 }
+                UnitFilter::ReviewListFilter => self.get_candidates_from_review_list()?,
             },
         };
 

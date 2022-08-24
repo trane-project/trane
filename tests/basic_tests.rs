@@ -11,6 +11,7 @@ use trane::{
         filter::{FilterOp, FilterType, KeyValueFilter, MetadataFilter, UnitFilter},
         MasteryScore,
     },
+    review_list::ReviewList,
 };
 
 use crate::common::*;
@@ -1024,6 +1025,138 @@ fn scheduler_respects_metadata_filter_and_blacklist() -> Result<()> {
         if matching_lessons
             .iter()
             .any(|lesson| exercise_id.exercise_in_lesson(lesson))
+        {
+            assert!(
+                simulation.answer_history.contains_key(&exercise_ustr),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+        } else {
+            assert!(
+                !simulation.answer_history.contains_key(&exercise_ustr),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        }
+    }
+    Ok(())
+}
+
+/// A test to verify that exercises in the review list are scheduled when using the review list
+/// filter.
+#[test]
+fn schedule_exercises_in_review_list() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+
+    // Add some exercises to the review list.
+    let review_exercises = vec![TestId(1, Some(0), Some(0)), TestId(2, Some(1), Some(7))];
+    for unit_id in &review_exercises {
+        let unit_ustr = unit_id.to_ustr();
+        trane.add_to_review_list(&unit_ustr)?;
+    }
+
+    // Run the simulation with the review list filter.
+    let mut simulation = TraneSimulation::new(100, Box::new(|_| Some(MasteryScore::Five)));
+    simulation.run_simulation(&mut trane, &vec![], Some(&UnitFilter::ReviewListFilter))?;
+
+    // Only the exercises in the review list should have been scheduled.
+    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    for exercise_id in exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
+        if review_exercises
+            .iter()
+            .any(|review_exercise_id| *review_exercise_id == exercise_id)
+        {
+            assert!(
+                simulation.answer_history.contains_key(&exercise_ustr),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+        } else {
+            assert!(
+                !simulation.answer_history.contains_key(&exercise_ustr),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        }
+    }
+    Ok(())
+}
+
+/// A test to verify that exercises from the lessons in the review list are scheduled when using the
+/// review list filter.
+#[test]
+fn schedule_lessons_in_review_list() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+
+    // Add some lessons to the review list.
+    let review_lessons = vec![TestId(1, Some(0), None), TestId(2, Some(1), None)];
+    for unit_id in &review_lessons {
+        let unit_ustr = unit_id.to_ustr();
+        trane.add_to_review_list(&unit_ustr)?;
+    }
+
+    // Run the simulation with the review list filter.
+    let mut simulation = TraneSimulation::new(100, Box::new(|_| Some(MasteryScore::Five)));
+    simulation.run_simulation(&mut trane, &vec![], Some(&UnitFilter::ReviewListFilter))?;
+
+    // Only the exercises from the lessons in the review list should have been scheduled.
+    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    for exercise_id in exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
+        if review_lessons
+            .iter()
+            .any(|lesson_id| exercise_id.exercise_in_lesson(lesson_id))
+        {
+            assert!(
+                simulation.answer_history.contains_key(&exercise_ustr),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+        } else {
+            assert!(
+                !simulation.answer_history.contains_key(&exercise_ustr),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        }
+    }
+    Ok(())
+}
+
+/// A test to verify that exercises from the courses in the review list are scheduled when using the
+/// review list filter.
+#[test]
+fn schedule_courses_in_review_list() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+
+    // Add some courses to the review list.
+    let review_courses = vec![TestId(1, None, None), TestId(2, None, None)];
+    for unit_id in &review_courses {
+        let unit_ustr = unit_id.to_ustr();
+        trane.add_to_review_list(&unit_ustr)?;
+    }
+
+    // Run the simulation with the review list filter.
+    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    simulation.run_simulation(&mut trane, &vec![], Some(&UnitFilter::ReviewListFilter))?;
+
+    // Only the exercises from the courses in the review list should have been scheduled.
+    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    for exercise_id in exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
+        if review_courses
+            .iter()
+            .any(|course_id| exercise_id.exercise_in_course(course_id))
         {
             assert!(
                 simulation.answer_history.contains_key(&exercise_ustr),

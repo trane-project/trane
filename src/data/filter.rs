@@ -130,6 +130,9 @@ pub enum UnitFilter {
         /// The filter to apply to the course or lesson metadata.
         filter: MetadataFilter,
     },
+
+    /// A filter to indicate that only exercises from the review list should be scheduled.
+    ReviewListFilter,
 }
 
 impl UnitFilter {
