@@ -734,7 +734,7 @@ fn scheduler_respects_course_filter() -> Result<()> {
 /// provided.
 #[test]
 fn scheduler_respects_lesson_filter() -> Result<()> {
-    // Initialize test course None.
+    // Initialize test course library.
     let temp_dir = TempDir::new()?;
     let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
 
