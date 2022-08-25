@@ -12,7 +12,7 @@
 //! game, but applied to arbitrary skills, which are defined in plain-text files which define the
 //! exercises, their bundling into lessons and courses, and the dependency relationships between
 //! them.
-//! 
+//!
 //! Trane is named after John Coltrane, whose nickname Trane was often used in wordplay with the
 //! word train (as in the vehicle) to describe the overwhelming power of his playing. It is used
 //! here as a play on its homophone (as in "training a new skill").
