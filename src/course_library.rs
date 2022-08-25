@@ -155,9 +155,9 @@ impl LocalCourseLibrary {
         self.lesson_map
             .insert(lesson_manifest.id, lesson_manifest.clone());
 
-        // Start a new search from passed `DirEntry`, which corresponds to the lesson's root. Each
-        // exercise in the lesson must be contained in a directory that is a direct descendant of
-        // its root. Therefore, all the exercise manifests will be found at a depth of two.
+        // Start a new search from the passed `DirEntry`, which corresponds to the lesson's root.
+        // Each exercise in the lesson must be contained in a directory that is a direct descendant
+        // of its root. Therefore, all the exercise manifests will be found at a depth of two.
         for entry in WalkDir::new(lesson_root).min_depth(2).max_depth(2) {
             match entry {
                 Err(_) => continue,
@@ -198,9 +198,9 @@ impl LocalCourseLibrary {
         self.course_map
             .insert(course_manifest.id, course_manifest.clone());
 
-        // Start a new search from passed `DirEntry`, which corresponds to the course's root. Each
-        // lesson in the course must be contained in a directory that is a direct descendant of its
-        // root. Therefore, all the lesson manifests will be found at a depth of two.
+        // Start a new search from the passed `DirEntry`, which corresponds to the course's root.
+        // Each lesson in the course must be contained in a directory that is a direct descendant of
+        // its root. Therefore, all the lesson manifests will be found at a depth of two.
         let course_root = dir_entry.path().parent().unwrap();
         for entry in WalkDir::new(course_root).min_depth(2).max_depth(2) {
             match entry {
@@ -262,9 +262,10 @@ impl LocalCourseLibrary {
             }
         }
 
-        // Lessons implicitly have the course to which they belong as a dependency. Calling
-        // `update_starting_lessons` explicitly adds a dependency between the starting lessons and
-        // the course. This allows the scheduler to traverse the lessons in the correct order.
+        // Lessons implicitly depend on the course to which they belong. Calling
+        // `update_starting_lessons` explicitly adds a dependency between each of the starting
+        // lessons and the course. This allows the scheduler to traverse the lessons in the correct
+        // order.
         library.unit_graph.write().update_starting_lessons();
         // Perform a check to detect cyclic dependencies, which could cause infinite loops during
         // traversal.
