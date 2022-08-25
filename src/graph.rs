@@ -116,7 +116,7 @@ pub trait UnitGraph {
     /// [trane-cli](https://github.com/trane-project/trane-cli) repo.
     ///
     /// This allows users to have some way to visualize the graph without having to implement such a
-    /// feature and depend on graphviz instead.
+    /// feature and depend on Graphviz instead.
     ///
     /// The dependent graph is outputted instead of the dependency graph so that the output is
     /// easier to read. If you follow the arrows, then you are traversing the path that students
@@ -164,8 +164,6 @@ impl InMemoryUnitGraph {
     fn update_dependency_sinks(&mut self, unit_id: &Ustr, dependencies: &[Ustr]) {
         let empty = UstrSet::default();
         let current_dependencies = self.dependency_graph.get(unit_id).unwrap_or(&empty);
-
-        // If the current dependencies and
         if current_dependencies.is_empty() && dependencies.is_empty() {
             self.dependency_sinks.insert(*unit_id);
         } else {
@@ -188,16 +186,13 @@ impl InMemoryUnitGraph {
     fn update_unit_type(&mut self, unit_id: &Ustr, unit_type: UnitType) -> Result<()> {
         match self.type_map.get(unit_id) {
             None => {
-                // New unit, write the value to the map.
                 self.type_map.insert(*unit_id, unit_type);
                 Ok(())
             }
             Some(existing_type) => {
                 if unit_type == *existing_type {
-                    // Same type as the existing type, so no need to update the map.
                     Ok(())
                 } else {
-                    // The type cannot be changed because the IDs should not either.
                     Err(anyhow!(
                         "cannot update unit type of unit {} from type {:#?}) to {:#?}.",
                         unit_id,
@@ -352,7 +347,6 @@ impl UnitGraph for InMemoryUnitGraph {
         let mut visited = UstrSet::default();
         for unit_id in self.dependency_graph.keys() {
             if visited.contains(unit_id) {
-                // Already visited this unit, so no need to check this path further.
                 continue;
             }
 
