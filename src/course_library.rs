@@ -1,5 +1,9 @@
-//! Module containing utilities to open and manipulate collecti&ons of courses and lessons stored
-//! under a directory, which are named a course library.
+//! Defines the operations that can be performed on a collection of courses stored by the student.
+//!
+//! A course library (the term Trane library will be used interchangably) is a collection of courses
+//! that the student wishes to practice together. Courses, lessons, and exercises are defined by
+//! their manifest files (see data.rs).
+
 use std::{fs::File, io::BufReader, path::Path, sync::Arc};
 
 use anyhow::{anyhow, ensure, Result};
@@ -13,15 +17,16 @@ use crate::{
     graph::{InMemoryUnitGraph, UnitGraph},
 };
 
-/// Manages a course library and its corresponding course, lessons, and exercise manifests.
+/// A trait that manages a course library, its corresponding manifest files, and provides basic
+/// operations to retrieve the courses, lessons in a course, and exercises in a lesson.
 pub trait CourseLibrary {
-    /// Returns the manifest for the given course.
+    /// Returns the course manifest for the given course.
     fn get_course_manifest(&self, course_id: &Ustr) -> Option<CourseManifest>;
 
-    /// Returns the manifest for the given lesson.
+    /// Returns the lesson manifest for the given lesson.
     fn get_lesson_manifest(&self, lesson_id: &Ustr) -> Option<LessonManifest>;
 
-    /// Returns the manfifest for the given exercise.
+    /// Returns the exercise manifest for the given exercise.
     fn get_exercise_manifest(&self, exercise_id: &Ustr) -> Option<ExerciseManifest>;
 
     /// Returns the IDs of all courses in the library.
@@ -34,13 +39,16 @@ pub trait CourseLibrary {
     fn get_exercise_ids(&self, lesson_id: &Ustr) -> Result<Vec<Ustr>>;
 }
 
+/// A trait that retrieves the unit graph generated after reading a course library. This trait's
+/// visibility is set to `pub(crate)` because `InMemoryUnitGraph` has the same visibility and
+/// returning a concrete type avoids the need for indirection.
 pub(crate) trait GetUnitGraph {
     /// Returns a reference to the unit graph describing the dependencies among the courses and
     /// lessons in this library.
     fn get_unit_graph(&self) -> Arc<RwLock<InMemoryUnitGraph>>;
 }
 
-/// An implementation of CourseLibrary backed by the local filesystem.
+/// An implementation of `CourseLibrary` backed by the local file system.
 pub(crate) struct LocalCourseLibrary {
     /// A dependency graph of the course and lessons in the library.
     unit_graph: Arc<RwLock<InMemoryUnitGraph>>,
@@ -63,7 +71,7 @@ impl LocalCourseLibrary {
         serde_json::from_reader(reader).map_err(|_| anyhow!("cannot parse manifest file {}", path))
     }
 
-    /// Processes the exercise manifest located at the given DirEntry.
+    /// Processes the exercise manifest located at the given `DirEntry`.
     fn process_exercise_manifest(
         &mut self,
         lesson_manifest: &LessonManifest,
@@ -91,7 +99,7 @@ impl LocalCourseLibrary {
         Ok(())
     }
 
-    /// Processes the lesson manifest located at the given DirEntry.
+    /// Processes the lesson manifest located at the given `DirEntry`.
     fn process_lesson_manifest(
         &mut self,
         dir_entry: &DirEntry,
@@ -124,7 +132,7 @@ impl LocalCourseLibrary {
             .insert(lesson_manifest.id, lesson_manifest.clone());
 
         // Start a new search from the lesson's root. Each exercise in the lesson must be contained
-        // in a directory that is a direct descendent of the root. Therefore, all the exercise
+        // in a directory that is a direct descendant of the root. Therefore, all the exercise
         // manifests will be at a depth of two from the root.
         for entry in WalkDir::new(lesson_root).min_depth(2).max_depth(2) {
             match entry {
@@ -147,7 +155,7 @@ impl LocalCourseLibrary {
         Ok(())
     }
 
-    /// Processes the course manifest located at the given DirEntry.
+    /// Processes the course manifest located at the given `DirEntry`.
     fn process_course_manifest(
         &mut self,
         dir_entry: &DirEntry,
@@ -166,7 +174,7 @@ impl LocalCourseLibrary {
             .insert(course_manifest.id, course_manifest.clone());
 
         // Start a new search from the course's root. Each lesson in the course must be contained in
-        // a directory that is a direct descendent of the root. Therefore, all the lesson manifests
+        // a directory that is a direct descendant of the root. Therefore, all the lesson manifests
         // will be at a depth of two from the root.
         let course_root = dir_entry.path().parent().unwrap();
         for entry in WalkDir::new(course_root).min_depth(2).max_depth(2) {
