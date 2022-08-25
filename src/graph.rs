@@ -107,7 +107,7 @@ pub trait UnitGraph {
     /// walk of the entire unit graph needs to start. Because the lessons in a course implicitly
     /// depend on the course, only courses should be returned.
     ///
-    /// The only exception is for units that are mentioend as dependencies of other units but are
+    /// The only exception is for units that are mentioned as dependencies of other units but are
     /// never added to the graph because their data is missing. Those units are added as dependency
     /// sinks so that the scheduler can reach their dependents.
     fn get_dependency_sinks(&self) -> UstrSet;
@@ -129,9 +129,9 @@ pub trait UnitGraph {
     fn generate_dot_graph(&self) -> String;
 }
 
-/// Implements the UnitGraph by describing the units and relationships as an adjacency list stored
-/// in hash maps. All of it is stored in memory, as the memory benchmarks say that less than 20 MB
-/// of memory are used even when opening a large Trane library.
+/// An implementation of `UnitGraph` describing the units and relationships as an adjacency list
+/// stored in hash maps. All of it is stored in memory, as the memory benchmarks say that less than
+/// 20 MB of memory are used even when opening a large Trane library.
 #[derive(Default)]
 pub(crate) struct InMemoryUnitGraph {
     /// The mapping of a unit to its type.
@@ -155,7 +155,7 @@ pub(crate) struct InMemoryUnitGraph {
     /// The mapping of a unit to its dependencies.
     dependency_graph: UstrMap<UstrSet>,
 
-    /// The mappinng of a unit to all its dependents.
+    /// The mapping of a unit to all its dependents.
     dependent_graph: UstrMap<UstrSet>,
 
     /// The set of all dependency sinks in the graph.
@@ -416,7 +416,7 @@ impl UnitGraph for InMemoryUnitGraph {
             // starting lessons, and one outbound, connected to the last lessons in the course (by
             // the order in which they must be traversed to master the entire course) and to the
             // dependents of the course. This might be amended, either here in this function or in
-            // the implementation of the graph itself, but it is not a high priority.  
+            // the implementation of the graph itself, but it is not a high priority.
             dependents.extend(
                 self.get_course_starting_lessons(&course_id)
                     .unwrap_or_default()
