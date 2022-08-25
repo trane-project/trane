@@ -26,8 +26,9 @@
 //! The graph also provides a number of operations to manipulate the graph, which are only used when
 //! reading the Trane library (see course_library.rs), and another few to derive information from
 //! the graph ("which are the lessons in a course?" for example). The graph is not in any way
-//! responsible on how the exercises are scheduled (see scheduler.rs for information on that) nor it
-//! stores any information about a student's practice.
+//! responsible on how the exercises are scheduled (see scheduler.rs) nor it stores any information
+//! about a student's practice (see practice_stats.rs) or preferences (see blacklist.rs,
+//! filter_manager.rs, and review_list.rs).
 
 #[cfg(test)]
 mod tests;
