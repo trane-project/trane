@@ -104,7 +104,11 @@ pub trait UnitGraph {
 
     /// Returns the dependency sinks of the graph. A dependency sink are the courses from which a
     /// walk of the entire unit graph needs to start. Because the lessons in a course implicitly
-    /// depend on the course, a correct implementation only returns courses.
+    /// depend on the course, only courses should be returned.
+    ///
+    /// The only exception is for units that are mentioend as dependencies of other units but are
+    /// never added to the graph because their data is missing. Those units are added as dependency
+    /// sinks so that the scheduler can reach their dependents.
     fn get_dependency_sinks(&self) -> UstrSet;
 
     /// Performs a cycle check on the graph, done currently when opening the Trane library.
@@ -171,10 +175,10 @@ impl InMemoryUnitGraph {
 
         // If a course is mentioned as a dependency, but it's missing, it should be a dependency
         // sink. To ensure this requirement, the function is called recursively on all the
-        // dependents with a dependency list. It's safe to do this for all courses because a call
-        // to this function for a course with an empty dependency list followed by another with the
-        // actual list has the same result as only executing the second call but makes sure that any
-        // missing courses are added and never removed from the dependency sinks.
+        // dependents with an empty dependency list. It's safe to do this for all courses because a
+        // call to this function for a course with an empty dependency list followed by another with
+        // the actual list has the same result as only executing the second call but makes sure that
+        // any missing courses are added and never removed from the dependency sinks.
         for dependency_id in dependencies {
             self.update_dependency_sinks(dependency_id, &[]);
         }
