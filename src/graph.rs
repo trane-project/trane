@@ -157,7 +157,6 @@ pub(crate) struct InMemoryUnitGraph {
     dependency_sinks: UstrSet,
 }
 
-/// An implementation of the UnitGraph trait which stores the graph in memory.
 impl InMemoryUnitGraph {
     /// Updates the dependency sinks of the given unit when the given unit and dependencies are
     /// added to the graph. If it's called
