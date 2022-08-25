@@ -46,25 +46,25 @@ use crate::data::UnitType;
 ///
 /// The write operations are only used right now when reading the Trane library for the first time.
 /// A user that copies new courses to an existing and currently opened library will need to restart
-/// the interface for Trane. That limitation might change in the future, but it's not a high priority
-/// as the process takes only a few seconds.
+/// the interface for Trane. That limitation might change in the future, but it's not a high
+/// priority as the process takes only a few seconds.
 pub trait UnitGraph {
     /// Adds a new course to the unit graph. This function will return an error if this function is
     /// not called before the dependencies of this course are added. This is done to properly check
     /// that unit IDs are unique.
     fn add_course(&mut self, course_id: &Ustr) -> Result<()>;
 
-    /// Adds a new lesson to the unit graph. This function is the equivalent of add_course for
+    /// Adds a new lesson to the unit graph. This function is the equivalent of `add_course` for
     /// lessons. It also requires the ID of the course to which this lesson belongs.
     fn add_lesson(&mut self, lesson_id: &Ustr, course_id: &Ustr) -> Result<()>;
 
-    /// Adds a new exercise to the unit graph. This function is the equivalent of add_course and
-    /// add_lesson for exercises. It also requires the ID of the lesson to which this exercise
+    /// Adds a new exercise to the unit graph. This function is the equivalent of `add_course` and
+    /// `add_lesson` for exercises. It also requires the ID of the lesson to which this exercise
     /// belongs.
     fn add_exercise(&mut self, exercise_id: &Ustr, lesson_id: &Ustr) -> Result<()>;
 
     /// Takes a unit and its dependencies and updates the graph accordingly. Returns an error if
-    /// unit_type is `UnitType::Exercise` as only courses and lessons are allowed to have
+    /// `unit_type` is `UnitType::Exercise` as only courses and lessons are allowed to have
     /// dependencies.
     fn add_dependencies(
         &mut self,
@@ -164,7 +164,7 @@ pub(crate) struct InMemoryUnitGraph {
 
 impl InMemoryUnitGraph {
     /// Updates the dependency sinks of the given unit when the given unit and dependencies are
-    /// added to the graph. If it's called
+    /// added to the graph.
     fn update_dependency_sinks(&mut self, unit_id: &Ustr, dependencies: &[Ustr]) {
         let empty = UstrSet::default();
         let current_dependencies = self.dependency_graph.get(unit_id).unwrap_or(&empty);
@@ -178,8 +178,8 @@ impl InMemoryUnitGraph {
         // sink. To ensure this requirement, the function is called recursively on all the
         // dependents with an empty dependency list. It's safe to do this for all courses because a
         // call to this function for a course with an empty dependency list followed by another with
-        // the actual list has the same result as only executing the second call but makes sure that
-        // any missing courses are added and never removed from the dependency sinks.
+        // a non-empty list has the same result as only executing the second call but makes sure
+        // that any missing courses are added and never removed from the dependency sinks.
         for dependency_id in dependencies {
             self.update_dependency_sinks(dependency_id, &[]);
         }
@@ -415,8 +415,8 @@ impl UnitGraph for InMemoryUnitGraph {
             // the graph would require each course to have two nodes, one inbound, connected to the
             // starting lessons, and one outbound, connected to the last lessons in the course (by
             // the order in which they must be traversed to master the entire course) and to the
-            // dependents of the course. This might eventually be amended, either here in this
-            // function or in the implementation of the graph itself.
+            // dependents of the course. This might be amended, either here in this function or in
+            // the implementation of the graph itself, but it is not a high priority.  
             dependents.extend(
                 self.get_course_starting_lessons(&course_id)
                     .unwrap_or_default()
