@@ -114,10 +114,10 @@ pub trait UnitGraph {
     /// graph, in this case the dependent graph. This operation was suggested in issue
     /// [#13](https://github.com/trane-project/trane-cli/issues/13) in the
     /// [trane-cli](https://github.com/trane-project/trane-cli) repo.
-    /// 
+    ///
     /// This allows users to have some way to visualize the graph without having to implement such a
     /// feature and depend on graphviz instead.
-    /// 
+    ///
     /// The dependent graph is outputted instead of the dependency graph so that the output is
     /// easier to read. If you follow the arrows, then you are traversing the path that students
     /// must take to master a skill.
