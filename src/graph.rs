@@ -1,11 +1,11 @@
 //! Defines the dependency graph of units of knowledge, their dependency relationships, and basic
 //! read and write operations.
 //!
-//! The dependency graph is perharps the most important part of the design of Trane so its nature
-//! and purpose should be well documented. At its core, the goal of Trane is to guide students
-//! through the graph of units of knowledge composed of exercises, by having each successive unit
-//! teach a skill that can be acquired once the source unit is sufficiently mastered. This process
-//! of repetition of mastered exercises and introduction of new ones should lead to the complete
+//! The dependency graph is perhaps the most important part of the design of Trane so its nature and
+//! purpose should be well documented. At its core, the goal of Trane is to guide students through
+//! the graph of units of knowledge composed of exercises, by having each successive unit teach a
+//! skill that can be acquired once the source unit is sufficiently mastered. This process of
+//! repetition of mastered exercises and introduction of new ones should lead to the complete
 //! mastery of complex meta-skills such as jazz improvisation, chess, piano, etc. that are in fact
 //! the mastered integration of many smaller and interlinked skills.
 //!
