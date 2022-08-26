@@ -1,8 +1,8 @@
 //! Defines the operations that can be performed on a collection of courses stored by the student.
 //!
-//! A course library (the term Trane library will be used interchangably) is a collection of courses
-//! that the student wishes to practice together. Courses, lessons, and exercises are defined by
-//! their manifest files (see data.rs).
+//! A course library (the term Trane library will be used interchangeably) is a collection of
+//! courses that the student wishes to practice together. Courses, lessons, and exercises are
+//! defined by their manifest files (see data.rs).
 
 use std::{fs::File, io::BufReader, path::Path, sync::Arc};
 
@@ -20,7 +20,7 @@ use crate::{
 /// The file name for all course manifests.
 const COURSE_MANIFEST_FILENAME: &str = "course_manifest.json";
 
-// The file name for all lesson manifests.
+/// The file name for all lesson manifests.
 const LESSON_MANIFEST_FILENAME: &str = "lesson_manifest.json";
 
 /// The file name for all exercise manifests.

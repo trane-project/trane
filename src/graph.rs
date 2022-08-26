@@ -11,12 +11,12 @@
 //!
 //! This graph is implemented by simulating a directed acyclic graph (DAG) of units and
 //! dependency/dependents relationships among them. A unit can be of three types:
-//! 1. An excercise, which represents a single task testing a skill which the student is required to
+//! 1. An exercise, which represents a single task testing a skill which the student is required to
 //!    assess when practiced.
 //! 2. A lesson, which represents a collection of exercises which test the same skill and can be
 //!    practiced in any order.
 //! 3. A course, a collection of lessons which are related. It mostly exists to help organize the
-//!    material in larger entities which share some context xfasdfasdfasfd.
+//!    material in larger entities which share some context.
 //!
 //! The relationships between the units can be of two types:
 //! 1. A course or lesson A is a dependency of course or lesson B if A needs to be sufficiently
