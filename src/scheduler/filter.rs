@@ -3,7 +3,7 @@ use rand::{prelude::SliceRandom, thread_rng};
 use ustr::{Ustr, UstrSet};
 
 use crate::{
-    data::{ExerciseManifest, MasteryWindowOpts},
+    data::{ExerciseManifest, MasteryWindow},
     scheduler::{Candidate, SchedulerData},
 };
 
@@ -22,7 +22,7 @@ impl CandidateFilter {
     /// Filters the candidates whose score fit in the given window.
     fn candidates_in_window(
         candidates: &[Candidate],
-        window_opts: &MasteryWindowOpts,
+        window_opts: &MasteryWindow,
     ) -> Vec<Candidate> {
         candidates
             .iter()
