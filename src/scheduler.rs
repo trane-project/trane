@@ -1,5 +1,24 @@
-//! Module defining the data structures used to schedule batches of exercises to show to the user.
-//! The core of Trane's logic is in this module.
+/// Defines and implements the data structures used to schedule batches of exercises to show to the
+/// user. This module is the core mechanism of how Trane guides students to mastery of the material.
+///
+/// The scheduler has a few core goals:
+/// 1. Schedule exercises the user has practiced before in order to improve them and keep them up to
+///    date if they have been mastered already.
+/// 2. Once the current material has been sufficiently mastered, schedule exercises that list the
+///    current material as a dependency.
+/// 3. Optimize the difficulty of the schedule exercises so that the user is neither frustrated
+///    because many of the exercises are too difficult or bored because they have become too easy.
+///    The optimal are lies slightly outside their current comfort zone.
+/// 4. Record the scores self-reported by the user to use them to drive the decisions done in
+///    service of all the other goals.
+///
+/// In more formal terms, the scheduler's job is to plan the most optimal traversal of the graph of
+/// skills as the student's performance blocks or unblocks certain paths. The current implementation
+/// uses depth-first search to traverse the graph and collect a large pool of exercises, a multiple
+/// of the actual exercises included in the final batch. From this large pool, the candidates are
+/// split in groups of exercises which each match a disjoint range of scores to be randomly selected
+/// into a list of fixed size. The result is combined, shuffled, and becomes the final batch
+/// presented to the student.
 mod cache;
 pub mod data;
 mod filter;
@@ -19,28 +38,45 @@ use crate::{
     scheduler::{cache::ScoreCache, data::SchedulerData, filter::CandidateFilter},
 };
 
-/// The batch size will be multiplied by this factor in order to expand the range of the search and
-/// avoid always returning the same exercises. A search concludes early if it reaches a dead-end and
-/// there are already more candidates than said product.
+/// The scheduler returns early if the search reaches a dead end and the number of candidates is
+/// bigger than the multiple of the final batch size and this value. This is to avoid the need to
+/// search the entire graph if the search already found a decently sized pool of candidates.
 const MAX_CANDIDATE_FACTOR: usize = 10;
 
-/// Contains functions used to retrieve a new batch of exercises.
+/// The trait that defines the interface for the scheduler. Contains functions to request a new
+/// batch of exercises and to provide Trane the self-reported scores for said exercises.
 pub trait ExerciseScheduler {
-    /// Gets a new batch of exercises scheduled for a new trial.
+    /// Gets a new batch of exercises scheduled for a new trial. Contains an optimal filter to
+    /// restrict the units visited during the search with the purpose of allowing students to choose
+    /// which material to practice. If the filter is not provided, the scheduler will search the
+    /// entire graph.
     fn get_exercise_batch(
         &self,
         filter: Option<&UnitFilter>,
     ) -> Result<Vec<(Ustr, ExerciseManifest)>>;
 
-    /// Records the score of the given exercise's trial.
+    /// Records the score of the given exercise's trial. The scores are used by the scheduler to
+    /// decide when to stop traversing a path and how to sort and filter all the found candidates
+    /// into a final batch.
     fn score_exercise(&self, exercise_id: &Ustr, score: MasteryScore, timestamp: i64)
         -> Result<()>;
 
-    /// Removes any cached scores for the given unit.
+    /// Removes any cached scores for the given unit. The score will be recomputed the next time the
+    /// score is needed.
+    ///
+    /// The scores for lessons and exercises are cached to save a large amount of unnecessary
+    /// computation. Without the caller manually invalidating the cache using this call, it is not
+    /// possible to know when the cached value becomes outdated with the current interface. The
+    /// reason is that the calls to modify the blacklist are not known by the scheduler.
+    ///
+    /// However, the final users of Trane do not need to call this function because the `Trane`
+    /// object in lib.rs implements these calls when exposing the interface that modifies the
+    /// blacklist.
     fn invalidate_cached_score(&self, unit_id: &Ustr);
 }
 
-/// A struct representing an element in the stack used during the graph search.
+/// An item in the stack of units that are scheduled for traversal during the process of scheduling
+/// the next batch of exercises.
 #[derive(Clone, Debug)]
 struct StackItem {
     /// The ID of the unit contained in the item.
@@ -50,7 +86,9 @@ struct StackItem {
     num_hops: usize,
 }
 
-/// A struct representing an exercise selected during the search.
+/// An exercise selected during the initial phase of the search and which will be grouped with all
+/// the other candidates which fall in the same mastery window and filtered and randomly selected
+/// to form the final batch.
 #[derive(Clone, Debug)]
 struct Candidate {
     /// The ID of the exercise.
@@ -59,7 +97,8 @@ struct Candidate {
     /// The number of hops the graph search needed to reach this exercise.
     num_hops: f32,
 
-    /// The exercise score.
+    /// The score assigned to the exercise represented as a float number between 0.0 and 5.0
+    /// inclusive. This score will be computed from the previous trials of this exercise.
     score: f32,
 
     /// The number of times this exercise has been scheduled during the run of this scheduler. This
@@ -67,19 +106,24 @@ struct Candidate {
     frequency: f32,
 }
 
-/// An exercise scheduler based on depth-first search.
+/// The implementation of the exercise scheduler, based on depth-first search.
 pub(crate) struct DepthFirstScheduler {
-    /// The data used to schedule exercises.
+    /// The external data used by the scheduler. Contains pointers to the graph, blacklist, and
+    /// course library and provides convenient functions.
     data: SchedulerData,
 
-    /// A cache of unit scores.
+    /// A cache of unit scores. Scores are cached to avoid unnecessary computation, an issue that
+    /// was found during profiling of Trane's performance. The memory footprint of Trane is low, so
+    /// the trade-off is worth it.
     score_cache: ScoreCache,
 
+    /// The filter used to build the final batch of exercises among the candidates found during the
+    /// graph search.
     filter: CandidateFilter,
 }
 
 impl DepthFirstScheduler {
-    /// Creates a new simple scheduler.
+    /// Creates a new scheduler.
     pub fn new(data: SchedulerData, options: SchedulerOptions) -> Self {
         Self {
             data: data.clone(),
@@ -88,7 +132,8 @@ impl DepthFirstScheduler {
         }
     }
 
-    /// Shuffles the units and pushes them to the given stack.
+    /// Shuffles the units and pushes them to the given stack. Used with the goal of ensuring that
+    /// the units are traversed in a different order each time a new batch is requested.
     fn shuffle_to_stack(curr_unit: &StackItem, mut units: Vec<Ustr>, stack: &mut Vec<StackItem>) {
         units.shuffle(&mut thread_rng());
         stack.extend(units.iter().map(|id| StackItem {
@@ -97,10 +142,10 @@ impl DepthFirstScheduler {
         }));
     }
 
-    /// Returns all the courses without dependencies. If some of those courses are missing, their
-    /// dependents are added until there are no missing courses.
-    fn get_all_starting_courses(&self) -> UstrSet {
-        // Replace any missing courses with their dependents and repeat this process until there are
+    /// Returns all the courses and lessons without dependencies which are used to initialize a
+    /// search of the entire graph.
+    fn get_all_starting_units(&self) -> UstrSet {
+        // Replace any missing units with their dependents and repeat this process until there are
         // no missing courses.
         let mut starting_courses = self.data.unit_graph.read().get_dependency_sinks();
         loop {
@@ -118,7 +163,9 @@ impl DepthFirstScheduler {
             starting_courses = new_starting_courses;
         }
 
-        // Remove all courses with existing dependencies.
+        // Some courses added to the original list in the previous steps might have other
+        // dependencies, some of which exist in the course library. This means they cannot be
+        // considered a starting course, so remove them from the final output.
         starting_courses
             .into_iter()
             .filter(|course_id| {
@@ -151,9 +198,9 @@ impl DepthFirstScheduler {
             .collect())
     }
 
-    /// Returns all the starting lessons in the graph.
+    /// Returns all the starting lessons in the graph that are used to search the entire graph.
     fn get_all_starting_lessons(&self, metadata_filter: Option<&MetadataFilter>) -> Vec<StackItem> {
-        let starting_courses = self.get_all_starting_courses();
+        let starting_courses = self.get_all_starting_units();
         let mut starting_lessons: Vec<StackItem> = vec![];
         for course_id in starting_courses {
             let lesson_ids = self
@@ -164,11 +211,13 @@ impl DepthFirstScheduler {
                 num_hops: 0,
             }));
         }
+
+        // Shuffle the lessons to follow a different ordering each time a new batch is requested.
         starting_lessons.shuffle(&mut thread_rng());
         starting_lessons
     }
 
-    /// Gets a list of scores for the given exercises.
+    /// Gets the scores for the given exercises.
     fn get_exercise_scores(&self, exercises: &[Ustr]) -> Result<Vec<f32>> {
         exercises
             .iter()
@@ -177,6 +226,7 @@ impl DepthFirstScheduler {
     }
 
     /// Returns the list of candidates selected from the given lesson along with the average score.
+    /// The average score is used to help decide whether to continue searching a path in the graph.
     fn get_candidates_from_lesson_helper(&self, item: &StackItem) -> Result<(Vec<Candidate>, f32)> {
         // Check whether the lesson or its course have been blacklisted.
         if self.data.blacklisted(&item.unit_id).unwrap_or(false) {
@@ -298,21 +348,25 @@ impl DepthFirstScheduler {
             .collect()
     }
 
-    /// Searches for candidates across the entire graph.
+    /// Searches for candidates across the entire graph. An optional metadata filter can be used to
+    /// only select exercises from the courses and lessons that match the filter and ignore the rest
+    /// of the graph while still respecting the dependency relationships.
     fn get_candidates_from_graph(
         &self,
         metadata_filter: Option<&MetadataFilter>,
     ) -> Result<Vec<Candidate>> {
-        // Initialize stack with every starting lesson from the courses with no dpendencies.
+        // Initialize stack with every starting lesson, which are those units with no dependencies
+        // that are needed to reach all the units in the graph.
         let mut stack: Vec<StackItem> = Vec::new();
-        let starting_courses = self.get_all_starting_lessons(metadata_filter);
-        stack.extend(starting_courses.into_iter());
+        let starting_lessons = self.get_all_starting_lessons(metadata_filter);
+        stack.extend(starting_lessons.into_iter());
 
         let max_candidates = self.data.options.batch_size * MAX_CANDIDATE_FACTOR;
         let mut all_candidates: Vec<Candidate> = Vec::new();
         let mut visited = UstrSet::default();
         // Keep track of the number of lessons that have been visited for each course. The search
-        // will move onto the dependents of a course if all of its lessons have been visited.
+        // will not move onto the dependents of a course until all of its lessons have been visited
+        // and mastered.
         let mut pending_course_lessons: UstrMap<i64> = UstrMap::default();
 
         while !stack.is_empty() {
@@ -347,7 +401,7 @@ impl DepthFirstScheduler {
                     .unwrap_or_default();
                 Self::shuffle_to_stack(&curr_unit, starting_lessons, &mut stack);
 
-                // Update the count of pending lessons. The course depends on each of its lessons
+                // Update the count of pending lessons. The course depends on each of its lessons,
                 // but the search only moves forward once all of its lessons have been visited.
                 let pending_lessons = pending_course_lessons
                     .entry(curr_unit.unit_id)
@@ -360,8 +414,9 @@ impl DepthFirstScheduler {
                 let blacklisted = self.data.blacklisted(&curr_unit.unit_id).unwrap_or(false);
 
                 if *pending_lessons <= 0 || !passes_filter || blacklisted {
-                    // There are no pending lessons, the course does not pass the metadata filter,
-                    // or the unit is blacklisted. Push its valid dependents onto the stack.
+                    // If this branch was reached, there aren't any pending lessons, the course does
+                    // not pass the metadata filter, or the unit is blacklisted. Push its valid
+                    // dependents onto the stack.
                     visited.insert(curr_unit.unit_id);
                     let valid_deps = self.get_valid_dependents(&curr_unit.unit_id, metadata_filter);
                     Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
@@ -383,8 +438,8 @@ impl DepthFirstScheduler {
                 .or_insert_with(|| self.data.get_num_lessons_in_course(&course_id));
             *pending_lessons -= 1;
             if *pending_lessons <= 0 {
-                // Once all of the lessons in the course have been visited, re-add the course to the
-                // stack so the search can continue exploring its dependents.
+                // Once all the lessons in the course have been visited, re-add the course to the
+                // stack, so the search can continue exploring its dependents.
                 stack.push(StackItem {
                     unit_id: course_id,
                     num_hops: curr_unit.num_hops + 1,
@@ -409,7 +464,9 @@ impl DepthFirstScheduler {
 
             if num_candidates > 0 && avg_score < self.data.options.passing_score {
                 // If the search reaches a dead-end and there are already enough candidates,
-                // terminate the search. Otherwise, continue with the search.
+                // terminate the search. Otherwise, continue with the search. Do not consider
+                // lessons with no candidates as a dead-end. If all the exercises in a lesson are
+                // blacklisted, the search should continue to explore its dependents.
                 if all_candidates.len() >= max_candidates {
                     break;
                 }

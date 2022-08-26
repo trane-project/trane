@@ -105,14 +105,16 @@ pub trait UnitGraph {
 
     /// Returns the dependency sinks of the graph. A dependency sink are the courses from which a
     /// walk of the entire unit graph needs to start. Because the lessons in a course implicitly
-    /// depend on the course, only courses should be returned.
+    /// depend on their course, properly initialized lessons do not belong to this set.
     ///
-    /// The only exception is for units that are mentioned as dependencies of other units but are
-    /// never added to the graph because their data is missing. Those units are added as dependency
-    /// sinks so that the scheduler can reach their dependents.
+    /// This set also includes the units that are mentioned as dependencies of other units but are
+    /// never added to the graph because they are missing from the course library. Those units are
+    /// added as dependency sinks so that the scheduler can reach their dependents, which might be
+    /// part of the library.
     fn get_dependency_sinks(&self) -> UstrSet;
 
-    /// Performs a cycle check on the graph, done currently when opening the Trane library.
+    /// Performs a cycle check on the graph, done currently when opening the Trane library to
+    /// prevent any infinite traversal of the graph and immediately inform the user of the issue.
     fn check_cycles(&self) -> Result<()>;
 
     /// Generates a DOT graph of the dependent graph. DOT files are used by Graphviz to visualize a
