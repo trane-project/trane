@@ -172,7 +172,7 @@ impl UnitFilter {
         match self {
             UnitFilter::MetadataFilter { filter } => {
                 match (&filter.course_filter, &filter.lesson_filter) {
-                    // Noen of the filters are set, so every lesson passes the filter.
+                    // None of the filters are set, so every lesson passes the filter.
                     (None, None) => true,
                     // Only the course filter is set, so the lesson passes the filter if the course
                     // passes the filter.
@@ -190,7 +190,7 @@ impl UnitFilter {
                                 && lesson_filter.apply(lesson_manifest)
                         }
                         // If the op is Any, the lesson passes the filter if either the course or
-                        // the lesson filters pass..
+                        // the lesson filters pass.
                         FilterOp::Any => {
                             course_filter.apply(course_manifest)
                                 || lesson_filter.apply(lesson_manifest)
