@@ -1,4 +1,7 @@
-//! Module defining the basic data structures used by Trane.
+//! Defines the basic data structures used by Trane to describe courses, lessons, and exercises,
+//! store the results of a student's attempt at mastering an exercise, the options avaialble to
+//! control the behavior of the scheduler, among other things.
+
 pub mod filter;
 
 use std::{collections::BTreeMap, path::Path};
@@ -8,9 +11,9 @@ use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use ustr::Ustr;
 
-/// Score used by students to evaluate their mastery of a particular exercise after a trial. More
-/// detailed descriptions of the levels are provided using the example of an exercise that requires
-/// the student to learn a musical passage.
+/// The score used by students to evaluate their mastery of a particular exercise after a trial.
+/// More detailed descriptions of the levels are provided using the example of an exercise that
+/// requires the student to learn a musical passage.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum MasteryScore {
     /// One signifies the student has barely any mastery of the exercise. For a musical passage,
@@ -25,16 +28,16 @@ pub enum MasteryScore {
 
     /// Three signifies the student has achieved significant mastery of the exercise. For a musical
     /// passage, this level of mastery represents the stage at which the student can perform the
-    /// material slowly with barely any mistakes, and can has begun to learn it at higher tempos.
+    /// material slowly with barely any mistakes, and has begun to learn it at higher tempos.
     Three,
 
     /// Four signifies the student has gained mastery of the exercise, requiring almost not
     /// conscious thought to complete it. For a musical passage, this level of mastery represents
     /// the stage at which the student can perform the material at the desired tempo with all
-    /// elements (rhythm, dynamics, etc) completely integrated into the performance.
+    /// elements (rhythm, dynamics, etc.) completely integrated into the performance.
     Four,
 
-    /// Five signifies the student has gained total masterey of the material and can apply it in
+    /// Five signifies the student has gained total mastery of the material and can apply it in
     /// novel situations and come up with new variations. For exercises that test declarative
     /// knowledge or that do not easily lend themselves for variations (e.g., a question on some
     /// programming language's feature), the difference between the fourth and fifth level is just a
@@ -46,7 +49,7 @@ pub enum MasteryScore {
 }
 
 impl MasteryScore {
-    /// Assigns a f32 value to each of the values of MasteryScore.
+    /// Assigns a float value to each of the values of `MasteryScore`.
     pub fn float_score(&self) -> f32 {
         match *self {
             Self::One => 1.0,
@@ -55,28 +58,6 @@ impl MasteryScore {
             Self::Four => 4.0,
             Self::Five => 5.0,
         }
-    }
-}
-
-/// Options to configure a mastery window.
-#[derive(Clone, Debug)]
-pub struct MasteryWindowOpts {
-    /// The percentage of total candidates which fall on this window.
-    pub percentage: f32,
-
-    /// The range of scores which fall on this window. Scores whose values are in the range [start,
-    /// end) fall within this window.
-    pub range: (f32, f32),
-}
-
-impl MasteryWindowOpts {
-    /// Returns whether the given score falls within this window.
-    pub fn in_window(&self, score: f32) -> bool {
-        if self.range.1 == 5.0 && score == 5.0 {
-            // Handle the special case of the window containing the maximum score.
-            return true;
-        }
-        self.range.0 <= score && score < self.range.1
     }
 }
 
@@ -90,24 +71,56 @@ pub struct ExerciseTrial {
     pub timestamp: i64,
 }
 
-/// The type of a unit.
+/// A mastery window consists a range of scores and the percentage of the total exercises in the
+/// batch returned by the scheduler that will fall within that range.
+///
+/// Mastery windows are used by the scheduler to control the amount of exercises for a given range
+/// of difficulty given to the student to try to keep an optimal balance. For example, exercises
+/// that are already fully mastered should not be shown very often lest the student becomes bored.
+/// Very difficult exercises should not be shown too often either lest the student becomes
+/// frustrated.
+#[derive(Clone, Debug)]
+pub struct MasteryWindow {
+    /// The percentage of the exercises in each batch returned by the scheduler whose scores should
+    /// fall within this window.
+    pub percentage: f32,
+
+    /// The range of scores which fall on this window. Scores whose values are in the range
+    /// `[range.0, range.1)` fall within this window. If `range.1` is equal to 5.0 (the float
+    /// representation of the maximum possible score), then the range becomes inclusive.
+    pub range: (f32, f32),
+}
+
+impl MasteryWindow {
+    /// Returns whether the given score falls within this window.
+    pub fn in_window(&self, score: f32) -> bool {
+        if self.range.1 >= 5.0 && score == 5.0 {
+            // Handle the special case of the window containing the maximum score.
+            return true;
+        }
+        self.range.0 <= score && score < self.range.1
+    }
+}
+
+/// The type of the units stored in the dependency graph.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum UnitType {
     /// A single task, which the student is meant to perform and assess.
     Exercise,
 
     /// A set of related exercises. There are no dependencies between the exercises in a single
-    /// lesson, so students could see them in any order.
+    /// lesson, so students could see them in any order. Lessons themselves can depend on other
+    /// lessons or courses. There is also an implicit dependency between a lesson and the course to
+    /// which it belongs.
     Lesson,
 
-    /// A set of related lessons around one or more similar topics. Lessons in the same course can
-    /// have dependency relationships among each other. The course itself implicitly depends on all
-    /// lessons. That is to say, in order to achieve mastery of the material in a course, mastery of
-    /// the material in all the lessons is required.
+    /// A set of related lessons around one or more similar topics. Courses can depend on other
+    /// lessons or courses.
     Course,
 }
 
-/// Trait to convert relative paths to absolute paths.
+/// Trait to convert relative paths to absolute paths so that objects stored in memory contain the
+/// full path to all their assets.
 pub trait NormalizePaths
 where
     Self: Sized,
@@ -125,25 +138,25 @@ where
     fn verify_paths(&self, dir: &Path) -> Result<bool>;
 }
 
-/// Trait to get the metadata from a manifest.
+/// Trait to get the metadata from a lesson or course manifest.
 pub trait GetMetadata {
-    /// Returns the object's metadata.
+    /// Returns the manifest's metadata.
     fn get_metadata(&self) -> Option<&BTreeMap<String, Vec<String>>>;
 }
 
-/// Trait to get the unit type from an object.
+/// Trait to get the unit type from a manifest.
 pub trait GetUnitType {
     /// Returns the type of the unit associated with the manifest.
     fn get_unit_type(&self) -> UnitType;
 }
 
 /// An asset attached to a unit, which could be used to store instructions, or present the material
-/// introduced by a lesson.
+/// introduced by a course or lesson.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum BasicAsset {
     /// An asset containing the path to a markdown file.
     MarkdownAsset {
-        /// The path to the asset.
+        /// The path to the markdown file.
         path: String,
     },
 }
@@ -180,7 +193,7 @@ impl VerifyPaths for BasicAsset {
 #[serde(deny_unknown_fields)]
 pub struct CourseManifest {
     /// The ID assigned to this course.
-    /// For example, "music::instrument::guitar::basic_jazz_chords".
+    /// For example, `music::instrument::guitar::basic_jazz_chords`.
     #[builder(setter(into))]
     pub id: Ustr,
 
@@ -201,6 +214,10 @@ pub struct CourseManifest {
 
     //// A mapping of String keys to a list of String values. For example, ("genre", ["jazz"]) could
     /// be attached to a course named "Basic Jazz Chords on Guitar".
+    ///
+    /// The purpose of this metadata is to allow students to focus on more specific material during
+    /// a study session which does not belong to a single lesson or course. For example, a student
+    /// might want to only focus on guitar scales or ear training.
     #[builder(default)]
     pub metadata: Option<BTreeMap<String, Vec<String>>>,
 
@@ -250,7 +267,7 @@ impl GetUnitType for CourseManifest {
 #[serde(deny_unknown_fields)]
 pub struct LessonManifest {
     /// The ID assigned to this lesson. For example,
-    /// "music::instrument::guitar::basic_jazz_chords::major_chords".
+    /// `music::instrument::guitar::basic_jazz_chords::major_chords`.
     #[builder(setter(into))]
     pub id: Ustr,
 
@@ -269,7 +286,8 @@ pub struct LessonManifest {
     pub description: Option<String>,
 
     //// A mapping of String keys to a list of String values. For example, ("key", ["C"]) could
-    /// be attached to a lesson named "C Major Scale".
+    /// be attached to a lesson named "C Major Scale". The purpose is the same as the metadata
+    /// stored in the course manifest but allows finer control over which lessons are selected.
     #[builder(default)]
     pub metadata: Option<BTreeMap<String, Vec<String>>>,
 
@@ -350,8 +368,9 @@ pub enum ExerciseAsset {
         description: Option<String>,
     },
 
-    /// An asset storing two paths to two markdown files. The first file stores the front (question)
-    /// of the flashcard while the second file stores the back (answer).
+    /// An asset representing a flashcard with a front and back each stored in a markdown file. The
+    /// first file stores the front (question) of the flashcard while the second file stores the
+    /// back (answer).
     FlashcardAsset {
         /// The path to the file containing the front of the flashcard.
         front_path: String,
@@ -409,7 +428,7 @@ impl VerifyPaths for ExerciseAsset {
 #[derive(Builder, Clone, Debug, Deserialize, Serialize)]
 pub struct ExerciseManifest {
     /// The ID assigned to this exercise. For example,
-    /// "music::instrument::guitar::basic_jazz_chords::major_chords::ex_1".
+    /// `music::instrument::guitar::basic_jazz_chords::major_chords::exercise_1`.
     #[builder(setter(into))]
     pub id: Ustr,
 
@@ -421,15 +440,14 @@ pub struct ExerciseManifest {
     #[builder(setter(into))]
     pub course_id: Ustr,
 
-    /// The name of the lesson to be presented to the user.
-    /// For example, "Exercise 1".
+    /// The name of the exercise to be presented to the user. For example, "Exercise 1".
     pub name: String,
 
     /// An optional description of the exercise.
     #[builder(default)]
     pub description: Option<String>,
 
-    /// The type of the exercised categorized by the type of knowledge it tests.
+    /// The type of knowledge the exercise tests.
     pub exercise_type: ExerciseType,
 
     /// The asset containing the exercise itself.
@@ -464,19 +482,19 @@ pub struct SchedulerOptions {
 
     /// The options of the target mastery window. That is, the window of exercises that lie outside
     /// the user's current abilities.
-    pub target_window_opts: MasteryWindowOpts,
+    pub target_window_opts: MasteryWindow,
 
     /// The options of the current mastery window. That is, the window of exercises that lie
-    /// roughly within the user's current abilities.
-    pub current_window_opts: MasteryWindowOpts,
+    /// slightly outside the user's current abilities.
+    pub current_window_opts: MasteryWindow,
 
     /// The options of the easy mastery window. That is, the window of exercises that lie well
     /// within the user's current abilities.
-    pub easy_window_opts: MasteryWindowOpts,
+    pub easy_window_opts: MasteryWindow,
 
     /// The options for the mastered mastery window. That is, the window of exercises that the user
     /// has properly mastered.
-    pub mastered_window_opts: MasteryWindowOpts,
+    pub mastered_window_opts: MasteryWindow,
 
     /// The minimum average score of a unit required to move on to its dependents.
     pub passing_score: f32,
@@ -486,23 +504,23 @@ pub struct SchedulerOptions {
 }
 
 impl Default for SchedulerOptions {
-    /// Returns scheduler options with sensible default values.
+    /// Returns the default scheduler options.
     fn default() -> Self {
         SchedulerOptions {
             batch_size: 50,
-            target_window_opts: MasteryWindowOpts {
+            target_window_opts: MasteryWindow {
                 percentage: 0.2,
                 range: (0.0, 2.5),
             },
-            current_window_opts: MasteryWindowOpts {
+            current_window_opts: MasteryWindow {
                 percentage: 0.5,
                 range: (2.5, 3.9),
             },
-            easy_window_opts: MasteryWindowOpts {
+            easy_window_opts: MasteryWindow {
                 percentage: 0.2,
                 range: (3.9, 4.7),
             },
-            mastered_window_opts: MasteryWindowOpts {
+            mastered_window_opts: MasteryWindow {
                 percentage: 0.1,
                 range: (4.7, 5.0),
             },

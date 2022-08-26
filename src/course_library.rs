@@ -299,8 +299,8 @@ impl LocalCourseLibrary {
         }
 
         // Lessons implicitly depend on the course to which they belong. Calling
-        // `update_starting_lessons` explicitly adds a dependency between each of the starting
-        // lessons and the course. This allows the scheduler to traverse the lessons in the correct
+        // `update_starting_lessons` computes the lessons in a course not dependent on any other
+        // lesson in the course. This allows the scheduler to traverse the lessons in the correct
         // order.
         library.unit_graph.write().update_starting_lessons();
         // Perform a check to detect cyclic dependencies, which could cause infinite loops during
