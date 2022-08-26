@@ -17,6 +17,15 @@ use crate::{
     graph::{InMemoryUnitGraph, UnitGraph},
 };
 
+/// The file name for all course manifests.
+const COURSE_MANIFEST_FILENAME: &str = "course_manifest.json";
+
+// The file name for all lesson manifests.
+const LESSON_MANIFEST_FILENAME: &str = "lesson_manifest.json";
+
+/// The file name for all exercise manifests.
+const EXERCISE_MANIFEST_FILENAME: &str = "exercise_manifest.json";
+
 /// A trait that manages a course library, its corresponding manifest files, and provides basic
 /// operations to retrieve the courses, lessons in a course, and exercises in a lesson.
 pub trait CourseLibrary {
@@ -92,6 +101,24 @@ impl LocalCourseLibrary {
         serde_json::from_reader(reader).map_err(|_| anyhow!("cannot parse manifest file {}", path))
     }
 
+    /// Returns the full string representation of the given path.
+    fn get_full_path(path: &Path) -> Result<String> {
+        Ok(path
+            .to_str()
+            .ok_or_else(|| anyhow!("invalid dir entry {}", path.display()))?
+            .to_string())
+    }
+
+    /// Returns the file name of the given path.
+    fn get_file_name(path: &Path) -> Result<String> {
+        Ok(path
+            .file_name()
+            .ok_or_else(|| anyhow!("cannot get file name from DirEntry"))?
+            .to_str()
+            .ok_or_else(|| anyhow!("invalid dir entry {}", path.display()))?
+            .to_string())
+    }
+
     /// Adds an exercise to the course library given its manifest and the manifest of the lesson to
     /// which it belongs.
     fn process_exercise_manifest(
@@ -162,14 +189,17 @@ impl LocalCourseLibrary {
             match entry {
                 Err(_) => continue,
                 Ok(exercise_dir_entry) => {
-                    let path = exercise_dir_entry.path().to_str().ok_or_else(|| {
-                        anyhow!("invalid dir entry {}", exercise_dir_entry.path().display())
-                    })?;
-                    if !path.ends_with("exercise_manifest.json") {
+                    if exercise_dir_entry.path().is_dir() {
                         continue;
                     }
 
-                    let mut exercise_manifest: ExerciseManifest = Self::open_manifest(path)?;
+                    let file_name = Self::get_file_name(exercise_dir_entry.path())?;
+                    if file_name != EXERCISE_MANIFEST_FILENAME {
+                        continue;
+                    }
+
+                    let path = Self::get_full_path(exercise_dir_entry.path())?;
+                    let mut exercise_manifest: ExerciseManifest = Self::open_manifest(&path)?;
                     exercise_manifest = exercise_manifest
                         .normalize_paths(exercise_dir_entry.path().parent().unwrap())?;
                     self.process_exercise_manifest(&lesson_manifest, exercise_manifest)?;
@@ -206,14 +236,17 @@ impl LocalCourseLibrary {
             match entry {
                 Err(_) => continue,
                 Ok(lesson_dir_entry) => {
-                    let path = lesson_dir_entry.path().to_str().ok_or_else(|| {
-                        anyhow!("invalid dir entry {}", dir_entry.path().display())
-                    })?;
-                    if !path.ends_with("lesson_manifest.json") {
+                    if lesson_dir_entry.path().is_dir() {
                         continue;
                     }
 
-                    let mut lesson_manifest: LessonManifest = Self::open_manifest(path)?;
+                    let file_name = Self::get_file_name(lesson_dir_entry.path())?;
+                    if file_name != LESSON_MANIFEST_FILENAME {
+                        continue;
+                    }
+
+                    let path = Self::get_full_path(lesson_dir_entry.path())?;
+                    let mut lesson_manifest: LessonManifest = Self::open_manifest(&path)?;
                     lesson_manifest = lesson_manifest
                         .normalize_paths(lesson_dir_entry.path().parent().unwrap())?;
                     self.process_lesson_manifest(
@@ -247,14 +280,17 @@ impl LocalCourseLibrary {
             match entry {
                 Err(_) => continue,
                 Ok(dir_entry) => {
-                    let path = dir_entry.path().to_str().ok_or_else(|| {
-                        anyhow!("invalid dir entry {}", dir_entry.path().display())
-                    })?;
-                    if !path.ends_with("course_manifest.json") {
+                    if dir_entry.path().is_dir() {
                         continue;
                     }
 
-                    let mut course_manifest: CourseManifest = Self::open_manifest(path)?;
+                    let file_name = Self::get_file_name(dir_entry.path())?;
+                    if file_name != COURSE_MANIFEST_FILENAME {
+                        continue;
+                    }
+
+                    let path = Self::get_full_path(dir_entry.path())?;
+                    let mut course_manifest: CourseManifest = Self::open_manifest(&path)?;
                     course_manifest =
                         course_manifest.normalize_paths(dir_entry.path().parent().unwrap())?;
                     library.process_course_manifest(&dir_entry, course_manifest)?;
