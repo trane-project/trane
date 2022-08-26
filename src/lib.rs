@@ -36,7 +36,11 @@ use ustr::{Ustr, UstrMap, UstrSet};
 
 use blacklist::{BlackListDB, Blacklist};
 use course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary};
-use data::{filter::*, *};
+use data::{
+    filter::{NamedFilter, UnitFilter},
+    CourseManifest, ExerciseManifest, ExerciseTrial, LessonManifest, MasteryScore,
+    SchedulerOptions, UnitType,
+};
 use filter_manager::{FilterManager, LocalFilterManager};
 use graph::UnitGraph;
 use practice_stats::{PracticeStats, PracticeStatsDB};
