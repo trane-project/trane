@@ -1,4 +1,12 @@
-//! Module defining a blacklist of units that should not be shown to the user.
+//! Defines the list of units to ignore during scheduling.
+//!
+//! Users can add units to this list to prevent them from being scheduled, either because they
+//! already mastered the material, or because they simply do not want to practice certain skills.
+//!
+//! The blacklist exists for this purpose. A unit that is on it will never be scheduled. In
+//! addition, the scheduler will continue the search past its dependents as if the unit was already
+//! mastered. Courses, lessons, and exercises can be added to the blacklist.
+
 #[cfg(test)]
 mod test;
 
@@ -26,14 +34,14 @@ pub trait Blacklist {
     fn all_blacklist_entries(&self) -> Result<Vec<Ustr>>;
 }
 
-/// An implementation of BlackList backed by SQLite.
-pub(crate) struct BlackListDB {
+/// An implementation of `Blacklist` backed by SQLite.
+pub(crate) struct BlacklistDB {
     cache: RwLock<UstrMap<bool>>,
     pool: Pool<SqliteConnectionManager>,
 }
 
-impl BlackListDB {
-    /// Returns all the migrations needed to setup the database.
+impl BlacklistDB {
+    /// Returns all the migrations needed to set up the database.
     fn migrations() -> Migrations<'static> {
         Migrations::new(vec![
             M::up("CREATE TABLE blacklist(unit_id TEXT NOT NULL UNIQUE);")
@@ -54,9 +62,9 @@ impl BlackListDB {
     }
 
     /// A constructor taking a connection manager.
-    fn new(connection_manager: SqliteConnectionManager) -> Result<BlackListDB> {
+    fn new(connection_manager: SqliteConnectionManager) -> Result<BlacklistDB> {
         let pool = Pool::new(connection_manager)?;
-        let mut blacklist = BlackListDB {
+        let mut blacklist = BlacklistDB {
             cache: RwLock::new(UstrMap::default()),
             pool,
         };
@@ -68,9 +76,12 @@ impl BlackListDB {
     }
 
     /// A constructor taking the path to the database file.
-    pub fn new_from_disk(db_path: &str) -> Result<BlackListDB> {
+    pub fn new_from_disk(db_path: &str) -> Result<BlacklistDB> {
         let connection_manager = SqliteConnectionManager::file(db_path).with_init(
             |connection: &mut Connection| -> Result<(), rusqlite::Error> {
+                // The following pragma statements are set to improve the read and write performance
+                // of SQLite. See the SQLite [docs](https://www.sqlite.org/pragma.html) for more
+                // information.
                 connection.pragma_update(None, "journal_mode", &"WAL")?;
                 connection.pragma_update(None, "synchronous", &"NORMAL")
             },
@@ -90,7 +101,7 @@ impl BlackListDB {
     }
 }
 
-impl Blacklist for BlackListDB {
+impl Blacklist for BlacklistDB {
     fn add_to_blacklist(&mut self, unit_id: &Ustr) -> Result<()> {
         let has_entry = self.has_entry(unit_id)?;
         if has_entry {

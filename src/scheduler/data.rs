@@ -5,7 +5,7 @@ use std::sync::Arc;
 use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
-    blacklist::{BlackListDB, Blacklist},
+    blacklist::{Blacklist, BlacklistDB},
     course_library::{CourseLibrary, LocalCourseLibrary},
     data::{
         filter::{FilterOp, MetadataFilter},
@@ -32,7 +32,7 @@ pub(crate) struct SchedulerData {
     pub practice_stats: Arc<RwLock<PracticeStatsDB>>,
 
     /// The list of units to skip during scheduling.
-    pub blacklist: Arc<RwLock<BlackListDB>>,
+    pub blacklist: Arc<RwLock<BlacklistDB>>,
 
     /// The list of units which should be reviewed by the student.
     pub review_list: Arc<RwLock<ReviewListDB>>,

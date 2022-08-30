@@ -139,7 +139,6 @@ impl PracticeStats for PracticeStatsDB {
         timestamp: i64,
     ) -> Result<()> {
         let connection = self.pool.get()?;
-        // Add the exercise's ID to the `uids` table if it's not there already.
         let mut uid_stmt =
             connection.prepare_cached("INSERT OR IGNORE INTO uids(unit_id) VALUES (?1);")?;
         uid_stmt

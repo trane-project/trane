@@ -48,7 +48,7 @@ use review_list::{ReviewList, ReviewListDB};
 use std::{fs::create_dir, path::Path, sync::Arc};
 use ustr::{Ustr, UstrMap, UstrSet};
 
-use blacklist::{BlackListDB, Blacklist};
+use blacklist::{Blacklist, BlacklistDB};
 use course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary};
 use data::{
     filter::{NamedFilter, UnitFilter},
@@ -154,7 +154,7 @@ impl Trane {
         let practice_stats = Arc::new(RwLock::new(PracticeStatsDB::new_from_disk(
             config_path.join(PRACTICE_STATS_PATH).to_str().unwrap(),
         )?));
-        let blacklist = Arc::new(RwLock::new(BlackListDB::new_from_disk(
+        let blacklist = Arc::new(RwLock::new(BlacklistDB::new_from_disk(
             config_path.join(BLACKLIST_PATH).to_str().unwrap(),
         )?));
         let review_list = Arc::new(RwLock::new(ReviewListDB::new_from_disk(
