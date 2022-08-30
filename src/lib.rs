@@ -1,4 +1,4 @@
-//! Trane is an automated learning system for the acquisition of complex and highly hierarchical
+//! Trane is an automated practice system for the acquisition of complex and highly hierarchical
 //! skills. It is based on the principles of spaced repetition, mastery learning, and chunking.
 //!
 //! Given a set of exercises which have been bundled into lessons and further bundled in courses, as
@@ -16,6 +16,20 @@
 //! Trane is named after John Coltrane, whose nickname Trane was often used in wordplay with the
 //! word train (as in the vehicle) to describe the overwhelming power of his playing. It is used
 //! here as a play on its homophone (as in "training a new skill").
+//!
+//! Here's an overview of some of the most important modules in this crate a and their use:
+//! - `data`: Contains the basic data structures used by Trane.
+//! - `graph`: Defines the graph used by Trane to list the units of material and the dependencies
+//!   among them.
+//! - `course_library`: Reads a collection of courses, lessons, and exercises from the file system
+//!   and provides basic utilities for working with them.
+//! - `scheduler`: Defines the algorithm used by Trane to select exercises to present to the user.
+//! - `practice_stats`: Stores the results of practice sessions for use in determining the next
+//!   batch of exercises.
+//! - `blacklist`: Defines the list of units the student wishes to hide, either because their
+//!   material has already been mastered or they do not wish to learn it.
+//! - `scorer`: Calculates a score for an exercise based on the results and timestamps of previous
+//!   trials.
 
 pub mod blacklist;
 pub mod course_builder;
@@ -52,10 +66,10 @@ const TRANE_CONFIG_DIR_PATH: &str = ".trane";
 /// The path to the SQLite database containing the results of previous exercise trials.
 const PRACTICE_STATS_PATH: &str = "practice_stats.db";
 
-/// The path to the SQLite database containing the list of units to be skipped during scheduling.
+/// The path to the SQLite database containing the list of units to ignore during scheduling.
 const BLACKLIST_PATH: &str = "blacklist.db";
 
-/// The path to the SQLite database containing the review list.
+/// The path to the SQLite database containing the list of units the student wishes to review.
 const REVIEW_LIST_PATH: &str = "review_list.db";
 
 /// The path to the directory containing unit filters saved by the user.
@@ -63,8 +77,8 @@ const FILTERS_DIR: &str = "filters";
 
 /// Trane is a library for the acquisition of highly hierarchical knowledge and skills based on the
 /// principles of mastery learning and spaced repetition. Given a list of courses, its lessons and
-/// correspondings exercises, Trane presents the student with a list of exercises based on the
-/// demonstrated mastery of previous exercises. It makes sures that new material and skills are not
+/// corresponding exercises, Trane presents the student with a list of exercises based on the
+/// demonstrated mastery of previous exercises. It makes sure that new material and skills are not
 /// introduced until the prerequisite material and skills have been sufficiently mastered.
 pub struct Trane {
     /// The path to the root of the course library.
@@ -93,7 +107,7 @@ pub struct Trane {
 }
 
 impl Trane {
-    /// Initializes the config directory at path .trane inside the library root.
+    /// Initializes the config directory at path `.trane` inside the library root.
     fn init_config_directory(library_root: &str) -> Result<()> {
         let root_path = Path::new(library_root);
         if !root_path.is_dir() {
@@ -115,7 +129,7 @@ impl Trane {
             ));
         }
 
-        // Create the filters directory if it doesn't exist.
+        // Create the `filters` directory if it does not exist already.
         let filters_path = trane_path.join(FILTERS_DIR);
         if !filters_path.is_dir() {
             create_dir(filters_path.clone()).with_context(|| {
@@ -129,8 +143,8 @@ impl Trane {
         Ok(())
     }
 
-    /// Creates a new entrance of the library given the path to the root of a course library.
-    /// The user data will be stored in a directory named .trane inside the library root directory.
+    /// Creates a new entrance of the library given the path to the root of a course library. The
+    /// user data will be stored in a directory named `.trane` inside the library root directory.
     pub fn new(library_root: &str) -> Result<Trane> {
         Self::init_config_directory(library_root)?;
         let config_path = Path::new(library_root).join(Path::new(TRANE_CONFIG_DIR_PATH));
@@ -180,11 +194,13 @@ impl Trane {
 
 impl Blacklist for Trane {
     fn add_to_blacklist(&mut self, unit_id: &Ustr) -> Result<()> {
+        // Make sure to invalidate any cached scores for the given unit.
         self.scheduler.invalidate_cached_score(unit_id);
         self.blacklist.write().add_to_blacklist(unit_id)
     }
 
     fn remove_from_blacklist(&mut self, unit_id: &Ustr) -> Result<()> {
+        // Make sure to invalidate any cached scores for the given unit.
         self.scheduler.invalidate_cached_score(unit_id);
         self.blacklist.write().remove_from_blacklist(unit_id)
     }
