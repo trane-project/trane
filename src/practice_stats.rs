@@ -1,4 +1,9 @@
-//! Module defining the data structures used to store user's answers to exercises.
+//! Defines how the results of exercise trials are stored for used during scheduling.
+//!
+//! Currently, only the score and the timestamp are stored. From the results and timestamps of
+//! previous trials, a score for the exercise (in the range 0.0 to 5.0) is calculated. See the
+//! documentation in `scorer.rs` for more details.
+
 #[cfg(test)]
 mod test;
 
@@ -13,11 +18,11 @@ use crate::data::{ExerciseTrial, MasteryScore};
 
 /// Contains functions to retrieve and record the scores from each exercise trial.
 pub trait PracticeStats {
-    /// Retrieves the last num_scores scores of a particular exercese.
+    /// Retrieves the last `num_scores` scores of a particular exercise.
     fn get_scores(&self, exercise_id: &Ustr, num_scores: usize) -> Result<Vec<ExerciseTrial>>;
 
     /// Records the score assigned to the exercise in a particular trial. Therefore, the score is a
-    /// value of the MasteryScore enum instead of a float. Only units of type UnitType::Exercise
+    /// value of the `MasteryScore` enum instead of a float. Only units of type `UnitType::Exercise`
     /// should have scores recorded. However, the enforcement of this requirement is left to the
     /// caller.
     fn record_exercise_score(
@@ -28,17 +33,19 @@ pub trait PracticeStats {
     ) -> Result<()>;
 }
 
-/// An implementation of PracticeStats backed by SQLite.
+/// An implementation of `PracticeStats` backed by SQLite.
 pub(crate) struct PracticeStatsDB {
-    /// A SQLite connection to the database storing the records.
+    /// A pool of connections to the database storing the records.
     pool: Pool<SqliteConnectionManager>,
 }
 
 impl PracticeStatsDB {
-    /// Returns all the migrations needed to setup the database.
+    /// Returns all the migrations needed to set up the database.
     fn migrations() -> Migrations<'static> {
         Migrations::new(vec![
-            // Create a table with a mapping of unit IDs to a unique integer ID.
+            // Create a table with a mapping of unit IDs to a unique integer ID. The purpose of this
+            // table is to save space when storing the exercise trials by not having to store the
+            // entire ID of the unit.
             M::up("CREATE TABLE uids(unit_uid INTEGER PRIMARY KEY, unit_id TEXT NOT NULL UNIQUE);")
                 .down("DROP TABLE uids;"),
             // Create a table storing all the exercise trials.
@@ -49,16 +56,16 @@ impl PracticeStatsDB {
                 score REAL, timestamp INTEGER);",
             )
             .down("DROP TABLE practice_stats"),
-            // Create an index of unit_ids.
+            // Create an index of `unit_ids`.
             M::up("CREATE INDEX unit_ids ON uids (unit_id);").down("DROP INDEX unit_ids"),
-            // Originally the trials were indexed solely by the unit_uid. This index was replaced so
+            // Originally the trials were indexed solely by `unit_uid`. This index was replaced so
             // this migration is immediately canceled by the one right below. Remove both of them
             // altogether in a later version.
             M::up("CREATE INDEX unit_scores ON practice_stats (unit_uid);")
                 .down("DROP INDEX unit_scores"),
             M::up("DROP INDEX unit_scores")
                 .down("CREATE INDEX unit_scores ON practice_stats (unit_uid);"),
-            // Create a combined index of unit_uid and timestamp for fast trial retrieval.
+            // Create a combined index of `unit_uid` and `timestamp` for fast trial retrieval.
             M::up("CREATE INDEX trials ON practice_stats (unit_uid, timestamp);")
                 .down("DROP INDEX trials"),
         ])
@@ -74,7 +81,7 @@ impl PracticeStatsDB {
             .with_context(|| "failed to initialize practice stats DB")
     }
 
-    /// A constructor taking a SQLite connection.
+    /// A constructor taking a SQLite connection manager.
     fn new(connection_manager: SqliteConnectionManager) -> Result<PracticeStatsDB> {
         let pool = Pool::new(connection_manager)?;
         let mut stats = PracticeStatsDB { pool };
@@ -82,10 +89,13 @@ impl PracticeStatsDB {
         Ok(stats)
     }
 
-    /// A constructor taking the path to the database file.
+    /// A constructor taking the path to a database file.
     pub fn new_from_disk(db_path: &str) -> Result<PracticeStatsDB> {
         let connection_manager = SqliteConnectionManager::file(db_path).with_init(
             |connection: &mut Connection| -> Result<(), rusqlite::Error> {
+                // The following pragma statements are set to improve the read and write performance
+                // of SQLite. See the SQLite [docs](https://www.sqlite.org/pragma.html) for more
+                // information.
                 connection.pragma_update(None, "journal_mode", &"WAL")?;
                 connection.pragma_update(None, "synchronous", &"NORMAL")
             },
@@ -129,7 +139,7 @@ impl PracticeStats for PracticeStatsDB {
         timestamp: i64,
     ) -> Result<()> {
         let connection = self.pool.get()?;
-        // Add the exercise to the table of uids if not there already.
+        // Add the exercise's ID to the `uids` table if it's not there already.
         let mut uid_stmt =
             connection.prepare_cached("INSERT OR IGNORE INTO uids(unit_id) VALUES (?1);")?;
         uid_stmt
