@@ -48,7 +48,7 @@ use review_list::{ReviewList, ReviewListDB};
 use std::{fs::create_dir, path::Path, sync::Arc};
 use ustr::{Ustr, UstrMap, UstrSet};
 
-use blacklist::{BlacklistDB, Blacklist};
+use blacklist::{Blacklist, BlacklistDB};
 use course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary};
 use data::{
     filter::{NamedFilter, UnitFilter},

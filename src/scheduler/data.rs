@@ -5,7 +5,7 @@ use std::sync::Arc;
 use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
-    blacklist::{BlacklistDB, Blacklist},
+    blacklist::{Blacklist, BlacklistDB},
     course_library::{CourseLibrary, LocalCourseLibrary},
     data::{
         filter::{FilterOp, MetadataFilter},

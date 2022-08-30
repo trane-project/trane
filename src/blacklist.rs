@@ -1,11 +1,11 @@
-/// Defines the list of units to ignore during scheduling.
-///
-/// Users can add units to this list to prevent them from being scheduled, either because they
-/// already mastered the material, or because they simply do not want to practice certain skills.
-///
-/// The blacklist exists for this purpose. A unit that is on it will never be scheduled. In
-/// addition, the scheduler will continue the search past its dependents as if the unit was already
-/// mastered. Courses, lessons, and exercises can be added to the blacklist.
+//! Defines the list of units to ignore during scheduling.
+//!
+//! Users can add units to this list to prevent them from being scheduled, either because they
+//! already mastered the material, or because they simply do not want to practice certain skills.
+//!
+//! The blacklist exists for this purpose. A unit that is on it will never be scheduled. In
+//! addition, the scheduler will continue the search past its dependents as if the unit was already
+//! mastered. Courses, lessons, and exercises can be added to the blacklist.
 
 #[cfg(test)]
 mod test;
