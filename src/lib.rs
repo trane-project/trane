@@ -17,7 +17,7 @@
 //! word train (as in the vehicle) to describe the overwhelming power of his playing. It is used
 //! here as a play on its homophone (as in "training a new skill").
 //!
-//! Here's an overview of some of the most important modules in this crate a and their use:
+//! Here's an overview of some of the most important modules in this crate and their purpose:
 //! - `data`: Contains the basic data structures used by Trane.
 //! - `graph`: Defines the graph used by Trane to list the units of material and the dependencies
 //!   among them.
