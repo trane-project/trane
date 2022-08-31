@@ -1,4 +1,12 @@
-//! Module defining utilities to make it easier to generate courses and lessons.
+//! Defines utilities to make it easier to generate courses and lessons.
+//!
+//! Courses, lessons, and exercises are stored in JSON files that are the serialized versions of the
+//! manifests in the `data` module. This means that writers of Trane courses can simply generate the
+//! files by hand. However, this process is tedious and error-prone, so this module provides
+//! utilities to make it easier to generate these files. In addition, Trane is in early stages of
+//! development, so the format of the manifests is not stable yet. Generating the files by code
+//! makes it easier to make updates to the files as the format changes.
+
 pub mod music;
 
 use std::{
@@ -19,7 +27,7 @@ pub enum TraneMetadata {
     Skill,
 }
 
-/// Builds plain-text asset files.
+/// A builder to generate plain-text asset files.
 #[derive(Clone)]
 pub struct AssetBuilder {
     /// The name of the file, which will be joined with the directory passed in the build function.
@@ -45,12 +53,13 @@ impl AssetBuilder {
     }
 }
 
-/// Builds the files needed to add an exercise to a lesson.
+/// A builder that generates all the files needed to add an exercise to a lesson.
 pub struct ExerciseBuilder {
     /// The base name of the directory on which to store this lesson.
     pub directory_name: String,
 
-    /// A closure taking a template builder which returns the builder for the exercise manifest.
+    /// A closure taking a builder common to all exercises which returns the builder for a specific
+    /// exercise manifest.
     pub manifest_closure: Box<dyn Fn(ExerciseManifestBuilder) -> ExerciseManifestBuilder>,
 
     /// A list of asset builders to create assets specific to this exercise.
@@ -58,7 +67,7 @@ pub struct ExerciseBuilder {
 }
 
 impl ExerciseBuilder {
-    /// Writes the files needed for this exercises to the given directory.
+    /// Writes the files needed for this exercise to the given directory.
     pub fn build(
         &self,
         exercise_directory: &PathBuf,
@@ -90,12 +99,13 @@ impl ExerciseBuilder {
     }
 }
 
-/// Builds the files needed to add a lesson to a course.
+/// A builder that generates the files needed to add a lesson to a course.
 pub struct LessonBuilder {
     /// Base name of the directory on which to store this lesson.
     pub directory_name: String,
 
-    /// A closure taking a template builder which returns the builder for the lesson manifest.
+    /// A closure taking a builder common to all lessons which returns the builder for a specific
+    /// lesson manifest.
     pub manifest_closure: Box<dyn Fn(LessonManifestBuilder) -> LessonManifestBuilder>,
 
     /// A template builder used to build the manifests for each exercise in the lesson. Common
@@ -148,7 +158,7 @@ impl LessonBuilder {
     }
 }
 
-/// Builds the files needed to add a course.
+/// A builder that generates the files needed to add a course.
 pub struct CourseBuilder {
     /// Base name of the directory on which to store this lesson.
     pub directory_name: String,
@@ -160,7 +170,7 @@ pub struct CourseBuilder {
     /// common to all lessons should be set here.
     pub lesson_manifest_template: LessonManifestBuilder,
 
-    /// A list of tuples of lesson directory name and lesson builder to create the lessons in the
+    /// A list of tuples of directory names and lesson builders to create the lessons in the
     /// course.
     pub lesson_builders: Vec<LessonBuilder>,
 
