@@ -1,4 +1,9 @@
-//! Module defining a list of units which the student should review.
+//! Defines a list of units which the student wants to review.
+//!
+//! Students might identify exercises, lessons, or courses which need additional review. They can
+//! add them to the review list. The scheduler implements a special mode that will only schedule
+//! exercises from the units in the review list.
+
 #[cfg(test)]
 mod test;
 
@@ -22,13 +27,13 @@ pub trait ReviewList {
     fn all_review_list_entries(&self) -> Result<Vec<Ustr>>;
 }
 
-/// An implementation of ReviewList backed by SQLite.
+/// An implementation of `ReviewList` backed by SQLite.
 pub(crate) struct ReviewListDB {
     pool: Pool<SqliteConnectionManager>,
 }
 
 impl ReviewListDB {
-    /// Returns all the migrations needed to setup the database.
+    /// Returns all the migrations needed to set up the database.
     fn migrations() -> Migrations<'static> {
         Migrations::new(vec![
             M::up("CREATE TABLE review_list(unit_id TEXT NOT NULL UNIQUE);")
@@ -60,36 +65,22 @@ impl ReviewListDB {
     pub fn new_from_disk(db_path: &str) -> Result<ReviewListDB> {
         let connection_manager = SqliteConnectionManager::file(db_path).with_init(
             |connection: &mut Connection| -> Result<(), rusqlite::Error> {
+                // The following pragma statements are set to improve the read and write performance
+                // of SQLite. See the SQLite [docs](https://www.sqlite.org/pragma.html) for more
+                // information.
                 connection.pragma_update(None, "journal_mode", &"WAL")?;
                 connection.pragma_update(None, "synchronous", &"NORMAL")
             },
         );
         Self::new(connection_manager)
     }
-
-    /// Returns whether there's an entry for the given unit in the review list.
-    fn has_entry(&self, unit_id: &Ustr) -> Result<bool> {
-        let connection = self.pool.get()?;
-        let mut statement = connection
-            .prepare_cached("SELECT unit_id FROM review_list WHERE unit_id = ?")
-            .with_context(|| "cannot prepare statment to query review list DB")?;
-        let mut rows = statement
-            .query(params![unit_id.as_str()])
-            .with_context(|| format!("cannot query review list DB for unit {}", unit_id))?;
-        Ok(rows.next()?.is_some())
-    }
 }
 
 impl ReviewList for ReviewListDB {
     fn add_to_review_list(&mut self, unit_id: &Ustr) -> Result<()> {
-        let has_entry = self.has_entry(unit_id)?;
-        if has_entry {
-            return Ok(());
-        }
-
         let connection = self.pool.get()?;
         let mut stmt = connection
-            .prepare_cached("INSERT INTO review_list (unit_id) VALUES (?1)")
+            .prepare_cached("INSERT OR IGNORE INTO review_list (unit_id) VALUES (?1)")
             .with_context(|| "cannot prepare statement to insert into review list DB")?;
         stmt.execute(params![unit_id.as_str()])
             .with_context(|| format!("cannot insert unit {} into review list DB", unit_id))?;
