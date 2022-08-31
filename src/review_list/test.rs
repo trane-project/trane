@@ -17,6 +17,7 @@ fn add_and_remove_from_review_list() -> Result<()> {
     let unit_id = Ustr::from("unit_id");
     let unit_id2 = Ustr::from("unit_id2");
     review_list.add_to_review_list(&unit_id)?;
+    review_list.add_to_review_list(&unit_id)?;
     review_list.add_to_review_list(&unit_id2)?;
 
     let entries = review_list.all_review_list_entries()?;
