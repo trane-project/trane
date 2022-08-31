@@ -1,5 +1,5 @@
-//! Module defining the data structures used to score an exercise based on the user's previous
-//! trials.
+//! Contains the logic to score an exercise based on the results and timestamps of previous trials.
+
 #[cfg(test)]
 mod test;
 
@@ -14,19 +14,24 @@ const SIMPLE_SCORER_WEIGHT_FACTOR: f32 = 0.05;
 const SIMPLE_SCORER_MAX_WEIGHT: f32 = 5.0;
 
 /// The minimum weight of a score assigned when there's an issue calculating the number of days
-/// since the trial (e.g the score's timestamp is after the current timestamp).
+/// since the trial (e.g., the score's timestamp is after the current timestamp).
 const SIMPLE_SCORER_MIN_WEIGHT: f32 = 1.0;
 
-/// The score of a score dimishes by the number of days multiplied by this factor.
+/// The score of a score diminishes by the number of days multiplied by this factor.
 const SIMPLE_SCORER_SCORE_FACTOR: f32 = 0.1;
 
-/// A trait exposing functions to score an exercise based on the results of previous trials.
+/// A trait exposing a function to score an exercise based on the results of previous trials.
 pub trait ExerciseScorer {
-    /// Returns a score (between 0 and 5) for the exercise based on the results of previous trials.
+    /// Returns a score (between 0.0 and 5.0) for the exercise based on the results and timestamps
+    /// of previous trials.
     fn score(&self, previous_trials: Vec<ExerciseTrial>) -> f32;
 }
 
 /// A simple scorer that computes a score based on the weighted average of previous scores.
+///
+/// The score is computed as a weighted average of the previous scores. The weight of each score is
+/// based on the number of days since the trial. The score is also adjusted based on the number of
+/// days to represent how skills deteriorate over time.
 pub struct SimpleScorer {}
 
 impl ExerciseScorer for SimpleScorer {
@@ -47,19 +52,20 @@ impl ExerciseScorer for SimpleScorer {
             .zip(days.iter())
             .map(|(t, num_days)| -> f32 {
                 if *num_days < 0.0 {
-                    // If the difference is negative there's been some error. Use the min weight for
-                    // this trial instead of ignoring it.
+                    // If the difference is negative, there's been some error. Use the min weight
+                    // for this trial instead of ignoring it.
                     return SIMPLE_SCORER_MIN_WEIGHT;
                 }
 
-                // The weight decreses with the number of days but is never less than half of the
+                // The weight decreases with the number of days but is never less than half of the
                 // original score.
                 (SIMPLE_SCORER_MAX_WEIGHT - SIMPLE_SCORER_WEIGHT_FACTOR * num_days)
                     .max(t.score / 2.0)
             })
             .collect();
 
-        // Calculate the score of the trial based on the number of days since the trial.
+        // The score of the trial is adjusted based on the number of days since the trial. The score
+        // decreases linearly with the number of days but is never less than half of the original.
         let scores: Vec<f32> = previous_trials
             .iter()
             .zip(days.iter())
@@ -70,7 +76,7 @@ impl ExerciseScorer for SimpleScorer {
                     return t.score;
                 }
 
-                // The weight decreses with the number of days but is never less than half of the
+                // The weight decreases with the number of days but is never less than half of the
                 // original score.
                 (t.score - SIMPLE_SCORER_SCORE_FACTOR * num_days).max(t.score / 2.0)
             })
@@ -83,5 +89,10 @@ impl ExerciseScorer for SimpleScorer {
     }
 }
 
+/// An implementation of `Send` for `SimpleScorer`. This implementation is safe because
+/// `SimpleScorer` stores no state.
 unsafe impl Send for SimpleScorer {}
+
+/// An implementation of `Sync` for `SimpleScorer`. This implementation is safe because
+/// `SimpleScorer` stores no state.
 unsafe impl Sync for SimpleScorer {}
