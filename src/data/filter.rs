@@ -1,6 +1,4 @@
 //! Module defining the data structures used to select which units to show to the user.
-#[cfg(test)]
-mod tests;
 
 use std::collections::BTreeMap;
 
@@ -214,4 +212,103 @@ pub struct NamedFilter {
 
     /// The filter to apply.
     pub filter: UnitFilter,
+}
+
+#[cfg(test)]
+mod test {
+    use std::collections::BTreeMap;
+
+    use anyhow::Result;
+
+    use super::{FilterType, KeyValueFilter};
+    use crate::data::{filter::FilterOp, GetMetadata};
+
+    impl GetMetadata for BTreeMap<String, Vec<String>> {
+        fn get_metadata(&self) -> Option<&BTreeMap<String, Vec<String>>> {
+            Some(self)
+        }
+    }
+
+    #[test]
+    fn apply_simple_filter() -> Result<()> {
+        let metadata = BTreeMap::from([
+            (
+                "key1".to_string(),
+                vec!["value1".to_string(), "value2".to_string()],
+            ),
+            (
+                "key2".to_string(),
+                vec!["value3".to_string(), "value4".to_string()],
+            ),
+        ]);
+        let filter = KeyValueFilter::BasicFilter {
+            key: "key1".to_string(),
+            value: "value1".to_string(),
+            filter_type: FilterType::Include,
+        };
+        assert!(filter.apply(&metadata));
+        Ok(())
+    }
+
+    #[test]
+    fn apply_combined_all_filter() -> Result<()> {
+        let metadata = BTreeMap::from([
+            (
+                "key1".to_string(),
+                vec!["value1".to_string(), "value2".to_string()],
+            ),
+            (
+                "key2".to_string(),
+                vec!["value3".to_string(), "value4".to_string()],
+            ),
+        ]);
+        let filter = KeyValueFilter::CombinedFilter {
+            op: FilterOp::All,
+            filters: vec![
+                KeyValueFilter::BasicFilter {
+                    key: "key1".to_string(),
+                    value: "value1".to_string(),
+                    filter_type: FilterType::Include,
+                },
+                KeyValueFilter::BasicFilter {
+                    key: "key2".to_string(),
+                    value: "value5".to_string(),
+                    filter_type: FilterType::Include,
+                },
+            ],
+        };
+        assert!(!filter.apply(&metadata));
+        Ok(())
+    }
+
+    #[test]
+    fn apply_combined_any_filter() -> Result<()> {
+        let metadata = BTreeMap::from([
+            (
+                "key1".to_string(),
+                vec!["value1".to_string(), "value2".to_string()],
+            ),
+            (
+                "key2".to_string(),
+                vec!["value3".to_string(), "value4".to_string()],
+            ),
+        ]);
+        let filter = KeyValueFilter::CombinedFilter {
+            op: FilterOp::Any,
+            filters: vec![
+                KeyValueFilter::BasicFilter {
+                    key: "key1".to_string(),
+                    value: "value1".to_string(),
+                    filter_type: FilterType::Include,
+                },
+                KeyValueFilter::BasicFilter {
+                    key: "key2".to_string(),
+                    value: "value5".to_string(),
+                    filter_type: FilterType::Include,
+                },
+            ],
+        };
+        assert!(filter.apply(&metadata));
+        Ok(())
+    }
 }
