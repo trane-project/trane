@@ -1,4 +1,5 @@
-//! Module with the definitions of musical scales to generate courses related to the topic.
+//! Defines musical scales for use in generating music courses.
+
 use crate::course_builder::music::intervals::*;
 use crate::course_builder::music::notes::*;
 use anyhow::{anyhow, Result};

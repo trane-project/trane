@@ -1,4 +1,4 @@
-//! Module with the basic definitions of notes and accidentals used to generate music courses.
+//! Defines the notes and accidentals for use in generating music courses.
 
 /// Defines the names of the natural notes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -50,48 +50,28 @@ impl ToString for Accidental {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Note(pub NaturalNote, pub Accidental);
 
+#[allow(missing_docs)]
 impl Note {
-    #[allow(missing_docs)]
     pub const A: Note = Note(NaturalNote::A, Accidental::Natural);
-    #[allow(missing_docs)]
     pub const A_FLAT: Note = Note(NaturalNote::A, Accidental::Flat);
-    #[allow(missing_docs)]
     pub const A_SHARP: Note = Note(NaturalNote::A, Accidental::Sharp);
-    #[allow(missing_docs)]
     pub const B: Note = Note(NaturalNote::B, Accidental::Natural);
-    #[allow(missing_docs)]
     pub const B_FLAT: Note = Note(NaturalNote::B, Accidental::Flat);
-    #[allow(missing_docs)]
     pub const B_SHARP: Note = Note(NaturalNote::B, Accidental::Sharp);
-    #[allow(missing_docs)]
     pub const C: Note = Note(NaturalNote::C, Accidental::Natural);
-    #[allow(missing_docs)]
     pub const C_FLAT: Note = Note(NaturalNote::C, Accidental::Flat);
-    #[allow(missing_docs)]
     pub const C_SHARP: Note = Note(NaturalNote::C, Accidental::Sharp);
-    #[allow(missing_docs)]
     pub const D: Note = Note(NaturalNote::D, Accidental::Natural);
-    #[allow(missing_docs)]
     pub const D_FLAT: Note = Note(NaturalNote::D, Accidental::Flat);
-    #[allow(missing_docs)]
     pub const D_SHARP: Note = Note(NaturalNote::D, Accidental::Sharp);
-    #[allow(missing_docs)]
     pub const E: Note = Note(NaturalNote::E, Accidental::Natural);
-    #[allow(missing_docs)]
     pub const E_FLAT: Note = Note(NaturalNote::E, Accidental::Flat);
-    #[allow(missing_docs)]
     pub const E_SHARP: Note = Note(NaturalNote::E, Accidental::Sharp);
-    #[allow(missing_docs)]
     pub const F: Note = Note(NaturalNote::F, Accidental::Natural);
-    #[allow(missing_docs)]
     pub const F_FLAT: Note = Note(NaturalNote::F, Accidental::Flat);
-    #[allow(missing_docs)]
     pub const F_SHARP: Note = Note(NaturalNote::F, Accidental::Sharp);
-    #[allow(missing_docs)]
     pub const G: Note = Note(NaturalNote::G, Accidental::Natural);
-    #[allow(missing_docs)]
     pub const G_FLAT: Note = Note(NaturalNote::G, Accidental::Flat);
-    #[allow(missing_docs)]
     pub const G_SHARP: Note = Note(NaturalNote::G, Accidental::Sharp);
 
     /// Returns a representation of the note without Unicode characters for use in directory names

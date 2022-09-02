@@ -1,4 +1,4 @@
-//! Module defining the musical intervals.
+//! Defines the musical intervals.
 
 /// Defines the different musical intervals.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
