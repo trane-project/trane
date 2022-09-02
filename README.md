@@ -1,5 +1,7 @@
 # Trane
 
+[![Latest Version]https://img.shields.io/crates/v/trane](https://crates.io/crates/trane)
+
 ## TLDR
 
 Trane is an automated learning system for acquiring complex skills. Think of it like a system to
