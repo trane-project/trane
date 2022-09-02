@@ -1,6 +1,6 @@
 # Trane
 
-[![Latest Version]https://img.shields.io/crates/v/trane](https://crates.io/crates/trane)
+[![Latest Version](https://img.shields.io/crates/v/trane)](https://crates.io/crates/trane)
 
 ## TLDR
 
