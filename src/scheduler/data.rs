@@ -1,4 +1,5 @@
-//! Module containing the data used by the scheduler and functions to make it easier to use.
+//! Defines the data used by the scheduler and several convenience functions.
+
 use anyhow::{anyhow, Result};
 use parking_lot::RwLock;
 use std::sync::Arc;
@@ -16,7 +17,7 @@ use crate::{
     review_list::ReviewListDB,
 };
 
-/// A struct encapsulating all the state needed to schedule exercises.
+/// A struct encapsulating all the state needed by the scheduler.
 #[derive(Clone)]
 pub(crate) struct SchedulerData {
     /// The options used to run this scheduler.
@@ -104,8 +105,8 @@ impl SchedulerData {
         Ok(self.get_lesson_manifest(lesson_id)?.course_id)
     }
 
-    /// Returns whether the unit exists in the library. Some units will exists in the unit graph
-    /// because they are a dependency of another but their data might not exist in the library.
+    /// Returns whether the unit exists in the library. Some units will exist in the unit graph
+    /// because they are a dependency of another, but their data might not exist in the library.
     pub fn unit_exists(&self, unit_id: &Ustr) -> Result<bool, String> {
         let unit_type = self.unit_graph.read().get_unit_type(unit_id);
         if unit_type.is_none() {
@@ -206,7 +207,7 @@ impl SchedulerData {
                 ) {
                     // There's no lesson nor course filter, so the course passes the filter.
                     (None, None) => Ok(true),
-                    //  There's only a lesson filter. Return false so that the the course is skipped
+                    //  There's only a lesson filter. Return false so that the course is skipped,
                     //  and the decision is made based on the lesson.
                     (Some(_), None) => Ok(false),
                     // There's only a course filter, so return whether the course passed the filter.
