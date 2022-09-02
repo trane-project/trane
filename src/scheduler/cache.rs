@@ -1,5 +1,10 @@
-//! Module defining a cache of previously computed exercises scores and utilities to compute the
-//! scores of lessons and courses.
+//! Defines a cache that is used to retrieve unit scores and stores previously computed exercise and
+//! lesson scores
+//!
+//! During performance testing, it was found that caching exercise and lesson scores significantly
+//! improved the performance of exercise scheduling. Caching course scores had a negligible impact,
+//! so they are not cached, although they are still computed through this cache for consistency.
+
 use anyhow::{anyhow, Result};
 use parking_lot::RwLock;
 use ustr::{Ustr, UstrMap};
@@ -13,8 +18,9 @@ use crate::{
     scorer::{ExerciseScorer, SimpleScorer},
 };
 
-/// A cache of exercise scores with utility methods to compute the score of the exercises in a
-/// lesson or course.
+/// A cache of unit scores used to improve the performance of computing exercise and lesson scores
+/// during scheduling. Course scores are also accessed through this struct but are not cached
+/// because the performance improvement is negligible.
 pub(super) struct ScoreCache {
     /// A mapping of exercise ID to cached score.
     exercise_cache: RwLock<UstrMap<f32>>,
@@ -22,13 +28,13 @@ pub(super) struct ScoreCache {
     /// A mapping of lesson ID to cached score.
     lesson_cache: RwLock<UstrMap<Option<f32>>>,
 
-    /// The data used schedule exercises.
+    /// The data used by the scheduler.
     data: SchedulerData,
 
     /// The options used to schedule exercises.
     options: RwLock<SchedulerOptions>,
 
-    /// The scorer used to score the exercises found during the search.
+    /// The scorer used to compute the score of an exercise based on its previous trials.
     scorer: Box<dyn ExerciseScorer + Send + Sync>,
 }
 
@@ -124,7 +130,7 @@ impl ScoreCache {
         score
     }
 
-    /// Returns the average score of all the exercises in the given course.
+    /// Returns the average score of all the lesson scores in the given course.
     fn get_course_score(&self, course_id: &Ustr) -> Result<Option<f32>> {
         let blacklisted = self.data.blacklist.read().blacklisted(course_id);
         if blacklisted.unwrap_or(false) {
@@ -157,9 +163,9 @@ impl ScoreCache {
         }
     }
 
-    /// Returns the score of the unit based on its unit type along with the number of scores taken
-    /// into acount. This second value is used to indicate the scheduler that the search should
-    /// continue if all exercises in a lesson or lessons in a course have been blacklisted.
+    /// Returns the score for the given unit. A return value of `Ok(None)` indicates that there is
+    /// not a valid score for the unit, such as when the unit is blacklisted. The unit should be
+    /// considered as a satisfied dependency if that is the case.
     pub(super) fn get_unit_score(&self, unit_id: &Ustr) -> Result<Option<f32>> {
         let unit_type = self
             .data
