@@ -1,4 +1,12 @@
-//! Module to generate courses based on the circles of fifths.
+//! Contains utilities to generate courses based on the circles of fifths.
+//!
+//! Suppose that you have a course that contains guitar riffs that you would like to learn in
+//! all keys. The utilities in this module allow you to define a course in which the first lesson
+//! teaches you the riffs in the key of C (or A minor if the riffs were in a minor key). From this
+//! lesson, there are two dependent lessons one for the key of G and another for the key of F,
+//! because these keys contain only one sharp or flat respectively. The process repeats until the
+//! circle is traversed in both clockwise and counter-clockwise directions.
+
 use crate::{
     course_builder::{music::notes::*, AssetBuilder, CourseBuilder, LessonBuilder},
     data::{CourseManifest, LessonManifestBuilder},
@@ -69,8 +77,8 @@ pub struct CircleFifthsCourse {
 
     /// An optional closure that returns a different note from the one found by traversing the
     /// circle of fifths. This is useful, for example, to generate a course based on the minor scale
-    /// in the correct order by the numver of flats or sharps in the scale (i.e the lesson based on
-    /// A minor appers first because it's the relative minor of C major).
+    /// in the correct order by the number of flats or sharps in the scale (i.e., the lesson based
+    /// on A minor appears first because it's the relative minor of C major).
     pub note_alias: Option<Box<dyn Fn(Note) -> Result<Note>>>,
 
     /// The template used to generate the lesson manifests.
