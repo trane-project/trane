@@ -1,4 +1,13 @@
-//! Module defining the data structures used to select which units to show to the user.
+//! Defines the data structures used to select from which units exercises should be selected during
+//! scheduling.
+//!
+//! Trane's default mode of operation is to select exercises from all units. The filters in this
+//! module define the following additional modes of operation:
+//! 1. Selecting exercises from a list of courses.
+//! 2. Selecting exercises from a list of lessons.
+//! 3. Selecting exercises from the courses and lessons which match the given criteria based on the
+//!    course and lesson metadata.
+//! 4. Selecting exercises from the units in the review list.
 
 use std::collections::BTreeMap;
 
@@ -10,24 +19,24 @@ use crate::data::GetMetadata;
 /// The logical operation used to combine multiple filters.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum FilterOp {
-    /// A filter returns true if all its filters pass.
+    /// A filter returns true if all its sub-filters pass.
     All,
 
-    /// A filter returns true if at least one of its filters pass.
+    /// A filter returns true if at least one of its sub-filters pass.
     Any,
 }
 
-/// The type of filter according to how they treat the items which match the filter.
+/// The type of filter according to whether the units which match are included or excluded.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum FilterType {
-    /// A filter which includes the items that match it.
+    /// A filter which includes the units that match it.
     Include,
 
-    /// A filter which excludes the items that match it.
+    /// A filter which excludes the units that match it.
     Exclude,
 }
 
-/// A filter on the metadata of a course.
+/// A filter on course or lesson metadata.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum KeyValueFilter {
     /// A basic filter that matches a key value pair.
@@ -42,7 +51,7 @@ pub enum KeyValueFilter {
         filter_type: FilterType,
     },
 
-    /// A combination of filters on the metadata.
+    /// A combination of simpler filters on course or lesson metadata.
     CombinedFilter {
         /// The logical operation used to combine multiple filters.
         op: FilterOp,
@@ -98,10 +107,10 @@ impl KeyValueFilter {
 /// A filter on course and/or lesson metadata.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MetadataFilter {
-    /// The filter to apply to the course metadata.
+    /// The filter to apply on course metadata.
     pub course_filter: Option<KeyValueFilter>,
 
-    /// The filter to apply to the lesson metadata.
+    /// The filter to apply on lesson metadata.
     pub lesson_filter: Option<KeyValueFilter>,
 
     /// The logical operation used to combine the course and lesson filters.
@@ -155,6 +164,8 @@ impl UnitFilter {
         match self {
             UnitFilter::MetadataFilter { filter } => match &filter.course_filter {
                 Some(course_filter) => course_filter.apply(manifest),
+                // A value of `None` returns true so that the final determination is based on the
+                // lesson metadata.
                 None => true,
             },
             _ => false,
@@ -181,13 +192,13 @@ impl UnitFilter {
                     // Both filters are set, so the result depends on the logical operation used in
                     // the filter.
                     (Some(course_filter), Some(lesson_filter)) => match filter.op {
-                        // If the op is All, the lesson passes the filter if both the course and
+                        // If the op is `All`, the lesson passes the filter if both the course and
                         // lesson filters pass.
                         FilterOp::All => {
                             course_filter.apply(course_manifest)
                                 && lesson_filter.apply(lesson_manifest)
                         }
-                        // If the op is Any, the lesson passes the filter if either the course or
+                        // If the op is `Any`, the lesson passes the filter if either the course or
                         // the lesson filters pass.
                         FilterOp::Any => {
                             course_filter.apply(course_manifest)
