@@ -1,5 +1,10 @@
 # Trane
 
+[![Check Status](https://img.shields.io/github/checks-status/trane-project/trane/master)]
+[![Latest Version](https://img.shields.io/crates/v/trane)](https://crates.io/crates/trane)
+[![docs.rs](https://img.shields.io/docsrs/trane)](https://docs.rs/trane)
+[![Stars](https://img.shields.io/github/stars/trane-project/trane?style=social)](https://github.com/trane-project/trane/stargazers)
+
 ## TLDR
 
 Trane is an automated learning system for acquiring complex skills. Think of it like a system to
