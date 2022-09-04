@@ -48,7 +48,7 @@ started with understanding the code:
 - `blacklist`: Defines the list of units which should be ignored and marked as mastered during
   exercise scheduling.
 - `practice_stats`: Defines how the student's progress is stored for later used by the scheduler.
-- `lib.rs`: This file the public API of the crate, which is the entry point for using Trane.
+- `lib.rs`: This file defines the public API of the crate, which is the entry point for using Trane.
 
 If there's a particular part of the code that is confusing, does not follow standard Rust idioms or
 conventions, could use better documentation, or whose rationale is not obvious, feel free to open an
