@@ -683,7 +683,7 @@ Public License instead of this License.  But first, please read
 // - data, the module defining the common data structures for Trane and associated projects, which
 //   includes the src/data.rs file and all files under the src/data/ directory.
 // - course_builder, the module containing the utilities to generate new courses for Trane, which
-//   includes the src/course_builder.rs file and all files under the src/course/ directory.
+//   includes the src/course_builder.rs file and all files under the src/course_builder/ directory.
 
 MIT License
 
