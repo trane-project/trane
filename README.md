@@ -26,7 +26,7 @@ start](https://trane-project.github.io/quick_start.html) guide at the official s
 
 ## Documentation
 
-Full documentation for The Trane Project, including this software, can be found at the [official
+Full documentation for The Trane Project, including this library, can be found at the [official
 site](https://trane-project.github.io/)
 
 ## A Code Tour of Trane
