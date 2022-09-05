@@ -5,7 +5,7 @@
 [![docs.rs](https://img.shields.io/docsrs/trane)](https://docs.rs/trane)
 [![Stars](https://img.shields.io/github/stars/trane-project/trane?style=social)](https://github.com/trane-project/trane/stargazers)
 
-Trane is an automated learning system for the acquisition of complex and highly hierarchical skills.
+Trane is an automated practice system for the acquisition of complex and highly hierarchical skills.
 It is based on the principles of spaced repetition, mastery learning, and chunking.
 
 Given a set of exercises which have been bundled into lessons and further bundled in courses, as
@@ -49,6 +49,7 @@ started with understanding the code:
 - `blacklist`: Defines the list of units which should be ignored and marked as mastered during
   exercise scheduling.
 - `practice_stats`: Defines how the student's progress is stored for later used by the scheduler.
+- `course_builder`: Defines utilities to make it easier to build Trane courses.
 - `lib.rs`: This file defines the public API of the crate, which is the entry point for using Trane.
 
 If there's a particular part of the code that is confusing, does not follow standard Rust idioms or
