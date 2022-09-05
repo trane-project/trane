@@ -1,3 +1,27 @@
+//! Contains utilities common to all Trane end-to-end tests.
+//!
+//! The `scheduler` module in Trane is difficult to test with unit tests that check the expected
+//! return value of `get_exercise_batch` against the actual output for a few reasons:
+//! - When the dependents of a unit are added to the stack during the depth-first search phase, they
+//!   are shuffled beforehand to avoid traversing the graph in the same order every time.
+//! - In the second phase, candidate exercises are grouped in buckets based on their score. From
+//!   each of these buckets, a subset is selected randomly based on weights assigned to each
+//!   candidate.
+//!
+//! Instead of testing the output of a single call to `get_exercise_batch`, Trane's end-to-end tests
+//! verify less strict assertions about the results of a simulated study session in which a
+//! simulated student scores simulated exercises. For example, given a course library, an empty
+//! blacklist, and a student that always scores the highest score in all exercises, all the
+//! exercises in the course should be scheduled after going through a sufficiently large number of
+//! exercise batches. If this assertion fails, it points to a bug in the scheduler that is not
+//! letting the student make progress past some points in the graph.
+//!
+//! In practice, this testing strategy has been used to catch many bugs in Trane. Most of these bugs
+//! were in the scheduler, but some were in other parts of the codebase as this simulation opens a
+//! real course library that is written to disk beforehand. While this testing strategy cannot catch
+//! every bug, it has proved to offer sufficient coverage for the part of Trane's codebase that is
+//! difficult to verify using simple unit tests.
+
 use std::{collections::BTreeMap, path::PathBuf};
 
 use anyhow::{anyhow, Result};
@@ -15,7 +39,7 @@ use trane::{
 };
 use ustr::{Ustr, UstrMap};
 
-/// Represents the ID of a tests unit. First element is the course ID, followed by optional lesson
+/// Represents the ID of a test unit. First element is the course ID, followed by optional lesson
 /// and exercise IDs.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TestId(pub u32, pub Option<u32>, pub Option<u32>);
@@ -39,6 +63,7 @@ impl TestId {
 }
 
 impl ToString for TestId {
+    /// Converts the test ID to a valid string representation.
     fn to_string(&self) -> String {
         let mut s = self.0.to_string();
         if let Some(lesson_id) = &self.1 {
@@ -53,7 +78,7 @@ impl ToString for TestId {
     }
 }
 
-/// Represents a test lesson, containing some number of dummy exercises.
+/// A test lesson, containing some number of dummy exercises.
 pub struct TestLesson {
     /// ID of the lesson.
     pub id: TestId,
@@ -131,7 +156,7 @@ impl TestLesson {
     }
 }
 
-/// Represents a test course.
+/// A test course containing a number of dummy test lessons.
 pub struct TestCourse {
     /// The ID of the course.
     pub id: TestId,
@@ -147,6 +172,7 @@ pub struct TestCourse {
 }
 
 impl TestCourse {
+    /// Returns the course builder needed to generate the files for the course.
     pub fn course_builder(&self) -> Result<CourseBuilder> {
         if self.id.1.is_some() {
             return Err(anyhow!("Lesson ID is present"));
@@ -201,6 +227,7 @@ impl TestCourse {
     }
 }
 
+/// Returns the test IDs for all the exercises in the given courses.
 pub fn all_exercises(courses: &Vec<TestCourse>) -> Vec<TestId> {
     let mut exercises = vec![];
     for course in courses {
@@ -235,7 +262,7 @@ impl TraneSimulation {
         }
     }
 
-    /// Runs the simulation with the given instance of Trane, unit blacklist, and filter.
+    /// Runs the simulation with the given instance of Trane, blacklist, and filter.
     pub fn run_simulation(
         &mut self,
         trane: &mut Trane,
@@ -296,7 +323,7 @@ pub fn assert_scores(
     // Get the last ten scores in the interest of saving time.
     let trane_scores = trane.get_scores(exercise_id, 10)?;
 
-    // Check that the last ten simulation scores equal trane_scores.
+    // Check that the last ten simulation scores equal `trane_scores`.
     let simulation_scores = simulation_scores.get(exercise_id).ok_or(anyhow!(
         "No simulation scores for exercise with ID {:?}",
         exercise_id
