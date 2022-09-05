@@ -2,5 +2,5 @@ ignore-not-existing: true
 llvm: true
 filter: covered
 output-type: lcov
-keep-only:
-  - "/src/*"
+ignore:
+  - "*.cargo/*"

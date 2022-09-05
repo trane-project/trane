@@ -9,12 +9,15 @@ jobs:
     name: Code Coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
+      - name: Checkout sources 
+        uses: actions/checkout@v1
+      - name: Install Rust toolchain 
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           override: true
-      - uses: actions-rs/cargo@v1
+      - name: Run tests with code coverage information 
+        uses: actions-rs/cargo@v1
         with:
           command: test
           args: --all-features --no-fail-fast
@@ -22,7 +25,8 @@ jobs:
           CARGO_INCREMENTAL: '0'
           RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
           RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-      - id: coverage
+      - name: Run grcov 
+        id: coverage
         uses: actions-rs/grcov@v0.1
       - name: Coveralls upload
         uses: coverallsapp/github-action@master
