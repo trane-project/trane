@@ -32,7 +32,7 @@ site](https://trane-project.github.io/)
 
 A goal of Trane's code is to be as clean, well-documented, organized, and readable as possible. Most
 modules should have module-level documentation at the top of the file, which includes rationale
-behind the design choice made by the author. Below is a list of a few modules and files to get you
+behind the design choices made by the author. Below is a list of a few modules and files to get you
 started with understanding the code:
 
 - `data`: Contains the basic data structures used throughout Trane. Among other things, it defines:
