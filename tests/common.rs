@@ -1,7 +1,7 @@
 //! Contains utilities common to all Trane end-to-end tests.
 //!
 //! The `scheduler` module in Trane is difficult to test with unit tests that check the expected
-//! return value of `get_exercise_batch` against the actual output for a few reasons:
+//! return value of `get_exercise_batch` against the actual output for a couple of reasons:
 //! - When the dependents of a unit are added to the stack during the depth-first search phase, they
 //!   are shuffled beforehand to avoid traversing the graph in the same order every time.
 //! - In the second phase, candidate exercises are grouped in buckets based on their score. From
