@@ -1,7 +1,7 @@
 ignore-not-existing: true
 llvm: true
 filter: covered
-output-type: coveralls
+output-type: lcov
 ignore:
   - "*.cargo/*"
 excl-start: "^// excl start"
