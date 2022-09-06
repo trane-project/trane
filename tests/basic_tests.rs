@@ -1,3 +1,11 @@
+//! End-to-end tests to test basic scenarios.
+//!
+//! These end-to-end tests all use the same hand-coded course library and perform basic checks,
+//! ensuring among others that Trane makes progress when good scores are entered by the student,
+//! that bad scores cause progress to stall, that the blacklist and unit filters are respected.
+//! See more information on the testing strategy followed by these tests in the comments for
+//! `common.rs` in this directory.
+
 mod common;
 
 use std::collections::BTreeMap;
@@ -401,7 +409,7 @@ fn all_exercises_scheduled() -> Result<()> {
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
     simulation.run_simulation(&mut trane, &vec![], None)?;
 
-    // Every exercise ID should be in simulation.answer_history.
+    // Every exercise ID should be in `simulation.answer_history`.
     let exercise_ids = all_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
@@ -426,7 +434,7 @@ fn bad_score_prevents_advancing() -> Result<()> {
     let mut simulation = TraneSimulation::new(100, Box::new(|_| Some(MasteryScore::One)));
     simulation.run_simulation(&mut trane, &vec![], None)?;
 
-    // Only the exercises in the first lessons should be in simulation.answer_history.
+    // Only the exercises in the first lessons should be in `simulation.answer_history`.
     let first_lessons = vec![
         TestId(0, Some(0), None),
         TestId(4, Some(0), None),
@@ -469,7 +477,7 @@ fn avoid_scheduling_courses_in_blacklist() -> Result<()> {
     let course_blacklist = vec![TestId(0, None, None), TestId(4, None, None)];
     simulation.run_simulation(&mut trane, &course_blacklist, None)?;
 
-    // Every exercise ID should be in simulation.answer_history except for those which belong to
+    // Every exercise ID should be in `simulation.answer_history` except for those which belong to
     // courses in the blacklist.
     let exercise_ids = all_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
@@ -508,7 +516,7 @@ fn avoid_scheduling_lessons_in_blacklist() -> Result<()> {
     let lesson_blacklist = vec![TestId(0, Some(1), None), TestId(4, Some(0), None)];
     simulation.run_simulation(&mut trane, &lesson_blacklist, None)?;
 
-    // Every exercise ID should be in simulation.answer_history except for those which belong to
+    // Every exercise ID should be in `simulation.answer_history` except for those which belong to
     // lessons in the blacklist.
     let exercise_ids = all_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
@@ -546,7 +554,7 @@ fn avoid_scheduling_exercises_in_blacklist() -> Result<()> {
     let exercise_blacklist = vec![TestId(2, Some(1), Some(7)), TestId(4, Some(0), Some(0))];
     simulation.run_simulation(&mut trane, &exercise_blacklist, None)?;
 
-    // Every exercise ID should be in simulation.answer_history except for those in the blacklist.
+    // Every exercise ID should be in `simulation.answer_history` except for those in the blacklist.
     let exercise_ids = all_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
@@ -631,7 +639,7 @@ fn invalidate_cache_on_blacklist_update() -> Result<()> {
 
     // Remove those units from the blacklist and re-run the simulation, but this time assign a score
     // of one to all exercises. Trane should not schedule any lesson or course depending on the
-    // lesson with ID TestId(0, Some(0), None).
+    // lesson with ID `TestId(0, Some(0), None)`.
     for exercise_id in &exercise_blacklist {
         trane.remove_from_blacklist(&exercise_id.to_ustr())?;
     }
@@ -662,7 +670,7 @@ fn invalidate_cache_on_blacklist_update() -> Result<()> {
             .iter()
             .any(|lesson_id| exercise_id.exercise_in_lesson(&lesson_id))
         {
-            // None of the units depending on lesson TestId(0, Some(0), None) should have been
+            // None of the units depending on lesson `TestId(0, Some(0), None)` should have been
             // scheduled.
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -705,7 +713,7 @@ fn scheduler_respects_course_filter() -> Result<()> {
     };
     simulation.run_simulation(&mut trane, &vec![], Some(&course_filter))?;
 
-    // Every exercise ID should be in simulation.answer_history.
+    // Every exercise ID should be in `simulation.answer_history`.
     let exercise_ids = all_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
@@ -746,7 +754,7 @@ fn scheduler_respects_lesson_filter() -> Result<()> {
     };
     simulation.run_simulation(&mut trane, &vec![], Some(&lesson_filter))?;
 
-    // Every exercise ID should be in simulation.answer_history.
+    // Every exercise ID should be in `simulation.answer_history`.
     let exercise_ids = all_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
