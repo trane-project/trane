@@ -204,7 +204,7 @@ impl CourseBuilder {
         }
 
         ensure! {
-            self.course_manifest.verify_paths(parent_directory)?,
+            self.course_manifest.verify_paths(course_directory.as_path())?,
             "cannot verify files mentioned in the manifest for course {}",
             self.course_manifest.id,
         };

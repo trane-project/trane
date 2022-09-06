@@ -243,10 +243,15 @@ impl NormalizePaths for CourseManifest {
 
 impl VerifyPaths for CourseManifest {
     fn verify_paths(&self, dir: &Path) -> Result<bool> {
-        match &self.course_material {
-            None => Ok(true),
-            Some(asset) => asset.verify_paths(dir),
-        }
+        let instructions_exist = match &self.course_instructions {
+            None => true,
+            Some(asset) => asset.verify_paths(dir)?,
+        };
+        let material_exists = match &self.course_material {
+            None => true,
+            Some(asset) => asset.verify_paths(dir)?,
+        };
+        Ok(instructions_exist && material_exists)
     }
 }
 
@@ -321,11 +326,11 @@ impl VerifyPaths for LessonManifest {
             None => true,
             Some(asset) => asset.verify_paths(dir)?,
         };
-        let lesson_exists = match &self.lesson_material {
+        let material_exists = match &self.lesson_material {
             None => true,
             Some(asset) => asset.verify_paths(dir)?,
         };
-        Ok(instruction_exists && lesson_exists)
+        Ok(instruction_exists && material_exists)
     }
 }
 
@@ -527,5 +532,81 @@ impl Default for SchedulerOptions {
             passing_score: 3.9,
             num_scores: 25,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::data::*;
+
+    #[test]
+    fn float_score() {
+        assert_eq!(1.0, MasteryScore::One.float_score());
+        assert_eq!(2.0, MasteryScore::Two.float_score());
+        assert_eq!(3.0, MasteryScore::Three.float_score());
+        assert_eq!(4.0, MasteryScore::Four.float_score());
+        assert_eq!(5.0, MasteryScore::Five.float_score());
+    }
+
+    #[test]
+    fn get_unit_type() {
+        assert_eq!(
+            UnitType::Course,
+            CourseManifestBuilder::default()
+                .id("test")
+                .name("Test".to_string())
+                .dependencies(vec![])
+                .build()
+                .unwrap()
+                .get_unit_type()
+        );
+        assert_eq!(
+            UnitType::Lesson,
+            LessonManifestBuilder::default()
+                .id("test")
+                .course_id("test")
+                .name("Test".to_string())
+                .dependencies(vec![])
+                .build()
+                .unwrap()
+                .get_unit_type()
+        );
+        assert_eq!(
+            UnitType::Exercise,
+            ExerciseManifestBuilder::default()
+                .id("test")
+                .course_id("test")
+                .lesson_id("test")
+                .name("Test".to_string())
+                .exercise_type(ExerciseType::Procedural)
+                .exercise_asset(ExerciseAsset::FlashcardAsset {
+                    front_path: "front.png".to_string(),
+                    back_path: "back.png".to_string(),
+                })
+                .build()
+                .unwrap()
+                .get_unit_type()
+        );
+    }
+
+    #[test]
+    fn verify_paths_none() -> Result<()> {
+        let lesson_manifest = LessonManifestBuilder::default()
+            .id("test")
+            .course_id("test")
+            .name("Test".to_string())
+            .dependencies(vec![])
+            .build()
+            .unwrap();
+        lesson_manifest.verify_paths(Path::new("./"))?;
+
+        let course_manifest = CourseManifestBuilder::default()
+            .id("test")
+            .name("Test".to_string())
+            .dependencies(vec![])
+            .build()
+            .unwrap();
+        course_manifest.verify_paths(Path::new("./"))?;
+        Ok(())
     }
 }
