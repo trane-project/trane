@@ -243,14 +243,15 @@ impl NormalizePaths for CourseManifest {
 
 impl VerifyPaths for CourseManifest {
     fn verify_paths(&self, dir: &Path) -> Result<bool> {
-        match &self.course_instructions {
-            None => Ok(true),
-            Some(asset) => asset.verify_paths(dir),
-        }?;
-        match &self.course_material {
-            None => Ok(true),
-            Some(asset) => asset.verify_paths(dir),
-        }
+        let instructions_exist = match &self.course_instructions {
+            None => true,
+            Some(asset) => asset.verify_paths(dir)?,
+        };
+        let material_exists = match &self.course_material {
+            None => true,
+            Some(asset) => asset.verify_paths(dir)?,
+        };
+        Ok(instructions_exist && material_exists)
     }
 }
 
