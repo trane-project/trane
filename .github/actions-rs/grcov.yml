@@ -4,5 +4,5 @@ filter: covered
 output-type: lcov
 ignore:
   - "*.cargo/*"
-excl-start: "// grcov-excl-start"
-excl-stop: "// grcov-excl-stop"
+excl-start: "^// grcov-excl-start"
+excl-stop: "^// grcov-excl-stop"
