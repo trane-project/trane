@@ -30,7 +30,7 @@ use trane::{
     blacklist::Blacklist,
     course_builder::{AssetBuilder, CourseBuilder, ExerciseBuilder, LessonBuilder},
     data::{
-        filter::UnitFilter, CourseManifest, ExerciseAsset, ExerciseManifest,
+        filter::UnitFilter, BasicAsset, CourseManifest, ExerciseAsset, ExerciseManifest,
         ExerciseManifestBuilder, ExerciseType, LessonManifestBuilder, MasteryScore,
     },
     practice_stats::PracticeStats,
@@ -150,8 +150,17 @@ impl TestLesson {
                     back_path: "answer.md".to_string(),
                 })
                 .clone(),
-            asset_builders: vec![],
             exercise_builders: exercise_builders,
+            asset_builders: vec![
+                AssetBuilder {
+                    file_name: "instructions.md".to_string(),
+                    contents: "instructions".to_string(),
+                },
+                AssetBuilder {
+                    file_name: "material.md".to_string(),
+                    contents: "material".to_string(),
+                },
+            ],
         })
     }
 }
@@ -200,14 +209,33 @@ impl TestCourse {
                 description: None,
                 authors: None,
                 metadata: Some(self.metadata.clone()),
-                course_material: None,
-                course_instructions: None,
+                course_material: Some(BasicAsset::MarkdownAsset {
+                    path: "material.md".to_string(),
+                }),
+                course_instructions: Some(BasicAsset::MarkdownAsset {
+                    path: "instructions.md".to_string(),
+                }),
             },
             lesson_manifest_template: LessonManifestBuilder::default()
                 .course_id(self.id.to_ustr())
+                .lesson_instructions(Some(BasicAsset::MarkdownAsset {
+                    path: "instructions.md".to_string(),
+                }))
+                .lesson_material(Some(BasicAsset::MarkdownAsset {
+                    path: "material.md".to_string(),
+                }))
                 .clone(),
             lesson_builders,
-            asset_builders: vec![],
+            asset_builders: vec![
+                AssetBuilder {
+                    file_name: "instructions.md".to_string(),
+                    contents: "instructions".to_string(),
+                },
+                AssetBuilder {
+                    file_name: "material.md".to_string(),
+                    contents: "material".to_string(),
+                },
+            ],
         })
     }
 

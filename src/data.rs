@@ -529,3 +529,58 @@ impl Default for SchedulerOptions {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::data::*;
+
+    #[test]
+    fn float_score() {
+        assert_eq!(1.0, MasteryScore::One.float_score());
+        assert_eq!(2.0, MasteryScore::Two.float_score());
+        assert_eq!(3.0, MasteryScore::Three.float_score());
+        assert_eq!(4.0, MasteryScore::Four.float_score());
+        assert_eq!(5.0, MasteryScore::Five.float_score());
+    }
+
+    #[test]
+    fn get_unit_type() {
+        assert_eq!(
+            UnitType::Course,
+            CourseManifestBuilder::default()
+                .id("test")
+                .name("Test".to_string())
+                .dependencies(vec![])
+                .build()
+                .unwrap()
+                .get_unit_type()
+        );
+        assert_eq!(
+            UnitType::Lesson,
+            LessonManifestBuilder::default()
+                .id("test")
+                .course_id("test")
+                .name("Test".to_string())
+                .dependencies(vec![])
+                .build()
+                .unwrap()
+                .get_unit_type()
+        );
+        assert_eq!(
+            UnitType::Exercise,
+            ExerciseManifestBuilder::default()
+                .id("test")
+                .course_id("test")
+                .lesson_id("test")
+                .name("Test".to_string())
+                .exercise_type(ExerciseType::Procedural)
+                .exercise_asset(ExerciseAsset::FlashcardAsset {
+                    front_path: "front.png".to_string(),
+                    back_path: "back.png".to_string(),
+                })
+                .build()
+                .unwrap()
+                .get_unit_type()
+        );
+    }
+}
