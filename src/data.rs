@@ -243,6 +243,10 @@ impl NormalizePaths for CourseManifest {
 
 impl VerifyPaths for CourseManifest {
     fn verify_paths(&self, dir: &Path) -> Result<bool> {
+        match &self.course_instructions {
+            None => Ok(true),
+            Some(asset) => asset.verify_paths(dir),
+        }?;
         match &self.course_material {
             None => Ok(true),
             Some(asset) => asset.verify_paths(dir),
@@ -321,11 +325,11 @@ impl VerifyPaths for LessonManifest {
             None => true,
             Some(asset) => asset.verify_paths(dir)?,
         };
-        let lesson_exists = match &self.lesson_material {
+        let material_exists = match &self.lesson_material {
             None => true,
             Some(asset) => asset.verify_paths(dir)?,
         };
-        Ok(instruction_exists && lesson_exists)
+        Ok(instruction_exists && material_exists)
     }
 }
 
@@ -582,5 +586,26 @@ mod test {
                 .unwrap()
                 .get_unit_type()
         );
+    }
+
+    #[test]
+    fn verify_paths_none() -> Result<()> {
+        let lesson_manifest = LessonManifestBuilder::default()
+            .id("test")
+            .course_id("test")
+            .name("Test".to_string())
+            .dependencies(vec![])
+            .build()
+            .unwrap();
+        lesson_manifest.verify_paths(Path::new("./"))?;
+
+        let course_manifest = CourseManifestBuilder::default()
+            .id("test")
+            .name("Test".to_string())
+            .dependencies(vec![])
+            .build()
+            .unwrap();
+        course_manifest.verify_paths(Path::new("./"))?;
+        Ok(())
     }
 }
