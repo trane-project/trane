@@ -1,3 +1,10 @@
+//! End-to-end tests for verifying the correctness of Trane with large course libraries.
+//!
+//! These tests verify that Trane works correctly with large course libraries and can be used to
+//! measure its performance with the use of the `cargo flamegraph` command. These tests are slower
+//! than the unit tests and the basic end-to-end tests, but they still run under 10 seconds when
+//! compiled in release mode.
+
 mod common;
 
 use std::collections::BTreeMap;
@@ -30,7 +37,7 @@ struct RandomCourseLibrary {
 
 impl RandomCourseLibrary {
     /// Generates random dependencies for the given course. All dependencies are to courses with a
-    /// lower course ID to prevent cycles.
+    /// lower course ID to ensure the graph is acyclic.
     fn generate_course_dependencies(&self, course_id: &TestId, rng: &mut impl Rng) -> Vec<TestId> {
         let num_dependencies =
             rng.gen_range(self.course_dependencies_range.0..=self.course_dependencies_range.1);
@@ -46,7 +53,7 @@ impl RandomCourseLibrary {
     }
 
     /// Generates random dependencies for the given course. All dependencies are to other lessons in
-    /// the same course with a lower course ID to prevent cycles.
+    /// the same course with a lower course ID to ensure the graph is acyclic.
     fn generate_lesson_dependencies(&self, lesson_id: &TestId, rng: &mut impl Rng) -> Vec<TestId> {
         let num_dependencies =
             rng.gen_range(self.lesson_dependencies_range.0..=self.lesson_dependencies_range.1);
@@ -124,7 +131,7 @@ fn all_exercises_scheduled_random() -> Result<()> {
     );
     simulation.run_simulation(&mut trane, &vec![], None)?;
 
-    // Every exercise ID should be in simulation.answer_history.
+    // Every exercise ID should be in `simulation.answer_history`.
     for exercise_id in exercise_ids {
         assert!(
             simulation
