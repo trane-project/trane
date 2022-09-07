@@ -28,7 +28,7 @@ jobs:
           RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
       - name: Run grcov 
         id: coverage
-        uses: actions-rs/grcov@v0.1
+        uses: xnuter/grcov@master
       - name: Coveralls upload
         uses: coverallsapp/github-action@master
         with:
