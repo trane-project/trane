@@ -368,18 +368,22 @@ impl UnitGraph for InMemoryUnitGraph {
                 if let Some(dependencies) = dependencies {
                     for dependency_id in dependencies {
                         let dependents = self.get_dependents(&dependency_id);
+                        let mut missing_dependent = false || dependents.is_none();
                         if let Some(dependents) = dependents {
                             // Verify that the dependency and dependent graphs agree with each other
                             // by checking that all the dependencies of the current unit list it as
                             // a dependent.
                             if !dependents.contains(&current_id) {
-                                return Err(anyhow!(
-                                    "unit {} lists unit {} as a dependency but the reverse \
-                                    relationship does not exist",
-                                    current_id,
-                                    dependency_id
-                                ));
+                                missing_dependent = true;
                             }
+                        }
+                        if missing_dependent {
+                            return Err(anyhow!(
+                                "unit {} lists unit {} as a dependency but the dependent \
+                                relationship does not exist",
+                                current_id,
+                                dependency_id
+                            ));
                         }
 
                         if path.contains(&dependency_id) {
@@ -699,6 +703,33 @@ mod test {
         graph.add_exercise(&exercise_id, &lesson_id)?;
         let _ = graph.add_exercise(&exercise_id, &lesson_id).is_err();
 
+        Ok(())
+    }
+
+    #[test]
+    fn update_unit_type_different_types() -> Result<()> {
+        let mut graph = InMemoryUnitGraph::default();
+        let unit_id = Ustr::from("unit_id");
+        graph.update_unit_type(&unit_id, UnitType::Course)?;
+        assert!(graph.update_unit_type(&unit_id, UnitType::Lesson).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn missing_dependent_relationship() -> Result<()> {
+        let mut graph = InMemoryUnitGraph::default();
+        let course_id = Ustr::from("course_id");
+        let lesson1_id = Ustr::from("lesson1_id");
+        let lesson2_id = Ustr::from("lesson2_id");
+        graph.add_course(&course_id).unwrap();
+        graph.add_lesson(&lesson1_id, &course_id).unwrap();
+        graph.add_lesson(&lesson2_id, &course_id).unwrap();
+        graph.add_dependencies(&lesson2_id, UnitType::Lesson, &[lesson1_id.clone()])?;
+
+        // Manually remove the dependent relationship to trigger the check and make the cycle
+        // detection fail.
+        graph.dependent_graph.remove(&lesson1_id);
+        assert!(graph.check_cycles().is_err());
         Ok(())
     }
 }
