@@ -368,7 +368,7 @@ impl UnitGraph for InMemoryUnitGraph {
                 if let Some(dependencies) = dependencies {
                     for dependency_id in dependencies {
                         let dependents = self.get_dependents(&dependency_id);
-                        let mut missing_dependent = false || dependents.is_none();
+                        let mut missing_dependent = dependents.is_none();
                         if let Some(dependents) = dependents {
                             // Verify that the dependency and dependent graphs agree with each other
                             // by checking that all the dependencies of the current unit list it as
@@ -460,7 +460,7 @@ impl UnitGraph for InMemoryUnitGraph {
 mod test {
     use anyhow::Result;
     use indoc::indoc;
-    use ustr::Ustr;
+    use ustr::{Ustr, UstrSet};
 
     use crate::data::UnitType;
 
@@ -728,7 +728,12 @@ mod test {
 
         // Manually remove the dependent relationship to trigger the check and make the cycle
         // detection fail.
-        graph.dependent_graph.remove(&lesson1_id);
+        graph
+            .dependent_graph
+            .insert(lesson1_id.clone(), UstrSet::default());
+        assert!(graph.check_cycles().is_err());
+        // Also check that the check fails if the dependents value is `None`.
+        graph.dependency_graph.remove(&lesson1_id);
         assert!(graph.check_cycles().is_err());
         Ok(())
     }
