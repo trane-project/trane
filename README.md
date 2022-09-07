@@ -1,6 +1,6 @@
 # Trane
 
-[![Coverage Status](https://coveralls.io/repos/github/trane-project/trane/badge.svg)](https://coveralls.io/github/trane-project/trane?branch=master)
+[![Coverage Status](https://img.shields.io/coveralls/github/trane-project/trane)](https://coveralls.io/github/trane-project/trane?branch=master)
 [![Latest Version](https://img.shields.io/crates/v/trane)](https://crates.io/crates/trane)
 [![docs.rs](https://img.shields.io/docsrs/trane)](https://docs.rs/trane)
 [![Stars](https://img.shields.io/github/stars/trane-project/trane?style=social)](https://github.com/trane-project/trane/stargazers)
