@@ -192,6 +192,11 @@ impl Trane {
     }
 }
 
+// The following implementation blocks simply expose the interfaces already implemented and tested
+// by the various submodules. Therefore, the next line excludes this section from being used to
+// generate the final report.
+// grcov-excl-start
+
 impl Blacklist for Trane {
     fn add_to_blacklist(&mut self, unit_id: &Ustr) -> Result<()> {
         // Make sure to invalidate any cached scores for the given unit.
@@ -381,3 +386,5 @@ impl UnitGraph for Trane {
         self.unit_graph.read().generate_dot_graph()
     }
 }
+
+// grcov-excl-stop
