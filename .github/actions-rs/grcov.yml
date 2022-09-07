@@ -6,3 +6,4 @@ ignore:
   - "*.cargo/*"
 excl-start: "grcov-excl-start"
 excl-stop: "grcov-excl-stop"
+excl-br-line: "#\[(derive(.*)\]"
