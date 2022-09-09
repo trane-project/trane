@@ -75,7 +75,7 @@ impl PracticeStatsDB {
         let migrations = Self::migrations();
         migrations
             .to_latest(&mut connection)
-            .with_context(|| "failed to initialize practice stats DB")
+            .with_context(|| "failed to initialize practice stats DB") //grcov-excl-line
     }
 
     /// A constructor taking a SQLite connection manager.
@@ -110,7 +110,7 @@ impl PracticeStats for PracticeStatsDB {
                     SELECT unit_uid FROM uids WHERE unit_id = ?1)
                     ORDER BY timestamp DESC LIMIT ?2;",
             )
-            .with_context(|| "cannot prepare statement to query practice stats DB")?;
+            .with_context(|| "cannot prepare statement to query practice stats DB")?; //grcov-excl-line
 
         #[allow(clippy::let_and_return)]
         let rows = stmt
@@ -119,11 +119,11 @@ impl PracticeStats for PracticeStatsDB {
                     score: row.get(0)?,
                     timestamp: row.get(1)?,
                 })
-            })?
+            })? // grcov-excl-line
             .map(|r| {
-                r.with_context(|| {
-                    format!("cannot query practice stats for exercise {}", exercise_id)
-                })
+                r.with_context(
+                    || format!("cannot query practice stats for exercise {}", exercise_id), // grcov-excl-line
+                )
             })
             .collect();
         rows
@@ -144,7 +144,7 @@ impl PracticeStats for PracticeStatsDB {
                 format!(
                     "cannot add {} to uids table in practice stats DB",
                     exercise_id
-                )
+                ) // grcov-excl-line
             })?;
 
         let mut stmt = connection.prepare_cached(
@@ -160,7 +160,7 @@ impl PracticeStats for PracticeStatsDB {
             format!(
                 "cannot record score {:?} for exercise {} to practice stats DB",
                 score, exercise_id
-            )
+            ) // grcov-excl-line
         })?;
         Ok(())
     }
