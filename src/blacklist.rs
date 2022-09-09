@@ -180,14 +180,15 @@ mod test {
     }
 
     #[test]
-    fn cache_blacklist() -> Result<()> {
+    fn blacklist_cache() -> Result<()> {
         let mut blacklist = new_test_blacklist()?;
-
         let unit_id = Ustr::from("unit_id");
         blacklist.add_to_blacklist(&unit_id)?;
         assert!(blacklist.blacklisted(&unit_id)?);
         // The value in the second call is retrieved from the cache.
         assert!(blacklist.blacklisted(&unit_id)?);
+        // The function should return early because it's already in the cache.
+        blacklist.add_to_blacklist(&unit_id)?;
         Ok(())
     }
 
