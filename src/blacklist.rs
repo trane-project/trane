@@ -55,7 +55,7 @@ impl BlacklistDB {
         let migrations = Self::migrations();
         migrations
             .to_latest(&mut connection)
-            .with_context(|| "failed to initialize blacklist DB")
+            .with_context(|| "failed to initialize blacklist DB") // grcov-excl-line
     }
 
     /// A constructor taking a connection manager.
@@ -108,7 +108,7 @@ impl Blacklist for BlacklistDB {
         let connection = self.pool.get()?;
         let mut stmt = connection
             .prepare_cached("INSERT INTO blacklist (unit_id) VALUES (?1)")
-            .with_context(|| "cannot prepare statement to insert into blacklist DB")?;
+            .with_context(|| "cannot prepare statement to insert into blacklist DB")?; // grcov-excl-line
         stmt.execute(params![unit_id.as_str()])
             .with_context(|| format!("cannot insert unit {} into blacklist DB", unit_id))?;
         self.cache.write().insert(*unit_id, true);
@@ -119,7 +119,7 @@ impl Blacklist for BlacklistDB {
         let connection = self.pool.get()?;
         let mut stmt = connection
             .prepare_cached("DELETE FROM blacklist WHERE unit_id = $1")
-            .with_context(|| "cannot prepare statement to delete from blacklist DB")?;
+            .with_context(|| "cannot prepare statement to delete from blacklist DB")?; // grcov-excl-line
         stmt.execute(params![unit_id.as_str()])
             .with_context(|| format!("cannot remove unit {} from blacklist DB", unit_id))?;
         self.cache.write().insert(*unit_id, false);
@@ -134,7 +134,7 @@ impl Blacklist for BlacklistDB {
         let connection = self.pool.get()?;
         let mut stmt = connection
             .prepare_cached("SELECT unit_id from blacklist;")
-            .with_context(|| "cannot prepare statement to get all entries in blacklist DB")?;
+            .with_context(|| "cannot prepare statement to get all entries in blacklist DB")?; // grcov-excl-line
         let mut rows = stmt.query(params![])?;
         let mut entries = Vec::new();
         while let Some(row) = rows.next()? {
@@ -149,6 +149,7 @@ impl Blacklist for BlacklistDB {
 mod test {
     use anyhow::Result;
     use r2d2_sqlite::SqliteConnectionManager;
+    use tempfile::tempdir;
     use ustr::Ustr;
 
     use super::{Blacklist, BlacklistDB};
@@ -179,6 +180,19 @@ mod test {
     }
 
     #[test]
+    fn blacklist_cache() -> Result<()> {
+        let mut blacklist = new_test_blacklist()?;
+        let unit_id = Ustr::from("unit_id");
+        blacklist.add_to_blacklist(&unit_id)?;
+        assert!(blacklist.blacklisted(&unit_id)?);
+        // The value in the second call is retrieved from the cache.
+        assert!(blacklist.blacklisted(&unit_id)?);
+        // The function should return early because it's already in the cache.
+        blacklist.add_to_blacklist(&unit_id)?;
+        Ok(())
+    }
+
+    #[test]
     fn readd_to_blacklist() -> Result<()> {
         let mut blacklist = new_test_blacklist()?;
         let unit_id = Ustr::from("unit_id");
@@ -201,6 +215,21 @@ mod test {
         blacklist.add_to_blacklist(&unit_id2)?;
         assert!(blacklist.blacklisted(&unit_id2)?);
         assert_eq!(blacklist.all_blacklist_entries()?, vec![unit_id, unit_id2]);
+        Ok(())
+    }
+
+    #[test]
+    fn reopen_blacklist() -> Result<()> {
+        let dir = tempdir()?;
+        let mut blacklist =
+            BlacklistDB::new_from_disk(dir.path().join("blacklist.db").to_str().unwrap())?;
+        let unit_id = Ustr::from("unit_id");
+        blacklist.add_to_blacklist(&unit_id)?;
+        assert!(blacklist.blacklisted(&unit_id)?);
+
+        let new_blacklist =
+            BlacklistDB::new_from_disk(dir.path().join("blacklist.db").to_str().unwrap())?;
+        assert!(new_blacklist.blacklisted(&unit_id)?);
         Ok(())
     }
 }
