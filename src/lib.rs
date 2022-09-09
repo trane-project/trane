@@ -108,14 +108,13 @@ pub struct Trane {
 
 impl Trane {
     /// Initializes the config directory at path `.trane` inside the library root.
-    fn init_config_directory(library_root: &str) -> Result<()> {
-        let root_path = Path::new(library_root);
-        if !root_path.is_dir() {
+    fn init_config_directory(library_root: &Path) -> Result<()> {
+        if !library_root.is_dir() {
             return Err(anyhow!("library_root must be the path to a directory"));
         }
 
         // Create the config folder inside the library root if it does not exist already.
-        let trane_path = root_path.join(TRANE_CONFIG_DIR_PATH);
+        let trane_path = library_root.join(TRANE_CONFIG_DIR_PATH);
         if !trane_path.exists() {
             create_dir(trane_path.clone()).with_context(|| {
                 format!(
@@ -145,9 +144,9 @@ impl Trane {
 
     /// Creates a new entrance of the library given the path to the root of a course library. The
     /// user data will be stored in a directory named `.trane` inside the library root directory.
-    pub fn new(library_root: &str) -> Result<Trane> {
+    pub fn new(library_root: &Path) -> Result<Trane> {
         Self::init_config_directory(library_root)?;
-        let config_path = Path::new(library_root).join(Path::new(TRANE_CONFIG_DIR_PATH));
+        let config_path = library_root.join(Path::new(TRANE_CONFIG_DIR_PATH));
 
         let course_library = Arc::new(RwLock::new(LocalCourseLibrary::new(library_root)?));
         let unit_graph = course_library.write().get_unit_graph();
@@ -178,7 +177,7 @@ impl Trane {
             blacklist,
             course_library,
             filter_manager,
-            library_root: library_root.to_string(),
+            library_root: library_root.to_str().unwrap().to_string(),
             practice_stats,
             review_list,
             scheduler: DepthFirstScheduler::new(scheduler_data, SchedulerOptions::default()),
@@ -388,3 +387,53 @@ impl UnitGraph for Trane {
 }
 
 // grcov-excl-stop
+
+#[cfg(test)]
+mod test {
+    use anyhow::Result;
+    use std::{fs::*, os::unix::prelude::PermissionsExt};
+
+    use crate::Trane;
+
+    #[test]
+    fn init_bad_path() -> Result<()> {
+        let file = tempfile::NamedTempFile::new()?;
+        assert!(Trane::init_config_directory(file.path()).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn library_root() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let trane = Trane::new(dir.path())?;
+        assert_eq!(trane.library_root(), dir.path().to_str().unwrap());
+        Ok(())
+    }
+
+    #[test]
+    fn config_dir_is_file() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let trane_path = dir.path().join(".trane");
+        File::create(&trane_path)?;
+        assert!(Trane::new(dir.path()).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn bad_dir_premissions() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        set_permissions(&dir, Permissions::from_mode(0o000))?;
+        assert!(Trane::new(dir.path()).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn bad_config_dir_premissions() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let config_dir_path = dir.path().join(".trane");
+        create_dir(&config_dir_path)?;
+        set_permissions(&config_dir_path, Permissions::from_mode(0o000))?;
+        assert!(Trane::new(dir.path()).is_err());
+        Ok(())
+    }
+}

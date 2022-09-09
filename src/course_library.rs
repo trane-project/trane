@@ -261,10 +261,12 @@ impl LocalCourseLibrary {
     }
 
     /// A constructor taking the path to the root of the library.
-    pub fn new(library_root: &str) -> Result<Self> {
-        let root_path = Path::new(library_root);
-        if !root_path.is_dir() {
-            return Err(anyhow!("{} must be the path to a directory", library_root));
+    pub fn new(library_root: &Path) -> Result<Self> {
+        if !library_root.is_dir() {
+            return Err(anyhow!(
+                "{:#?} must be the path to a directory",
+                library_root
+            ));
         }
         let mut library = LocalCourseLibrary {
             course_map: UstrMap::default(),
