@@ -337,7 +337,7 @@ pub fn init_trane(library_directory: &PathBuf, courses: &Vec<TestCourse>) -> Res
     for course in courses.iter() {
         course.course_builder()?.build(library_directory)?;
     }
-    let trane = Trane::new(library_directory.to_str().unwrap())?;
+    let trane = Trane::new(library_directory.as_path())?;
     Ok(trane)
 }
 
