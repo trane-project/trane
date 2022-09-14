@@ -141,27 +141,31 @@ impl PracticeStats for PracticeStatsDB {
         uid_stmt
             .execute(params![exercise_id.as_str()])
             .with_context(|| {
+                // grcov-excl-start
                 format!(
                     "cannot add {} to uids table in practice stats DB",
                     exercise_id
-                ) // grcov-excl-line
-            })?;
+                )
+                // grcov-excl-stop
+            })?; // grcov-excl-line
 
         let mut stmt = connection.prepare_cached(
             "INSERT INTO practice_stats (unit_uid, score, timestamp) VALUES (
                 (SELECT unit_uid FROM uids WHERE unit_id = ?1), ?2, ?3);",
-        )?;
+        )?; // grcov-excl-line
         stmt.execute(params![
             exercise_id.as_str(),
             score.float_score(),
             timestamp
         ])
         .with_context(|| {
+            // grcov-excl-start
             format!(
                 "cannot record score {:?} for exercise {} to practice stats DB",
                 score, exercise_id
-            ) // grcov-excl-line
-        })?;
+            )
+            // grcov-excl-stop
+        })?; // grcov-excl-line
         Ok(())
     }
 }
