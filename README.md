@@ -2,8 +2,8 @@
 
 [![Github Checks Status](https://img.shields.io/github/checks-status/trane-project/trane/master)](https://github.com/trane-project/trane/actions?query=branch%3Amaster)
 [![Coverage Status](https://img.shields.io/coveralls/github/trane-project/trane)](https://coveralls.io/github/trane-project/trane?branch=master)
-[![Latest Version](https://img.shields.io/crates/v/trane)](https://crates.io/crates/trane)
 [![docs.rs](https://img.shields.io/docsrs/trane)](https://docs.rs/trane)
+[![Latest Version](https://img.shields.io/crates/v/trane)](https://crates.io/crates/trane)
 [![Stars](https://img.shields.io/github/stars/trane-project/trane?style=social)](https://github.com/trane-project/trane/stargazers)
 
 Trane is an automated practice system for the acquisition of complex and highly hierarchical skills.
@@ -45,13 +45,17 @@ started with understanding the code:
   Trane as a student makes progress.
 - `course_library`: Defines how a collection of courses gathered by a student is written and read
   to and from storage.
-- `scheduler`: Contains the logic of how exercises that are to be presented to the user are
-  selected. The core of Trane's logic sits in this module.
 - `blacklist`: Defines the list of units which should be ignored and marked as mastered during
   exercise scheduling.
 - `practice_stats`: Defines how the student's progress is stored for later used by the scheduler.
-- `course_builder`: Defines utilities to make it easier to build Trane courses.
+- `scorer`: Defines how an exercise is scored based on the scores and timestamps of previous trials.
+- `scheduler`: Contains the logic of how exercises that are to be presented to the user are
+  selected. The core of Trane's logic sits in this module.
+- `review_list`: Defines a list of exercises the student wants to review at a later time.
+- `filter_manager`: Defines a way to save and load filters for later use. For example, to save a
+  filter to only study exercises for the guitar.
 - `lib.rs`: This file defines the public API of the crate, which is the entry point for using Trane.
+- `course_builder`: Defines utilities to make it easier to build Trane courses.
 
 If there's a particular part of the code that is confusing, does not follow standard Rust idioms or
 conventions, could use better documentation, or whose rationale is not obvious, feel free to open an
