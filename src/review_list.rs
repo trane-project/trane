@@ -47,7 +47,7 @@ impl ReviewListDB {
         let migrations = Self::migrations();
         migrations
             .to_latest(&mut connection)
-            .with_context(|| "failed to initialize review list DB")
+            .with_context(|| "failed to initialize review list DB") // grcov-excl-line
     }
 
     /// A constructor taking a connection manager.
@@ -78,7 +78,7 @@ impl ReviewList for ReviewListDB {
         let connection = self.pool.get()?;
         let mut stmt = connection
             .prepare_cached("INSERT OR IGNORE INTO review_list (unit_id) VALUES (?1)")
-            .with_context(|| "cannot prepare statement to insert into review list DB")?;
+            .with_context(|| "cannot prepare statement to insert into review list DB")?; // grcov-excl-line
         stmt.execute(params![unit_id.as_str()])
             .with_context(|| format!("cannot insert unit {} into review list DB", unit_id))?;
         Ok(())
@@ -88,7 +88,7 @@ impl ReviewList for ReviewListDB {
         let connection = self.pool.get()?;
         let mut stmt = connection
             .prepare_cached("DELETE FROM review_list WHERE unit_id = $1")
-            .with_context(|| "cannot prepare statement to delete from review list DB")?;
+            .with_context(|| "cannot prepare statement to delete from review list DB")?; // grcov-excl-line
         stmt.execute(params![unit_id.as_str()])
             .with_context(|| format!("cannot remove unit {} from review list DB", unit_id))?;
         Ok(())
@@ -98,7 +98,7 @@ impl ReviewList for ReviewListDB {
         let connection = self.pool.get()?;
         let mut stmt = connection
             .prepare_cached("SELECT unit_id from review_list;")
-            .with_context(|| "cannot prepare statement to get all entries in review list DB")?;
+            .with_context(|| "cannot prepare statement to get all entries in review list DB")?; // grcov-excl-line
         let mut rows = stmt.query(params![])?;
         let mut entries = Vec::new();
         while let Some(row) = rows.next()? {
