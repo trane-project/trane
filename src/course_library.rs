@@ -4,11 +4,10 @@
 //! courses that the student wishes to practice together. Courses, lessons, and exercises are
 //! defined by their manifest files (see data.rs).
 
-use std::{fs::File, io::BufReader, path::Path, sync::Arc};
-
 use anyhow::{anyhow, ensure, Result};
 use parking_lot::RwLock;
 use serde::de::DeserializeOwned;
+use std::{fs::File, io::BufReader, path::Path, sync::Arc};
 use ustr::{Ustr, UstrMap};
 use walkdir::{DirEntry, WalkDir};
 

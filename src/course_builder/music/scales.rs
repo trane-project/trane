@@ -1,8 +1,9 @@
 //! Defines musical scales for use in generating music courses.
 
+use anyhow::{anyhow, Result};
+
 use crate::course_builder::music::intervals::*;
 use crate::course_builder::music::notes::*;
-use anyhow::{anyhow, Result};
 
 /// Defines a tonal scale.
 #[derive(Debug)]

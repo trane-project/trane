@@ -115,7 +115,7 @@ mod test {
     use r2d2_sqlite::SqliteConnectionManager;
     use ustr::Ustr;
 
-    use super::{ReviewList, ReviewListDB};
+    use crate::review_list::{ReviewList, ReviewListDB};
 
     fn new_test_review_list() -> Result<Box<dyn ReviewList>> {
         let connection_manager = SqliteConnectionManager::memory();

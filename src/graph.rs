@@ -30,9 +30,8 @@
 //! about a student's practice (see practice_stats.rs) or preferences (see blacklist.rs,
 //! filter_manager.rs, and review_list.rs).
 
-use std::fmt::Write;
-
 use anyhow::{anyhow, ensure, Result};
+use std::fmt::Write;
 use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::data::UnitType;
@@ -462,9 +461,10 @@ mod test {
     use indoc::indoc;
     use ustr::{Ustr, UstrSet};
 
-    use crate::data::UnitType;
-
-    use super::{InMemoryUnitGraph, UnitGraph};
+    use crate::{
+        data::UnitType,
+        graph::{InMemoryUnitGraph, UnitGraph},
+    };
 
     #[test]
     fn get_unit_type() -> Result<()> {

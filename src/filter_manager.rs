@@ -4,9 +4,8 @@
 //! students want to only schedule exercises from a subset of the graph. This module allows them to
 //! re-use filters they have previously saved.
 
-use std::{collections::HashMap, fs::File, io::BufReader};
-
 use anyhow::Result;
+use std::{collections::HashMap, fs::File, io::BufReader};
 
 use crate::data::filter::NamedFilter;
 
@@ -65,9 +64,8 @@ impl FilterManager for LocalFilterManager {
 
 #[cfg(test)]
 mod test {
-    use std::path::Path;
-
     use anyhow::{Ok, Result};
+    use std::path::Path;
     use tempfile::TempDir;
     use ustr::Ustr;
 

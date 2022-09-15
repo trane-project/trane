@@ -9,15 +9,15 @@
 
 pub mod music;
 
+use anyhow::{ensure, Result};
 use std::{
     fs::{create_dir_all, File},
     io::Write,
     path::{Path, PathBuf},
 };
+use strum::Display;
 
 use crate::data::{CourseManifest, ExerciseManifestBuilder, LessonManifestBuilder, VerifyPaths};
-use anyhow::{ensure, Result};
-use strum::Display;
 
 /// Common metadata keys for all courses and lessons.
 #[derive(Display)]
