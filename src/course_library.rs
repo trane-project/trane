@@ -113,7 +113,7 @@ impl LocalCourseLibrary {
     fn get_file_name(path: &Path) -> Result<String> {
         Ok(path
             .file_name()
-            .ok_or_else(|| anyhow!("cannot get file name from DirEntry"))?
+            .ok_or_else(|| anyhow!("cannot get file name from DirEntry"))? // grcov-excl-line
             .to_str()
             .ok_or_else(|| anyhow!("invalid dir entry {}", path.display()))?
             .to_string())
@@ -168,7 +168,7 @@ impl LocalCourseLibrary {
         let lesson_root = dir_entry
             .path()
             .parent()
-            .ok_or_else(|| anyhow!("cannot get lesson's parent directory"))?;
+            .ok_or_else(|| anyhow!("cannot get lesson's parent directory"))?; // grcov-excl-line
 
         // Add the lesson and the dependencies explicitly listed in the lesson manifest.
         self.unit_graph
@@ -253,7 +253,7 @@ impl LocalCourseLibrary {
                         &lesson_dir_entry,
                         &course_manifest,
                         lesson_manifest,
-                    )?;
+                    )?; // grcov-excl-line
                 }
             }
         }
@@ -359,5 +359,19 @@ impl CourseLibrary for LocalCourseLibrary {
 impl GetUnitGraph for LocalCourseLibrary {
     fn get_unit_graph(&self) -> Arc<RwLock<InMemoryUnitGraph>> {
         self.unit_graph.clone()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::path::Path;
+
+    use crate::course_library::LocalCourseLibrary;
+
+    #[test]
+    fn path_is_not_dir() {
+        let path = Path::new("foo");
+        let result = LocalCourseLibrary::new(path);
+        assert!(result.is_err());
     }
 }
