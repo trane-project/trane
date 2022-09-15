@@ -15,12 +15,14 @@ use lazy_static::lazy_static;
 use tempfile::TempDir;
 use trane::{
     blacklist::Blacklist,
+    course_library::CourseLibrary,
     data::{
         filter::{FilterOp, FilterType, KeyValueFilter, MetadataFilter, UnitFilter},
         MasteryScore,
     },
     review_list::ReviewList,
 };
+use ustr::Ustr;
 
 use crate::common::*;
 
@@ -395,6 +397,39 @@ lazy_static! {
             ],
         },
     ];
+}
+
+/// A test that verifies that we retrieve the expected unit IDs.
+#[test]
+fn get_unit_ids() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+
+    // Verify the course IDs.
+    let course_ids = trane.get_course_ids();
+    let expected_course_ids = vec![
+        Ustr::from("0"),
+        Ustr::from("1"),
+        Ustr::from("2"),
+        Ustr::from("4"),
+        Ustr::from("5"),
+        Ustr::from("6"),
+        Ustr::from("7"),
+    ];
+    assert_eq!(course_ids, expected_course_ids);
+
+    // Verify the lesson and exercise IDs.
+    for course_id in course_ids {
+        let lesson_ids = trane.get_lesson_ids(&course_id)?;
+        assert!(lesson_ids.len() > 0);
+        for lesson_id in lesson_ids {
+            let exercise_ids = trane.get_exercise_ids(&lesson_id)?;
+            assert_eq!(10, exercise_ids.len());
+        }
+    }
+
+    Ok(())
 }
 
 /// A test that verifies that all the exercises are scheduled with no blacklist or filter when the
