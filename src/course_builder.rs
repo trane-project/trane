@@ -31,10 +31,10 @@ pub enum TraneMetadata {
 #[derive(Clone)]
 pub struct AssetBuilder {
     /// The name of the file, which will be joined with the directory passed in the build function.
-    pub file_name: String,
+    pub file_name: String, // grcov-excl-line
 
     /// The contents of the file as a string.
-    pub contents: String,
+    pub contents: String, // grcov-excl-line
 }
 
 impl AssetBuilder {
@@ -45,7 +45,7 @@ impl AssetBuilder {
         ensure!(
             !asset_path.exists(),
             "asset path {} already exists",
-            asset_path.display()
+            asset_path.display() // grcov-excl-line
         );
         let mut asset_file = File::create(asset_path)?;
         asset_file.write_all(self.contents.as_bytes())?;
@@ -76,7 +76,7 @@ impl ExerciseBuilder {
         ensure!(
             !exercise_directory.is_dir(),
             "exercise directory {} already exists",
-            exercise_directory.display(),
+            exercise_directory.display(), // grcov-excl-line
         );
         create_dir_all(exercise_directory)?;
 
@@ -130,7 +130,7 @@ impl LessonBuilder {
         ensure!(
             !lesson_directory.is_dir(),
             "lesson directory {} already exists",
-            lesson_directory.display(),
+            lesson_directory.display(), // grcov-excl-line
         );
         create_dir_all(lesson_directory)?;
 
@@ -185,7 +185,7 @@ impl CourseBuilder {
         ensure!(
             !course_directory.is_dir(),
             "course directory {} already exists",
-            course_directory.display(),
+            course_directory.display(), // grcov-excl-line
         );
         create_dir_all(&course_directory)?;
 
