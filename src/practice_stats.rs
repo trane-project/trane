@@ -176,8 +176,10 @@ mod test {
     use r2d2_sqlite::SqliteConnectionManager;
     use ustr::Ustr;
 
-    use super::{PracticeStats, PracticeStatsDB};
-    use crate::data::{ExerciseTrial, MasteryScore};
+    use crate::{
+        data::{ExerciseTrial, MasteryScore},
+        practice_stats::{PracticeStats, PracticeStatsDB},
+    };
 
     fn new_tests_stats() -> Result<Box<dyn PracticeStats>> {
         let connection_manager = SqliteConnectionManager::memory();

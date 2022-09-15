@@ -152,7 +152,7 @@ mod test {
     use tempfile::tempdir;
     use ustr::Ustr;
 
-    use super::{Blacklist, BlacklistDB};
+    use crate::blacklist::{Blacklist, BlacklistDB};
 
     fn new_test_blacklist() -> Result<Box<dyn Blacklist>> {
         let connection_manager = SqliteConnectionManager::memory();

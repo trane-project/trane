@@ -96,9 +96,12 @@ unsafe impl Sync for SimpleScorer {}
 
 #[cfg(test)]
 mod test {
-    use super::{ExerciseScorer, SimpleScorer};
-    use crate::data::ExerciseTrial;
     use chrono::Utc;
+
+    use crate::{
+        data::ExerciseTrial,
+        scorer::{ExerciseScorer, SimpleScorer},
+    };
 
     const SECONDS_IN_DAY: i64 = 60 * 60 * 24;
     const SCORER: SimpleScorer = SimpleScorer {};

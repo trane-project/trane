@@ -7,11 +7,12 @@
 //! because these keys contain only one sharp or flat respectively. The process repeats until the
 //! circle is traversed in both clockwise and counter-clockwise directions.
 
+use anyhow::Result;
+
 use crate::{
     course_builder::{music::notes::*, AssetBuilder, CourseBuilder, LessonBuilder},
     data::{CourseManifest, LessonManifestBuilder},
 };
-use anyhow::Result;
 
 impl Note {
     /// Returns the note obtained by moving clockwise through the circle of fifths.

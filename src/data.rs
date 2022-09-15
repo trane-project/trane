@@ -4,11 +4,10 @@
 
 pub mod filter;
 
-use std::{collections::BTreeMap, path::Path};
-
 use anyhow::Result;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
+use std::{collections::BTreeMap, path::Path};
 use ustr::Ustr;
 
 /// The score used by students to evaluate their mastery of a particular exercise after a trial.

@@ -9,9 +9,8 @@
 //!    course and lesson metadata.
 //! 4. Selecting exercises from the units in the review list.
 
-use std::collections::BTreeMap;
-
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use ustr::Ustr;
 
 use crate::data::GetMetadata;
@@ -227,12 +226,13 @@ pub struct NamedFilter {
 
 #[cfg(test)]
 mod test {
+    use anyhow::Result;
     use std::collections::BTreeMap;
 
-    use anyhow::Result;
-
-    use super::{FilterType, KeyValueFilter};
-    use crate::data::{filter::FilterOp, GetMetadata};
+    use crate::data::{
+        filter::{FilterOp, FilterType, KeyValueFilter},
+        GetMetadata,
+    };
 
     impl GetMetadata for BTreeMap<String, Vec<String>> {
         fn get_metadata(&self) -> Option<&BTreeMap<String, Vec<String>>> {
