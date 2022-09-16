@@ -166,7 +166,7 @@ impl NormalizePaths for BasicAsset {
             BasicAsset::MarkdownAsset { path } => {
                 let abs_path = dir
                     .join(Path::new(path))
-                    .canonicalize()?
+                    .canonicalize()? // grcov-excl-line
                     .to_str()
                     .unwrap_or(path)
                     .to_string();
@@ -396,12 +396,12 @@ impl NormalizePaths for ExerciseAsset {
 
                 Ok(ExerciseAsset::FlashcardAsset {
                     front_path: abs_front_path
-                        .canonicalize()?
+                        .canonicalize()? // grcov-excl-line
                         .to_str()
                         .unwrap_or(front_path)
                         .to_string(),
                     back_path: abs_back_path
-                        .canonicalize()?
+                        .canonicalize()? // grcov-excl-line
                         .to_str()
                         .unwrap_or(back_path)
                         .to_string(),
@@ -606,6 +606,26 @@ mod test {
             .build()
             .unwrap();
         course_manifest.verify_paths(Path::new("./"))?;
+        Ok(())
+    }
+
+    #[test]
+    fn soundslice_normalize_paths() -> Result<()> {
+        let soundslice = ExerciseAsset::SoundSliceAsset {
+            link: "https://www.soundslice.com/slices/QfZcc/".to_string(),
+            description: Some("Test".to_string()),
+        };
+        soundslice.normalize_paths(Path::new("./"))?;
+        Ok(())
+    }
+
+    #[test]
+    fn soundslice_verify_paths() -> Result<()> {
+        let soundslice = ExerciseAsset::SoundSliceAsset {
+            link: "https://www.soundslice.com/slices/QfZcc/".to_string(),
+            description: Some("Test".to_string()),
+        };
+        soundslice.verify_paths(Path::new("./"))?;
         Ok(())
     }
 }
