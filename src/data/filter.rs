@@ -69,7 +69,7 @@ impl KeyValueFilter {
         filter_type: FilterType,
     ) -> bool {
         let contains_metadata = if !metadata.contains_key(key) {
-            filter_type != FilterType::Include
+            false
         } else {
             metadata
                 .get(key)
@@ -141,76 +141,6 @@ pub enum UnitFilter {
     ReviewListFilter,
 }
 
-impl UnitFilter {
-    /// Applies the course filter to the course with the given ID.
-    pub fn apply_course_id(&self, course_id: &Ustr) -> bool {
-        match self {
-            UnitFilter::CourseFilter { course_ids } => course_ids.contains(course_id),
-            _ => false,
-        }
-    }
-
-    /// Applies the lesson filter to the lesson with the given ID.
-    pub fn apply_lesson_id(&self, lesson_id: &Ustr) -> bool {
-        match self {
-            UnitFilter::LessonFilter { lesson_ids } => lesson_ids.contains(lesson_id),
-            _ => false,
-        }
-    }
-
-    /// Applies the metadata filter to the course with the given manifest.
-    pub fn apply_course_metadata(&self, manifest: &impl GetMetadata) -> bool {
-        match self {
-            UnitFilter::MetadataFilter { filter } => match &filter.course_filter {
-                Some(course_filter) => course_filter.apply(manifest),
-                // A value of `None` returns true so that the final determination is based on the
-                // lesson metadata.
-                None => true,
-            },
-            _ => false,
-        }
-    }
-
-    /// Applies the metadata filter to the lesson with the given lesson and course manifests.
-    pub fn apply_lesson_metadata(
-        &self,
-        lesson_manifest: &impl GetMetadata,
-        course_manifest: &impl GetMetadata,
-    ) -> bool {
-        match self {
-            UnitFilter::MetadataFilter { filter } => {
-                match (&filter.course_filter, &filter.lesson_filter) {
-                    // None of the filters are set, so every lesson passes the filter.
-                    (None, None) => true,
-                    // Only the course filter is set, so the lesson passes the filter if the course
-                    // passes the filter.
-                    (Some(course_filter), None) => course_filter.apply(course_manifest),
-                    // Only the lesson filter is set, so the lesson passes the filter if the lesson
-                    // passes the filter.
-                    (None, Some(lesson_filter)) => lesson_filter.apply(lesson_manifest),
-                    // Both filters are set, so the result depends on the logical operation used in
-                    // the filter.
-                    (Some(course_filter), Some(lesson_filter)) => match filter.op {
-                        // If the op is `All`, the lesson passes the filter if both the course and
-                        // lesson filters pass.
-                        FilterOp::All => {
-                            course_filter.apply(course_manifest)
-                                && lesson_filter.apply(lesson_manifest)
-                        }
-                        // If the op is `Any`, the lesson passes the filter if either the course or
-                        // the lesson filters pass.
-                        FilterOp::Any => {
-                            course_filter.apply(course_manifest)
-                                || lesson_filter.apply(lesson_manifest)
-                        }
-                    },
-                }
-            }
-            _ => false,
-        }
-    }
-}
-
 /// A named filter for easy reference.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct NamedFilter {
@@ -252,17 +182,81 @@ mod test {
                 vec!["value3".to_string(), "value4".to_string()],
             ),
         ]);
-        let filter = KeyValueFilter::BasicFilter {
+        let include_filter = KeyValueFilter::BasicFilter {
             key: "key1".to_string(),
             value: "value1".to_string(),
             filter_type: FilterType::Include,
+        };
+        assert!(include_filter.apply(&metadata));
+        let exclude_filter = KeyValueFilter::BasicFilter {
+            key: "key1".to_string(),
+            value: "value1".to_string(),
+            filter_type: FilterType::Exclude,
+        };
+        assert!(!exclude_filter.apply(&metadata));
+        Ok(())
+    }
+
+    #[test]
+    fn apply_simple_filter_no_match() -> Result<()> {
+        let metadata = BTreeMap::from([
+            (
+                "key1".to_string(),
+                vec!["value1".to_string(), "value2".to_string()],
+            ),
+            (
+                "key2".to_string(),
+                vec!["value3".to_string(), "value4".to_string()],
+            ),
+        ]);
+        let include_filter = KeyValueFilter::BasicFilter {
+            key: "key10".to_string(),
+            value: "value1".to_string(),
+            filter_type: FilterType::Include,
+        };
+        assert!(!include_filter.apply(&metadata));
+        let exclude_filter = KeyValueFilter::BasicFilter {
+            key: "key10".to_string(),
+            value: "value1".to_string(),
+            filter_type: FilterType::Exclude,
+        };
+        assert!(exclude_filter.apply(&metadata));
+        Ok(())
+    }
+
+    #[test]
+    fn apply_combined_all_filter() -> Result<()> {
+        let metadata = BTreeMap::from([
+            (
+                "key1".to_string(),
+                vec!["value1".to_string(), "value2".to_string()],
+            ),
+            (
+                "key2".to_string(),
+                vec!["value3".to_string(), "value4".to_string()],
+            ),
+        ]);
+        let filter = KeyValueFilter::CombinedFilter {
+            op: FilterOp::All,
+            filters: vec![
+                KeyValueFilter::BasicFilter {
+                    key: "key1".to_string(),
+                    value: "value1".to_string(),
+                    filter_type: FilterType::Include,
+                },
+                KeyValueFilter::BasicFilter {
+                    key: "key2".to_string(),
+                    value: "value4".to_string(),
+                    filter_type: FilterType::Include,
+                },
+            ],
         };
         assert!(filter.apply(&metadata));
         Ok(())
     }
 
     #[test]
-    fn apply_combined_all_filter() -> Result<()> {
+    fn apply_combined_all_filter_no_match() -> Result<()> {
         let metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -320,6 +314,37 @@ mod test {
             ],
         };
         assert!(filter.apply(&metadata));
+        Ok(())
+    }
+
+    #[test]
+    fn apply_combined_any_filter_no_match() -> Result<()> {
+        let metadata = BTreeMap::from([
+            (
+                "key1".to_string(),
+                vec!["value1".to_string(), "value2".to_string()],
+            ),
+            (
+                "key2".to_string(),
+                vec!["value3".to_string(), "value4".to_string()],
+            ),
+        ]);
+        let filter = KeyValueFilter::CombinedFilter {
+            op: FilterOp::Any,
+            filters: vec![
+                KeyValueFilter::BasicFilter {
+                    key: "key1".to_string(),
+                    value: "value3".to_string(),
+                    filter_type: FilterType::Include,
+                },
+                KeyValueFilter::BasicFilter {
+                    key: "key2".to_string(),
+                    value: "value5".to_string(),
+                    filter_type: FilterType::Include,
+                },
+            ],
+        };
+        assert!(!filter.apply(&metadata));
         Ok(())
     }
 }
