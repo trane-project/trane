@@ -325,15 +325,6 @@ impl DepthFirstScheduler {
             .get_dependencies(unit_id)
             .unwrap_or_default()
             .into_iter()
-            .filter(|dependency_id| {
-                // Ignore the implicit dependency between a lesson and its course.
-                if let Some(course_id) = self.data.unit_graph.read().get_lesson_course(unit_id) {
-                    if course_id == *dependency_id {
-                        return false;
-                    }
-                }
-                true
-            })
             .all(|dependency_id| self.satisfied_dependency(&dependency_id, metadata_filter))
     }
 
@@ -565,7 +556,7 @@ impl DepthFirstScheduler {
         let (candidates, _) = self.get_candidates_from_lesson_helper(&StackItem {
             unit_id: *lesson_id,
             num_hops: 0,
-        })?;
+        })?; // grcov-excl-line
         Ok(candidates)
     }
 

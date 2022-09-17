@@ -260,7 +260,10 @@ lazy_static! {
         },
         TestCourse {
             id: TestId(5, None, None),
-            dependencies: vec![TestId(3, None, None), TestId(4, None, None)],
+            dependencies: vec![
+                TestId(3, None, None), // Depend on a missing course.
+                TestId(4, None, None)
+            ],
             metadata: BTreeMap::from([
                 (
                     "course_key_1".to_string(),
@@ -381,7 +384,10 @@ lazy_static! {
                 },
                 TestLesson {
                     id: TestId(7, Some(1), None),
-                    dependencies: vec![TestId(0, Some(0), None)],
+                    dependencies: vec![
+                            TestId(0, Some(0), None),
+                            TestId(6, Some(11), None), // Depend on a missing lesson.
+                        ],
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
@@ -586,7 +592,18 @@ fn avoid_scheduling_exercises_in_blacklist() -> Result<()> {
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
-    let exercise_blacklist = vec![TestId(2, Some(1), Some(7)), TestId(4, Some(0), Some(0))];
+    let exercise_blacklist = vec![
+        TestId(2, Some(1), Some(0)),
+        TestId(2, Some(1), Some(1)),
+        TestId(2, Some(1), Some(2)),
+        TestId(2, Some(1), Some(3)),
+        TestId(2, Some(1), Some(4)),
+        TestId(2, Some(1), Some(5)),
+        TestId(2, Some(1), Some(6)),
+        TestId(2, Some(1), Some(7)),
+        TestId(2, Some(1), Some(8)),
+        TestId(2, Some(1), Some(9)),
+    ];
     simulation.run_simulation(&mut trane, &exercise_blacklist, None)?;
 
     // Every exercise ID should be in `simulation.answer_history` except for those in the blacklist.
