@@ -631,7 +631,7 @@ mod test {
         graph.add_dependencies(&course4_id, UnitType::Course, &vec![course2_id.clone()])?;
         graph.add_dependencies(&course5_id, UnitType::Course, &vec![course3_id.clone()])?;
 
-        // Add a cycle, which should be detected when calling check_cycles().
+        // Add a cycle, which should be detected when calling `check_cycles`.
         graph.add_dependencies(&course1_id, UnitType::Course, &vec![course5_id.clone()])?;
         assert!(graph.check_cycles().is_err());
 
