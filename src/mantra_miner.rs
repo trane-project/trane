@@ -12,8 +12,9 @@ use mantra_miner::{Mantra, MantraMiner, Options};
 ///
 /// The preparation, mantras, and conclusion are taken from Dilgo Khyentse Rinpoche's sadhana, whose
 /// full text can be found at
-/// https://www.lotsawahouse.org/tibetan-masters/dilgo-khyentse/sarasvati-sadhana-nyingtik.
+/// `<https://www.lotsawahouse.org/tibetan-masters/dilgo-khyentse/sarasvati-sadhana-nyingtik>`.
 pub struct TraneMantraMiner {
+    /// An instance of the mantra miner.
     pub mantra_miner: MantraMiner,
 }
 
