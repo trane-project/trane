@@ -37,6 +37,7 @@ pub mod course_library;
 pub mod data;
 pub mod filter_manager;
 pub mod graph;
+pub mod mantra_miner;
 pub mod practice_stats;
 pub mod review_list;
 pub mod scheduler;
@@ -48,6 +49,7 @@ use review_list::{ReviewList, ReviewListDB};
 use std::{fs::create_dir, path::Path, sync::Arc};
 use ustr::{Ustr, UstrMap, UstrSet};
 
+use crate::mantra_miner::TraneMantraMiner;
 use blacklist::{Blacklist, BlacklistDB};
 use course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary};
 use data::{
@@ -104,6 +106,9 @@ pub struct Trane {
 
     /// The dependency graph of courses and lessons in the course library.
     unit_graph: Arc<RwLock<dyn UnitGraph + Send + Sync>>,
+
+    /// An instance of the mantra miner that "recites" Tara Sarasvati's mantra while Trane runs.
+    mantra_miner: TraneMantraMiner,
 }
 
 impl Trane {
@@ -162,6 +167,8 @@ impl Trane {
         let filter_manager = Arc::new(RwLock::new(LocalFilterManager::new(
             config_path.join(FILTERS_DIR).to_str().unwrap(),
         )?));
+        let mut mantra_miner = TraneMantraMiner::default();
+        mantra_miner.mantra_miner.start()?;
 
         let scheduler_data = SchedulerData {
             options: SchedulerOptions::default(),
@@ -182,12 +189,18 @@ impl Trane {
             review_list,
             scheduler: DepthFirstScheduler::new(scheduler_data, SchedulerOptions::default()),
             unit_graph,
+            mantra_miner,
         })
     }
 
     /// Returns the path to the root of the course library.
     pub fn library_root(&self) -> String {
         self.library_root.clone()
+    }
+
+    /// Returns the number of mantras that have been recited by the mantra miner.
+    pub fn mantra_count(&self) -> usize {
+        self.mantra_miner.mantra_miner.count()
     }
 }
 
@@ -391,7 +404,7 @@ impl UnitGraph for Trane {
 #[cfg(test)]
 mod test {
     use anyhow::Result;
-    use std::{fs::*, os::unix::prelude::PermissionsExt};
+    use std::{fs::*, os::unix::prelude::PermissionsExt, thread, time::Duration};
 
     use crate::Trane;
 
@@ -407,6 +420,15 @@ mod test {
         let dir = tempfile::tempdir()?;
         let trane = Trane::new(dir.path())?;
         assert_eq!(trane.library_root(), dir.path().to_str().unwrap());
+        Ok(())
+    }
+
+    #[test]
+    fn mantra_count() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let trane = Trane::new(dir.path())?;
+        thread::sleep(Duration::from_millis(100));
+        assert!(trane.mantra_count() > 0);
         Ok(())
     }
 
