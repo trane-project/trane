@@ -43,6 +43,9 @@ impl TraneMantraMiner {
                 "#}
                 .to_string(),
             ),
+            // The instructions of the sadhana state that the preparation should be repeated three
+            // times.
+            preparation_repeats: Some(3),
             // Two mantras are recited. The first is the principal mantra of Tara Sarasvati as
             // stated in the sadhana. The second one is repeating the seed syllable "hrim" 108
             // times, which the sadhana states one should repeat if they wish to sharpen their
@@ -91,7 +94,18 @@ impl TraneMantraMiner {
             //
             // dé yi sa la göpar shok
             // Reach her state of perfection too.
-            conclusion: None,
+            conclusion: Some(
+                indoc! {r#"
+                    gewa di yi nyurdu dak
+                    drayang lhamo drub gyur né
+                    drowa chik kyang malüpa
+                    dé yi sa la göpar shok
+                "#}
+                .to_string(),
+            ),
+            // The sadhana does not ask the conclusion to be repeated but do so for the sake of
+            // symmetry.
+            conclusion_repeats: Some(3),
             repeats: None,
             rate_ns: 10_000,
         }

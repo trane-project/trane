@@ -11,11 +11,11 @@ repository = "https://github.com/trane-project/trane"
 name = "trane"
 
 [dependencies]
-anyhow = "1.0.62"
+anyhow = "1.0.65"
 chrono = "0.4.22"
 derive_builder = "0.11.2"
 indoc = "1.0.7"
-mantra-miner = "0.1.0"
+mantra-miner = "0.1.1"
 parking_lot = { version = "0.12.1", features = ["hardware-lock-elision"] }
 r2d2 = "0.8.10"
 r2d2_sqlite = "0.21.0"
