@@ -12,7 +12,7 @@ use tantivy::{
     collector::TopDocs,
     doc,
     query::QueryParser,
-    schema::{Field, Schema, TEXT},
+    schema::{Field, Schema, TEXT, STORED},
     Index, IndexReader, IndexWriter, ReloadPolicy,
 };
 use ustr::{Ustr, UstrMap};
@@ -121,9 +121,9 @@ impl LocalCourseLibrary {
     /// Returns the tantivy schema used for searching the course library.
     fn search_schema() -> Schema {
         let mut schema = Schema::builder();
-        schema.add_text_field(ID_SCHEMA_FIELD, TEXT);
-        schema.add_text_field(NAME_SCHEMA_FIELD, TEXT);
-        schema.add_text_field(DESCRIPTION_SCHEMA_FIELD, TEXT);
+        schema.add_text_field(ID_SCHEMA_FIELD, TEXT | STORED);
+        schema.add_text_field(NAME_SCHEMA_FIELD, TEXT | STORED);
+        schema.add_text_field(DESCRIPTION_SCHEMA_FIELD, TEXT | STORED);
         schema.build()
     }
 
