@@ -109,9 +109,11 @@ impl TestLesson {
                 ExerciseBuilder {
                     directory_name: format! {"exercise_{}", i.to_string()},
                     manifest_closure: Box::new(move |m| {
+                        let exercise_id = TestId(id_clone.0, id_clone.1, Some(i as u32)).to_ustr();
                         m.clone()
-                            .id(TestId(id_clone.0, id_clone.1, Some(i as u32)).to_ustr())
-                            .name(format! {"Exercise {}", i})
+                            .id(exercise_id)
+                            .name(format! {"Exercise {}", exercise_id})
+                            .description(Some(format! {"Description for exercise {}", exercise_id}))
                             .clone()
                     }),
                     asset_builders: vec![
@@ -134,9 +136,11 @@ impl TestLesson {
         Ok(LessonBuilder {
             directory_name: format!("lesson_{}", self.id.1.unwrap()),
             manifest_closure: Box::new(move |m| {
+                let lesson_id = id_clone.to_ustr();
                 m.clone()
-                    .id(id_clone.to_ustr())
-                    .name(format! {"Lesson {}", id_clone.1.unwrap()})
+                    .id(lesson_id)
+                    .name(format! {"Lesson {}", lesson_id})
+                    .description(Some(format! {"Description for lesson {}", lesson_id}))
                     .dependencies(dependencies_clone.iter().map(|id| id.to_ustr()).collect())
                     .metadata(Some(metadata_clone.clone()))
                     .clone()
@@ -200,13 +204,14 @@ impl TestCourse {
             .iter()
             .map(|lesson| lesson.lesson_builder())
             .collect::<Result<Vec<_>>>()?;
+        let course_id = self.id.to_ustr();
         Ok(CourseBuilder {
             directory_name: format!("course_{}", self.id.0),
             course_manifest: CourseManifest {
-                id: self.id.to_ustr(),
-                name: format!("Course {}", self.id.0),
+                id: course_id,
+                name: format!("Course {}", course_id),
                 dependencies: self.dependencies.iter().map(|id| id.to_ustr()).collect(),
-                description: None,
+                description: Some(format!("Description for course {}", course_id)),
                 authors: None,
                 metadata: Some(self.metadata.clone()),
                 course_material: Some(BasicAsset::MarkdownAsset {

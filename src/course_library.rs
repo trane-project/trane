@@ -12,7 +12,7 @@ use tantivy::{
     collector::TopDocs,
     doc,
     query::QueryParser,
-    schema::{Field, Schema, TEXT, STORED},
+    schema::{Field, Schema, STORED, TEXT},
     Index, IndexReader, IndexWriter, ReloadPolicy,
 };
 use ustr::{Ustr, UstrMap};
@@ -135,6 +135,7 @@ impl LocalCourseLibrary {
             .ok_or_else(|| anyhow!(format!("Field {} not found in search schema", field_name)))
     }
 
+    /// Adds the unit with the given field values to the search index.
     fn add_to_index_writer(
         index_writer: &mut IndexWriter,
         id: Ustr,
@@ -147,9 +148,10 @@ impl LocalCourseLibrary {
             Self::schema_field(ID_SCHEMA_FIELD)? => id.to_string(),
             Self::schema_field(NAME_SCHEMA_FIELD)? => name.to_string(),
             Self::schema_field(DESCRIPTION_SCHEMA_FIELD)? => description.to_string(),
-        ))?;
+        ))?; // grcov-excl-line
         Ok(())
     }
+
     /// Opens the course, lesson, or exercise manifest located at the given path.
     fn open_manifest<T: DeserializeOwned>(path: &str) -> Result<T> {
         let file = File::open(path).map_err(|_| anyhow!("cannot open manifest file {}", path))?;
@@ -203,7 +205,7 @@ impl LocalCourseLibrary {
             exercise_manifest.id,
             &exercise_manifest.name,
             &exercise_manifest.description,
-        )?;
+        )?; // grcov-excl-line
 
         self.unit_graph
             .write()
@@ -254,7 +256,7 @@ impl LocalCourseLibrary {
             lesson_manifest.id,
             &lesson_manifest.name,
             &lesson_manifest.description,
-        )?;
+        )?; // grcov-excl-line
 
         // Start a new search from the passed `DirEntry`, which corresponds to the lesson's root.
         // Each exercise in the lesson must be contained in a directory that is a direct descendant
@@ -280,7 +282,7 @@ impl LocalCourseLibrary {
                         &lesson_manifest,
                         exercise_manifest,
                         index_writer,
-                    )?;
+                    )?; // grcov-excl-line
                 }
             }
         }
@@ -313,7 +315,7 @@ impl LocalCourseLibrary {
             course_manifest.id,
             &course_manifest.name,
             &course_manifest.description,
-        )?;
+        )?; // grcov-excl-line
 
         // Start a new search from the passed `DirEntry`, which corresponds to the course's root.
         // Each lesson in the course must be contained in a directory that is a direct descendant of
@@ -391,7 +393,7 @@ impl LocalCourseLibrary {
                         &dir_entry,
                         course_manifest,
                         &mut index_writer,
-                    )?;
+                    )?; // grcov-excl-line
                 }
             }
         }
@@ -403,7 +405,7 @@ impl LocalCourseLibrary {
                 .index
                 .reader_builder()
                 .reload_policy(ReloadPolicy::OnCommit)
-                .try_into()?,
+                .try_into()?, // grcov-excl-line
         );
 
         // Lessons implicitly depend on the course to which they belong. Calling
@@ -481,15 +483,8 @@ impl CourseLibrary for LocalCourseLibrary {
         top_docs
             .into_iter()
             .map(|(_, doc_address)| {
-                println!("doc_address: {:?}", doc_address);
                 let doc = searcher.doc(doc_address)?;
-                println!("{:?}", doc);
-                let clone = doc.clone();
-                for x in clone.into_iter() {
-                    println!("{:?}", x);
-                }
                 let id = doc.get_first(Self::schema_field(ID_SCHEMA_FIELD)?).unwrap();
-
                 Ok(id.as_text().unwrap_or("").to_string().into())
             })
             .collect::<Result<Vec<Ustr>>>()
