@@ -1234,3 +1234,17 @@ fn schedule_courses_in_review_list() -> Result<()> {
     }
     Ok(())
 }
+
+/// A test to verify that the search works as expected.
+#[test]
+fn search() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+
+    // Search for a course.
+    let search_results = trane.search("Course 3")?;
+    let expected_id = TestId(0, None, None).to_ustr();
+    assert!(search_results.contains(&expected_id));
+    Ok(())
+}
