@@ -478,7 +478,7 @@ impl CourseLibrary for LocalCourseLibrary {
 
         // Execute the query and retrieve the results as a list of unit IDs.
         let top_docs = searcher.search(&query, &TopDocs::with_limit(25))?;
-        Ok(top_docs
+        top_docs
             .into_iter()
             .map(|(_, doc_address)| {
                 println!("doc_address: {:?}", doc_address);
@@ -492,7 +492,7 @@ impl CourseLibrary for LocalCourseLibrary {
 
                 Ok(id.as_text().unwrap_or("").to_string().into())
             })
-            .collect::<Result<Vec<Ustr>>>()?)
+            .collect::<Result<Vec<Ustr>>>()
     }
 }
 
