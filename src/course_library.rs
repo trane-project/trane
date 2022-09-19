@@ -468,10 +468,11 @@ impl CourseLibrary for LocalCourseLibrary {
 
         // Retrieve a searcher and parse the query.
         let searcher = self.reader.as_ref().unwrap().searcher();
+        let id_field = Self::schema_field(ID_SCHEMA_FIELD)?;
         let query_parser = QueryParser::for_index(
             &self.index,
             vec![
-                Self::schema_field(ID_SCHEMA_FIELD)?,
+                id_field,
                 Self::schema_field(NAME_SCHEMA_FIELD)?,
                 Self::schema_field(DESCRIPTION_SCHEMA_FIELD)?,
             ],
@@ -484,7 +485,7 @@ impl CourseLibrary for LocalCourseLibrary {
             .into_iter()
             .map(|(_, doc_address)| {
                 let doc = searcher.doc(doc_address)?;
-                let id = doc.get_first(Self::schema_field(ID_SCHEMA_FIELD)?).unwrap();
+                let id = doc.get_first(id_field).unwrap();
                 Ok(id.as_text().unwrap_or("").to_string().into())
             })
             .collect::<Result<Vec<Ustr>>>()
