@@ -8,6 +8,13 @@ use anyhow::{anyhow, ensure, Result};
 use parking_lot::RwLock;
 use serde::de::DeserializeOwned;
 use std::{fs::File, io::BufReader, path::Path, sync::Arc};
+use tantivy::{
+    collector::TopDocs,
+    doc,
+    query::QueryParser,
+    schema::{Field, Schema, STORED, TEXT},
+    Index, IndexReader, IndexWriter, ReloadPolicy,
+};
 use ustr::{Ustr, UstrMap};
 use walkdir::{DirEntry, WalkDir};
 
@@ -24,6 +31,15 @@ const LESSON_MANIFEST_FILENAME: &str = "lesson_manifest.json";
 
 /// The file name for all exercise manifests.
 const EXERCISE_MANIFEST_FILENAME: &str = "exercise_manifest.json";
+
+/// The name of the field for the unit ID in the search schema.
+const ID_SCHEMA_FIELD: &str = "id";
+
+/// The name of the field for the unit name in the search schema.
+const NAME_SCHEMA_FIELD: &str = "name";
+
+/// The name of the field for the unit description in the search schema.
+const DESCRIPTION_SCHEMA_FIELD: &str = "description";
 
 /// A trait that manages a course library, its corresponding manifest files, and provides basic
 /// operations to retrieve the courses, lessons in a course, and exercises in a lesson.
@@ -45,6 +61,9 @@ pub trait CourseLibrary {
 
     /// Returns the IDs of all exercises in the given lesson sorted alphabetically.
     fn get_exercise_ids(&self, lesson_id: &Ustr) -> Result<Vec<Ustr>>;
+
+    /// Returns the IDs of all the units which match the given query.
+    fn search(&self, query: &str) -> Result<Vec<Ustr>>;
 }
 
 /// A trait that retrieves the unit graph generated after reading a course library. The visibility
@@ -90,9 +109,49 @@ pub(crate) struct LocalCourseLibrary {
 
     /// A mapping of exercise ID to its corresponding exercise manifest.
     exercise_map: UstrMap<ExerciseManifest>,
+
+    /// A tantivy index used for searching the course library.
+    index: Index,
+
+    /// A reader to access the search index.
+    reader: Option<IndexReader>,
 }
 
 impl LocalCourseLibrary {
+    /// Returns the tantivy schema used for searching the course library.
+    fn search_schema() -> Schema {
+        let mut schema = Schema::builder();
+        schema.add_text_field(ID_SCHEMA_FIELD, TEXT | STORED);
+        schema.add_text_field(NAME_SCHEMA_FIELD, TEXT | STORED);
+        schema.add_text_field(DESCRIPTION_SCHEMA_FIELD, TEXT | STORED);
+        schema.build()
+    }
+
+    /// Returns the field in the search schema with the given name.
+    fn schema_field(field_name: &str) -> Result<Field> {
+        let schema = Self::search_schema();
+        schema
+            .get_field(field_name)
+            .ok_or_else(|| anyhow!(format!("Field {} not found in search schema", field_name)))
+    }
+
+    /// Adds the unit with the given field values to the search index.
+    fn add_to_index_writer(
+        index_writer: &mut IndexWriter,
+        id: Ustr,
+        name: &str,
+        description: &Option<String>,
+    ) -> Result<()> {
+        let empty = String::new();
+        let description = description.as_ref().unwrap_or(&empty);
+        index_writer.add_document(doc!(
+            Self::schema_field(ID_SCHEMA_FIELD)? => id.to_string(),
+            Self::schema_field(NAME_SCHEMA_FIELD)? => name.to_string(),
+            Self::schema_field(DESCRIPTION_SCHEMA_FIELD)? => description.to_string(),
+        ))?; // grcov-excl-line
+        Ok(())
+    }
+
     /// Opens the course, lesson, or exercise manifest located at the given path.
     fn open_manifest<T: DeserializeOwned>(path: &str) -> Result<T> {
         let file = File::open(path).map_err(|_| anyhow!("cannot open manifest file {}", path))?;
@@ -124,6 +183,7 @@ impl LocalCourseLibrary {
         &mut self,
         lesson_manifest: &LessonManifest,
         exercise_manifest: ExerciseManifest,
+        index_writer: &mut IndexWriter,
     ) -> Result<()> {
         ensure!(!exercise_manifest.id.is_empty(), "ID in manifest is empty",);
         ensure!(
@@ -138,6 +198,14 @@ impl LocalCourseLibrary {
             exercise_manifest.id,
             lesson_manifest.course_id,
         );
+
+        // Add the exercise manifest to the search index.
+        Self::add_to_index_writer(
+            index_writer,
+            exercise_manifest.id,
+            &exercise_manifest.name,
+            &exercise_manifest.description,
+        )?; // grcov-excl-line
 
         self.unit_graph
             .write()
@@ -155,6 +223,7 @@ impl LocalCourseLibrary {
         dir_entry: &DirEntry,
         course_manifest: &CourseManifest,
         lesson_manifest: LessonManifest,
+        index_writer: &mut IndexWriter,
     ) -> Result<()> {
         ensure!(!lesson_manifest.id.is_empty(), "ID in manifest is empty",);
         ensure!(
@@ -181,6 +250,14 @@ impl LocalCourseLibrary {
         self.lesson_map
             .insert(lesson_manifest.id, lesson_manifest.clone());
 
+        // Add the lesson manifest to the search index.
+        Self::add_to_index_writer(
+            index_writer,
+            lesson_manifest.id,
+            &lesson_manifest.name,
+            &lesson_manifest.description,
+        )?; // grcov-excl-line
+
         // Start a new search from the passed `DirEntry`, which corresponds to the lesson's root.
         // Each exercise in the lesson must be contained in a directory that is a direct descendant
         // of its root. Therefore, all the exercise manifests will be found at a depth of two.
@@ -201,7 +278,11 @@ impl LocalCourseLibrary {
                     let mut exercise_manifest: ExerciseManifest = Self::open_manifest(&path)?;
                     exercise_manifest = exercise_manifest
                         .normalize_paths(exercise_dir_entry.path().parent().unwrap())?;
-                    self.process_exercise_manifest(&lesson_manifest, exercise_manifest)?;
+                    self.process_exercise_manifest(
+                        &lesson_manifest,
+                        exercise_manifest,
+                        index_writer,
+                    )?; // grcov-excl-line
                 }
             }
         }
@@ -214,6 +295,7 @@ impl LocalCourseLibrary {
         &mut self,
         dir_entry: &DirEntry,
         course_manifest: CourseManifest,
+        index_writer: &mut IndexWriter,
     ) -> Result<()> {
         ensure!(!course_manifest.id.is_empty(), "ID in manifest is empty",);
 
@@ -226,6 +308,14 @@ impl LocalCourseLibrary {
         )?;
         self.course_map
             .insert(course_manifest.id, course_manifest.clone());
+
+        // Add the course manifest to the search index.
+        Self::add_to_index_writer(
+            index_writer,
+            course_manifest.id,
+            &course_manifest.name,
+            &course_manifest.description,
+        )?; // grcov-excl-line
 
         // Start a new search from the passed `DirEntry`, which corresponds to the course's root.
         // Each lesson in the course must be contained in a directory that is a direct descendant of
@@ -252,6 +342,7 @@ impl LocalCourseLibrary {
                         &lesson_dir_entry,
                         &course_manifest,
                         lesson_manifest,
+                        index_writer,
                     )?; // grcov-excl-line
                 }
             }
@@ -267,16 +358,20 @@ impl LocalCourseLibrary {
                 library_root
             ));
         }
+
         let mut library = LocalCourseLibrary {
             course_map: UstrMap::default(),
             lesson_map: UstrMap::default(),
             exercise_map: UstrMap::default(),
             unit_graph: Arc::new(RwLock::new(InMemoryUnitGraph::default())),
+            index: Index::create_in_ram(Self::search_schema()),
+            reader: None,
         };
 
         // Start a search from the library root. Courses can be located at any level within the
         // library root. However, the lessons and exercises inside each course follow a fixed
         // structure.
+        let mut index_writer = library.index.writer(50_000_000)?;
         for entry in WalkDir::new(library_root).min_depth(2) {
             match entry {
                 Err(_) => continue,
@@ -294,10 +389,24 @@ impl LocalCourseLibrary {
                     let mut course_manifest: CourseManifest = Self::open_manifest(&path)?;
                     course_manifest =
                         course_manifest.normalize_paths(dir_entry.path().parent().unwrap())?;
-                    library.process_course_manifest(&dir_entry, course_manifest)?;
+                    library.process_course_manifest(
+                        &dir_entry,
+                        course_manifest,
+                        &mut index_writer,
+                    )?; // grcov-excl-line
                 }
             }
         }
+
+        // Commit the search index writer and create a reader.
+        index_writer.commit()?;
+        library.reader = Some(
+            library
+                .index
+                .reader_builder()
+                .reload_policy(ReloadPolicy::OnCommit)
+                .try_into()?, // grcov-excl-line
+        );
 
         // Lessons implicitly depend on the course to which they belong. Calling
         // `update_starting_lessons` computes the lessons in a course not dependent on any other
@@ -352,6 +461,34 @@ impl CourseLibrary for LocalCourseLibrary {
             .collect::<Vec<Ustr>>();
         exercises.sort();
         Ok(exercises)
+    }
+
+    fn search(&self, query: &str) -> Result<Vec<Ustr>> {
+        ensure!(self.reader.is_some(), "search index reader not available");
+
+        // Retrieve a searcher and parse the query.
+        let searcher = self.reader.as_ref().unwrap().searcher();
+        let id_field = Self::schema_field(ID_SCHEMA_FIELD)?;
+        let query_parser = QueryParser::for_index(
+            &self.index,
+            vec![
+                id_field,
+                Self::schema_field(NAME_SCHEMA_FIELD)?,
+                Self::schema_field(DESCRIPTION_SCHEMA_FIELD)?,
+            ],
+        );
+        let query = query_parser.parse_query(query)?;
+
+        // Execute the query and retrieve the results as a list of unit IDs.
+        let top_docs = searcher.search(&query, &TopDocs::with_limit(25))?;
+        top_docs
+            .into_iter()
+            .map(|(_, doc_address)| {
+                let doc = searcher.doc(doc_address)?;
+                let id = doc.get_first(id_field).unwrap();
+                Ok(id.as_text().unwrap_or("").to_string().into())
+            })
+            .collect::<Result<Vec<Ustr>>>()
     }
 }
 

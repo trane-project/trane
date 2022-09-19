@@ -257,6 +257,10 @@ impl CourseLibrary for Trane {
     fn get_exercise_ids(&self, lesson_id: &Ustr) -> Result<Vec<Ustr>> {
         self.course_library.read().get_exercise_ids(lesson_id)
     }
+
+    fn search(&self, query: &str) -> Result<Vec<Ustr>> {
+        self.course_library.read().search(query)
+    }
 }
 
 impl FilterManager for Trane {

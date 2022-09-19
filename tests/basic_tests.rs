@@ -1234,3 +1234,75 @@ fn schedule_courses_in_review_list() -> Result<()> {
     }
     Ok(())
 }
+
+/// A test to verify that the searching for courses in the course library works as expected.
+#[test]
+fn course_library_search_courses() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+
+    // Search for a course ID.
+    let search_results = trane.search("\"2\"")?;
+    let expected_id = TestId(2, None, None).to_ustr();
+    assert!(search_results.contains(&expected_id));
+
+    // Search for a course name.
+    let search_results = trane.search("\"Course 2\"")?;
+    let expected_id = TestId(2, None, None).to_ustr();
+    assert!(search_results.contains(&expected_id));
+
+    // Search for a course description.
+    let search_results = trane.search("\"Description for course 2\"")?;
+    let expected_id = TestId(2, None, None).to_ustr();
+    assert!(search_results.contains(&expected_id));
+    Ok(())
+}
+
+/// A test to verify that the searching for lessons in the course library works as expected.
+#[test]
+fn course_library_search_lessons() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+
+    // Search for a lesson ID.
+    let search_results = trane.search("\"2::1\"")?;
+    let expected_id = TestId(2, Some(1), None).to_ustr();
+    assert!(search_results.contains(&expected_id));
+
+    // Search for a lesson name.
+    let search_results = trane.search("\"Lesson 2::1\"")?;
+    let expected_id = TestId(2, Some(1), None).to_ustr();
+    assert!(search_results.contains(&expected_id));
+
+    // Search for a lesson description.
+    let search_results = trane.search("\"Description for lesson 2::1\"")?;
+    let expected_id = TestId(2, Some(1), None).to_ustr();
+    assert!(search_results.contains(&expected_id));
+    Ok(())
+}
+
+/// A test to verify that the searching for exercises in the course library works as expected.
+#[test]
+fn course_library_search_exercises() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+
+    // Search for an exercise ID.
+    let search_results = trane.search("\"2::1::7\"")?;
+    let expected_id = TestId(2, Some(1), Some(7)).to_ustr();
+    assert!(search_results.contains(&expected_id));
+
+    // Search for an exercise name.
+    let search_results = trane.search("\"Exercise 2::1::7\"")?;
+    let expected_id = TestId(2, Some(1), Some(7)).to_ustr();
+    assert!(search_results.contains(&expected_id));
+
+    // Search for an exercise description.
+    let search_results = trane.search("\"Description for exercise 2::1::7\"")?;
+    let expected_id = TestId(2, Some(1), Some(7)).to_ustr();
+    assert!(search_results.contains(&expected_id));
+    Ok(())
+}
