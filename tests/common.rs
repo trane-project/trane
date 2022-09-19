@@ -26,6 +26,7 @@ use std::{collections::BTreeMap, path::PathBuf};
 
 use anyhow::{anyhow, Result};
 use chrono::Utc;
+use rayon::prelude::*;
 use trane::{
     blacklist::Blacklist,
     course_builder::{AssetBuilder, CourseBuilder, ExerciseBuilder, LessonBuilder},
@@ -339,9 +340,10 @@ impl TraneSimulation {
 /// Takes the given courses and builds them in the given directory. Returns a fully initialized
 /// instance of Trane with the courses loaded.
 pub fn init_trane(library_directory: &PathBuf, courses: &Vec<TestCourse>) -> Result<Trane> {
-    for course in courses.iter() {
-        course.course_builder()?.build(library_directory)?;
-    }
+    courses
+        .into_par_iter()
+        .map(|course| course.course_builder()?.build(library_directory))
+        .collect::<Result<()>>()?;
     let trane = Trane::new(library_directory.as_path())?;
     Ok(trane)
 }
