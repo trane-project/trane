@@ -480,7 +480,7 @@ impl CourseLibrary for LocalCourseLibrary {
         let query = query_parser.parse_query(query)?;
 
         // Execute the query and retrieve the results as a list of unit IDs.
-        let top_docs = searcher.search(&query, &TopDocs::with_limit(25))?;
+        let top_docs = searcher.search(&query, &TopDocs::with_limit(50))?;
         top_docs
             .into_iter()
             .map(|(_, doc_address)| {
