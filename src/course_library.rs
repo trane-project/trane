@@ -7,7 +7,7 @@
 use anyhow::{anyhow, ensure, Result};
 use parking_lot::RwLock;
 use serde::de::DeserializeOwned;
-use std::{fs::File, io::BufReader, path::Path, sync::Arc};
+use std::{collections::BTreeMap, fs::File, io::BufReader, path::Path, sync::Arc};
 use tantivy::{
     collector::TopDocs,
     doc,
@@ -40,6 +40,9 @@ const NAME_SCHEMA_FIELD: &str = "name";
 
 /// The name of the field for the unit description in the search schema.
 const DESCRIPTION_SCHEMA_FIELD: &str = "description";
+
+/// The name of the field for the unit metadata in the search schema.
+const METADATA_SCHEMA_FIELD: &str = "metadata";
 
 /// A trait that manages a course library, its corresponding manifest files, and provides basic
 /// operations to retrieve the courses, lessons in a course, and exercises in a lesson.
@@ -124,6 +127,7 @@ impl LocalCourseLibrary {
         schema.add_text_field(ID_SCHEMA_FIELD, TEXT | STORED);
         schema.add_text_field(NAME_SCHEMA_FIELD, TEXT | STORED);
         schema.add_text_field(DESCRIPTION_SCHEMA_FIELD, TEXT | STORED);
+        schema.add_text_field(METADATA_SCHEMA_FIELD, TEXT | STORED);
         schema.build()
     }
 
@@ -141,14 +145,30 @@ impl LocalCourseLibrary {
         id: Ustr,
         name: &str,
         description: &Option<String>,
+        metadata: &Option<BTreeMap<String, Vec<String>>>,
     ) -> Result<()> {
+        // Extract the description from the `Option` value to satisfy the borrow checker.
         let empty = String::new();
         let description = description.as_ref().unwrap_or(&empty);
-        index_writer.add_document(doc!(
+
+        // Declare the base document with the ID, name, and description fields.
+        let mut doc = doc!(
             Self::schema_field(ID_SCHEMA_FIELD)? => id.to_string(),
             Self::schema_field(NAME_SCHEMA_FIELD)? => name.to_string(),
             Self::schema_field(DESCRIPTION_SCHEMA_FIELD)? => description.to_string(),
-        ))?; // grcov-excl-line
+        );
+
+        // Add the metadata. Encode each key-value pair as a string in the format "key:value".
+        let metadata_field = Self::schema_field(METADATA_SCHEMA_FIELD)?;
+        if let Some(metadata) = metadata {
+            for (key, values) in metadata {
+                for value in values {
+                    doc.add_text(metadata_field, format!("{}:{}", key, value));
+                }
+            }
+        }
+
+        index_writer.add_document(doc)?;
         Ok(())
     }
 
@@ -205,6 +225,7 @@ impl LocalCourseLibrary {
             exercise_manifest.id,
             &exercise_manifest.name,
             &exercise_manifest.description,
+            &None,
         )?; // grcov-excl-line
 
         self.unit_graph
@@ -256,6 +277,7 @@ impl LocalCourseLibrary {
             lesson_manifest.id,
             &lesson_manifest.name,
             &lesson_manifest.description,
+            &lesson_manifest.metadata,
         )?; // grcov-excl-line
 
         // Start a new search from the passed `DirEntry`, which corresponds to the lesson's root.
@@ -315,6 +337,7 @@ impl LocalCourseLibrary {
             course_manifest.id,
             &course_manifest.name,
             &course_manifest.description,
+            &course_manifest.metadata,
         )?; // grcov-excl-line
 
         // Start a new search from the passed `DirEntry`, which corresponds to the course's root.
@@ -475,6 +498,7 @@ impl CourseLibrary for LocalCourseLibrary {
                 id_field,
                 Self::schema_field(NAME_SCHEMA_FIELD)?,
                 Self::schema_field(DESCRIPTION_SCHEMA_FIELD)?,
+                Self::schema_field(METADATA_SCHEMA_FIELD)?,
             ],
         );
         let query = query_parser.parse_query(query)?;
