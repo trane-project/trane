@@ -1242,20 +1242,26 @@ fn course_library_search_courses() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
 
-    // Search for a course ID.
+    // Search for a course's ID.
     let search_results = trane.search("\"2\"")?;
     let expected_id = TestId(2, None, None).to_ustr();
     assert!(search_results.contains(&expected_id));
 
-    // Search for a course name.
+    // Search for a course's name.
     let search_results = trane.search("\"Course 2\"")?;
     let expected_id = TestId(2, None, None).to_ustr();
     assert!(search_results.contains(&expected_id));
 
-    // Search for a course description.
+    // Search for a course's description.
     let search_results = trane.search("\"Description for course 2\"")?;
     let expected_id = TestId(2, None, None).to_ustr();
     assert!(search_results.contains(&expected_id));
+
+    // Search for a course's metadata.
+    let search_results = trane.search("\"course_key_2:value_2\"")?;
+    let expected_id = TestId(2, None, None).to_ustr();
+    assert!(search_results.contains(&expected_id));
+
     Ok(())
 }
 
@@ -1266,20 +1272,26 @@ fn course_library_search_lessons() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
 
-    // Search for a lesson ID.
+    // Search for a lesson's ID.
     let search_results = trane.search("\"2::1\"")?;
     let expected_id = TestId(2, Some(1), None).to_ustr();
     assert!(search_results.contains(&expected_id));
 
-    // Search for a lesson name.
+    // Search for a lesson's name.
     let search_results = trane.search("\"Lesson 2::1\"")?;
     let expected_id = TestId(2, Some(1), None).to_ustr();
     assert!(search_results.contains(&expected_id));
 
-    // Search for a lesson description.
+    // Search for a lesson's description.
     let search_results = trane.search("\"Description for lesson 2::1\"")?;
     let expected_id = TestId(2, Some(1), None).to_ustr();
     assert!(search_results.contains(&expected_id));
+
+    // Search for a lesson's metadata.
+    let search_results = trane.search("\"lesson_key_2:value_4\"")?;
+    let expected_id = TestId(2, Some(1), None).to_ustr();
+    assert!(search_results.contains(&expected_id));
+
     Ok(())
 }
 
