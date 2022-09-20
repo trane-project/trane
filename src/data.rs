@@ -118,6 +118,16 @@ pub enum UnitType {
     Course,
 }
 
+impl std::fmt::Display for UnitType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Exercise => write!(f, "Exercise"),
+            Self::Lesson => write!(f, "Lesson"),
+            Self::Course => write!(f, "Course"),
+        }
+    }
+}
+
 /// Trait to convert relative paths to absolute paths so that objects stored in memory contain the
 /// full path to all their assets.
 pub trait NormalizePaths
@@ -627,5 +637,12 @@ mod test {
         };
         soundslice.verify_paths(Path::new("./"))?;
         Ok(())
+    }
+
+    #[test]
+    fn unit_type_display() {
+        assert_eq!("Course", UnitType::Course.to_string());
+        assert_eq!("Lesson", UnitType::Lesson.to_string());
+        assert_eq!("Exercise", UnitType::Exercise.to_string());
     }
 }
