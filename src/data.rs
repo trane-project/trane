@@ -121,9 +121,9 @@ pub enum UnitType {
 impl std::fmt::Display for UnitType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Exercise => write!(f, "Exercise"),
-            Self::Lesson => write!(f, "Lesson"),
-            Self::Course => write!(f, "Course"),
+            Self::Exercise => "Exercise".fmt(f),
+            Self::Lesson => "Lesson".fmt(f),
+            Self::Course => "Course".fmt(f),
         }
     }
 }
