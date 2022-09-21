@@ -195,12 +195,17 @@ impl DepthFirstScheduler {
             .get_course_starting_lessons(course_id)
             .unwrap_or_default()
             .into_iter()
-            .filter(|id| self.all_satisfied_dependencies(id, metadata_filter))
+            .filter(|id| {
+                // Filter out lessons whose dependencies are not satisfied. Otherwise, those lessons
+                // would be traversed prematurely.
+                self.all_satisfied_dependencies(id, metadata_filter)
+            })
             .collect())
     }
 
     /// Returns all the starting lessons in the graph that are used to search the entire graph.
     fn get_all_starting_lessons(&self, metadata_filter: Option<&MetadataFilter>) -> Vec<StackItem> {
+        // First get all the starting courses and then all of their starting lessons.
         let starting_courses = self.get_all_starting_units();
         let mut starting_lessons: Vec<StackItem> = vec![];
         for course_id in starting_courses {
@@ -253,8 +258,9 @@ impl DepthFirstScheduler {
             })
             .collect::<Vec<Candidate>>();
 
+        // Calculate the average score of the exercises.
         let avg_score = if exercise_scores.is_empty() {
-            // Avoid division by zero.
+            // Return 0.0 to avoid division by zero.
             0.0
         } else {
             exercise_scores.iter().sum::<f32>() / (exercise_scores.len() as f32)
@@ -319,6 +325,7 @@ impl DepthFirstScheduler {
             return true;
         }
 
+        // Check whether all the dependencies are satisfied.
         self.data
             .unit_graph
             .read()
@@ -355,49 +362,63 @@ impl DepthFirstScheduler {
         let starting_lessons = self.get_all_starting_lessons(metadata_filter);
         stack.extend(starting_lessons.into_iter());
 
+        // Initialize the list of candidates and the set of visited units.
         let max_candidates = self.data.options.batch_size * MAX_CANDIDATE_FACTOR;
         let mut all_candidates: Vec<Candidate> = Vec::new();
         let mut visited = UstrSet::default();
+
         // Keep track of the number of lessons that have been visited for each course. The search
         // will not move onto the dependents of a course until all of its lessons have been visited
         // and mastered.
         let mut pending_course_lessons: UstrMap<i64> = UstrMap::default();
 
+        // Perform a depth-first search of the graph.
         while !stack.is_empty() {
+            // Pop the next unit from the stack. Immediately skip the item if it has been visited.
             let curr_unit = stack.pop().unwrap();
             if visited.contains(&curr_unit.unit_id) {
                 continue;
             }
 
             if !self.data.unit_exists(&curr_unit.unit_id).unwrap_or(false) {
-                // Try to add the valid dependents of any unit which cannot be found so that missing
-                // sections of the graph do not stop the search.
+                // Add the valid dependents of any missing unit so that the search can make it past
+                // missing sections of the graph.
                 visited.insert(curr_unit.unit_id);
                 let valid_deps = self.get_valid_dependents(&curr_unit.unit_id, metadata_filter);
                 Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
                 continue;
             }
 
+            // The logic past this point depends on the type of the unit.
             let unit_type = self.data.get_unit_type(&curr_unit.unit_id)?;
+
+            // Handle exercises. All of them should be skipped as the search only considers lessons
+            // and courses.
             if unit_type == UnitType::Exercise {
-                // The search only considers lessons and courses. Any exercise encountered by
-                // mistake is ignored.
                 continue;
             }
 
+            // Handle courses.
             if unit_type == UnitType::Course {
-                // Handle courses reached during the search.
-                if visited.contains(&curr_unit.unit_id) {
-                    continue;
-                }
-
+                // Retrieve the starting lessons in the course and add them to the stack.
                 let starting_lessons: Vec<Ustr> = self
                     .get_course_starting_lessons(&curr_unit.unit_id, metadata_filter)
                     .unwrap_or_default();
                 Self::shuffle_to_stack(&curr_unit, starting_lessons, &mut stack);
 
-                // The search will only move forward to this course's dependents if all of its
-                // lessons have been visited and mastered.
+                // The dependency relationships between a course and its lessons are not explicitly
+                // encoded in the graph. While this would simplify this section of the search logic,
+                // it would require that courses are represented by two nodes. The first incoming
+                // node would connect the course dependencies to the first lessons in the course.
+                // The second outgoing node would connect the last lessons in the course to the
+                // course dependents.
+                //
+                // To get past this limitation, the search will only add the course dependents until
+                // all of its lessons have been visited and mastered. This value is tracked by the
+                // `pending_course_lessons` map.
+
+                // Retrieve the number of pending lessons in the course, whether the course passes
+                // the unit filter, and whether the course is blacklisted.
                 let pending_lessons = pending_course_lessons
                     .entry(curr_unit.unit_id)
                     .or_insert_with(|| self.data.get_num_lessons_in_course(&curr_unit.unit_id));
@@ -408,29 +429,30 @@ impl DepthFirstScheduler {
                 let blacklisted = self.data.blacklisted(&curr_unit.unit_id).unwrap_or(false);
 
                 if *pending_lessons <= 0 || !passes_filter || blacklisted {
-                    // If this branch was reached, there aren't any pending lessons, the course does
-                    // not pass the metadata filter, or the unit is blacklisted. Push its valid
-                    // dependents onto the stack.
+                    // The conditions to add the course dependents have been met. Add it to the
+                    // visited set, push its valid dependents onto the stack, and continue.
                     visited.insert(curr_unit.unit_id);
                     let valid_deps = self.get_valid_dependents(&curr_unit.unit_id, metadata_filter);
                     Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
                     continue;
                 }
 
-                // The course has pending lessons so do not mark it as visited. Simply continue with
-                // the search.
+                // The course has pending lessons, so it cannot be marked as visited yet. Simply
+                // continue with the search.
                 continue;
             }
 
             // If the searched reached this point, the unit must be a lesson.
             visited.insert(curr_unit.unit_id);
 
-            // Update the number of lessons processed in the course.
+            // Update the number of lessons pending to be processed.
             let course_id = self.data.get_course_id(&curr_unit.unit_id)?;
             let pending_lessons = pending_course_lessons
                 .entry(course_id)
                 .or_insert_with(|| self.data.get_num_lessons_in_course(&course_id));
             *pending_lessons -= 1;
+
+            // Check whether there are pending lessons.
             if *pending_lessons <= 0 {
                 // Once all the lessons in the course have been visited, re-add the course to the
                 // stack, so the search can continue exploring its dependents.
@@ -440,6 +462,8 @@ impl DepthFirstScheduler {
                 });
             }
 
+            // Retrieve the valid dependents of the lesson and whether the lesson passes the unit
+            // filter.
             let valid_deps = self.get_valid_dependents(&curr_unit.unit_id, metadata_filter);
             let passes_filter = self
                 .data
@@ -452,21 +476,26 @@ impl DepthFirstScheduler {
                 continue;
             }
 
+            // Retrieve the candidates from the lesson and add them to the list of candidates.
             let (candidates, avg_score) = self.get_candidates_from_lesson_helper(&curr_unit)?;
             let num_candidates = candidates.len();
             all_candidates.extend(candidates);
 
+            // The average score is considered valid only if at least one candidate was retrieved
+            // from the lesson. This would not be the case if the lesson is blacklisted, all the
+            // exercises are individually blacklisted, or the lesson is empty. If the score is
+            // valid, compare it to the passing score to decide whether the search should continue
+            // exploring past this lesson.
             if num_candidates > 0 && avg_score < self.data.options.passing_score {
                 // If the search reaches a dead-end and there are already enough candidates,
-                // terminate the search. Otherwise, continue with the search. Do not consider
-                // lessons with no candidates as a dead-end. If all the exercises in a lesson are
-                // blacklisted, the search should continue to explore its dependents.
+                // terminate the search. Otherwise, continue with the search.
                 if all_candidates.len() >= max_candidates {
                     break;
                 }
                 continue;
             }
 
+            // The search should continue past this lesson. Add its valid dependents to the stack.
             Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
         }
 
@@ -475,7 +504,8 @@ impl DepthFirstScheduler {
 
     /// Searches for candidates from the given course.
     fn get_candidates_from_course(&self, course_ids: &[Ustr]) -> Result<Vec<Candidate>> {
-        // Initialize the stack with the starting lessons from the courses.
+        // Initialize the set of visited units and the stack with the starting lessons from the
+        // courses.
         let mut stack: Vec<StackItem> = Vec::new();
         let mut visited = UstrSet::default();
         for course_id in course_ids {
@@ -491,9 +521,13 @@ impl DepthFirstScheduler {
             visited.insert(*course_id);
         }
 
+        // Initialize the list of candidates.
         let max_candidates = self.data.options.batch_size * MAX_CANDIDATE_FACTOR;
         let mut all_candidates: Vec<Candidate> = Vec::new();
+
+        // Perform a depth-first search to find the candidates.
         while !stack.is_empty() {
+            // Pop the next unit from the stack and update the set of visited units.
             let curr_unit = stack.pop().unwrap();
             if visited.contains(&curr_unit.unit_id) {
                 continue;
@@ -509,41 +543,49 @@ impl DepthFirstScheduler {
                 continue;
             }
 
+            // The logic past this point depends on the type of the unit.
             let unit_type = self.data.get_unit_type(&curr_unit.unit_id)?;
+
+            // Handle courses. They should be skipped, as all the courses that should be considered
+            // were already handled when their starting lessons were added to the stack.
             if unit_type == UnitType::Course {
-                // Skip any courses, as only exercises from the given course should be considered.
                 continue;
             }
 
+            // Handle exercises. They should be skipped as well, as only lessons should be
+            // traversed.
             if unit_type == UnitType::Exercise {
-                // The search only considers lessons and courses. Any exercise encountered by
-                // mistake is ignored.
                 continue;
             }
 
-            // If the searched reached this point, the unit must be a lesson.
+            // If the searched reached this point, the unit must be a lesson. Ignore lessons from
+            // other courses that might have been added to the stack.
             let lesson_course_id = self
                 .data
                 .get_lesson_course_id(&curr_unit.unit_id)
                 .unwrap_or_default();
             if !course_ids.contains(&lesson_course_id) {
-                // Ignore lessons from other courses that might have been added to the stack.
                 continue;
             }
 
+            // Retrieve the candidates from the lesson and add them to the list of candidates.
             let (candidates, avg_score) = self.get_candidates_from_lesson_helper(&curr_unit)?;
             let num_candidates = candidates.len();
             all_candidates.extend(candidates);
 
+            // The average score is considered valid only if at least one candidate was retrieved.
+            // Compare it against the passing score to decide whether the search should continue
+            // past this lesson.
             if num_candidates > 0 && avg_score < self.data.options.passing_score {
                 // If the search reaches a dead-end and there are already enough candidates,
-                // terminate the search. Otherwise, continue with the search.
+                // terminate the search. Continue otherwise.
                 if all_candidates.len() >= max_candidates {
                     break;
                 }
                 continue;
             }
 
+            // Add the lesson's valid dependents to the stack.
             let valid_deps = self.get_valid_dependents(&curr_unit.unit_id, None);
             Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
         }
@@ -568,13 +610,16 @@ impl DepthFirstScheduler {
         for unit_id in &review_list {
             match self.data.get_unit_type(unit_id)? {
                 UnitType::Course => {
+                    // If the unit is a course, use the course scheduler to retrieve candidates.
                     let course_ids = vec![*unit_id];
                     candidates.extend(self.get_candidates_from_course(&course_ids)?);
                 }
                 UnitType::Lesson => {
+                    // If the unit is a lesson, use the lesson scheduler to retrieve candidates.
                     candidates.extend(self.get_candidates_from_lesson(unit_id)?);
                 }
                 UnitType::Exercise => {
+                    // If the unit is an exercise, directly add it to the list of candidates.
                     candidates.push(Candidate {
                         exercise_id: *unit_id,
                         num_hops: 0.0,
