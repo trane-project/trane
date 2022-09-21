@@ -392,10 +392,9 @@ impl DepthFirstScheduler {
             // The logic past this point depends on the type of the unit.
             let unit_type = self.data.get_unit_type(&curr_unit.unit_id)?;
 
-            // Handle exercises.
+            // Handle exercises. All of them should be skipped as the search only considers lessons
+            // and courses.
             if unit_type == UnitType::Exercise {
-                // The search only considers lessons and courses. Any exercise encountered by
-                // mistake is ignored.
                 continue;
             }
 
