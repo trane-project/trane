@@ -205,8 +205,7 @@ impl Trane {
 }
 
 // The following implementation blocks simply expose the interfaces already implemented and tested
-// by the various submodules. Therefore, the next line excludes this section from being used to
-// generate the final report.
+// by the various submodules. Therefore, the next line excludes this section from the final report.
 // grcov-excl-start
 
 impl Blacklist for Trane {
