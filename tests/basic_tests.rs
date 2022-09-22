@@ -562,7 +562,7 @@ fn avoid_scheduling_courses_in_blacklist() -> Result<()> {
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
-    let course_blacklist = vec![TestId(0, None, None), TestId(4, None, None)];
+    let course_blacklist = vec![TestId(0, None, None), TestId(5, None, None)];
     simulation.run_simulation(&mut trane, &course_blacklist, None)?;
 
     // Every exercise ID should be in `simulation.answer_history` except for those which belong to

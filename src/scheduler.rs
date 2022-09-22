@@ -230,7 +230,7 @@ impl DepthFirstScheduler {
             .map(|exercise_id| {
                 Ok(self
                     .score_cache
-                    .get_unit_score(exercise_id)?
+                    .get_unit_score(exercise_id)? // grcov-excl-line
                     .unwrap_or_default())
             })
             .collect()
@@ -609,7 +609,7 @@ impl DepthFirstScheduler {
                         num_hops: 0.0,
                         score: self
                             .score_cache
-                            .get_unit_score(unit_id)?
+                            .get_unit_score(unit_id)? // grcov-excl-line
                             .unwrap_or_default(),
                         frequency: *self.data.frequency_map.read().get(unit_id).unwrap_or(&0.0),
                     });
