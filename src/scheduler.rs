@@ -183,7 +183,7 @@ impl DepthFirstScheduler {
 
     /// Returns the lessons in the course that have no dependencies with other lessons in the course
     /// and whose dependencies are satisfied.
-    pub fn get_course_starting_lessons(
+    pub fn get_course_valid_starting_lessons(
         &self,
         course_id: &Ustr,
         metadata_filter: Option<&MetadataFilter>,
@@ -210,7 +210,7 @@ impl DepthFirstScheduler {
         let mut starting_lessons: Vec<StackItem> = vec![];
         for course_id in starting_courses {
             let lesson_ids = self
-                .get_course_starting_lessons(&course_id, metadata_filter)
+                .get_course_valid_starting_lessons(&course_id, metadata_filter)
                 .unwrap_or_default();
             starting_lessons.extend(lesson_ids.into_iter().map(|unit_id| StackItem {
                 unit_id,
@@ -367,9 +367,15 @@ impl DepthFirstScheduler {
         let mut all_candidates: Vec<Candidate> = Vec::new();
         let mut visited = UstrSet::default();
 
-        // Keep track of the number of lessons that have been visited for each course. The search
-        // will not move onto the dependents of a course until all of its lessons have been visited
-        // and mastered.
+        // The dependency relationships between a course and its lessons are not explicitly encoded
+        // in the graph. While this would simplify this section of the search logic, it would
+        // require that courses are represented by two nodes. The first incoming node would connect
+        // the course dependencies to the first lessons in the course. The second outgoing node
+        // would connect the last lessons in the course to the course dependents.
+        //
+        // To get past this limitation, the search will only add the course dependents until all of
+        // its lessons have been visited and mastered. This value is tracked by the
+        // `pending_course_lessons` map.
         let mut pending_course_lessons: UstrMap<i64> = UstrMap::default();
 
         // Perform a depth-first search of the graph.
@@ -402,20 +408,9 @@ impl DepthFirstScheduler {
             if unit_type == UnitType::Course {
                 // Retrieve the starting lessons in the course and add them to the stack.
                 let starting_lessons: Vec<Ustr> = self
-                    .get_course_starting_lessons(&curr_unit.unit_id, metadata_filter)
+                    .get_course_valid_starting_lessons(&curr_unit.unit_id, metadata_filter)
                     .unwrap_or_default();
                 Self::shuffle_to_stack(&curr_unit, starting_lessons, &mut stack);
-
-                // The dependency relationships between a course and its lessons are not explicitly
-                // encoded in the graph. While this would simplify this section of the search logic,
-                // it would require that courses are represented by two nodes. The first incoming
-                // node would connect the course dependencies to the first lessons in the course.
-                // The second outgoing node would connect the last lessons in the course to the
-                // course dependents.
-                //
-                // To get past this limitation, the search will only add the course dependents until
-                // all of its lessons have been visited and mastered. This value is tracked by the
-                // `pending_course_lessons` map.
 
                 // Retrieve the number of pending lessons in the course, whether the course passes
                 // the unit filter, and whether the course is blacklisted.
@@ -505,12 +500,16 @@ impl DepthFirstScheduler {
     /// Searches for candidates from the given course.
     fn get_candidates_from_course(&self, course_ids: &[Ustr]) -> Result<Vec<Candidate>> {
         // Initialize the set of visited units and the stack with the starting lessons from the
-        // courses.
+        // courses. Add all starting lessons, even if their dependencies are not satisfied because
+        // the user specifically asked for questions from these courses.
         let mut stack: Vec<StackItem> = Vec::new();
         let mut visited = UstrSet::default();
         for course_id in course_ids {
             let starting_lessons = self
-                .get_course_starting_lessons(course_id, None)
+                .data
+                .unit_graph
+                .read()
+                .get_course_starting_lessons(course_id)
                 .unwrap_or_default()
                 .into_iter()
                 .map(|id| StackItem {
