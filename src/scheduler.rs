@@ -500,7 +500,7 @@ impl DepthFirstScheduler {
     /// Searches for candidates from the given course.
     fn get_candidates_from_course(&self, course_ids: &[Ustr]) -> Result<Vec<Candidate>> {
         // Initialize the set of visited units and the stack with the starting lessons from the
-        // courses. Add all starting lessons, even if their dependencies are not satisfied because
+        // courses. Add all starting lessons, even if their dependencies are not satisfied, because
         // the user specifically asked for questions from these courses.
         let mut stack: Vec<StackItem> = Vec::new();
         let mut visited = UstrSet::default();
