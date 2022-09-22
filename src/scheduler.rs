@@ -258,12 +258,12 @@ impl DepthFirstScheduler {
             })
             .collect::<Vec<Candidate>>();
 
-        // Calculate the average score of the exercises.
-        let avg_score = if exercise_scores.is_empty() {
+        // Calculate the average score of the candidates.
+        let avg_score = if candidates.is_empty() {
             // Return 0.0 to avoid division by zero.
             0.0
         } else {
-            exercise_scores.iter().sum::<f32>() / (exercise_scores.len() as f32)
+            candidates.iter().map(|c| c.score).sum::<f32>() / (candidates.len() as f32)
         };
         Ok((candidates, avg_score))
     }
