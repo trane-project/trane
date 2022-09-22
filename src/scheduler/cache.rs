@@ -67,17 +67,12 @@ impl ScoreCache {
             return Ok(score);
         }
 
-        let unit_type = self.data.unit_graph.read().get_unit_type(exercise_id);
-        match unit_type {
-            Some(UnitType::Exercise) => (),
-            _ => return Err(anyhow!("unit with ID {} must be an exercise", exercise_id))?,
-        }
-
         let scores = self
             .data
             .practice_stats
             .read()
-            .get_scores(exercise_id, self.options.read().num_scores)?;
+            .get_scores(exercise_id, self.options.read().num_scores)
+            .unwrap_or_default();
         let score = self.scorer.score(scores);
         self.exercise_cache.write().insert(*exercise_id, score);
         Ok(score)
@@ -113,7 +108,7 @@ impl ScoreCache {
                     let avg_score: f32 = valid_exercises
                         .iter()
                         .map(|id| self.get_exercise_score(id))
-                        .collect::<Result<Vec<f32>>>()?
+                        .collect::<Result<Vec<f32>>>()? // grcov-excl-line
                         .into_iter()
                         .sum::<f32>()
                         / valid_exercises.len() as f32;
@@ -177,7 +172,7 @@ impl ScoreCache {
             UnitType::Course => self.get_course_score(unit_id),
             UnitType::Lesson => self.get_lesson_score(unit_id),
             UnitType::Exercise => match self.get_exercise_score(unit_id) {
-                Err(e) => Err(e),
+                Err(e) => Err(e), // grcov-excl-line
                 Ok(score) => Ok(Some(score)),
             },
         }

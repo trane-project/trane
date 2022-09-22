@@ -227,7 +227,12 @@ impl DepthFirstScheduler {
     fn get_exercise_scores(&self, exercises: &[Ustr]) -> Result<Vec<f32>> {
         exercises
             .iter()
-            .map(|exercise_id| self.score_cache.get_exercise_score(exercise_id))
+            .map(|exercise_id| {
+                Ok(self
+                    .score_cache
+                    .get_unit_score(exercise_id)? // grcov-excl-line
+                    .unwrap_or_default())
+            })
             .collect()
     }
 
@@ -602,7 +607,10 @@ impl DepthFirstScheduler {
                     candidates.push(Candidate {
                         exercise_id: *unit_id,
                         num_hops: 0.0,
-                        score: self.score_cache.get_exercise_score(unit_id)?,
+                        score: self
+                            .score_cache
+                            .get_unit_score(unit_id)? // grcov-excl-line
+                            .unwrap_or_default(),
                         frequency: *self.data.frequency_map.read().get(unit_id).unwrap_or(&0.0),
                     });
                 }
