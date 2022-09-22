@@ -79,6 +79,17 @@ impl ToString for TestId {
     }
 }
 
+impl From<&Ustr> for TestId {
+    /// Converts a string representation of a test ID to a `TestId`.
+    fn from(s: &Ustr) -> Self {
+        let mut parts = s.split("::");
+        let course_id = parts.next().unwrap().parse::<u32>().unwrap();
+        let lesson_id = parts.next().map(|s| s.parse::<u32>().unwrap());
+        let exercise_id = parts.next().map(|s| s.parse::<u32>().unwrap());
+        TestId(course_id, lesson_id, exercise_id)
+    }
+}
+
 /// A test lesson, containing some number of dummy exercises.
 pub struct TestLesson {
     /// ID of the lesson.

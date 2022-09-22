@@ -261,7 +261,8 @@ lazy_static! {
         TestCourse {
             id: TestId(5, None, None),
             dependencies: vec![
-                TestId(3, None, None), // Depend on a missing course.
+                // Depends on a missing course.
+                TestId(3, None, None),
                 TestId(4, None, None)
             ],
             metadata: BTreeMap::from([
@@ -294,7 +295,8 @@ lazy_static! {
                     id: TestId(5, Some(1), None),
                     dependencies: vec![
                         TestId(5, Some(0), None),
-                        TestId(3, Some(3), None) // Depend on a missing lesson,
+                        // Depends on a missing lesson.
+                        TestId(3, Some(3), None),
                     ],
                     metadata: BTreeMap::from([
                         (
@@ -389,7 +391,8 @@ lazy_static! {
                     id: TestId(7, Some(1), None),
                     dependencies: vec![
                             TestId(0, Some(0), None),
-                            TestId(6, Some(11), None), // Depend on a missing lesson.
+                            // Depends on a missing lesson.
+                            TestId(6, Some(11), None),
                         ],
                     metadata: BTreeMap::from([
                         (
@@ -403,7 +406,39 @@ lazy_static! {
                     ]),
                     num_exercises: 10,
                 },
+                TestLesson {
+                    id: TestId(7, Some(2), None),
+                    dependencies: vec![TestId(7, Some(1), None)],
+                    metadata: BTreeMap::from([
+                        (
+                            "lesson_key_1".to_string(),
+                            vec!["lesson_key_1:value_2".to_string()]
+                        ),
+                        (
+                            "lesson_key_2".to_string(),
+                            vec!["lesson_key_2:value_2".to_string()]
+                        ),
+                    ]),
+                    // Lesson with no exercises.
+                    num_exercises: 0,
+                },
             ],
+        },
+        TestCourse {
+            id: TestId(8, None, None),
+            dependencies: vec![TestId(7, None, None)],
+            metadata: BTreeMap::from([
+                (
+                    "course_key_1".to_string(),
+                    vec!["course_key_1:value_1".to_string()]
+                ),
+                (
+                    "course_key_2".to_string(),
+                    vec!["course_key_2:value_3".to_string()]
+                ),
+            ]),
+            // Course with no lessons.
+            lessons: vec![],
         },
     ];
 }
@@ -425,16 +460,25 @@ fn get_unit_ids() -> Result<()> {
         Ustr::from("5"),
         Ustr::from("6"),
         Ustr::from("7"),
+        Ustr::from("8"),
     ];
     assert_eq!(course_ids, expected_course_ids);
 
     // Verify the lesson and exercise IDs.
     for course_id in course_ids {
+        let course_test_id = TestId::from(&course_id);
         let lesson_ids = trane.get_lesson_ids(&course_id)?;
-        assert!(lesson_ids.len() > 0);
         for lesson_id in lesson_ids {
+            let lesson_test_id = TestId::from(&lesson_id);
+            assert_eq!(course_test_id.0, lesson_test_id.0);
+            assert_eq!(lesson_test_id.2, None);
             let exercise_ids = trane.get_exercise_ids(&lesson_id)?;
-            assert_eq!(10, exercise_ids.len());
+            for exercise_id in exercise_ids {
+                let exercise_test_id = TestId::from(&exercise_id);
+                assert!(exercise_test_id.2.is_some());
+                assert_eq!(course_test_id.0, exercise_test_id.0);
+                assert_eq!(lesson_test_id.1, exercise_test_id.1);
+            }
         }
     }
 
@@ -765,7 +809,8 @@ fn scheduler_respects_course_filter() -> Result<()> {
     let selected_courses = vec![
         TestId(1, None, None),
         TestId(5, None, None),
-        TestId(3, None, None), // Missing course.
+        // Missing course.
+        TestId(3, None, None),
     ];
     let course_filter = UnitFilter::CourseFilter {
         course_ids: selected_courses.iter().map(|id| id.to_ustr()).collect(),
@@ -810,7 +855,8 @@ fn scheduler_respects_lesson_filter() -> Result<()> {
     let selected_lessons = vec![
         TestId(2, Some(0), None),
         TestId(4, Some(1), None),
-        TestId(3, Some(0), None), // Missing lesson.
+        // Missing lesson.
+        TestId(3, Some(0), None),
     ];
     let lesson_filter = UnitFilter::LessonFilter {
         lesson_ids: selected_lessons.iter().map(|id| id.to_ustr()).collect(),
