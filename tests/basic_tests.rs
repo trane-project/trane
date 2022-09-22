@@ -277,7 +277,7 @@ lazy_static! {
             lessons: vec![
                 TestLesson {
                     id: TestId(5, Some(0), None),
-                    dependencies: vec![],
+                    dependencies: vec![TestId(4, Some(1), None)],
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
