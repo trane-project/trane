@@ -234,6 +234,11 @@ impl DepthFirstScheduler {
     /// Returns the list of candidates selected from the given lesson along with the average score.
     /// The average score is used to help decide whether to continue searching a path in the graph.
     fn get_candidates_from_lesson_helper(&self, item: &StackItem) -> Result<(Vec<Candidate>, f32)> {
+        //  Return an empty set of candidates if the lesson does not exist.
+        if !self.data.unit_exists(&item.unit_id).unwrap_or(false) {
+            return Ok((vec![], 0.0));
+        }
+
         // Check whether the lesson or its course have been blacklisted.
         if self.data.blacklisted(&item.unit_id).unwrap_or(false) {
             return Ok((vec![], 0.0));
@@ -318,14 +323,6 @@ impl DepthFirstScheduler {
         unit_id: &Ustr,
         metadata_filter: Option<&MetadataFilter>,
     ) -> bool {
-        // Any error during the filtering is ignored for the purpose of allowing the search to
-        // continue if parts of the dependency graph are missing.
-        if !self.data.unit_exists(unit_id).unwrap_or(false) {
-            // Ignore any missing unit.
-            return true;
-        }
-
-        // Check whether all the dependencies are satisfied.
         self.data
             .unit_graph
             .read()
@@ -383,15 +380,6 @@ impl DepthFirstScheduler {
             // Pop the next unit from the stack. Immediately skip the item if it has been visited.
             let curr_unit = stack.pop().unwrap();
             if visited.contains(&curr_unit.unit_id) {
-                continue;
-            }
-
-            if !self.data.unit_exists(&curr_unit.unit_id).unwrap_or(false) {
-                // Add the valid dependents of any missing unit so that the search can make it past
-                // missing sections of the graph.
-                visited.insert(curr_unit.unit_id);
-                let valid_deps = self.get_valid_dependents(&curr_unit.unit_id, metadata_filter);
-                Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
                 continue;
             }
 
@@ -532,14 +520,6 @@ impl DepthFirstScheduler {
                 continue;
             } else {
                 visited.insert(curr_unit.unit_id);
-            }
-
-            if !self.data.unit_exists(&curr_unit.unit_id).unwrap_or(false) {
-                // Try to add the valid dependents of any unit which cannot be found so that missing
-                // sections of the graph do not stop the search.
-                let valid_deps = self.get_valid_dependents(&curr_unit.unit_id, None);
-                Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
-                continue;
             }
 
             // The logic past this point depends on the type of the unit.

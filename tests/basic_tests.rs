@@ -292,7 +292,10 @@ lazy_static! {
                 },
                 TestLesson {
                     id: TestId(5, Some(1), None),
-                    dependencies: vec![TestId(5, Some(0), None)],
+                    dependencies: vec![
+                        TestId(5, Some(0), None),
+                        TestId(3, Some(3), None) // Depend on a missing lesson,
+                    ],
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
@@ -759,7 +762,11 @@ fn scheduler_respects_course_filter() -> Result<()> {
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
-    let selected_courses = vec![TestId(1, None, None), TestId(5, None, None)];
+    let selected_courses = vec![
+        TestId(1, None, None),
+        TestId(5, None, None),
+        TestId(3, None, None), // Missing course.
+    ];
     let course_filter = UnitFilter::CourseFilter {
         course_ids: selected_courses.iter().map(|id| id.to_ustr()).collect(),
     };
@@ -800,7 +807,11 @@ fn scheduler_respects_lesson_filter() -> Result<()> {
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
-    let selected_lessons = vec![TestId(2, Some(0), None), TestId(4, Some(1), None)];
+    let selected_lessons = vec![
+        TestId(2, Some(0), None),
+        TestId(4, Some(1), None),
+        TestId(3, Some(0), None), // Missing lesson.
+    ];
     let lesson_filter = UnitFilter::LessonFilter {
         lesson_ids: selected_lessons.iter().map(|id| id.to_ustr()).collect(),
     };
