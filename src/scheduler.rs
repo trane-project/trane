@@ -203,24 +203,36 @@ impl DepthFirstScheduler {
             .collect())
     }
 
-    /// Returns all the starting lessons in the graph that are used to search the entire graph.
-    fn get_all_starting_lessons(&self, metadata_filter: Option<&MetadataFilter>) -> Vec<StackItem> {
-        // First get all the starting courses and then all of their starting lessons.
-        let starting_courses = self.get_all_starting_units();
-        let mut starting_lessons: Vec<StackItem> = vec![];
-        for course_id in starting_courses {
+    /// Returns an initial stack with all the starting units in the graph that are used to search
+    /// the entire graph.
+    fn get_initial_stack(&self, metadata_filter: Option<&MetadataFilter>) -> Vec<StackItem> {
+        // First get all the starting units and then all of their starting lessons.
+        let starting_units = self.get_all_starting_units();
+        let mut initial_stack: Vec<StackItem> = vec![];
+        for course_id in starting_units {
             let lesson_ids = self
                 .get_course_valid_starting_lessons(&course_id, metadata_filter)
                 .unwrap_or_default();
-            starting_lessons.extend(lesson_ids.into_iter().map(|unit_id| StackItem {
-                unit_id,
-                num_hops: 0,
-            }));
+
+            if lesson_ids.is_empty() {
+                // For units with no lessons, insert the unit itself as a starting unit so that its
+                // dependents are traversed.
+                initial_stack.push(StackItem {
+                    unit_id: course_id,
+                    num_hops: 0,
+                });
+            } else {
+                // Insert all the starting lessons in the stack.
+                initial_stack.extend(lesson_ids.into_iter().map(|unit_id| StackItem {
+                    unit_id,
+                    num_hops: 0,
+                }));
+            }
         }
 
         // Shuffle the lessons to follow a different ordering each time a new batch is requested.
-        starting_lessons.shuffle(&mut thread_rng());
-        starting_lessons
+        initial_stack.shuffle(&mut thread_rng());
+        initial_stack
     }
 
     /// Gets the scores for the given exercises.
@@ -361,7 +373,7 @@ impl DepthFirstScheduler {
         // Initialize the stack with every starting lesson, which are those units with no
         // dependencies that are needed to reach all the units in the graph.
         let mut stack: Vec<StackItem> = Vec::new();
-        let starting_lessons = self.get_all_starting_lessons(metadata_filter);
+        let starting_lessons = self.get_initial_stack(metadata_filter);
         stack.extend(starting_lessons.into_iter());
 
         // Initialize the list of candidates and the set of visited units.

@@ -116,9 +116,9 @@ fn all_exercises_scheduled_random() -> Result<()> {
     let random_library = RandomCourseLibrary {
         num_courses: 25,
         course_dependencies_range: (0, 5),
-        lessons_per_course_range: (1, 5),
+        lessons_per_course_range: (0, 5),
         lesson_dependencies_range: (0, 5),
-        exercises_per_lesson_range: (1, 20),
+        exercises_per_lesson_range: (0, 20),
     }
     .generate_library();
     let mut trane = init_trane(&temp_dir.path().to_path_buf(), &random_library)?;
