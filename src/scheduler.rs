@@ -149,7 +149,6 @@ impl DepthFirstScheduler {
         // Replace any missing units with their dependents and repeat this process until there are
         // no missing courses.
         let mut starting_courses = self.data.unit_graph.read().get_dependency_sinks();
-        println!("dependency sinks: {:?}", starting_courses);
         loop {
             let mut new_starting_courses = UstrSet::default();
             for course_id in &starting_courses {
@@ -209,7 +208,6 @@ impl DepthFirstScheduler {
     fn get_initial_stack(&self, metadata_filter: Option<&MetadataFilter>) -> Vec<StackItem> {
         // First get all the starting units and then all of their starting lessons.
         let starting_units = self.get_all_starting_units();
-        println!("Starting units: {:?}", starting_units);
         let mut initial_stack: Vec<StackItem> = vec![];
         for course_id in starting_units {
             let lesson_ids = self
@@ -376,7 +374,6 @@ impl DepthFirstScheduler {
         // dependencies that are needed to reach all the units in the graph.
         let mut stack: Vec<StackItem> = Vec::new();
         let starting_lessons = self.get_initial_stack(metadata_filter);
-        println!("Starting lessons: {:?}", starting_lessons);
         stack.extend(starting_lessons.into_iter());
 
         // Initialize the list of candidates and the set of visited units.
