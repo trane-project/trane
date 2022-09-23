@@ -172,6 +172,13 @@ impl InMemoryUnitGraph {
             self.dependency_sinks.remove(unit_id);
         }
 
+        // Remove the unit from the dependency sinks if it's a lesson and its course exists. If the
+        // course is a dependency sink, the lesson is redundant. If the course is not a depencency
+        // sink, the lesson is not a dependency sink either.
+        if let Some(_) = self.get_lesson_course(unit_id) {
+            self.dependency_sinks.remove(unit_id);
+        }
+
         // If a course is mentioned as a dependency, but it's missing, it should be a dependency
         // sink. To ensure this requirement, the function is called recursively on all the
         // dependents with an empty dependency list. It's safe to do this for all courses because a
