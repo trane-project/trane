@@ -45,9 +45,7 @@ use crate::data::UnitType;
 /// the interface for Trane. That limitation might change in the future, but it's not a high
 /// priority as the process takes only a few seconds.
 pub trait UnitGraph {
-    /// Adds a new course to the unit graph. This function will return an error if this function is
-    /// not called before the dependencies of this course are added. This is done to properly check
-    /// that unit IDs are unique.
+    /// Adds a new course to the unit graph.
     fn add_course(&mut self, course_id: &Ustr) -> Result<()>;
 
     /// Adds a new lesson to the unit graph. This function is the equivalent of `add_course` for
@@ -61,7 +59,8 @@ pub trait UnitGraph {
 
     /// Takes a unit and its dependencies and updates the graph accordingly. Returns an error if
     /// `unit_type` is `UnitType::Exercise` as only courses and lessons are allowed to have
-    /// dependencies.
+    /// dependencies. An error is also returned if the unit is not explicitly added by calling one
+    /// of `add_course` or `add_lesson`.
     fn add_dependencies(
         &mut self,
         unit_id: &Ustr,
@@ -164,6 +163,8 @@ impl InMemoryUnitGraph {
     /// Updates the dependency sinks of the given unit when the given unit and dependencies are
     /// added to the graph.
     fn update_dependency_sinks(&mut self, unit_id: &Ustr, dependencies: &[Ustr]) {
+        // If the current dependencies and the new dependencies are both empty, keep the unit in the
+        // set of dependency sinks. Otherwise, remove it.
         let empty = UstrSet::default();
         let current_dependencies = self.dependency_graph.get(unit_id).unwrap_or(&empty);
         if current_dependencies.is_empty() && dependencies.is_empty() {
@@ -181,10 +182,10 @@ impl InMemoryUnitGraph {
 
         // If a course is mentioned as a dependency, but it's missing, it should be a dependency
         // sink. To ensure this requirement, the function is called recursively on all the
-        // dependents with an empty dependency list. It's safe to do this for all courses because a
-        // call to this function for a course with an empty dependency list followed by another with
-        // a non-empty list has the same result as only executing the second call but makes sure
-        // that any missing courses are added and never removed from the dependency sinks.
+        // dependents with an empty dependency set. It's safe to do this because a call to this
+        // function for a course with an empty dependency list followed by another with a non-empty
+        // list has the same result as only executing the second call, but makes sure that any
+        // missing courses are added to the dependency sinks.
         for dependency_id in dependencies {
             self.update_dependency_sinks(dependency_id, &[]);
         }
@@ -216,18 +217,23 @@ impl InMemoryUnitGraph {
 
 impl UnitGraph for InMemoryUnitGraph {
     fn add_course(&mut self, course_id: &Ustr) -> Result<()> {
-        if self.type_map.contains_key(course_id) {
-            return Err(anyhow!("course with ID {} already exists", course_id));
-        }
+        ensure!(
+            !self.type_map.contains_key(course_id),
+            "course with ID {} already exists",
+            course_id
+        );
 
         self.update_unit_type(course_id, UnitType::Course)?;
         Ok(())
     }
 
     fn add_lesson(&mut self, lesson_id: &Ustr, course_id: &Ustr) -> Result<()> {
-        if self.type_map.contains_key(lesson_id) {
-            return Err(anyhow!("lesson with ID {} already exists", lesson_id));
-        }
+        ensure!(
+            !self.type_map.contains_key(lesson_id),
+            "lesson with ID {} already exists",
+            lesson_id
+        );
+
         self.update_unit_type(lesson_id, UnitType::Lesson)?;
         self.update_unit_type(course_id, UnitType::Course)?;
 
@@ -240,9 +246,12 @@ impl UnitGraph for InMemoryUnitGraph {
     }
 
     fn add_exercise(&mut self, exercise_id: &Ustr, lesson_id: &Ustr) -> Result<()> {
-        if self.type_map.contains_key(exercise_id) {
-            return Err(anyhow!("exercise with ID {} already exists", exercise_id));
-        }
+        ensure!(
+            !self.type_map.contains_key(exercise_id),
+            "exercise with ID {} already exists",
+            exercise_id
+        );
+
         self.update_unit_type(exercise_id, UnitType::Exercise)?;
         self.update_unit_type(lesson_id, UnitType::Lesson)?;
 
@@ -277,11 +286,14 @@ impl UnitGraph for InMemoryUnitGraph {
             unit_type,
         );
 
+        // Update the dependency sinks and map.
         self.update_dependency_sinks(unit_id, dependencies);
         self.dependency_graph
             .entry(*unit_id)
             .or_insert_with(UstrSet::default)
             .extend(dependencies);
+
+        // For each dependency, insert the equivalent dependent relationship.
         for dependency_id in dependencies {
             self.dependent_graph
                 .entry(*dependency_id)
@@ -304,6 +316,7 @@ impl UnitGraph for InMemoryUnitGraph {
     }
 
     fn update_starting_lessons(&mut self) {
+        // Find the starting lessons for each course.
         let empty = UstrSet::default();
         for course_id in self.course_lesson_map.keys() {
             let lessons = self.course_lesson_map.get(course_id).unwrap_or(&empty);
@@ -355,14 +368,18 @@ impl UnitGraph for InMemoryUnitGraph {
         // the same unit is encountered twice during the search.
         let mut visited = UstrSet::default();
         for unit_id in self.dependency_graph.keys() {
+            // The node has been visited so it can be skipped.
             if visited.contains(unit_id) {
                 continue;
             }
 
-            // The stacks store a path of traversed units and is initialized with `unit_id`.
+            // The stacks store a path of traversed units and is initialized with the current unit.
             let mut stack: Vec<Vec<Ustr>> = Vec::new();
             stack.push(vec![*unit_id]);
+
+            // Run depth-first search and stop if a cycle is found or the graph is exhausted.
             while let Some(path) = stack.pop() {
+                // Update the set of visited nodes.
                 let current_id = *path.last().unwrap_or(&Ustr::default());
                 if visited.contains(&current_id) {
                     continue;
@@ -370,15 +387,15 @@ impl UnitGraph for InMemoryUnitGraph {
                     visited.insert(current_id);
                 }
 
-                let dependencies = self.get_dependencies(&current_id);
-                if let Some(dependencies) = dependencies {
+                // Get the dependencies of the current node, check that the dependency and dependent
+                // graph agree with each other, and generate new paths to add to the stack.
+                if let Some(dependencies) = self.get_dependencies(&current_id) {
                     for dependency_id in dependencies {
+                        // Verify that the dependency and dependent graphs agree with each other by
+                        // checking that this dependency lists the current unit as a dependent.
                         let dependents = self.get_dependents(&dependency_id);
                         let mut missing_dependent = dependents.is_none();
                         if let Some(dependents) = dependents {
-                            // Verify that the dependency and dependent graphs agree with each other
-                            // by checking that all the dependencies of the current unit list it as
-                            // a dependent.
                             if !dependents.contains(&current_id) {
                                 missing_dependent = true;
                             }
@@ -392,9 +409,12 @@ impl UnitGraph for InMemoryUnitGraph {
                             ));
                         }
 
+                        // Check for repeated nodes in the path.
                         if path.contains(&dependency_id) {
                             return Err(anyhow!("cycle in dependency graph detected"));
                         }
+
+                        // Add a new path to the stack.
                         let mut new_path = path.clone();
                         new_path.push(dependency_id);
                         stack.push(new_path);
@@ -411,6 +431,7 @@ impl UnitGraph for InMemoryUnitGraph {
         let mut courses = self.course_lesson_map.keys().cloned().collect::<Vec<_>>();
         courses.sort();
 
+        // Add each course to the DOT graph.
         for course_id in courses {
             // Write the entry in the graph for all the of the dependents of this course.
             let mut dependents = self
@@ -419,13 +440,13 @@ impl UnitGraph for InMemoryUnitGraph {
                 .into_iter()
                 .collect::<Vec<_>>();
 
-            // A course's lessons are attached to the graph by making the starting lessons a
-            // dependent of the course. This is not exactly accurate, but properly adding them to
-            // the graph would require each course to have two nodes, one inbound, connected to the
-            // starting lessons, and one outbound, connected to the last lessons in the course (by
-            // the order in which they must be traversed to master the entire course) and to the
-            // dependents of the course. This might be amended, either here in this function or in
-            // the implementation of the graph itself, but it is not a high priority.
+            // A course's lessons are not explicitly attached to the graph. This is not exactly
+            // accurate, but properly adding connnecting them in the graph would require each course
+            // to have two nodes, one inbound which is connected to the starting lessons and the
+            // dependencies, and one outbound which is connected to the last lessons in the course
+            // (by the order in which they must be traversed to master the entire course) and to the
+            // dependents. This might be amended, either here in this function or in the
+            // implementation of the graph itself, but it is not a high priority.
             dependents.extend(
                 self.get_course_starting_lessons(&course_id)
                     .unwrap_or_default()
@@ -457,6 +478,8 @@ impl UnitGraph for InMemoryUnitGraph {
                 }
             }
         }
+
+        // Close the graph.
         output.push_str("}\n");
         output
     }
