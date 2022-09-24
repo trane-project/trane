@@ -142,71 +142,86 @@ pub enum UnitFilter {
 }
 
 impl UnitFilter {
-    /// Applies the course filter to the course with the given ID.
-    pub fn apply_course_id(&self, course_id: &Ustr) -> bool {
+    /// Returns whether the course with the given ID passes the course filter.
+    pub fn passes_course_filter(&self, course_id: &Ustr) -> bool {
         match self {
             UnitFilter::CourseFilter { course_ids } => course_ids.contains(course_id),
             _ => false,
         }
     }
 
-    /// Applies the lesson filter to the lesson with the given ID.
-    pub fn apply_lesson_id(&self, lesson_id: &Ustr) -> bool {
+    /// Returns whether the lesson with the given ID passes the lesson filter.
+    pub fn passes_lesson_filter(&self, lesson_id: &Ustr) -> bool {
         match self {
             UnitFilter::LessonFilter { lesson_ids } => lesson_ids.contains(lesson_id),
             _ => false,
         }
     }
 
-    /// Applies the metadata filter to the course with the given manifest.
-    pub fn apply_course_metadata(&self, manifest: &impl GetMetadata) -> bool {
-        match self {
-            UnitFilter::MetadataFilter { filter } => match &filter.course_filter {
-                Some(course_filter) => course_filter.apply(manifest),
-                // A value of `None` returns true so that the final determination is based on the
-                // lesson metadata.
-                None => true,
+    /// Returns whether the course with the given metadata passes the metadata filter.
+    pub fn course_passes_metadata_filter(
+        filter: &MetadataFilter,
+        course_manifest: &impl GetMetadata,
+    ) -> bool {
+        // Apply the course filter to the metadata.
+        let course_passes = filter
+            .course_filter
+            .as_ref()
+            .map(|course_filter| course_filter.apply(course_manifest));
+
+        // Decide how to proceed based on the values of the course and lesson filters.
+        match (&filter.course_filter, &filter.lesson_filter) {
+            // There's no lesson nor course filter, so the course passes the filter.
+            (None, None) => true,
+            // There's only a course filter, so return whether the course passed the filter.
+            (Some(_), None) => course_passes.unwrap_or(false),
+            // There's only a lesson filter. Return false so that the course is skipped, and the
+            // decision is made based on the lesson.
+            (None, Some(_)) => false,
+            // There's both a lesson and course filter. The behavior depends on the logical op used
+            // in the filter.
+            (Some(_), Some(_)) => match filter.op {
+                // If the op is All, return whether the course passed the filter.
+                FilterOp::All => course_passes.unwrap_or(false),
+                // If the op is Any, return false so that the course is skipped and the decision is
+                // made based on the lesson.
+                FilterOp::Any => false,
             },
-            _ => false,
         }
     }
 
-    /// Applies the metadata filter to the lesson with the given lesson and course manifests.
-    pub fn apply_lesson_metadata(
-        &self,
-        lesson_manifest: &impl GetMetadata,
+    /// Returns whether the lesson with the given lesson and course metadata passes the filter.
+    pub fn lesson_passes_metadata_filter(
+        filter: &MetadataFilter,
         course_manifest: &impl GetMetadata,
+        lesson_manifest: &impl GetMetadata,
     ) -> bool {
-        match self {
-            UnitFilter::MetadataFilter { filter } => {
-                match (&filter.course_filter, &filter.lesson_filter) {
-                    // None of the filters are set, so every lesson passes the filter.
-                    (None, None) => true,
-                    // Only the course filter is set, so the lesson passes the filter if the course
-                    // passes the filter.
-                    (Some(course_filter), None) => course_filter.apply(course_manifest),
-                    // Only the lesson filter is set, so the lesson passes the filter if the lesson
-                    // passes the filter.
-                    (None, Some(lesson_filter)) => lesson_filter.apply(lesson_manifest),
-                    // Both filters are set, so the result depends on the logical operation used in
-                    // the filter.
-                    (Some(course_filter), Some(lesson_filter)) => match filter.op {
-                        // If the op is `All`, the lesson passes the filter if both the course and
-                        // lesson filters pass.
-                        FilterOp::All => {
-                            course_filter.apply(course_manifest)
-                                && lesson_filter.apply(lesson_manifest)
-                        }
-                        // If the op is `Any`, the lesson passes the filter if either the course or
-                        // the lesson filters pass.
-                        FilterOp::Any => {
-                            course_filter.apply(course_manifest)
-                                || lesson_filter.apply(lesson_manifest)
-                        }
-                    },
-                }
-            }
-            _ => false,
+        // Apply the course and lesson filters to the course and lesson metadata.
+        let course_passes = filter
+            .course_filter
+            .as_ref()
+            .map(|course_filter| course_filter.apply(course_manifest));
+        let lesson_passes = filter
+            .lesson_filter
+            .as_ref()
+            .map(|lesson_filter| lesson_filter.apply(lesson_manifest));
+
+        // Decide how to proceed based on the values of the course and lesson filters.
+        match (&filter.course_filter, &filter.lesson_filter) {
+            // There's no lesson nor course filter, so the lesson passes the filter.
+            (None, None) => true,
+            // There's only a course filter, so return whether the course passed the filter.
+            (Some(_), None) => course_passes.unwrap_or(false),
+            // There's only a lesson filter, so return whether the lesson passed the filter.
+            (None, Some(_)) => lesson_passes.unwrap_or(false),
+            // There's both a lesson and course filter. The behavior depends on the logical op used
+            // in the filter.
+            (Some(_), Some(_)) => match filter.op {
+                // If the op is All, return whether the lesson and the course passed the filters.
+                FilterOp::All => lesson_passes.unwrap_or(false) && course_passes.unwrap_or(false),
+                // If the op is Any, return whether the lesson or the course passed the filter.
+                FilterOp::Any => lesson_passes.unwrap_or(false) || course_passes.unwrap_or(false),
+            },
         }
     }
 }
@@ -230,7 +245,7 @@ mod test {
     use std::collections::BTreeMap;
 
     use crate::data::{
-        filter::{FilterOp, FilterType, KeyValueFilter},
+        filter::{FilterOp, FilterType, KeyValueFilter, MetadataFilter, UnitFilter},
         GetMetadata,
     };
 
@@ -238,6 +253,46 @@ mod test {
         fn get_metadata(&self) -> Option<&BTreeMap<String, Vec<String>>> {
             Some(self)
         }
+    }
+
+    #[test]
+    fn passes_course_filter() {
+        let filter = UnitFilter::CourseFilter {
+            course_ids: vec!["course1".into()],
+        };
+        assert!(filter.passes_course_filter(&"course1".into()));
+        assert!(!filter.passes_course_filter(&"course2".into()));
+        assert!(!filter.passes_lesson_filter(&"lesson1".into()));
+    }
+
+    #[test]
+    fn passes_lesson_filter() {
+        let filter = UnitFilter::LessonFilter {
+            lesson_ids: vec!["lesson1".into()],
+        };
+        assert!(filter.passes_lesson_filter(&"lesson1".into()));
+        assert!(!filter.passes_lesson_filter(&"lesson2".into()));
+        assert!(!filter.passes_course_filter(&"course1".into()));
+    }
+
+    #[test]
+    fn passes_metadata_filter_none() {
+        let filter = MetadataFilter {
+            course_filter: None,
+            lesson_filter: None,
+            op: FilterOp::Any,
+        };
+        let course_manifest = BTreeMap::new();
+        let lesson_manifest = BTreeMap::new();
+        assert!(UnitFilter::course_passes_metadata_filter(
+            &filter,
+            &course_manifest
+        ));
+        assert!(UnitFilter::lesson_passes_metadata_filter(
+            &filter,
+            &course_manifest,
+            &lesson_manifest
+        ));
     }
 
     #[test]
