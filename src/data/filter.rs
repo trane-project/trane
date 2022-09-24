@@ -163,11 +163,13 @@ impl UnitFilter {
         filter: &MetadataFilter,
         course_manifest: &impl GetMetadata,
     ) -> bool {
+        // Apply the course filter to the metadata.
         let course_passes = filter
             .course_filter
             .as_ref()
             .map(|course_filter| course_filter.apply(course_manifest));
 
+        // Decide how to proceed based on the values of the course and lesson filters.
         match (filter.course_filter.as_ref(), filter.lesson_filter.as_ref()) {
             // There's no lesson nor course filter, so the course passes the filter.
             (None, None) => true,
@@ -194,6 +196,7 @@ impl UnitFilter {
         course_manifest: &impl GetMetadata,
         lesson_manifest: &impl GetMetadata,
     ) -> bool {
+        // Apply the course and lesson filters to the course and lesson metadata.
         let course_passes = filter
             .course_filter
             .as_ref()
@@ -203,6 +206,7 @@ impl UnitFilter {
             .as_ref()
             .map(|lesson_filter| lesson_filter.apply(lesson_manifest));
 
+        // Decide how to proceed based on the values of the course and lesson filters.
         match (&filter.course_filter, &filter.lesson_filter) {
             // There's no lesson nor course filter, so the lesson passes the filter.
             (None, None) => true,
@@ -222,26 +226,6 @@ impl UnitFilter {
             },
         }
     }
-
-    // pub fn passes_metadata_filter(
-    //     &self,
-    //     unit_type: UnitType,
-    //     course_manifest: &impl GetMetadata,
-    //     lesson_manifest: &impl GetMetadata,
-    // ) -> bool {
-    //     match self {
-    //         UnitFilter::MetadataFilter { filter } => match unit_type {
-    //             UnitType::Course => Self::course_passes_metadata_filter(filter, course_manifest),
-    //             UnitType::Lesson => {
-    //                 Self::lesson_passes_metadata_filter(filter, course_manifest, lesson_manifest)
-    //             }
-    //             UnitType::Exercise => false,
-    //         },
-    //         UnitFilter::CourseFilter { .. } => false,
-    //         UnitFilter::LessonFilter { .. } => false,
-    //         UnitFilter::ReviewListFilter => false,
-    //     }
-    // }
 }
 
 /// A named filter for easy reference.
@@ -263,7 +247,7 @@ mod test {
     use std::collections::BTreeMap;
 
     use crate::data::{
-        filter::{FilterOp, FilterType, KeyValueFilter, UnitFilter},
+        filter::{FilterOp, FilterType, KeyValueFilter, MetadataFilter, UnitFilter},
         GetMetadata,
     };
 
@@ -291,6 +275,26 @@ mod test {
         assert!(filter.passes_lesson_filter(&"lesson1".into()));
         assert!(!filter.passes_lesson_filter(&"lesson2".into()));
         assert!(!filter.passes_course_filter(&"course1".into()));
+    }
+
+    #[test]
+    fn passes_metadata_filter_none() {
+        let filter = MetadataFilter {
+            course_filter: None,
+            lesson_filter: None,
+            op: FilterOp::Any,
+        };
+        let course_manifest = BTreeMap::new();
+        let lesson_manifest = BTreeMap::new();
+        assert!(UnitFilter::course_passes_metadata_filter(
+            &filter,
+            &course_manifest
+        ));
+        assert!(UnitFilter::lesson_passes_metadata_filter(
+            &filter,
+            &course_manifest,
+            &lesson_manifest
+        ));
     }
 
     #[test]
