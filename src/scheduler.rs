@@ -71,8 +71,8 @@ pub trait ExerciseScheduler {
     /// reason is that the calls to modify the blacklist are not known by the scheduler.
     ///
     /// However, the final users of Trane do not need to call this function because the `Trane`
-    /// object in lib.rs implements these calls when exposing the interface that modifies the
-    /// blacklist.
+    /// object in lib.rs takes care of clearing the cache when exposing the interface that modifies
+    /// the blacklist.
     fn invalidate_cached_score(&self, unit_id: &Ustr);
 }
 

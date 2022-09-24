@@ -18,18 +18,19 @@
 //! here as a play on its homophone (as in "training a new skill").
 //!
 //! Here's an overview of some of the most important modules in this crate and their purpose:
-//! - `data`: Contains the basic data structures used by Trane.
-//! - `graph`: Defines the graph used by Trane to list the units of material and the dependencies
-//!   among them.
-//! - `course_library`: Reads a collection of courses, lessons, and exercises from the file system
-//!   and provides basic utilities for working with them.
-//! - `scheduler`: Defines the algorithm used by Trane to select exercises to present to the user.
-//! - `practice_stats`: Stores the results of practice sessions for use in determining the next
-//!   batch of exercises.
-//! - `blacklist`: Defines the list of units the student wishes to hide, either because their
-//!   material has already been mastered or they do not wish to learn it.
-//! - `scorer`: Calculates a score for an exercise based on the results and timestamps of previous
-//!   trials.
+//! - [data](crate::data): Contains the basic data structures used by Trane.
+//! - [graph](crate::graph): Defines the graph used by Trane to list the units of material and the
+//!   dependencies among them.
+//! - [course_library](crate::course_library): Reads a collection of courses, lessons, and exercises
+//!   from the file system and provides basic utilities for working with them.
+//! - [scheduler](crate::scheduler): Defines the algorithm used by Trane to select exercises to
+//!   present to the user.
+//! - [practice_stats](crate::practice_stats): Stores the results of practice sessions for use in
+//!   determining the next batch of exercises.
+//! - [blacklist](crate::blacklist): Defines the list of units the student wishes to hide, either
+//!   because their material has already been mastered or they do not wish to learn it.
+//! - [scorer](crate::scorer): Calculates a score for an exercise based on the results and
+//!   timestamps of previous trials.
 
 pub mod blacklist;
 pub mod course_builder;

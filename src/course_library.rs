@@ -2,7 +2,7 @@
 //!
 //! A course library (the term Trane library will be used interchangeably) is a collection of
 //! courses that the student wishes to practice together. Courses, lessons, and exercises are
-//! defined by their manifest files (see data.rs).
+//! defined by their manifest files (see [data](crate::data)).
 
 use anyhow::{anyhow, ensure, Result};
 use parking_lot::RwLock;
