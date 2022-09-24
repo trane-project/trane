@@ -9,7 +9,7 @@ use crate::{
     blacklist::{Blacklist, BlacklistDB},
     course_library::{CourseLibrary, LocalCourseLibrary},
     data::{
-        filter::{FilterOp, MetadataFilter},
+        filter::{MetadataFilter, UnitFilter},
         CourseManifest, ExerciseManifest, LessonManifest, SchedulerOptions, UnitType,
     },
     graph::{InMemoryUnitGraph, UnitGraph},
@@ -150,35 +150,6 @@ impl SchedulerData {
         lessons.len() as i64
     }
 
-    /// Applies the metadata filter to the given unit.
-    pub fn apply_metadata_filter(
-        &self,
-        unit_id: &Ustr,
-        metadata_filter: &MetadataFilter,
-    ) -> Result<Option<bool>> {
-        let unit_type = self.get_unit_type(unit_id)?;
-        match unit_type {
-            UnitType::Course => match &metadata_filter.course_filter {
-                None => Ok(None),
-                Some(filter) => {
-                    let manifest = self.get_course_manifest(unit_id)?;
-                    Ok(Some(filter.apply(&manifest)))
-                }
-            },
-            UnitType::Lesson => match &metadata_filter.lesson_filter {
-                None => Ok(None),
-                Some(filter) => {
-                    let manifest = self.get_lesson_manifest(unit_id)?;
-                    Ok(Some(filter.apply(&manifest)))
-                }
-            },
-            UnitType::Exercise => Err(anyhow!(
-                "cannot apply metadata filter to exercise with ID {}",
-                unit_id
-            )),
-        }
-    }
-
     /// Returns whether the unit passes the metadata filter, handling all interactions between
     /// lessons and course metadata filters.
     pub fn unit_passes_filter(
@@ -189,7 +160,6 @@ impl SchedulerData {
         if metadata_filter.is_none() {
             return Ok(true);
         }
-        let metadata_filter = metadata_filter.unwrap();
 
         let unit_type = self.get_unit_type(unit_id)?;
         match unit_type {
@@ -198,65 +168,21 @@ impl SchedulerData {
                 unit_id
             )),
             UnitType::Course => {
-                let course_passes = self
-                    .apply_metadata_filter(unit_id, metadata_filter)
-                    .unwrap_or(None);
-                match (
-                    metadata_filter.lesson_filter.as_ref(),
-                    metadata_filter.course_filter.as_ref(),
-                ) {
-                    // There's no lesson nor course filter, so the course passes the filter.
-                    (None, None) => Ok(true),
-                    //  There's only a lesson filter. Return false so that the course is skipped,
-                    //  and the decision is made based on the lesson.
-                    (Some(_), None) => Ok(false),
-                    // There's only a course filter, so return whether the course passed the filter.
-                    (None, Some(_)) => Ok(course_passes.unwrap_or(false)),
-                    // There's both a lesson and course filter. The behavior depends on the logical
-                    // op used in the filter.
-                    (Some(_), Some(_)) => match metadata_filter.op {
-                        // If the op is All, return whether the course passed the filter.
-                        FilterOp::All => Ok(course_passes.unwrap_or(false)),
-                        // If the op is Any, return false so that the course is skipped and the
-                        // decision is made based on the lesson.
-                        FilterOp::Any => Ok(false),
-                    },
-                }
+                let course_manifest = self.get_course_manifest(unit_id)?;
+                Ok(UnitFilter::course_passes_metadata_filter(
+                    metadata_filter.as_ref().unwrap(),
+                    &course_manifest,
+                ))
             }
             UnitType::Lesson => {
+                let course_manifest =
+                    self.get_course_manifest(&self.get_lesson_course_id(unit_id)?)?;
                 let lesson_manifest = self.get_lesson_manifest(unit_id)?;
-                let lesson_passes = self
-                    .apply_metadata_filter(unit_id, metadata_filter)
-                    .unwrap_or(None);
-                let course_passes = self
-                    .apply_metadata_filter(&lesson_manifest.course_id, metadata_filter)
-                    .unwrap_or(None);
-
-                match (
-                    metadata_filter.lesson_filter.as_ref(),
-                    metadata_filter.course_filter.as_ref(),
-                ) {
-                    // There's no lesson nor course filter, so the lesson passes the filter.
-                    (None, None) => Ok(true),
-                    // There's only a lesson filter, so return whether the lesson passed the filter.
-                    (Some(_), None) => Ok(lesson_passes.unwrap_or(false)),
-                    // There's only a course filter, so return whether the course passed the filter.
-                    (None, Some(_)) => Ok(course_passes.unwrap_or(false)),
-                    // There's both a lesson and course filter. The behavior depends on the logical
-                    // op used in the filter.
-                    (Some(_), Some(_)) => match metadata_filter.op {
-                        // If the op is All, return whether the lesson and the course passed the
-                        // filters.
-                        FilterOp::All => {
-                            Ok(lesson_passes.unwrap_or(false) && course_passes.unwrap_or(false))
-                        }
-                        // If the op is Any, return whether the lesson or the course passed the
-                        // filter.
-                        FilterOp::Any => {
-                            Ok(lesson_passes.unwrap_or(false) || course_passes.unwrap_or(false))
-                        }
-                    },
-                }
+                Ok(UnitFilter::lesson_passes_metadata_filter(
+                    metadata_filter.as_ref().unwrap(),
+                    &course_manifest,
+                    &lesson_manifest,
+                ))
             }
         }
     }
