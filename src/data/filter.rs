@@ -170,21 +170,21 @@ impl UnitFilter {
             .map(|course_filter| course_filter.apply(course_manifest));
 
         // Decide how to proceed based on the values of the course and lesson filters.
-        match (filter.course_filter.as_ref(), filter.lesson_filter.as_ref()) {
+        match (&filter.course_filter, &filter.lesson_filter) {
             // There's no lesson nor course filter, so the course passes the filter.
             (None, None) => true,
             // There's only a course filter, so return whether the course passed the filter.
             (Some(_), None) => course_passes.unwrap_or(false),
-            // There's only a lesson filter. Return false so that the course is skipped, and
-            // the decision is made based on the lesson.
+            // There's only a lesson filter. Return false so that the course is skipped, and the
+            // decision is made based on the lesson.
             (None, Some(_)) => false,
-            // There's both a lesson and course filter. The behavior depends on the logical
-            // op used in the filter.
+            // There's both a lesson and course filter. The behavior depends on the logical op used
+            // in the filter.
             (Some(_), Some(_)) => match filter.op {
                 // If the op is All, return whether the course passed the filter.
                 FilterOp::All => course_passes.unwrap_or(false),
-                // If the op is Any, return false so that the course is skipped and the
-                // decision is made based on the lesson.
+                // If the op is Any, return false so that the course is skipped and the decision is
+                // made based on the lesson.
                 FilterOp::Any => false,
             },
         }
@@ -214,14 +214,12 @@ impl UnitFilter {
             (Some(_), None) => course_passes.unwrap_or(false),
             // There's only a lesson filter, so return whether the lesson passed the filter.
             (None, Some(_)) => lesson_passes.unwrap_or(false),
-            // There's both a lesson and course filter. The behavior depends on the logical
-            // op used in the filter.
+            // There's both a lesson and course filter. The behavior depends on the logical op used
+            // in the filter.
             (Some(_), Some(_)) => match filter.op {
-                // If the op is All, return whether the lesson and the course passed the
-                // filters.
+                // If the op is All, return whether the lesson and the course passed the filters.
                 FilterOp::All => lesson_passes.unwrap_or(false) && course_passes.unwrap_or(false),
-                // If the op is Any, return whether the lesson or the course passed the
-                // filter.
+                // If the op is Any, return whether the lesson or the course passed the filter.
                 FilterOp::Any => lesson_passes.unwrap_or(false) || course_passes.unwrap_or(false),
             },
         }
