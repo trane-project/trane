@@ -24,11 +24,12 @@
 //! 2. The reverse relationship. Thus, we say that B is a dependent of A.
 //!
 //! The graph also provides a number of operations to manipulate the graph, which are only used when
-//! reading the Trane library (see course_library.rs), and another few to derive information from
-//! the graph ("which are the lessons in a course?" for example). The graph is not in any way
-//! responsible on how the exercises are scheduled (see scheduler.rs) nor it stores any information
-//! about a student's practice (see practice_stats.rs) or preferences (see blacklist.rs,
-//! filter_manager.rs, and review_list.rs).
+//! reading the Trane library (see [course_library](crate::course_library)), and another few to
+//! derive information from the graph ("which are the lessons in a course?" for example). The graph
+//! is not in any way responsible on how the exercises are scheduled (see
+//! [scheduler](crate::scheduler)) nor it stores any information about a student's practice (see
+//! [practice_stats](crate::practice_stats)) or preferences (see [blacklist](crate::blacklist),
+//! [filter_manager](crate::filter_manager) and [review_list](crate::review_list)).
 
 use anyhow::{anyhow, ensure, Result};
 use std::fmt::Write;
@@ -74,9 +75,9 @@ pub trait UnitGraph {
     /// Returns the lessons belonging to the given course.
     fn get_course_lessons(&self, course_id: &Ustr) -> Option<UstrSet>;
 
-    /// Updates the starting lessons for all courses. The starting lessons of course C are those
-    /// lessons in C that should be practiced first when C is introduced to the student. The
-    /// scheduler uses them to traverse through the other lessons in the course in the correct
+    /// Updates the starting lessons for all courses. The starting lessons of the course are those
+    /// of its lessons that should be practiced first when the course is introduced to the student.
+    /// The scheduler uses them to traverse through the other lessons in the course in the correct
     /// order.
     fn update_starting_lessons(&mut self);
 
@@ -98,14 +99,14 @@ pub trait UnitGraph {
     /// Returns all the units which depend on the given unit.
     fn get_dependents(&self, unit_id: &Ustr) -> Option<UstrSet>;
 
-    /// Returns the dependency sinks of the graph. A dependency sink are the courses from which a
+    /// Returns the dependency sinks of the graph. A dependency sink is a unit from which a
     /// walk of the entire unit graph needs to start. Because the lessons in a course implicitly
     /// depend on their course, properly initialized lessons do not belong to this set.
     ///
     /// This set also includes the units that are mentioned as dependencies of other units but are
     /// never added to the graph because they are missing from the course library. Those units are
-    /// added as dependency sinks so that the scheduler can reach their dependents, which might be
-    /// part of the library.
+    /// added as dependency sinks so that the scheduler can reach their dependents, which are part
+    /// of the library.
     fn get_dependency_sinks(&self) -> UstrSet;
 
     /// Performs a cycle check on the graph, done currently when opening the Trane library to

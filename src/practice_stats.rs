@@ -2,7 +2,7 @@
 //!
 //! Currently, only the score and the timestamp are stored. From the results and timestamps of
 //! previous trials, a score for the exercise (in the range 0.0 to 5.0) is calculated. See the
-//! documentation in `scorer.rs` for more details.
+//! documentation in [scorer](crate::scorer) for more details.
 
 use anyhow::{Context, Result};
 use r2d2::Pool;
