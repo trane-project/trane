@@ -107,7 +107,7 @@ struct Candidate {
     frequency: f32,
 }
 
-/// The implementation of the exercise scheduler, based on depth-first search.
+/// An implementation of [ExerciseScheduler] based on depth-first search.
 pub(crate) struct DepthFirstScheduler {
     /// The external data used by the scheduler. Contains pointers to the graph, blacklist, and
     /// course library and provides convenient functions.

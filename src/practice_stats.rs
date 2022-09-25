@@ -30,7 +30,7 @@ pub trait PracticeStats {
     ) -> Result<()>;
 }
 
-/// An implementation of `PracticeStats` backed by SQLite.
+/// An implementation of [PracticeStats] backed by SQLite.
 pub(crate) struct PracticeStatsDB {
     /// A pool of connections to the database storing the records.
     pool: Pool<SqliteConnectionManager>,

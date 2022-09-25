@@ -127,7 +127,7 @@ pub trait UnitGraph {
     fn generate_dot_graph(&self) -> String;
 }
 
-/// An implementation of `UnitGraph` describing the units and relationships as an adjacency list
+/// An implementation of [UnitGraph] describing the units and relationships as an adjacency list
 /// stored in hash maps. All of it is stored in memory, as the memory benchmarks say that less than
 /// 20 MB of memory are used even when opening a large Trane library.
 #[derive(Default)]
