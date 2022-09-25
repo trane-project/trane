@@ -78,7 +78,7 @@ pub(crate) trait GetUnitGraph {
     fn get_unit_graph(&self) -> Arc<RwLock<InMemoryUnitGraph>>;
 }
 
-/// An implementation of `CourseLibrary` backed by the local file system. The courses in this
+/// An implementation of [CourseLibrary] backed by the local file system. The courses in this
 /// library are those directories located anywhere under the given root directory that match the
 /// following structure:
 ///

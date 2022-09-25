@@ -86,12 +86,12 @@ impl ExerciseScorer for SimpleScorer {
     }
 }
 
-/// An implementation of `Send` for `SimpleScorer`. This implementation is safe because
-/// `SimpleScorer` stores no state.
+/// An implementation of [Send] for [SimpleScorer]. This implementation is safe because
+/// [SimpleScorer] stores no state.
 unsafe impl Send for SimpleScorer {}
 
-/// An implementation of `Sync` for `SimpleScorer`. This implementation is safe because
-/// `SimpleScorer` stores no state.
+/// An implementation of [Sync] for [SimpleScorer]. This implementation is safe because
+/// [SimpleScorer] stores no state.
 unsafe impl Sync for SimpleScorer {}
 
 #[cfg(test)]

@@ -31,7 +31,7 @@ pub trait Blacklist {
     fn all_blacklist_entries(&self) -> Result<Vec<Ustr>>;
 }
 
-/// An implementation of `Blacklist` backed by SQLite.
+/// An implementation of [Blacklist] backed by SQLite.
 pub(crate) struct BlacklistDB {
     cache: RwLock<UstrMap<bool>>,
     pool: Pool<SqliteConnectionManager>,
