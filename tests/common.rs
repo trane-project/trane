@@ -400,17 +400,18 @@ pub fn assert_scores(
         exercise_id
     ))?;
     let most_recent_scores = simulation_scores.iter().rev().take(trane_scores.len());
-    let _: Vec<()> =
-        most_recent_scores
-            .zip(trane_scores.iter())
-            .map(|(simulation_score, trial)| {
-                assert_eq!(
+    let _: Vec<()> = most_recent_scores
+        .zip(trane_scores.iter())
+        .map(|(simulation_score, trial)| {
+            assert_eq!(
                 trial.score,
                 simulation_score.float_score(),
                 "Score from Trane ({}) does not match score from simulation ({}) for exercise {}",
-                trial.score, simulation_score.float_score(), exercise_id.to_string()
+                trial.score,
+                simulation_score.float_score(),
+                exercise_id.to_string()
             );
-            })
-            .collect();
+        })
+        .collect();
     Ok(())
 }
