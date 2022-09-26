@@ -148,7 +148,7 @@ impl Trane {
         Ok(())
     }
 
-    /// Creates a new entrance of the library given the path to the root of a course library. The
+    /// Creates a new instance of the library given the path to the root of a course library. The
     /// user data will be stored in a directory named `.trane` inside the library root directory.
     pub fn new(library_root: &Path) -> Result<Trane> {
         Self::init_config_directory(library_root)?;

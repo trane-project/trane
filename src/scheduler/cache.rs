@@ -52,21 +52,26 @@ impl ScoreCache {
 
     /// Removes the cached score for the given unit.
     pub(super) fn invalidate_cached_score(&self, unit_id: &Ustr) {
+        // Remove the unit from the exercise and lesson caches. This is safe to do even though the
+        // unit is at most in one cache because the caches are disjoint.
         self.exercise_cache.write().remove(unit_id);
         self.lesson_cache.write().remove(unit_id);
 
+        // If the unit is an exercise, invalidate the cached score of its parent lesson.
         if let Some(lesson_id) = self.data.unit_graph.read().get_exercise_lesson(unit_id) {
             self.lesson_cache.write().remove(&lesson_id);
         }
     }
 
     /// Returns the score for the given exercise.
-    pub(super) fn get_exercise_score(&self, exercise_id: &Ustr) -> Result<f32> {
+    fn get_exercise_score(&self, exercise_id: &Ustr) -> Result<f32> {
+        // Return the cached score if it exists.
         let cached_score = self.exercise_cache.read().get(exercise_id).cloned();
         if let Some(score) = cached_score {
             return Ok(score);
         }
 
+        // Retrieve the exercise's previous trials and compute its score.
         let scores = self
             .data
             .practice_stats
@@ -80,20 +85,27 @@ impl ScoreCache {
 
     /// Returns the average score of all the exercises in the given lesson.
     fn get_lesson_score(&self, lesson_id: &Ustr) -> Result<Option<f32>> {
+        // Check if the unit is blacklisted. A blacklisted unit has no score.
         let blacklisted = self.data.blacklist.read().blacklisted(lesson_id);
         if blacklisted.unwrap_or(false) {
             return Ok(None);
         }
 
+        // Return the cached score if it exists.
         let cached_score = self.lesson_cache.read().get(lesson_id).cloned();
         if let Some(score) = cached_score {
             return Ok(score);
         }
 
+        // Compute the average score of all the exercises in the lesson.
         let exercises = self.data.unit_graph.read().get_lesson_exercises(lesson_id);
         let score = match exercises {
-            None => Ok(None),
+            None => {
+                // A lesson with no exercises has no valid score.
+                Ok(None)
+            }
             Some(exercise_ids) => {
+                // Compute the list of valid exercises. All blacklisted exercises are ignored.
                 let valid_exercises = exercise_ids
                     .into_iter()
                     .filter(|exercise_id| {
@@ -103,8 +115,10 @@ impl ScoreCache {
                     .collect::<Vec<Ustr>>();
 
                 if valid_exercises.is_empty() {
+                    // If all exercises are blacklisted, the lesson has no valid score.
                     Ok(None)
                 } else {
+                    // Compute the average score of the valid exercises.
                     let avg_score: f32 = valid_exercises
                         .iter()
                         .map(|id| self.get_exercise_score(id))
@@ -117,29 +131,38 @@ impl ScoreCache {
             }
         };
 
+        // Update the cache with a valid score.
         if score.is_ok() {
             self.lesson_cache
                 .write()
                 .insert(*lesson_id, *score.as_ref().unwrap());
         }
+
         score
     }
 
     /// Returns the average score of all the lesson scores in the given course.
     fn get_course_score(&self, course_id: &Ustr) -> Result<Option<f32>> {
+        // Check if the unit is blacklisted. A blacklisted course has no valid score.
         let blacklisted = self.data.blacklist.read().blacklisted(course_id);
         if blacklisted.unwrap_or(false) {
             return Ok(None);
         }
 
+        // Compute the average score of all the lessons in the course.
         let lessons = self.data.unit_graph.read().get_course_lessons(course_id);
         match lessons {
-            None => Ok(None),
+            None => {
+                // A course with no lessons has no valid score.
+                Ok(None)
+            }
             Some(lesson_ids) => {
+                // Collect all the valid scores from the course's lessons.
                 let valid_lesson_scores = lesson_ids
                     .into_iter()
                     .map(|lesson_id| self.get_lesson_score(&lesson_id))
                     .filter(|score| {
+                        // Filter out any lesson whose score is not valid.
                         if score.as_ref().unwrap_or(&None).is_none() {
                             return false;
                         }
@@ -147,10 +170,14 @@ impl ScoreCache {
                     })
                     .map(|score| score.unwrap_or(Some(0.0)).unwrap())
                     .collect::<Vec<f32>>();
+
+                // Return an invalid score if all the lesson scores are invalid. This can happen if
+                // all the lessons in the course are blacklisted.
                 if valid_lesson_scores.is_empty() {
                     return Ok(None);
                 }
 
+                // Compute the average of the valid lesson scores.
                 let avg_score: f32 =
                     valid_lesson_scores.iter().sum::<f32>() / valid_lesson_scores.len() as f32;
                 Ok(Some(avg_score))
@@ -159,9 +186,10 @@ impl ScoreCache {
     }
 
     /// Returns the score for the given unit. A return value of `Ok(None)` indicates that there is
-    /// not a valid score for the unit, such as when the unit is blacklisted. The unit should be
-    /// considered as a satisfied dependency if that is the case.
+    /// not a valid score for the unit, such as when the unit is blacklisted. Such a unit is
+    /// considered a satisfied dependency.
     pub(super) fn get_unit_score(&self, unit_id: &Ustr) -> Result<Option<f32>> {
+        // Decide which method to call based on the unit type.
         let unit_type = self
             .data
             .unit_graph

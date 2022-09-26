@@ -601,6 +601,7 @@ impl DepthFirstScheduler {
     /// Searches from candidates from the units in the review list. This mode allows the student to
     /// exclusively practice the courses, lessons, and exercises they have marked for review.
     fn get_candidates_from_review_list(&self) -> Result<Vec<Candidate>> {
+        // Retrieve candidates from each entry in the review list.
         let mut candidates = vec![];
         let review_list = self.data.review_list.read().all_review_list_entries()?;
         for unit_id in &review_list {
@@ -638,6 +639,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
         &self,
         filter: Option<&UnitFilter>,
     ) -> Result<Vec<(Ustr, ExerciseManifest)>> {
+        // Retrieve an initial batch of candidates based on the type of the filter.
         let candidates = match filter {
             None => {
                 // If the filter is empty, retrieve candidates from the entire graph. This mode is
@@ -667,10 +669,17 @@ impl ExerciseScheduler for DepthFirstScheduler {
             },
         };
 
+        // Sort the candidates into buckets, select the right number from each, and convert them
+        // into a final batch of exercises.
         let final_candidates = self.filter.filter_candidates(candidates)?;
+
+        // Increment the frequency of the exercises in the batch. These exercises will have a lower
+        // chance of being selected in the future so that exercises that have not been selected as
+        // often have a higher chance of being selected.
         for (exercise_id, _) in &final_candidates {
-            self.data.increase_exercise_frequency(exercise_id);
+            self.data.increment_exercise_frequency(exercise_id);
         }
+
         Ok(final_candidates)
     }
 
@@ -680,10 +689,14 @@ impl ExerciseScheduler for DepthFirstScheduler {
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<()> {
+        // Write the score to the practice stats database.
         self.data
             .practice_stats
             .write()
             .record_exercise_score(exercise_id, score, timestamp)?;
+
+        // Any cached score for this exercise and its parent lesson is now invalid. Remove it from
+        // the exercise and lesson caches.
         self.score_cache.invalidate_cached_score(exercise_id);
         Ok(())
     }

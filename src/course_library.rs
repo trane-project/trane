@@ -158,7 +158,8 @@ impl LocalCourseLibrary {
             Self::schema_field(DESCRIPTION_SCHEMA_FIELD)? => description.to_string(),
         );
 
-        // Add the metadata. Encode each key-value pair as a string in the format "key:value".
+        // Add the metadata. Encode each key-value pair as a string in the format "key:value". Then
+        // add the document to the index.
         let metadata_field = Self::schema_field(METADATA_SCHEMA_FIELD)?;
         if let Some(metadata) = metadata {
             for (key, values) in metadata {
@@ -167,7 +168,6 @@ impl LocalCourseLibrary {
                 }
             }
         }
-
         index_writer.add_document(doc)?;
         Ok(())
     }
@@ -205,6 +205,7 @@ impl LocalCourseLibrary {
         exercise_manifest: ExerciseManifest,
         index_writer: &mut IndexWriter,
     ) -> Result<()> {
+        // Verify that the IDs mentioned in the manifests are valid and agree with each other.
         ensure!(!exercise_manifest.id.is_empty(), "ID in manifest is empty",);
         ensure!(
             exercise_manifest.lesson_id == lesson_manifest.id,
@@ -228,6 +229,7 @@ impl LocalCourseLibrary {
             &None,
         )?; // grcov-excl-line
 
+        // Add the exercise to the unit graph and exercise map.
         self.unit_graph
             .write()
             .add_exercise(&exercise_manifest.id, &exercise_manifest.lesson_id)?;
@@ -246,6 +248,7 @@ impl LocalCourseLibrary {
         lesson_manifest: LessonManifest,
         index_writer: &mut IndexWriter,
     ) -> Result<()> {
+        // Verify that the IDs mentioned in the manifests are valid and agree with each other.
         ensure!(!lesson_manifest.id.is_empty(), "ID in manifest is empty",);
         ensure!(
             lesson_manifest.course_id == course_manifest.id,
@@ -253,11 +256,6 @@ impl LocalCourseLibrary {
             lesson_manifest.id,
             course_manifest.id,
         );
-
-        let lesson_root = dir_entry
-            .path()
-            .parent()
-            .ok_or_else(|| anyhow!("cannot get lesson's parent directory"))?; // grcov-excl-line
 
         // Add the lesson and the dependencies explicitly listed in the lesson manifest.
         self.unit_graph
@@ -280,22 +278,27 @@ impl LocalCourseLibrary {
             &lesson_manifest.metadata,
         )?; // grcov-excl-line
 
-        // Start a new search from the passed `DirEntry`, which corresponds to the lesson's root.
-        // Each exercise in the lesson must be contained in a directory that is a direct descendant
-        // of its root. Therefore, all the exercise manifests will be found at a depth of two.
+        // Start a new search from the parent of the passed `DirEntry`, which corresponds to the
+        // lesson's root. Each exercise in the lesson must be contained in a directory that is a
+        // direct descendant of its root. Therefore, all the exercise manifests will be found at a
+        // depth of two.
+        let lesson_root = dir_entry.path().parent().unwrap();
         for entry in WalkDir::new(lesson_root).min_depth(2).max_depth(2) {
             match entry {
                 Err(_) => continue,
                 Ok(exercise_dir_entry) => {
+                    // Ignore any entries which are not directories.
                     if exercise_dir_entry.path().is_dir() {
                         continue;
                     }
 
+                    // Ignore any files which are not named `exercise_manifest.json`.
                     let file_name = Self::get_file_name(exercise_dir_entry.path())?;
                     if file_name != EXERCISE_MANIFEST_FILENAME {
                         continue;
                     }
 
+                    // Open the exercise manifest and process it.
                     let path = Self::get_full_path(exercise_dir_entry.path())?;
                     let mut exercise_manifest: ExerciseManifest = Self::open_manifest(&path)?;
                     exercise_manifest = exercise_manifest
@@ -319,6 +322,7 @@ impl LocalCourseLibrary {
         course_manifest: CourseManifest,
         index_writer: &mut IndexWriter,
     ) -> Result<()> {
+        // Verify that the exercise ID is valid.
         ensure!(!course_manifest.id.is_empty(), "ID in manifest is empty",);
 
         // Add the course and the dependencies explicitly listed in the manifest.
@@ -340,23 +344,27 @@ impl LocalCourseLibrary {
             &course_manifest.metadata,
         )?; // grcov-excl-line
 
-        // Start a new search from the passed `DirEntry`, which corresponds to the course's root.
-        // Each lesson in the course must be contained in a directory that is a direct descendant of
-        // its root. Therefore, all the lesson manifests will be found at a depth of two.
+        // Start a new search from the parent of the passed `DirEntry`, which corresponds to the
+        // course's root. Each lesson in the course must be contained in a directory that is a
+        // direct descendant of its root. Therefore, all the lesson manifests will be found at a
+        // depth of two.
         let course_root = dir_entry.path().parent().unwrap();
         for entry in WalkDir::new(course_root).min_depth(2).max_depth(2) {
             match entry {
                 Err(_) => continue,
                 Ok(lesson_dir_entry) => {
+                    // Ignore any entries which are not directories.
                     if lesson_dir_entry.path().is_dir() {
                         continue;
                     }
 
+                    // Ignore any files which are not named `lesson_manifest.json`.
                     let file_name = Self::get_file_name(lesson_dir_entry.path())?;
                     if file_name != LESSON_MANIFEST_FILENAME {
                         continue;
                     }
 
+                    // Open the lesson manifest and process it.
                     let path = Self::get_full_path(lesson_dir_entry.path())?;
                     let mut lesson_manifest: LessonManifest = Self::open_manifest(&path)?;
                     lesson_manifest = lesson_manifest
@@ -375,13 +383,14 @@ impl LocalCourseLibrary {
 
     /// A constructor taking the path to the root of the library.
     pub fn new(library_root: &Path) -> Result<Self> {
-        if !library_root.is_dir() {
-            return Err(anyhow!(
-                "{:#?} must be the path to a directory",
-                library_root
-            ));
-        }
+        // Verify that the library root is a directory.
+        ensure!(
+            library_root.is_dir(),
+            "library root {} is not a directory",
+            library_root.display(),
+        );
 
+        // Initialize the local course library.
         let mut library = LocalCourseLibrary {
             course_map: UstrMap::default(),
             lesson_map: UstrMap::default(),
@@ -391,23 +400,28 @@ impl LocalCourseLibrary {
             reader: None,
         };
 
-        // Start a search from the library root. Courses can be located at any level within the
-        // library root. However, the lessons and exercises inside each course follow a fixed
-        // structure.
+        // Initialize the search index writer with an initial arena size of 50 MB.
         let mut index_writer = library.index.writer(50_000_000)?;
+
+        // Start a search from the library root. Courses can be located at any level within the
+        // library root. However, the course manifests, assets, and its lessons and exercises follow
+        // a fixed structure.
         for entry in WalkDir::new(library_root).min_depth(2) {
             match entry {
                 Err(_) => continue,
                 Ok(dir_entry) => {
+                    // Ignore any entries which are not directories.
                     if dir_entry.path().is_dir() {
                         continue;
                     }
 
+                    // Ignore any files which are not named `course_manifest.json`.
                     let file_name = Self::get_file_name(dir_entry.path())?;
                     if file_name != COURSE_MANIFEST_FILENAME {
                         continue;
                     }
 
+                    // Open the course manifest and process it.
                     let path = Self::get_full_path(dir_entry.path())?;
                     let mut course_manifest: CourseManifest = Self::open_manifest(&path)?;
                     course_manifest =
@@ -421,7 +435,7 @@ impl LocalCourseLibrary {
             }
         }
 
-        // Commit the search index writer and create a reader.
+        // Commit the search index writer and initialize the reader in the course library.
         index_writer.commit()?;
         library.reader = Some(
             library
@@ -431,13 +445,11 @@ impl LocalCourseLibrary {
                 .try_into()?, // grcov-excl-line
         );
 
-        // Lessons implicitly depend on the course to which they belong. Calling
-        // `update_starting_lessons` computes the lessons in a course not dependent on any other
-        // lesson in the course. This allows the scheduler to traverse the lessons in the correct
-        // order.
+        // Compute the lessons in a course not dependent on any other lesson in the course. This
+        // allows the scheduler to traverse the lessons in a course in the correct order.
         library.unit_graph.write().update_starting_lessons();
-        // Perform a check to detect cyclic dependencies, which could cause infinite loops during
-        // traversal.
+
+        // Perform a check to detect cyclic dependencies to prevent infinite loops during traversal.
         library.unit_graph.read().check_cycles()?;
         Ok(library)
     }
@@ -487,9 +499,8 @@ impl CourseLibrary for LocalCourseLibrary {
     }
 
     fn search(&self, query: &str) -> Result<Vec<Ustr>> {
+        // Retrieve a searcher from the reader and parse the query.
         ensure!(self.reader.is_some(), "search index reader not available");
-
-        // Retrieve a searcher and parse the query.
         let searcher = self.reader.as_ref().unwrap().searcher();
         let id_field = Self::schema_field(ID_SCHEMA_FIELD)?;
         let query_parser = QueryParser::for_index(
@@ -503,7 +514,7 @@ impl CourseLibrary for LocalCourseLibrary {
         );
         let query = query_parser.parse_query(query)?;
 
-        // Execute the query and retrieve the results as a list of unit IDs.
+        // Execute the query and return the results as a list of unit IDs.
         let top_docs = searcher.search(&query, &TopDocs::with_limit(50))?;
         top_docs
             .into_iter()

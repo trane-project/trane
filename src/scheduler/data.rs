@@ -39,7 +39,8 @@ pub(crate) struct SchedulerData {
     pub review_list: Arc<RwLock<ReviewListDB>>,
 
     /// A map storing the number of times an exercise has been scheduled during the lifetime of this
-    /// scheduler.
+    /// scheduler. The value is used to give more weight in the scorer to exercises that have been
+    /// scheduled less often.
     pub frequency_map: Arc<RwLock<UstrMap<f32>>>,
 }
 
@@ -108,11 +109,15 @@ impl SchedulerData {
     /// Returns whether the unit exists in the library. Some units will exist in the unit graph
     /// because they are a dependency of another, but their data might not exist in the library.
     pub fn unit_exists(&self, unit_id: &Ustr) -> Result<bool, String> {
+        // Retrieve the unit type.
         let unit_type = self.unit_graph.read().get_unit_type(unit_id);
         if unit_type.is_none() {
             return Ok(false);
         }
 
+        // Decide whether the unit exists by looking for its manifest. A missing unit might exist in
+        // the graph and not have a manifest if an existing unit listed it as a dependency, but the
+        // missing unit was never added to the library.
         let library = self.course_library.read();
         match unit_type.unwrap() {
             UnitType::Course => match library.get_course_manifest(unit_id) {
@@ -157,17 +162,21 @@ impl SchedulerData {
         unit_id: &Ustr,
         metadata_filter: Option<&MetadataFilter>,
     ) -> Result<bool> {
+        // All units pass if there is no filter.
         if metadata_filter.is_none() {
             return Ok(true);
         }
 
+        // Decide how to handle the filter based on the unit type.
         let unit_type = self.get_unit_type(unit_id)?;
         match unit_type {
+            // Exercises do not have metadata, so this operation is not supported.
             UnitType::Exercise => Err(anyhow!(
                 "cannot apply metadata filter to exercise with ID {}",
                 unit_id
             )),
             UnitType::Course => {
+                // Retrieve the course manifest and check if the course passes the filter.
                 let course_manifest = self.get_course_manifest(unit_id)?;
                 Ok(UnitFilter::course_passes_metadata_filter(
                     metadata_filter.as_ref().unwrap(),
@@ -175,6 +184,8 @@ impl SchedulerData {
                 ))
             }
             UnitType::Lesson => {
+                // Retrieve the lesson and course manifests and check if the lesson passes the
+                // filter.
                 let course_manifest =
                     self.get_course_manifest(&self.get_lesson_course_id(unit_id)?)?;
                 let lesson_manifest = self.get_lesson_manifest(unit_id)?;
@@ -187,8 +198,8 @@ impl SchedulerData {
         }
     }
 
-    /// Increases the value in the frequency map for the given exercise ID.
-    pub fn increase_exercise_frequency(&self, exercise_id: &Ustr) {
+    /// Increments the value in the frequency map for the given exercise ID.
+    pub fn increment_exercise_frequency(&self, exercise_id: &Ustr) {
         let mut frequency_map = self.frequency_map.write();
         let frequency = frequency_map.entry(*exercise_id).or_insert(0.0);
         *frequency += 1.0;

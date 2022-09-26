@@ -33,10 +33,12 @@ pub struct SimpleScorer {}
 
 impl ExerciseScorer for SimpleScorer {
     fn score(&self, previous_trials: Vec<ExerciseTrial>) -> f32 {
+        // An exercise with no previous trials is assigned a score of 0.0.
         if previous_trials.is_empty() {
             return 0.0;
         }
 
+        // Calculate the number of days since each trial.
         let now = Utc::now();
         let days: Vec<f32> = previous_trials
             .iter()
@@ -48,9 +50,9 @@ impl ExerciseScorer for SimpleScorer {
             .iter()
             .zip(days.iter())
             .map(|(t, num_days)| -> f32 {
+                // If the difference is negative, there's been some error. Use the min weight for
+                // this trial instead of ignoring it.
                 if *num_days < 0.0 {
-                    // If the difference is negative, there's been some error. Use the min weight
-                    // for this trial instead of ignoring it.
                     return SIMPLE_SCORER_MIN_WEIGHT;
                 }
 
@@ -67,9 +69,9 @@ impl ExerciseScorer for SimpleScorer {
             .iter()
             .zip(days.iter())
             .map(|(t, num_days)| -> f32 {
+                // If there's an issue with calculating the number of days since the trial, return
+                // the score as is.
                 if *num_days < 0.0 {
-                    // If there's an issue with calculating the number of days since the trial,
-                    // return the score as is.
                     return t.score;
                 }
 

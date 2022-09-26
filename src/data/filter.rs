@@ -61,13 +61,15 @@ pub enum KeyValueFilter {
 }
 
 impl KeyValueFilter {
-    /// Applies the filter to the given map of keys and values.
-    fn apply_metadata(
+    /// Returns whether the given key-value pair passes the filter given a filter type and the
+    /// unit's metadata.
+    fn passes_filter(
         metadata: &BTreeMap<String, Vec<String>>,
         key: &str,
         value: &str,
         filter_type: FilterType,
     ) -> bool {
+        // Check whether the key-value pair is present in the metadata.
         let contains_metadata = if !metadata.contains_key(key) {
             false
         } else {
@@ -76,6 +78,8 @@ impl KeyValueFilter {
                 .unwrap_or(&Vec::new())
                 .contains(&value.to_string())
         };
+
+        // Decide whether the filter passes based on its type.
         match filter_type {
             FilterType::Include => contains_metadata,
             FilterType::Exclude => !contains_metadata,
@@ -86,13 +90,19 @@ impl KeyValueFilter {
     pub fn apply(&self, manifest: &impl GetMetadata) -> bool {
         let default_metadata = BTreeMap::default();
         let metadata = manifest.get_metadata().unwrap_or(&default_metadata);
+
         match self {
             KeyValueFilter::BasicFilter {
                 key,
                 value,
                 filter_type,
-            } => KeyValueFilter::apply_metadata(metadata, key, value, filter_type.clone()),
+            } => {
+                // Return whether the unit passes the single key-value filter.
+                KeyValueFilter::passes_filter(metadata, key, value, filter_type.clone())
+            }
             KeyValueFilter::CombinedFilter { op, filters } => {
+                // Apply each filter individually and combine the results based on the logical
+                // operation.
                 let mut results = filters.iter().map(|f| f.apply(manifest));
                 match *op {
                     FilterOp::All => results.all(|x| x),
@@ -137,7 +147,7 @@ pub enum UnitFilter {
         filter: MetadataFilter,
     },
 
-    /// A filter to indicate that only exercises from the review list should be scheduled.
+    /// A filter that indicates only exercises from the review list should be scheduled.
     ReviewListFilter,
 }
 
