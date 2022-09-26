@@ -93,10 +93,12 @@ pub struct MasteryWindow {
 impl MasteryWindow {
     /// Returns whether the given score falls within this window.
     pub fn in_window(&self, score: f32) -> bool {
+        // Handle the special case of the window containing the maximum score.
         if self.range.1 >= 5.0 && score == 5.0 {
-            // Handle the special case of the window containing the maximum score.
             return true;
         }
+
+        // Return true if the score falls within the range `[range.0, range.1)`.
         self.range.0 <= score && score < self.range.1
     }
 }
@@ -119,6 +121,7 @@ pub enum UnitType {
 }
 
 impl std::fmt::Display for UnitType {
+    /// Implements the [Display](std::fmt::Display) trait for [UnitType].
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Exercise => "Exercise".fmt(f),
@@ -202,11 +205,13 @@ impl VerifyPaths for BasicAsset {
 #[serde(deny_unknown_fields)]
 pub struct CourseManifest {
     /// The ID assigned to this course.
+    ///
     /// For example, `music::instrument::guitar::basic_jazz_chords`.
     #[builder(setter(into))]
     pub id: Ustr,
 
     /// The name of the course to be presented to the user.
+    ///
     /// For example, "Basic Jazz Chords on Guitar".
     pub name: String,
 
@@ -252,6 +257,7 @@ impl NormalizePaths for CourseManifest {
 
 impl VerifyPaths for CourseManifest {
     fn verify_paths(&self, dir: &Path) -> Result<bool> {
+        // The paths mentioned in the instructions and material must both exist.
         let instructions_exist = match &self.course_instructions {
             None => true,
             Some(asset) => asset.verify_paths(dir)?,
@@ -280,8 +286,9 @@ impl GetUnitType for CourseManifest {
 #[derive(Builder, Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct LessonManifest {
-    /// The ID assigned to this lesson. For example,
-    /// `music::instrument::guitar::basic_jazz_chords::major_chords`.
+    /// The ID assigned to this lesson.
+    ///
+    /// For example, `music::instrument::guitar::basic_jazz_chords::major_chords`.
     #[builder(setter(into))]
     pub id: Ustr,
 
@@ -292,7 +299,9 @@ pub struct LessonManifest {
     #[builder(setter(into))]
     pub course_id: Ustr,
 
-    /// The name of the lesson to be presented to the user. For example, "Basic Jazz Major Chords".
+    /// The name of the lesson to be presented to the user.
+    ///
+    /// For example, "Basic Jazz Major Chords".
     pub name: String,
 
     /// An optional description of the lesson.
@@ -331,6 +340,7 @@ impl NormalizePaths for LessonManifest {
 
 impl VerifyPaths for LessonManifest {
     fn verify_paths(&self, dir: &Path) -> Result<bool> {
+        // The paths mentioned in the instructions and material must both exist.
         let instruction_exists = match &self.lesson_instructions {
             None => true,
             Some(asset) => asset.verify_paths(dir)?,
@@ -429,6 +439,7 @@ impl VerifyPaths for ExerciseAsset {
                 front_path,
                 back_path,
             } => {
+                // The paths to the front and back of the flashcard must both exist.
                 let front_abs_path = dir.join(Path::new(front_path));
                 let back_abs_path = dir.join(Path::new(back_path));
                 Ok(front_abs_path.exists() && back_abs_path.exists())
@@ -441,8 +452,9 @@ impl VerifyPaths for ExerciseAsset {
 /// Manifest describing a single exercise.
 #[derive(Builder, Clone, Debug, Deserialize, Serialize)]
 pub struct ExerciseManifest {
-    /// The ID assigned to this exercise. For example,
-    /// `music::instrument::guitar::basic_jazz_chords::major_chords::exercise_1`.
+    /// The ID assigned to this exercise.
+    ///
+    /// For example, `music::instrument::guitar::basic_jazz_chords::major_chords::exercise_1`.
     #[builder(setter(into))]
     pub id: Ustr,
 
@@ -454,7 +466,9 @@ pub struct ExerciseManifest {
     #[builder(setter(into))]
     pub course_id: Ustr,
 
-    /// The name of the exercise to be presented to the user. For example, "Exercise 1".
+    /// The name of the exercise to be presented to the user.
+    ///
+    /// For example, "Exercise 1".
     pub name: String,
 
     /// An optional description of the exercise.

@@ -33,8 +33,10 @@ impl ReviewListDB {
     /// Returns all the migrations needed to set up the database.
     fn migrations() -> Migrations<'static> {
         Migrations::new(vec![
+            // Create a table with the IDs of the units in the review list.
             M::up("CREATE TABLE review_list(unit_id TEXT NOT NULL UNIQUE);")
                 .down("DROP TABLE review_list"),
+            // Create an index of the unit IDs in the review list.
             M::up("CREATE INDEX unit_id_index ON review_list (unit_id);")
                 .down("DROP INDEX unit_id_index"),
         ])
@@ -52,6 +54,7 @@ impl ReviewListDB {
 
     /// A constructor taking a connection manager.
     fn new(connection_manager: SqliteConnectionManager) -> Result<ReviewListDB> {
+        // Initialize the pool and the review list database.
         let pool = Pool::new(connection_manager)?;
         let mut review_list = ReviewListDB { pool };
         review_list.init()?;
@@ -75,6 +78,7 @@ impl ReviewListDB {
 
 impl ReviewList for ReviewListDB {
     fn add_to_review_list(&mut self, unit_id: &Ustr) -> Result<()> {
+        // Add the unit to the database.
         let connection = self.pool.get()?;
         let mut stmt = connection
             .prepare_cached("INSERT OR IGNORE INTO review_list (unit_id) VALUES (?1)")
@@ -85,6 +89,7 @@ impl ReviewList for ReviewListDB {
     }
 
     fn remove_from_review_list(&mut self, unit_id: &Ustr) -> Result<()> {
+        // Remove the unit from the database.
         let connection = self.pool.get()?;
         let mut stmt = connection
             .prepare_cached("DELETE FROM review_list WHERE unit_id = $1")
@@ -95,11 +100,14 @@ impl ReviewList for ReviewListDB {
     }
 
     fn all_review_list_entries(&self) -> Result<Vec<Ustr>> {
+        // Retrieve all the units from the database.
         let connection = self.pool.get()?;
         let mut stmt = connection
             .prepare_cached("SELECT unit_id from review_list;")
             .with_context(|| "cannot prepare statement to get all entries in review list DB")?; // grcov-excl-line
         let mut rows = stmt.query(params![])?;
+
+        // Convert the rows into a vector of unit IDs.
         let mut entries = Vec::new();
         while let Some(row) = rows.next()? {
             let unit_id: String = row.get(0)?;

@@ -58,15 +58,17 @@ impl CandidateFilter {
     /// of filtering.
     fn select_candidates(
         candidates: Vec<Candidate>,
-        num_selected: usize,
+        num_to_select: usize,
     ) -> Result<(Vec<Candidate>, Vec<Candidate>)> {
-        if candidates.len() <= num_selected {
+        // Return the list if there are fewer candidates than the number to select.
+        if candidates.len() <= num_to_select {
             return Ok((candidates, vec![]));
         }
 
+        // Otherwise, assign a weight to each candidate and perform a weighted random selection.
         let mut rng = thread_rng();
         let selected: Vec<Candidate> = candidates
-            .choose_multiple_weighted(&mut rng, num_selected, |c| {
+            .choose_multiple_weighted(&mut rng, num_to_select, |c| {
                 // Always assign an initial weight of 1.0 to avoid assigning a zero weight.
                 let mut weight = 1.0;
                 // Increase the weight based on the candidate's score.
@@ -82,11 +84,13 @@ impl CandidateFilter {
             .collect();
         let selected_ids: UstrSet = selected.iter().map(|c| c.exercise_id).collect();
 
+        // Compute which exercises were not selected in the previous step.
         let remainder = candidates
             .iter()
             .filter(|c| !selected_ids.contains(&c.exercise_id))
             .cloned()
             .collect();
+
         Ok((selected, remainder))
     }
 
@@ -101,6 +105,7 @@ impl CandidateFilter {
         let mut rng = thread_rng();
         remainder_candidates.shuffle(&mut rng);
 
+        // If there's space left in the batch, fill it with the remainder candidates.
         if final_candidates.len() < batch_size {
             let remainder = batch_size - final_candidates.len();
             final_candidates.extend(
@@ -116,6 +121,7 @@ impl CandidateFilter {
         &self,
         candidates: Vec<Candidate>,
     ) -> Result<Vec<(Ustr, ExerciseManifest)>> {
+        // Retrieve the manifests for each candidate.
         let mut exercises = candidates
             .into_iter()
             .map(|c| -> Result<(Ustr, ExerciseManifest)> {
@@ -123,7 +129,10 @@ impl CandidateFilter {
                 Ok((c.exercise_id, manifest))
             })
             .collect::<Result<Vec<(Ustr, ExerciseManifest)>>>()?;
+
+        // Shuffle the list one more time to add more randomness to the final batch.
         exercises.shuffle(&mut thread_rng());
+
         Ok(exercises)
     }
 
@@ -144,19 +153,22 @@ impl CandidateFilter {
             Self::candidates_in_window(&candidates, &options.current_window_opts);
         let target_candidates =
             Self::candidates_in_window(&candidates, &options.target_window_opts);
-        let mut final_candidates = Vec::with_capacity(options.batch_size);
 
-        // For each window, add the appropriate number of candidates to the final list.
+        // Initialize the final list. For each window in descending order of mastery, add the
+        // appropriate number of candidates to the final list.
+        let mut final_candidates = Vec::with_capacity(options.batch_size);
         let num_mastered = (batch_size_float * options.mastered_window_opts.percentage) as usize;
         let (mastered_selected, mut mastered_remainder) =
             Self::select_candidates(mastered_candidates, num_mastered)?;
         final_candidates.extend(mastered_selected);
 
+        // Add elements from the easy window.
         let num_easy = (batch_size_float * options.easy_window_opts.percentage) as usize;
         let (easy_selected, mut easy_remainder) =
             Self::select_candidates(easy_candidates, num_easy)?;
         final_candidates.extend(easy_selected);
 
+        // Add elements from the current window.
         let num_current = (batch_size_float * options.current_window_opts.percentage) as usize;
         let (current_selected, mut current_remainder) =
             Self::select_candidates(current_candidates, num_current)?;
@@ -185,6 +197,7 @@ impl CandidateFilter {
             &mut current_remainder,
         );
 
+        // Convert the list of candidates into a list of tuples of exercise IDs and manifests.
         self.candidates_to_exercises(final_candidates)
     }
 }

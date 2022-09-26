@@ -41,8 +41,10 @@ impl BlacklistDB {
     /// Returns all the migrations needed to set up the database.
     fn migrations() -> Migrations<'static> {
         Migrations::new(vec![
+            // Create a table with the list of blacklisted units.
             M::up("CREATE TABLE blacklist(unit_id TEXT NOT NULL UNIQUE);")
                 .down("DROP TABLE blacklist"),
+            // Create an index of the blacklisted unit IDs.
             M::up("CREATE INDEX unit_id_index ON blacklist (unit_id);")
                 .down("DROP INDEX unit_id_index"),
         ])
@@ -60,15 +62,19 @@ impl BlacklistDB {
 
     /// A constructor taking a connection manager.
     fn new(connection_manager: SqliteConnectionManager) -> Result<BlacklistDB> {
+        // Initialize the pool and the blacklist database.
         let pool = Pool::new(connection_manager)?;
         let mut blacklist = BlacklistDB {
             cache: RwLock::new(UstrMap::default()),
             pool,
         };
         blacklist.init()?;
+
+        // Initialize the cache with the existing blacklist entries.
         for unit_id in blacklist.all_blacklist_entries()? {
             blacklist.cache.write().insert(unit_id, true);
         }
+
         Ok(blacklist)
     }
 
@@ -92,6 +98,9 @@ impl BlacklistDB {
         if let Some(has_entry) = cache.get(unit_id) {
             Ok(*has_entry)
         } else {
+            // Because the cache was initialized with all the entries in the blacklist, and it's
+            // kept updated, it's safe to assume that the entry is not in the blacklist and update
+            // the cache accordingly.
             cache.insert(*unit_id, false);
             Ok(false)
         }
@@ -100,28 +109,35 @@ impl BlacklistDB {
 
 impl Blacklist for BlacklistDB {
     fn add_to_blacklist(&mut self, unit_id: &Ustr) -> Result<()> {
+        // Check the cache first to avoid unnecessary queries.
         let has_entry = self.has_entry(unit_id)?;
         if has_entry {
             return Ok(());
         }
 
+        // Add the entry to the database.
         let connection = self.pool.get()?;
         let mut stmt = connection
             .prepare_cached("INSERT INTO blacklist (unit_id) VALUES (?1)")
             .with_context(|| "cannot prepare statement to insert into blacklist DB")?; // grcov-excl-line
         stmt.execute(params![unit_id.as_str()])
             .with_context(|| format!("cannot insert unit {} into blacklist DB", unit_id))?;
+
+        // Update the cache.
         self.cache.write().insert(*unit_id, true);
         Ok(())
     }
 
     fn remove_from_blacklist(&mut self, unit_id: &Ustr) -> Result<()> {
+        // Remove the entry from the database.
         let connection = self.pool.get()?;
         let mut stmt = connection
             .prepare_cached("DELETE FROM blacklist WHERE unit_id = $1")
             .with_context(|| "cannot prepare statement to delete from blacklist DB")?; // grcov-excl-line
         stmt.execute(params![unit_id.as_str()])
             .with_context(|| format!("cannot remove unit {} from blacklist DB", unit_id))?;
+
+        // Update the cache.
         self.cache.write().insert(*unit_id, false);
         Ok(())
     }
@@ -131,11 +147,14 @@ impl Blacklist for BlacklistDB {
     }
 
     fn all_blacklist_entries(&self) -> Result<Vec<Ustr>> {
+        // Get all the entries from the database.
         let connection = self.pool.get()?;
         let mut stmt = connection
             .prepare_cached("SELECT unit_id from blacklist;")
             .with_context(|| "cannot prepare statement to get all entries in blacklist DB")?; // grcov-excl-line
         let mut rows = stmt.query(params![])?;
+
+        // Convert the rows into a vector of `Ustr` values.
         let mut entries = Vec::new();
         while let Some(row) = rows.next()? {
             let unit_id: String = row.get(0)?;

@@ -80,6 +80,7 @@ impl PracticeStatsDB {
 
     /// A constructor taking a SQLite connection manager.
     fn new(connection_manager: SqliteConnectionManager) -> Result<PracticeStatsDB> {
+        // Create a connection pool and initialize the database.
         let pool = Pool::new(connection_manager)?;
         let mut stats = PracticeStatsDB { pool };
         stats.init()?;
@@ -103,6 +104,7 @@ impl PracticeStatsDB {
 
 impl PracticeStats for PracticeStatsDB {
     fn get_scores(&self, exercise_id: &Ustr, num_scores: usize) -> Result<Vec<ExerciseTrial>> {
+        // Retrieve the exercise trials from the database.
         let connection = self.pool.get()?;
         let mut stmt = connection
             .prepare_cached(
@@ -112,6 +114,7 @@ impl PracticeStats for PracticeStatsDB {
             )
             .with_context(|| "cannot prepare statement to query practice stats DB")?; //grcov-excl-line
 
+        // Convert the results into a vector of `ExerciseTrial` objects.
         #[allow(clippy::let_and_return)]
         let rows = stmt
             .query_map(params![exercise_id.as_str(), num_scores], |row| {
@@ -135,6 +138,7 @@ impl PracticeStats for PracticeStatsDB {
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<()> {
+        // Update the mapping of unit ID to unique integer ID.
         let connection = self.pool.get()?;
         let mut uid_stmt =
             connection.prepare_cached("INSERT OR IGNORE INTO uids(unit_id) VALUES (?1);")?;
@@ -149,6 +153,7 @@ impl PracticeStats for PracticeStatsDB {
                 // grcov-excl-stop
             })?; // grcov-excl-line
 
+        // Insert the exercise trial into the database.
         let mut stmt = connection.prepare_cached(
             "INSERT INTO practice_stats (unit_uid, score, timestamp) VALUES (
                 (SELECT unit_uid FROM uids WHERE unit_id = ?1), ?2, ?3);",

@@ -57,6 +57,8 @@ impl FilterManager for LocalFilterManager {
             .iter()
             .map(|(id, filter)| (id.clone(), filter.description.clone()))
             .collect();
+
+        // Sort the filters by their IDs.
         filters.sort_by(|a, b| a.0.cmp(&b.0));
         filters
     }

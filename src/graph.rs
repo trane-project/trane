@@ -175,7 +175,7 @@ impl InMemoryUnitGraph {
         }
 
         // Remove the unit from the dependency sinks if it's a lesson and its course exists. If the
-        // course is a dependency sink, the lesson is redundant. If the course is not a depencency
+        // course is a dependency sink, the lesson is redundant. If the course is not a dependency
         // sink, the lesson is not a dependency sink either.
         if self.get_lesson_course(unit_id).is_some() {
             self.dependency_sinks.remove(unit_id);
@@ -218,26 +218,31 @@ impl InMemoryUnitGraph {
 
 impl UnitGraph for InMemoryUnitGraph {
     fn add_course(&mut self, course_id: &Ustr) -> Result<()> {
+        // Verify the course doesn't already exist.
         ensure!(
             !self.type_map.contains_key(course_id),
             "course with ID {} already exists",
             course_id
         );
 
+        // Add the course to the type map to mark it as existing.
         self.update_unit_type(course_id, UnitType::Course)?;
         Ok(())
     }
 
     fn add_lesson(&mut self, lesson_id: &Ustr, course_id: &Ustr) -> Result<()> {
+        // Verify the lesson doesn't already exist.
         ensure!(
             !self.type_map.contains_key(lesson_id),
             "lesson with ID {} already exists",
             lesson_id
         );
 
+        // Add the course and lessons to the type map.
         self.update_unit_type(lesson_id, UnitType::Lesson)?;
         self.update_unit_type(course_id, UnitType::Course)?;
 
+        // Update the map of lesson to course and course to lessons.
         self.lesson_course_map.insert(*lesson_id, *course_id);
         self.course_lesson_map
             .entry(*course_id)
@@ -247,15 +252,18 @@ impl UnitGraph for InMemoryUnitGraph {
     }
 
     fn add_exercise(&mut self, exercise_id: &Ustr, lesson_id: &Ustr) -> Result<()> {
+        // Verify the exercise doesn't already exist.
         ensure!(
             !self.type_map.contains_key(exercise_id),
             "exercise with ID {} already exists",
             exercise_id
         );
 
+        // Add the exercise and lesson to the type map.
         self.update_unit_type(exercise_id, UnitType::Exercise)?;
         self.update_unit_type(lesson_id, UnitType::Lesson)?;
 
+        // Update the map of exercise to lesson and lesson to exercises.
         self.lesson_exercise_map
             .entry(*lesson_id)
             .or_insert_with(UstrSet::default)
@@ -270,6 +278,7 @@ impl UnitGraph for InMemoryUnitGraph {
         unit_type: UnitType,
         dependencies: &[Ustr],
     ) -> Result<()> {
+        // Perform some sanity checks on the unit type and dependencies.
         ensure!(
             unit_type != UnitType::Exercise,
             "exercise {} cannot have dependencies",
@@ -280,6 +289,8 @@ impl UnitGraph for InMemoryUnitGraph {
             "unit {} cannot depend on itself",
             unit_id,
         );
+
+        // Verify that the unit was added before trying to list its dependencies.
         ensure!(
             self.type_map.contains_key(unit_id),
             "unit {} of type {:?} must be explicitly added before adding dependencies",
@@ -287,7 +298,7 @@ impl UnitGraph for InMemoryUnitGraph {
             unit_type,
         );
 
-        // Update the dependency sinks and map.
+        // Update the dependency sinks and dependency map.
         self.update_dependency_sinks(unit_id, dependencies);
         self.dependency_graph
             .entry(*unit_id)
@@ -369,7 +380,7 @@ impl UnitGraph for InMemoryUnitGraph {
         // the same unit is encountered twice during the search.
         let mut visited = UstrSet::default();
         for unit_id in self.dependency_graph.keys() {
-            // The node has been visited so it can be skipped.
+            // The node has been visited, so it can be skipped.
             if visited.contains(unit_id) {
                 continue;
             }
@@ -441,9 +452,11 @@ impl UnitGraph for InMemoryUnitGraph {
                 .into_iter()
                 .collect::<Vec<_>>();
 
+            // Write the entry in the graph for all the lessons in the course.
+            //
             // A course's lessons are not explicitly attached to the graph. This is not exactly
-            // accurate, but properly adding connnecting them in the graph would require each course
-            // to have two nodes, one inbound which is connected to the starting lessons and the
+            // accurate, but properly connecting them in the graph would require each course to have
+            // two nodes, one inbound which is connected to the starting lessons and the
             // dependencies, and one outbound which is connected to the last lessons in the course
             // (by the order in which they must be traversed to master the entire course) and to the
             // dependents. This might be amended, either here in this function or in the
@@ -454,7 +467,6 @@ impl UnitGraph for InMemoryUnitGraph {
                     .iter(),
             );
             dependents.sort();
-
             for dependent in dependents {
                 let _ = writeln!(output, "    \"{}\" -> \"{}\"", course_id, dependent);
             }
