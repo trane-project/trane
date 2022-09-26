@@ -58,6 +58,7 @@ impl TestId {
         self.0 == course.0 && self.1.is_some() && self.2.is_some()
     }
 
+    /// Coverts the test ID to a `UStr` value.
     pub fn to_ustr(&self) -> Ustr {
         Ustr::from(&self.to_string())
     }
@@ -80,7 +81,7 @@ impl ToString for TestId {
 }
 
 impl From<&Ustr> for TestId {
-    /// Converts a string representation of a test ID to a `TestId`.
+    /// Converts a string representation of a test ID to a test ID
     fn from(s: &Ustr) -> Self {
         let mut parts = s.split("::");
         let course_id = parts.next().unwrap().parse::<u32>().unwrap();
@@ -108,6 +109,7 @@ pub struct TestLesson {
 impl TestLesson {
     /// Returns the lesson builder needed to generate the files for the lesson.
     fn lesson_builder(&self) -> Result<LessonBuilder> {
+        // Validate the lesson ID.
         if self.id.1.is_none() {
             return Err(anyhow!("Lesson ID is missing"));
         }
@@ -115,6 +117,7 @@ impl TestLesson {
             return Err(anyhow!("Exercise ID is present"));
         }
 
+        // Generate the correct number of exercise builders.
         let exercise_builders = (0..self.num_exercises)
             .map(|i| {
                 let id_clone = self.id.clone();
@@ -142,6 +145,7 @@ impl TestLesson {
             })
             .collect::<Vec<_>>();
 
+        // Generate the lesson builder.
         let metadata_clone = self.metadata.clone();
         let id_clone = self.id.clone();
         let dependencies_clone = self.dependencies.clone();
@@ -199,23 +203,29 @@ pub struct TestCourse {
 impl TestCourse {
     /// Returns the course builder needed to generate the files for the course.
     pub fn course_builder(&self) -> Result<CourseBuilder> {
+        // Validate the course ID.
         if self.id.1.is_some() {
             return Err(anyhow!("Lesson ID is present"));
         }
         if self.id.2.is_some() {
             return Err(anyhow!("Exercise ID is present"));
         }
+
+        // Validate the lesson IDs.
         for lesson in &self.lessons {
             if lesson.id.0 != self.id.0 {
                 return Err(anyhow!("Course ID in lesson does not match course ID"));
             }
         }
 
+        // Generate the lesson builders.
         let lesson_builders = self
             .lessons
             .iter()
             .map(|lesson| lesson.lesson_builder())
             .collect::<Result<Vec<_>>>()?;
+
+        // Generate the course builder.
         let course_id = self.id.to_ustr();
         Ok(CourseBuilder {
             directory_name: format!("course_{}", self.id.0),
@@ -258,6 +268,7 @@ impl TestCourse {
 
     /// Returns the IDs of all the exercises in the course.
     fn all_exercises(&self) -> Vec<TestId> {
+        // Construct a test ID for each exercise in each lesson.
         let mut exercises = vec![];
         for lesson in &self.lessons {
             for exercise in 0..lesson.num_exercises {
@@ -274,6 +285,7 @@ impl TestCourse {
 
 /// Returns the test IDs for all the exercises in the given courses.
 pub fn all_exercises(courses: &Vec<TestCourse>) -> Vec<TestId> {
+    // Collect the exercise test IDs from each course.
     let mut exercises = vec![];
     for course in courses {
         exercises.extend(course.all_exercises());
@@ -314,21 +326,30 @@ impl TraneSimulation {
         blacklist: &Vec<TestId>,
         filter: Option<&UnitFilter>,
     ) -> Result<()> {
+        // Update the blacklist.
         for unit_id in blacklist {
             trane.add_to_blacklist(&unit_id.to_ustr())?;
         }
 
+        // Initialize the counter and batch.
         let mut completed_exercises = 0;
         let mut batch: Vec<(Ustr, ExerciseManifest)> = vec![];
+
+        // Loop until the simulation has received the desired number of exercises.
         while completed_exercises < self.num_exercises {
+            // Update the count.
             completed_exercises += 1;
+
+            // If the batch is empty, try to get another batch. If this batch is also empty, break
+            // early to avoid falling into an infinite loop.
             if batch.is_empty() {
                 batch = trane.get_exercise_batch(filter)?;
-            }
-            if batch.is_empty() {
-                break;
+                if batch.is_empty() {
+                    break;
+                }
             }
 
+            // Retrieve an exercise, compute its score, add it to the history, and submit it.
             let (exercise_id, _) = batch.pop().unwrap();
             let score = (self.answer_closure)(&exercise_id);
             if score.is_some() {
@@ -351,10 +372,13 @@ impl TraneSimulation {
 /// Takes the given courses and builds them in the given directory. Returns a fully initialized
 /// instance of Trane with the courses loaded.
 pub fn init_trane(library_directory: &PathBuf, courses: &Vec<TestCourse>) -> Result<Trane> {
+    // Build the courses.
     courses
         .into_par_iter()
         .map(|course| course.course_builder()?.build(library_directory))
         .collect::<Result<()>>()?;
+
+    // Initialize the Trane library.
     let trane = Trane::new(library_directory.as_path())?;
     Ok(trane)
 }
@@ -369,7 +393,8 @@ pub fn assert_scores(
     // Get the last ten scores in the interest of saving time.
     let trane_scores = trane.get_scores(exercise_id, 10)?;
 
-    // Check that the last ten simulation scores equal `trane_scores`.
+    // Check that the last ten scores from the simulation history equal the scores retrieved
+    // directly from Trane.
     let simulation_scores = simulation_scores.get(exercise_id).ok_or(anyhow!(
         "No simulation scores for exercise with ID {:?}",
         exercise_id
@@ -387,6 +412,5 @@ pub fn assert_scores(
             );
             })
             .collect();
-
     Ok(())
 }
