@@ -58,7 +58,7 @@ impl TestId {
         self.0 == course.0 && self.1.is_some() && self.2.is_some()
     }
 
-    /// Coverts the test ID to a `UStr` value.
+    /// Coverts the test ID to a `Ustr` value.
     pub fn to_ustr(&self) -> Ustr {
         Ustr::from(&self.to_string())
     }
