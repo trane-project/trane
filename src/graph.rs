@@ -445,6 +445,9 @@ impl UnitGraph for InMemoryUnitGraph {
 
         // Add each course to the DOT graph.
         for course_id in courses {
+            // Add an entry for the course node and set the color to red.
+            let _ = writeln!(output, "    \"{}\" [color=red, style=filled]", course_id);
+
             // Write the entry in the graph for all the of the dependents of this course.
             let mut dependents = self
                 .get_dependents(&course_id)
@@ -479,13 +482,16 @@ impl UnitGraph for InMemoryUnitGraph {
                 .collect::<Vec<_>>();
             lessons.sort();
             for lesson_id in lessons {
+                // Add an entry for the lesson node and set the color to blue.
+                let _ = writeln!(output, "    \"{}\" [color=blue, style=filled]", lesson_id);
+
+                // Add an entry in the graph for all of this lesson's dependents.
                 let mut dependents = self
                     .get_dependents(&lesson_id)
                     .unwrap_or_default()
                     .into_iter()
                     .collect::<Vec<_>>();
                 dependents.sort();
-
                 for dependent in dependents {
                     let _ = writeln!(output, "    \"{}\" -> \"{}\"", lesson_id, dependent);
                 }
@@ -716,15 +722,23 @@ mod test {
 
         let dot = graph.generate_dot_graph();
         let expected = indoc! {r#"
-    digraph dependent_graph {
-        "1" -> "1::1"
-        "1" -> "2"
-        "1::1" -> "1::2"
-        "2" -> "2::1"
-        "2" -> "3"
-        "3" -> "3::1"
-        "3::1" -> "3::2"
-    }
+            digraph dependent_graph {
+                "1" [color=red, style=filled]
+                "1" -> "1::1"
+                "1" -> "2"
+                "1::1" [color=blue, style=filled]
+                "1::1" -> "1::2"
+                "1::2" [color=blue, style=filled]
+                "2" [color=red, style=filled]
+                "2" -> "2::1"
+                "2" -> "3"
+                "2::1" [color=blue, style=filled]
+                "3" [color=red, style=filled]
+                "3" -> "3::1"
+                "3::1" [color=blue, style=filled]
+                "3::1" -> "3::2"
+                "3::2" [color=blue, style=filled]
+            }
     "#};
         assert_eq!(dot, expected);
         Ok(())
