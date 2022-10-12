@@ -29,23 +29,27 @@ impl LocalFilterManager {
     /// Scans all `NamedFilters` in the given directory and returns a map of filters.
     fn scan_filters(filter_directory: &str) -> Result<HashMap<String, NamedFilter>> {
         let mut filters = HashMap::new();
-        for entry in std::fs::read_dir(filter_directory)
-            .with_context(|| format!("Failed to read filter directory {}", filter_directory))?
-        {
+        for entry in std::fs::read_dir(filter_directory).with_context(
+            || format!("Failed to read filter directory {}", filter_directory), // grcov-excl-line
+        )? {
             // Try to read the file as a [NamedFilter].
             let entry = entry.with_context(|| "Failed to read file entry for saved filter")?;
             let file = File::open(entry.path()).with_context(|| {
+                // grcov-excl-start
                 format!(
                     "Failed to open saved filter file {}",
                     entry.path().display()
                 )
+                // grcov-excl-stop
             })?;
             let reader = BufReader::new(file);
             let filter: NamedFilter = serde_json::from_reader(reader).with_context(|| {
+                // grcov-excl-start
                 format!(
                     "Failed to parse named filter from {}",
                     entry.path().display()
                 )
+                // grcov-excl-stop
             })?;
 
             // Check for duplicate IDs before inserting the filter.
@@ -194,6 +198,12 @@ mod test {
         let temp_dir = TempDir::new()?;
         write_filters(filters.clone(), temp_dir.path())?;
         assert!(LocalFilterManager::new(temp_dir.path().to_str().unwrap()).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn read_bad_directory() -> Result<()> {
+        assert!(LocalFilterManager::new("bad_directory").is_err());
         Ok(())
     }
 }
