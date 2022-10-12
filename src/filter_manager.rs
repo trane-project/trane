@@ -33,6 +33,12 @@ impl LocalFilterManager {
             let file = File::open(entry?.path())?;
             let reader = BufReader::new(file);
             let filter: NamedFilter = serde_json::from_reader(reader)?;
+            if filters.contains_key(&filter.id) {
+                return Err(anyhow::anyhow!(
+                    "Found multiple filters with the same ID: {}",
+                    filter.id
+                ));
+            }
             filters.insert(filter.id.clone(), filter);
         }
         Ok(filters)
@@ -115,7 +121,9 @@ mod test {
     /// Writes the filters to the given directory.
     fn write_filters(filters: Vec<NamedFilter>, dir: &Path) -> Result<()> {
         for filter in filters {
-            let filter_path = dir.join(format!("{}.json", filter.id));
+            // Give each file a unique name.
+            let timestamp_ns = chrono::Utc::now().timestamp_nanos();
+            let filter_path = dir.join(format!("{}_{}.json", filter.id, timestamp_ns));
             let filter_json = serde_json::to_string(&filter)?;
             std::fs::write(filter_path, filter_json)?;
         }
@@ -144,6 +152,31 @@ mod test {
             let filter = filter.unwrap();
             assert_eq!(filters[index], filter);
         }
+        Ok(())
+    }
+
+    #[test]
+    fn filters_repeated_ids() -> Result<()> {
+        let filters = vec![
+            NamedFilter {
+                id: "filter1".to_string(),
+                description: "Filter 1".to_string(),
+                filter: UnitFilter::CourseFilter {
+                    course_ids: vec![Ustr::from("course1")],
+                },
+            },
+            NamedFilter {
+                id: "filter1".to_string(),
+                description: "Filter 1".to_string(),
+                filter: UnitFilter::CourseFilter {
+                    course_ids: vec![Ustr::from("course1")],
+                },
+            },
+        ];
+
+        let temp_dir = TempDir::new()?;
+        write_filters(filters.clone(), temp_dir.path())?;
+        assert!(LocalFilterManager::new(temp_dir.path().to_str().unwrap()).is_err());
         Ok(())
     }
 }
