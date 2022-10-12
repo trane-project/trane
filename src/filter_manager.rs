@@ -33,8 +33,7 @@ impl LocalFilterManager {
             .with_context(|| format!("Failed to read filter directory {}", filter_directory))?
         {
             // Try to read the file as a [NamedFilter].
-            let entry =
-                entry.with_context(|| format!("Failed to read file entry for saved filter"))?;
+            let entry = entry.with_context(|| "Failed to read file entry for saved filter")?;
             let file = File::open(entry.path()).with_context(|| {
                 format!(
                     "Failed to open saved filter file {}",
