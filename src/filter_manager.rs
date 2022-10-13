@@ -41,7 +41,7 @@ impl LocalFilterManager {
                     entry.path().display()
                 )
                 // grcov-excl-stop
-            })?;
+            })?; // grcov-excl-line
             let reader = BufReader::new(file);
             let filter: NamedFilter = serde_json::from_reader(reader).with_context(|| {
                 // grcov-excl-start
@@ -50,7 +50,7 @@ impl LocalFilterManager {
                     entry.path().display()
                 )
                 // grcov-excl-stop
-            })?;
+            })?; // grcov-excl-line
 
             // Check for duplicate IDs before inserting the filter.
             if filters.contains_key(&filter.id) {
