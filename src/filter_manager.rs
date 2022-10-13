@@ -4,7 +4,7 @@
 //! students want to only schedule exercises from a subset of the graph. This module allows them to
 //! re-use filters they have previously saved.
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::{collections::HashMap, fs::File, io::BufReader};
 
 use crate::data::filter::NamedFilter;
@@ -29,13 +29,33 @@ impl LocalFilterManager {
     /// Scans all `NamedFilters` in the given directory and returns a map of filters.
     fn scan_filters(filter_directory: &str) -> Result<HashMap<String, NamedFilter>> {
         let mut filters = HashMap::new();
-        for entry in std::fs::read_dir(filter_directory)? {
-            let file = File::open(entry?.path())?;
+        for entry in std::fs::read_dir(filter_directory).with_context(
+            || format!("Failed to read filter directory {}", filter_directory), // grcov-excl-line
+        )? {
+            // Try to read the file as a [NamedFilter].
+            let entry = entry.with_context(|| "Failed to read file entry for saved filter")?;
+            let file = File::open(entry.path()).with_context(|| {
+                // grcov-excl-start
+                format!(
+                    "Failed to open saved filter file {}",
+                    entry.path().display()
+                )
+                // grcov-excl-stop
+            })?; // grcov-excl-line
             let reader = BufReader::new(file);
-            let filter: NamedFilter = serde_json::from_reader(reader)?;
+            let filter: NamedFilter = serde_json::from_reader(reader).with_context(|| {
+                // grcov-excl-start
+                format!(
+                    "Failed to parse named filter from {}",
+                    entry.path().display()
+                )
+                // grcov-excl-stop
+            })?; // grcov-excl-line
+
+            // Check for duplicate IDs before inserting the filter.
             if filters.contains_key(&filter.id) {
                 return Err(anyhow::anyhow!(
-                    "Found multiple filters with the same ID: {}",
+                    "Found multiple filters with ID {}",
                     filter.id
                 ));
             }
@@ -58,6 +78,7 @@ impl FilterManager for LocalFilterManager {
     }
 
     fn list_filters(&self) -> Vec<(String, String)> {
+        // Create a list of (ID, description) pairs.
         let mut filters: Vec<(String, String)> = self
             .filters
             .iter()
@@ -177,6 +198,12 @@ mod test {
         let temp_dir = TempDir::new()?;
         write_filters(filters.clone(), temp_dir.path())?;
         assert!(LocalFilterManager::new(temp_dir.path().to_str().unwrap()).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn read_bad_directory() -> Result<()> {
+        assert!(LocalFilterManager::new("bad_directory").is_err());
         Ok(())
     }
 }
