@@ -29,9 +29,9 @@ impl LocalFilterManager {
     /// Scans all `NamedFilters` in the given directory and returns a map of filters.
     fn scan_filters(filter_directory: &str) -> Result<HashMap<String, NamedFilter>> {
         let mut filters = HashMap::new();
-        for entry in std::fs::read_dir(filter_directory).with_context(
-            || format!("Failed to read filter directory {}", filter_directory), // grcov-excl-line
-        )? {
+        for entry in std::fs::read_dir(filter_directory)
+            .with_context(|| format!("Failed to read filter directory {}", filter_directory))?
+        {
             // Try to read the file as a [NamedFilter].
             let entry = entry.with_context(|| "Failed to read file entry for saved filter")?;
             let file = File::open(entry.path()).with_context(|| {
