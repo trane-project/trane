@@ -35,22 +35,18 @@ impl LocalFilterManager {
             // Try to read the file as a [NamedFilter].
             let entry = entry.with_context(|| "Failed to read file entry for saved filter")?;
             let file = File::open(entry.path()).with_context(|| {
-                // grcov-excl-start
                 format!(
                     "Failed to open saved filter file {}",
                     entry.path().display()
                 )
-                // grcov-excl-stop
-            })?; // grcov-excl-line
+            })?;
             let reader = BufReader::new(file);
             let filter: NamedFilter = serde_json::from_reader(reader).with_context(|| {
-                // grcov-excl-start
                 format!(
                     "Failed to parse named filter from {}",
                     entry.path().display()
                 )
-                // grcov-excl-stop
-            })?; // grcov-excl-line
+            })?;
 
             // Check for duplicate IDs before inserting the filter.
             if filters.contains_key(&filter.id) {
@@ -94,7 +90,7 @@ impl FilterManager for LocalFilterManager {
 #[cfg(test)]
 mod test {
     use anyhow::{Ok, Result};
-    use std::path::Path;
+    use std::{os::unix::prelude::PermissionsExt, path::Path};
     use tempfile::TempDir;
     use ustr::Ustr;
 
@@ -204,6 +200,25 @@ mod test {
     #[test]
     fn read_bad_directory() -> Result<()> {
         assert!(LocalFilterManager::new("bad_directory").is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn read_bad_file_format() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let bad_file = temp_dir.path().join("bad_file.json");
+        std::fs::write(bad_file, "bad json")?;
+        assert!(LocalFilterManager::new(temp_dir.path().to_str().unwrap()).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn read_bad_file_permissions() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let bad_file = temp_dir.path().join("bad_file.json");
+        std::fs::write(bad_file.clone(), "bad json")?;
+        std::fs::set_permissions(bad_file, std::fs::Permissions::from_mode(0o000))?;
+        assert!(LocalFilterManager::new(temp_dir.path().to_str().unwrap()).is_err());
         Ok(())
     }
 }
