@@ -22,7 +22,7 @@
 //! every bug, it has proved to offer sufficient coverage for the part of Trane's codebase that is
 //! difficult to verify using simple unit tests.
 
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{collections::BTreeMap, path::PathBuf, rc::Rc};
 
 use anyhow::{anyhow, Result};
 use chrono::Utc;
@@ -123,7 +123,7 @@ impl TestLesson {
                 let id_clone = self.id.clone();
                 ExerciseBuilder {
                     directory_name: format! {"exercise_{}", i.to_string()},
-                    manifest_closure: Box::new(move |m| {
+                    manifest_closure: Rc::new(move |m| {
                         let exercise_id = TestId(id_clone.0, id_clone.1, Some(i as u32)).to_ustr();
                         m.clone()
                             .id(exercise_id)
@@ -151,7 +151,7 @@ impl TestLesson {
         let dependencies_clone = self.dependencies.clone();
         Ok(LessonBuilder {
             directory_name: format!("lesson_{}", self.id.1.unwrap()),
-            manifest_closure: Box::new(move |m| {
+            manifest_closure: Rc::new(move |m| {
                 let lesson_id = id_clone.to_ustr();
                 m.clone()
                     .id(lesson_id)

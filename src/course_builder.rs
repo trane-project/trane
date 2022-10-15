@@ -14,6 +14,7 @@ use std::{
     fs::{create_dir_all, File},
     io::Write,
     path::{Path, PathBuf},
+    rc::Rc,
 };
 use strum::Display;
 
@@ -57,13 +58,14 @@ impl AssetBuilder {
 }
 
 /// A builder that generates all the files needed to add an exercise to a lesson.
+#[derive(Clone)]
 pub struct ExerciseBuilder {
     /// The base name of the directory on which to store this lesson.
     pub directory_name: String,
 
     /// A closure taking a builder common to all exercises which returns the builder for a specific
     /// exercise manifest.
-    pub manifest_closure: Box<dyn Fn(ExerciseManifestBuilder) -> ExerciseManifestBuilder>,
+    pub manifest_closure: Rc<dyn Fn(ExerciseManifestBuilder) -> ExerciseManifestBuilder>,
 
     /// A list of asset builders to create assets specific to this exercise.
     pub asset_builders: Vec<AssetBuilder>,
@@ -107,13 +109,14 @@ impl ExerciseBuilder {
 }
 
 /// A builder that generates the files needed to add a lesson to a course.
+#[derive(Clone)]
 pub struct LessonBuilder {
     /// Base name of the directory on which to store this lesson.
     pub directory_name: String,
 
     /// A closure taking a builder common to all lessons which returns the builder for a specific
     /// lesson manifest.
-    pub manifest_closure: Box<dyn Fn(LessonManifestBuilder) -> LessonManifestBuilder>,
+    pub manifest_closure: Rc<dyn Fn(LessonManifestBuilder) -> LessonManifestBuilder>,
 
     /// A template builder used to build the manifests for each exercise in the lesson. Common
     /// attributes to all exercises should be set here.
@@ -171,6 +174,7 @@ impl LessonBuilder {
 }
 
 /// A builder that generates the files needed to add a course.
+#[derive(Clone)]
 pub struct CourseBuilder {
     /// Base name of the directory on which to store this lesson.
     pub directory_name: String,
