@@ -741,11 +741,11 @@ mod test {
     }
 
     #[test]
-    fn bad_test_course() {
+    fn bad_test_course_id() {
         // ID is a lesson ID.
         let mut course = TestCourse {
             id: TestId(1, Some(1), None),
-            dependencies: vec![TestId(0, None, None)],
+            dependencies: vec![],
             metadata: BTreeMap::default(),
             lessons: vec![],
         };
@@ -754,14 +754,22 @@ mod test {
         // ID is an exercise ID.
         course.id = TestId(1, Some(1), Some(1));
         assert!(course.course_builder().is_err());
+    }
 
+    #[test]
+    fn bad_lesson_in_course() {
         // Lesson ID does not belong to the same course.
-        course.lessons = vec![TestLesson {
-            id: TestId(2, Some(0), None),
+        let mut course = TestCourse {
+            id: TestId(1, None, None),
             dependencies: vec![],
             metadata: BTreeMap::default(),
-            num_exercises: NUM_EXERCISES,
-        }];
+            lessons: vec![TestLesson {
+                id: TestId(2, Some(0), None),
+                dependencies: vec![],
+                metadata: BTreeMap::default(),
+                num_exercises: NUM_EXERCISES,
+            }],
+        };
         assert!(course.course_builder().is_err());
 
         // The ID of the lesson is not a lesson ID.
