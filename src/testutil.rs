@@ -484,13 +484,11 @@ pub fn assert_simulation_scores(
     let _: Vec<()> = most_recent_scores
         .zip(trane_scores.iter())
         .map(|(simulation_score, trial)| {
+            let float_score = simulation_score.float_score();
             assert_eq!(
-                trial.score,
-                simulation_score.float_score(),
+                trial.score, float_score,
                 "Score from Trane ({}) does not match score from simulation ({}) for exercise {}",
-                trial.score,
-                simulation_score.float_score(),
-                exercise_id,
+                trial.score, float_score, exercise_id,
             );
         })
         .collect();
