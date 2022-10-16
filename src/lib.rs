@@ -43,6 +43,7 @@ pub mod practice_stats;
 pub mod review_list;
 pub mod scheduler;
 pub mod scorer;
+pub mod testutil;
 
 use anyhow::{anyhow, Context, Result};
 use parking_lot::RwLock;
