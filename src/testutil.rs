@@ -659,7 +659,7 @@ mod test {
     // Verify that the given test library was built correctly.
     fn verify_test_library(test_library: &[TestCourse], library_path: &Path) {
         for course in test_library.iter() {
-            // Verify the course directory exists..
+            // Verify the course directory exists.
             let course_dir = library_path.join(format!("course_{}", course.id.0));
             assert!(course_dir.is_dir());
 
