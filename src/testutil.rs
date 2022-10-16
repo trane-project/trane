@@ -7,7 +7,7 @@
 
 use std::{collections::BTreeMap, path::Path};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, ensure, Result};
 use chrono::Utc;
 use rand::Rng;
 use rayon::prelude::*;
@@ -47,6 +47,21 @@ impl TestId {
     /// Coverts the test ID to a `Ustr` value.
     pub fn to_ustr(&self) -> Ustr {
         Ustr::from(&self.to_string())
+    }
+
+    /// Returns whether the test ID belongs to a course.
+    pub fn is_course(&self) -> bool {
+        self.1.is_none() && self.2.is_none()
+    }
+
+    /// Returns whether the test ID belongs to a lesson.
+    pub fn is_lesson(&self) -> bool {
+        self.1.is_some() && self.2.is_none()
+    }
+
+    /// Returns whether the test ID belongs to an exercise.
+    pub fn is_exercise(&self) -> bool {
+        self.1.is_some() && self.2.is_some()
     }
 }
 
@@ -96,12 +111,7 @@ impl TestLesson {
     /// Returns the lesson builder needed to generate the files for the lesson.
     fn lesson_builder(&self) -> Result<LessonBuilder> {
         // Validate the lesson ID.
-        if self.id.1.is_none() {
-            return Err(anyhow!("Lesson ID is missing"));
-        }
-        if self.id.2.is_some() {
-            return Err(anyhow!("Exercise ID is present"));
-        }
+        ensure!(self.id.is_lesson(), "Invalid lesson ID");
 
         // Generate the correct number of exercise builders.
         let exercise_builders = (0..self.num_exercises)
@@ -192,12 +202,7 @@ impl TestCourse {
     /// Returns the course builder needed to generate the files for the course.
     pub fn course_builder(&self) -> Result<CourseBuilder> {
         // Validate the course ID.
-        if self.id.1.is_some() {
-            return Err(anyhow!("Lesson ID is present"));
-        }
-        if self.id.2.is_some() {
-            return Err(anyhow!("Exercise ID is present"));
-        }
+        ensure!(self.id.is_course(), "Invalid course ID");
 
         // Validate the lesson IDs.
         for lesson in &self.lessons {
@@ -293,7 +298,7 @@ pub struct RandomCourseLibrary {
     /// Each course will have a random number of lessons in this range.
     pub lessons_per_course_range: (u32, u32),
 
-    // Each lesson will have a random number of dependencies in this range.
+    /// Each lesson will have a random number of dependencies in this range.
     pub lesson_dependencies_range: (u32, u32),
 
     /// Each lesson will have a random number of exercises in this range.
@@ -473,12 +478,8 @@ pub fn assert_simulation_scores(
 
     // Check that the last ten scores from the simulation history equal the scores retrieved
     // directly from Trane.
-    let simulation_scores = simulation_scores.get(exercise_id).ok_or_else(|| {
-        anyhow!(
-            "No simulation scores for exercise with ID {:?}",
-            exercise_id
-        )
-    })?;
+    let empty_scores = vec![];
+    let simulation_scores = simulation_scores.get(exercise_id).unwrap_or(&empty_scores);
     let most_recent_scores = simulation_scores.iter().rev().take(trane_scores.len());
     let _: Vec<()> = most_recent_scores
         .zip(trane_scores.iter())
@@ -625,6 +626,13 @@ mod test {
     }
 
     #[test]
+    fn id_type() {
+        assert!(TestId(0, None, None).is_course());
+        assert!(TestId(0, Some(0), None).is_lesson());
+        assert!(TestId(0, Some(0), Some(0)).is_exercise());
+    }
+
+    #[test]
     fn conversion_to_string() {
         let exercise_id = TestId(0, Some(0), Some(0));
         let lesson_id = TestId(0, Some(0), None);
@@ -717,6 +725,51 @@ mod test {
     }
 
     #[test]
+    fn bad_test_lesson() {
+        // ID is a course ID.
+        let mut lesson = TestLesson {
+            id: TestId(1, None, None),
+            dependencies: vec![],
+            metadata: BTreeMap::default(),
+            num_exercises: NUM_EXERCISES,
+        };
+        assert!(lesson.lesson_builder().is_err());
+
+        // ID is an exercise ID.
+        lesson.id = TestId(1, Some(1), Some(1));
+        assert!(lesson.lesson_builder().is_err());
+    }
+
+    #[test]
+    fn bad_test_course() {
+        // ID is a lesson ID.
+        let mut course = TestCourse {
+            id: TestId(1, Some(1), None),
+            dependencies: vec![TestId(0, None, None)],
+            metadata: BTreeMap::default(),
+            lessons: vec![],
+        };
+        assert!(course.course_builder().is_err());
+
+        // ID is an exercise ID.
+        course.id = TestId(1, Some(1), Some(1));
+        assert!(course.course_builder().is_err());
+
+        // Lesson ID does not belong to the same course.
+        course.lessons = vec![TestLesson {
+            id: TestId(2, Some(0), None),
+            dependencies: vec![],
+            metadata: BTreeMap::default(),
+            num_exercises: NUM_EXERCISES,
+        }];
+        assert!(course.course_builder().is_err());
+
+        // The ID of the lesson is not a lesson ID.
+        course.lessons[0].id = TestId(1, None, None);
+        assert!(course.course_builder().is_err());
+    }
+
+    #[test]
     fn run_exercise_simulation() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
         let mut trane = init_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
@@ -736,6 +789,19 @@ mod test {
             );
             assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         }
+        Ok(())
+    }
+
+    #[test]
+    fn bad_exercise_simulation() -> Result<()> {
+        let bad_courses = vec![TestCourse {
+            id: TestId(1, Some(1), None),
+            dependencies: vec![TestId(0, None, None)],
+            metadata: BTreeMap::default(),
+            lessons: vec![],
+        }];
+        let temp_dir = tempfile::tempdir()?;
+        assert!(init_simulation(&temp_dir.path(), &bad_courses).is_err());
         Ok(())
     }
 }
