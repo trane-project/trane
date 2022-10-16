@@ -1,12 +1,31 @@
 //! End-to-end tests to test basic scenarios.
 //!
-//! These end-to-end tests all use the same hand-coded course library and perform basic checks,
-//! ensuring among others that Trane makes progress when good scores are entered by the student,
-//! that bad scores cause progress to stall, that the blacklist and unit filters are respected.
-//! See more information on the testing strategy followed by these tests in the comments for
-//! `common.rs` in this directory.
-
-mod common;
+//! The `scheduler` module in Trane is difficult to test with unit tests that check the expected
+//! return value of `get_exercise_batch` against the actual output for a couple of reasons:
+//! - When the dependents of a unit are added to the stack during the depth-first search phase, they
+//!   are shuffled beforehand to avoid traversing the graph in the same order every time.
+//! - In the second phase, candidate exercises are grouped in buckets based on their score. From
+//!   each of these buckets, a subset is selected randomly based on weights assigned to each
+//!   candidate.
+//!
+//! Instead of testing the output of a single call to `get_exercise_batch`, Trane's end-to-end tests
+//! verify less strict assertions about the results of a simulated study session in which a
+//! simulated student scores simulated exercises. For example, given a course library, an empty
+//! blacklist, and a student that always scores the highest score in all exercises, all the
+//! exercises in the course should be scheduled after going through a sufficiently large number of
+//! exercise batches. If this assertion fails, it points to a bug in the scheduler that is not
+//! letting the student make progress past some points in the graph.
+//!
+//! In practice, this testing strategy has been used to catch many bugs in Trane. Most of these bugs
+//! were in the scheduler, but some were in other parts of the codebase as this simulation opens a
+//! real course library that is written to disk beforehand. While this testing strategy cannot catch
+//! every bug, it has proved to offer sufficient coverage for the part of Trane's codebase that is
+//! difficult to verify using simple unit tests.
+//!
+//! The end-to-end tests in this file all use the same hand-coded course library and perform basic
+//! checks, ensuring among others that Trane makes progress when good scores are entered by the
+//! student, that bad scores cause progress to stall, that the blacklist and unit filters are
+//! respected.
 
 use std::collections::BTreeMap;
 
@@ -21,10 +40,9 @@ use trane::{
         MasteryScore,
     },
     review_list::ReviewList,
+    testutil::*,
 };
 use ustr::Ustr;
-
-use crate::common::*;
 
 lazy_static! {
     /// A simple set of courses to test the basic functionality of Trane.
@@ -448,7 +466,7 @@ lazy_static! {
 fn get_unit_ids() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+    let trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Verify the course IDs.
     let course_ids = trane.get_course_ids();
@@ -491,14 +509,14 @@ fn get_unit_ids() -> Result<()> {
 fn all_exercises_scheduled() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
     simulation.run_simulation(&mut trane, &vec![], None)?;
 
     // Every exercise ID should be in `simulation.answer_history`.
-    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
         assert!(
@@ -506,7 +524,7 @@ fn all_exercises_scheduled() -> Result<()> {
             "exercise {:?} should have been scheduled",
             exercise_id
         );
-        assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+        assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
     }
     Ok(())
 }
@@ -516,7 +534,7 @@ fn all_exercises_scheduled() -> Result<()> {
 #[test]
 fn bad_score_prevents_advancing() -> Result<()> {
     let temp_dir = TempDir::new()?;
-    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(100, Box::new(|_| Some(MasteryScore::One)));
@@ -528,7 +546,7 @@ fn bad_score_prevents_advancing() -> Result<()> {
         TestId(4, Some(0), None),
         TestId(6, Some(0), None),
     ];
-    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
         if first_lessons
@@ -540,7 +558,7 @@ fn bad_score_prevents_advancing() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -558,7 +576,7 @@ fn bad_score_prevents_advancing() -> Result<()> {
 fn avoid_scheduling_courses_in_blacklist() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -567,7 +585,7 @@ fn avoid_scheduling_courses_in_blacklist() -> Result<()> {
 
     // Every exercise ID should be in `simulation.answer_history` except for those which belong to
     // courses in the blacklist.
-    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
         if !course_blacklist
@@ -579,7 +597,7 @@ fn avoid_scheduling_courses_in_blacklist() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -597,7 +615,7 @@ fn avoid_scheduling_courses_in_blacklist() -> Result<()> {
 fn avoid_scheduling_lessons_in_blacklist() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -606,7 +624,7 @@ fn avoid_scheduling_lessons_in_blacklist() -> Result<()> {
 
     // Every exercise ID should be in `simulation.answer_history` except for those which belong to
     // lessons in the blacklist.
-    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
         if !lesson_blacklist
@@ -618,7 +636,7 @@ fn avoid_scheduling_lessons_in_blacklist() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -635,7 +653,7 @@ fn avoid_scheduling_lessons_in_blacklist() -> Result<()> {
 fn avoid_scheduling_exercises_in_blacklist() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -654,7 +672,7 @@ fn avoid_scheduling_exercises_in_blacklist() -> Result<()> {
     simulation.run_simulation(&mut trane, &exercise_blacklist, None)?;
 
     // Every exercise ID should be in `simulation.answer_history` except for those in the blacklist.
-    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
         if !exercise_blacklist
@@ -666,7 +684,7 @@ fn avoid_scheduling_exercises_in_blacklist() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -683,7 +701,7 @@ fn avoid_scheduling_exercises_in_blacklist() -> Result<()> {
 fn invalidate_cache_on_blacklist_update() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation with a valid blacklist and give each exercise a score of 5.
     // All exercises except for those in the blacklist should be scheduled.
@@ -713,7 +731,7 @@ fn invalidate_cache_on_blacklist_update() -> Result<()> {
     simulation.run_simulation(&mut trane, &exercise_blacklist, None)?;
 
     // Every blacklisted exercise should not have been scheduled.
-    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
     for exercise_id in &exercise_ids {
         if exercise_blacklist
             .iter()
@@ -802,7 +820,7 @@ fn invalidate_cache_on_blacklist_update() -> Result<()> {
 fn scheduler_respects_course_filter() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -818,7 +836,7 @@ fn scheduler_respects_course_filter() -> Result<()> {
     simulation.run_simulation(&mut trane, &vec![], Some(&course_filter))?;
 
     // Every exercise ID should be in `simulation.answer_history`.
-    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
         if selected_courses
@@ -830,7 +848,7 @@ fn scheduler_respects_course_filter() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -848,7 +866,7 @@ fn scheduler_respects_course_filter() -> Result<()> {
 fn scheduler_respects_lesson_filter() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -864,7 +882,7 @@ fn scheduler_respects_lesson_filter() -> Result<()> {
     simulation.run_simulation(&mut trane, &vec![], Some(&lesson_filter))?;
 
     // Every exercise ID should be in `simulation.answer_history`.
-    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
         if selected_lessons
@@ -876,7 +894,7 @@ fn scheduler_respects_lesson_filter() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -894,7 +912,7 @@ fn scheduler_respects_lesson_filter() -> Result<()> {
 fn scheduler_respects_metadata_filter_op_all() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -921,7 +939,7 @@ fn scheduler_respects_metadata_filter_op_all() -> Result<()> {
         TestId(2, Some(2), None),
         TestId(5, Some(0), None),
     ];
-    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
         if matching_lessons
@@ -933,7 +951,7 @@ fn scheduler_respects_metadata_filter_op_all() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -951,7 +969,7 @@ fn scheduler_respects_metadata_filter_op_all() -> Result<()> {
 fn scheduler_respects_metadata_filter_op_any() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -980,7 +998,7 @@ fn scheduler_respects_metadata_filter_op_any() -> Result<()> {
         TestId(5, Some(0), None),
         TestId(5, Some(1), None),
     ];
-    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
         if matching_lessons
@@ -992,7 +1010,7 @@ fn scheduler_respects_metadata_filter_op_any() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -1010,7 +1028,7 @@ fn scheduler_respects_metadata_filter_op_any() -> Result<()> {
 fn scheduler_respects_lesson_metadata_filter() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -1033,7 +1051,7 @@ fn scheduler_respects_lesson_metadata_filter() -> Result<()> {
         TestId(2, Some(2), None),
         TestId(5, Some(0), None),
     ];
-    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
         if matching_lessons
@@ -1045,7 +1063,7 @@ fn scheduler_respects_lesson_metadata_filter() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -1063,7 +1081,7 @@ fn scheduler_respects_lesson_metadata_filter() -> Result<()> {
 fn scheduler_respects_course_metadata_filter() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -1082,7 +1100,7 @@ fn scheduler_respects_course_metadata_filter() -> Result<()> {
 
     // Only exercises in the lessons that match the metadata filters should be scheduled.
     let matching_courses = vec![TestId(2, None, None), TestId(5, None, None)];
-    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
         if matching_courses
@@ -1094,7 +1112,7 @@ fn scheduler_respects_course_metadata_filter() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -1112,7 +1130,7 @@ fn scheduler_respects_course_metadata_filter() -> Result<()> {
 fn scheduler_respects_metadata_filter_and_blacklist() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -1136,7 +1154,7 @@ fn scheduler_respects_metadata_filter_and_blacklist() -> Result<()> {
 
     // Only exercises in the lessons that match the metadata filters should be scheduled.
     let matching_lessons = vec![TestId(5, Some(0), None)];
-    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
         if matching_lessons
@@ -1148,7 +1166,7 @@ fn scheduler_respects_metadata_filter_and_blacklist() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -1166,7 +1184,7 @@ fn scheduler_respects_metadata_filter_and_blacklist() -> Result<()> {
 fn schedule_exercises_in_review_list() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Add some exercises to the review list.
     let review_exercises = vec![TestId(1, Some(0), Some(0)), TestId(2, Some(1), Some(7))];
@@ -1180,7 +1198,7 @@ fn schedule_exercises_in_review_list() -> Result<()> {
     simulation.run_simulation(&mut trane, &vec![], Some(&UnitFilter::ReviewListFilter))?;
 
     // Only the exercises in the review list should have been scheduled.
-    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
         if review_exercises
@@ -1192,7 +1210,7 @@ fn schedule_exercises_in_review_list() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -1210,7 +1228,7 @@ fn schedule_exercises_in_review_list() -> Result<()> {
 fn schedule_lessons_in_review_list() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Add some lessons to the review list.
     let review_lessons = vec![TestId(1, Some(0), None), TestId(2, Some(1), None)];
@@ -1224,7 +1242,7 @@ fn schedule_lessons_in_review_list() -> Result<()> {
     simulation.run_simulation(&mut trane, &vec![], Some(&UnitFilter::ReviewListFilter))?;
 
     // Only the exercises from the lessons in the review list should have been scheduled.
-    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
         if review_lessons
@@ -1236,7 +1254,7 @@ fn schedule_lessons_in_review_list() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -1254,7 +1272,7 @@ fn schedule_lessons_in_review_list() -> Result<()> {
 fn schedule_courses_in_review_list() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Add some courses to the review list.
     let review_courses = vec![TestId(1, None, None), TestId(2, None, None)];
@@ -1268,7 +1286,7 @@ fn schedule_courses_in_review_list() -> Result<()> {
     simulation.run_simulation(&mut trane, &vec![], Some(&UnitFilter::ReviewListFilter))?;
 
     // Only the exercises from the courses in the review list should have been scheduled.
-    let exercise_ids = all_exercises(&BASIC_LIBRARY);
+    let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
         if review_courses
@@ -1280,7 +1298,7 @@ fn schedule_courses_in_review_list() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -1297,7 +1315,7 @@ fn schedule_courses_in_review_list() -> Result<()> {
 fn course_library_search_courses() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+    let trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Search for a course's ID.
     let search_results = trane.search("\"2\"")?;
@@ -1327,7 +1345,7 @@ fn course_library_search_courses() -> Result<()> {
 fn course_library_search_lessons() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+    let trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Search for a lesson's ID.
     let search_results = trane.search("\"2::1\"")?;
@@ -1357,7 +1375,7 @@ fn course_library_search_lessons() -> Result<()> {
 fn course_library_search_exercises() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let trane = init_trane(&temp_dir.path().to_path_buf(), &BASIC_LIBRARY)?;
+    let trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Search for an exercise ID.
     let search_results = trane.search("\"2::1::7\"")?;
