@@ -656,7 +656,7 @@ mod test {
         assert_eq!(TestId::from(&Ustr::from("0")), course_id);
     }
 
-    // Verify that the given test library was built correctly.
+    /// Verify that the given test library was built correctly.
     fn verify_test_library(test_library: &[TestCourse], library_path: &Path) {
         for course in test_library.iter() {
             // Verify the course directory exists.
