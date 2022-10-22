@@ -455,7 +455,7 @@ mod test {
     }
 
     #[test]
-    fn bad_config_dir_premissions() -> Result<()> {
+    fn bad_config_dir_permissions() -> Result<()> {
         let dir = tempfile::tempdir()?;
         let config_dir_path = dir.path().join(".trane");
         create_dir(&config_dir_path)?;
