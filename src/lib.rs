@@ -476,4 +476,12 @@ mod test {
         assert!(Trane::new(dir.path()).is_err());
         Ok(())
     }
+
+    #[test]
+    fn scheduler_data() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let trane = Trane::new(dir.path())?;
+        trane.scheduler_data();
+        Ok(())
+    }
 }
