@@ -199,6 +199,11 @@ mod test {
                     lesson_ids: vec![Ustr::from("lesson1")],
                 },
             },
+            NamedFilter {
+                id: "filter1".to_string(),
+                description: "Filter 1".to_string(),
+                filter: UnitFilter::ReviewListFilter,
+            },
         ];
 
         let temp_dir = TempDir::new()?;
