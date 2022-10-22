@@ -447,7 +447,7 @@ mod test {
     }
 
     #[test]
-    fn bad_dir_premissions() -> Result<()> {
+    fn bad_dir_permissions() -> Result<()> {
         let dir = tempfile::tempdir()?;
         set_permissions(&dir, Permissions::from_mode(0o000))?;
         assert!(Trane::new(dir.path()).is_err());
