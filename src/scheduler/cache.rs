@@ -206,3 +206,80 @@ impl ScoreCache {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use anyhow::Result;
+    use lazy_static::lazy_static;
+    use std::collections::BTreeMap;
+    use ustr::Ustr;
+
+    use crate::{blacklist::Blacklist, data::SchedulerOptions, scheduler::ScoreCache, testutil::*};
+
+    static NUM_EXERCISES: usize = 2;
+
+    lazy_static! {
+        /// A simple set of courses to test the basic functionality of Trane.
+        static ref TEST_LIBRARY: Vec<TestCourse> = vec![
+            TestCourse {
+                id: TestId(0, None, None),
+                dependencies: vec![],
+                metadata: BTreeMap::from([
+                    (
+                        "course_key_1".to_string(),
+                        vec!["course_key_1:value_1".to_string()]
+                    ),
+                    (
+                        "course_key_2".to_string(),
+                        vec!["course_key_2:value_1".to_string()]
+                    ),
+                ]),
+                lessons: vec![
+                    TestLesson {
+                        id: TestId(0, Some(0), None),
+                        dependencies: vec![],
+                        metadata: BTreeMap::from([
+                            (
+                                "lesson_key_1".to_string(),
+                                vec!["lesson_key_1:value_1".to_string()]
+                            ),
+                            (
+                                "lesson_key_2".to_string(),
+                                vec!["lesson_key_2:value_1".to_string()]
+                            ),
+                        ]),
+                        num_exercises: NUM_EXERCISES,
+                    },
+                    TestLesson {
+                        id: TestId(0, Some(1), None),
+                        dependencies: vec![TestId(0, Some(0), None)],
+                        metadata: BTreeMap::from([
+                            (
+                                "lesson_key_1".to_string(),
+                                vec!["lesson_key_1:value_2".to_string()]
+                            ),
+                            (
+                                "lesson_key_2".to_string(),
+                                vec!["lesson_key_2:value_2".to_string()]
+                            ),
+                        ]),
+                        num_exercises: NUM_EXERCISES,
+                    },
+                ],
+            },
+        ];
+    }
+
+    #[test]
+    fn blacklisted_course_score() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let mut library = init_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let scheduler_data = library.get_scheduler_data();
+        let cache = ScoreCache::new(scheduler_data, SchedulerOptions::default());
+
+        let course_id = Ustr::from("0");
+        library.add_to_blacklist(&course_id)?;
+        assert_eq!(cache.get_course_score(&course_id)?, None);
+        Ok(())
+    }
+}
