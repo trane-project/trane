@@ -78,7 +78,6 @@ pub trait ExerciseScheduler {
 
 /// An item in the stack of units that are scheduled for traversal during the process of scheduling
 /// the next batch of exercises.
-#[derive(Clone, Debug)]
 struct StackItem {
     /// The ID of the unit contained in the item.
     unit_id: Ustr,

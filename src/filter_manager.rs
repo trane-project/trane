@@ -124,10 +124,20 @@ mod test {
                             value: "value1".to_string(),
                             filter_type: FilterType::Include,
                         }),
-                        course_filter: Some(KeyValueFilter::BasicFilter {
-                            key: "key2".to_string(),
-                            value: "value2".to_string(),
-                            filter_type: FilterType::Include,
+                        course_filter: Some(KeyValueFilter::CombinedFilter {
+                            op: FilterOp::Any,
+                            filters: vec![
+                                KeyValueFilter::BasicFilter {
+                                    key: "key2".to_string(),
+                                    value: "value2".to_string(),
+                                    filter_type: FilterType::Include,
+                                },
+                                KeyValueFilter::BasicFilter {
+                                    key: "key3".to_string(),
+                                    value: "value3".to_string(),
+                                    filter_type: FilterType::Include,
+                                },
+                            ],
                         }),
                     },
                 },
@@ -185,8 +195,8 @@ mod test {
             NamedFilter {
                 id: "filter1".to_string(),
                 description: "Filter 1".to_string(),
-                filter: UnitFilter::CourseFilter {
-                    course_ids: vec![Ustr::from("course1")],
+                filter: UnitFilter::LessonFilter {
+                    lesson_ids: vec![Ustr::from("lesson1")],
                 },
             },
         ];

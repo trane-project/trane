@@ -61,7 +61,6 @@ impl MasteryScore {
 }
 
 /// The result of a single trial.
-#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ExerciseTrial {
     /// The score assigned to the exercise after the trial.
     pub score: f32,

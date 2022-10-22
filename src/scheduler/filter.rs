@@ -128,7 +128,7 @@ impl CandidateFilter {
                 let manifest = self.data.get_exercise_manifest(&c.exercise_id)?;
                 Ok((c.exercise_id, manifest))
             })
-            .collect::<Result<Vec<(Ustr, ExerciseManifest)>>>()?;
+            .collect::<Result<Vec<(Ustr, ExerciseManifest)>>>()?; // grcov-excl-line
 
         // Shuffle the list one more time to add more randomness to the final batch.
         exercises.shuffle(&mut thread_rng());
