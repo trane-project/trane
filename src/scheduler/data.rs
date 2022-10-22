@@ -108,30 +108,19 @@ impl SchedulerData {
 
     /// Returns whether the unit exists in the library. Some units will exist in the unit graph
     /// because they are a dependency of another, but their data might not exist in the library.
-    pub fn unit_exists(&self, unit_id: &Ustr) -> Result<bool, String> {
-        // Retrieve the unit type.
+    pub fn unit_exists(&self, unit_id: &Ustr) -> Result<bool> {
+        // Retrieve the unit type. A missing unit type indicates the unit does not exist.
         let unit_type = self.unit_graph.read().get_unit_type(unit_id);
         if unit_type.is_none() {
             return Ok(false);
         }
 
-        // Decide whether the unit exists by looking for its manifest. A missing unit might exist in
-        // the graph and not have a manifest if an existing unit listed it as a dependency, but the
-        // missing unit was never added to the library.
+        // Decide whether the unit exists by looking for its manifest.
         let library = self.course_library.read();
         match unit_type.unwrap() {
-            UnitType::Course => match library.get_course_manifest(unit_id) {
-                None => Ok(false),
-                Some(_) => Ok(true),
-            },
-            UnitType::Lesson => match library.get_lesson_manifest(unit_id) {
-                None => Ok(false),
-                Some(_) => Ok(true),
-            },
-            UnitType::Exercise => match library.get_exercise_manifest(unit_id) {
-                None => Ok(false),
-                Some(_) => Ok(true),
-            },
+            UnitType::Course => Ok(library.get_course_manifest(unit_id).is_some()),
+            UnitType::Lesson => Ok(library.get_lesson_manifest(unit_id).is_some()),
+            UnitType::Exercise => Ok(library.get_exercise_manifest(unit_id).is_some()),
         }
     }
 
@@ -212,5 +201,133 @@ impl SchedulerData {
             .get(exercise_id)
             .copied()
             .unwrap_or(0.0)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use anyhow::Result;
+    use lazy_static::lazy_static;
+    use std::collections::BTreeMap;
+    use ustr::Ustr;
+
+    use crate::{
+        data::{
+            filter::{FilterOp, MetadataFilter},
+            UnitType,
+        },
+        testutil::*,
+    };
+
+    static NUM_EXERCISES: usize = 2;
+
+    lazy_static! {
+        /// A simple set of courses to test the basic functionality of Trane.
+        static ref TEST_LIBRARY: Vec<TestCourse> = vec![
+            TestCourse {
+                id: TestId(0, None, None),
+                dependencies: vec![],
+                metadata: BTreeMap::from([
+                    (
+                        "course_key_1".to_string(),
+                        vec!["course_key_1:value_1".to_string()]
+                    ),
+                    (
+                        "course_key_2".to_string(),
+                        vec!["course_key_2:value_1".to_string()]
+                    ),
+                ]),
+                lessons: vec![
+                    TestLesson {
+                        id: TestId(0, Some(0), None),
+                        dependencies: vec![],
+                        metadata: BTreeMap::from([
+                            (
+                                "lesson_key_1".to_string(),
+                                vec!["lesson_key_1:value_1".to_string()]
+                            ),
+                            (
+                                "lesson_key_2".to_string(),
+                                vec!["lesson_key_2:value_1".to_string()]
+                            ),
+                        ]),
+                        num_exercises: NUM_EXERCISES,
+                    },
+                    TestLesson {
+                        id: TestId(0, Some(1), None),
+                        dependencies: vec![TestId(0, Some(0), None)],
+                        metadata: BTreeMap::from([
+                            (
+                                "lesson_key_1".to_string(),
+                                vec!["lesson_key_1:value_2".to_string()]
+                            ),
+                            (
+                                "lesson_key_2".to_string(),
+                                vec!["lesson_key_2:value_2".to_string()]
+                            ),
+                        ]),
+                        num_exercises: NUM_EXERCISES,
+                    },
+                ],
+            },
+        ];
+    }
+
+    #[test]
+    fn unit_exists() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let library = init_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let scheduler_data = library.scheduler_data;
+
+        assert_eq!(
+            scheduler_data.get_unit_type(&Ustr::from("0"))?,
+            UnitType::Course
+        );
+        assert!(scheduler_data.unit_exists(&Ustr::from("0"))?);
+        assert_eq!(
+            scheduler_data.get_unit_type(&Ustr::from("0::0"))?,
+            UnitType::Lesson
+        );
+        assert!(scheduler_data.unit_exists(&Ustr::from("0::0"))?);
+        assert_eq!(
+            scheduler_data.get_unit_type(&Ustr::from("0::0::0"))?,
+            UnitType::Exercise
+        );
+        assert!(scheduler_data.unit_exists(&Ustr::from("0::0::0"))?);
+        Ok(())
+    }
+
+    #[test]
+    fn exercise_metadata_filter() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let library = init_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let scheduler_data = library.scheduler_data;
+        let metadata_filter = MetadataFilter {
+            course_filter: None,
+            lesson_filter: None,
+            op: FilterOp::Any,
+        };
+        assert!(scheduler_data
+            .unit_passes_filter(&Ustr::from("0::0::0"), Some(&metadata_filter))
+            .is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn exercise_frequency() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let library = init_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let scheduler_data = library.scheduler_data;
+
+        assert_eq!(
+            scheduler_data.get_exercise_frequency(&Ustr::from("0::0::0")),
+            0.0
+        );
+        scheduler_data.increment_exercise_frequency(&Ustr::from("0::0::0"));
+        assert_eq!(
+            scheduler_data.get_exercise_frequency(&Ustr::from("0::0::0")),
+            1.0
+        );
+        Ok(())
     }
 }

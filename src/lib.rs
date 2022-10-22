@@ -103,6 +103,11 @@ pub struct Trane {
     /// The object containing the list of units to review.
     review_list: Arc<RwLock<dyn ReviewList + Send + Sync>>,
 
+    /// The object containing access to all the data needed by the scheduler. It's saved separately
+    /// from the scheduler so that tests can have access to it.
+    #[allow(dead_code)]
+    scheduler_data: SchedulerData,
+
     /// The object containing the scheduling algorithm.
     scheduler: DepthFirstScheduler,
 
@@ -189,6 +194,7 @@ impl Trane {
             library_root: library_root.to_str().unwrap().to_string(),
             practice_stats,
             review_list,
+            scheduler_data: scheduler_data.clone(),
             scheduler: DepthFirstScheduler::new(scheduler_data, SchedulerOptions::default()),
             unit_graph,
             mantra_miner,
@@ -203,6 +209,13 @@ impl Trane {
     /// Returns the number of mantras that have been recited by the mantra miner.
     pub fn mantra_count(&self) -> usize {
         self.mantra_miner.mantra_miner.count()
+    }
+
+    /// Returns a clone of the data used by the scheduler. This function is needed by tests that
+    /// need to verify internal methods.
+    #[allow(dead_code)]
+    fn scheduler_data(&self) -> SchedulerData {
+        self.scheduler_data.clone()
     }
 }
 

@@ -497,9 +497,8 @@ pub fn assert_simulation_scores(
 
 #[cfg(test)]
 mod test {
-    use std::path::Path;
-
     use lazy_static::lazy_static;
+    use std::path::Path;
 
     use crate::testutil::*;
 
