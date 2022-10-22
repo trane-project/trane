@@ -140,6 +140,16 @@ where
     fn normalize_paths(&self, dir: &Path) -> Result<Self>;
 }
 
+/// Convers from a relative to an absolute path given a path and a directory.
+fn normalize_path(dir: &Path, path: &str) -> Result<String> {
+    Ok(dir
+        .join(path)
+        .canonicalize()?
+        .to_str()
+        .unwrap_or(path)
+        .to_string())
+}
+
 /// Trait to verify that the paths in the object are valid.
 pub trait VerifyPaths
 where
@@ -176,12 +186,7 @@ impl NormalizePaths for BasicAsset {
     fn normalize_paths(&self, dir: &Path) -> Result<Self> {
         match &self {
             BasicAsset::MarkdownAsset { path } => {
-                let abs_path = dir
-                    .join(Path::new(path))
-                    .canonicalize()? // grcov-excl-line
-                    .to_str()
-                    .unwrap_or(path)
-                    .to_string();
+                let abs_path = normalize_path(dir, path)?;
                 Ok(BasicAsset::MarkdownAsset { path: abs_path })
             }
         }
@@ -410,20 +415,11 @@ impl NormalizePaths for ExerciseAsset {
                 front_path,
                 back_path,
             } => {
-                let abs_front_path = dir.join(Path::new(front_path));
-                let abs_back_path = dir.join(Path::new(back_path));
-
+                let abs_front_path = normalize_path(dir, front_path)?;
+                let abs_back_path = normalize_path(dir, back_path)?;
                 Ok(ExerciseAsset::FlashcardAsset {
-                    front_path: abs_front_path
-                        .canonicalize()? // grcov-excl-line
-                        .to_str()
-                        .unwrap_or(front_path)
-                        .to_string(),
-                    back_path: abs_back_path
-                        .canonicalize()? // grcov-excl-line
-                        .to_str()
-                        .unwrap_or(back_path)
-                        .to_string(),
+                    front_path: abs_front_path,
+                    back_path: abs_back_path,
                 })
             }
             ExerciseAsset::SoundSliceAsset { .. } => Ok(self.clone()),
@@ -657,5 +653,26 @@ mod test {
         assert_eq!("Course", UnitType::Course.to_string());
         assert_eq!("Lesson", UnitType::Lesson.to_string());
         assert_eq!("Exercise", UnitType::Exercise.to_string());
+    }
+
+    #[test]
+    fn normalize_good_path() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let temp_file = tempfile::NamedTempFile::new_in(temp_dir.path())?;
+        let temp_file_path = temp_file.path().to_str().unwrap();
+        let normalized_path = normalize_path(temp_dir.path(), temp_file_path)?;
+        assert_eq!(
+            temp_dir.path().join(temp_file_path).to_str().unwrap(),
+            normalized_path
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn normalize_bad_path() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let temp_file_path = "missing_file";
+        assert!(normalize_path(temp_dir.path(), temp_file_path).is_err());
+        Ok(())
     }
 }
