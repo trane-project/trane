@@ -127,7 +127,7 @@ pub struct MetadataFilter {
 }
 
 /// A filter on a course or lesson manifest.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum UnitFilter {
     /// A filter to show exercises belonging to the given courses.
     CourseFilter {
@@ -237,7 +237,7 @@ impl UnitFilter {
 }
 
 /// A named filter for easy reference.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct NamedFilter {
     /// A unique ID for the filter.
     pub id: String,
