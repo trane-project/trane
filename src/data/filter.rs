@@ -237,7 +237,7 @@ impl UnitFilter {
 }
 
 /// A named filter for easy reference.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct NamedFilter {
     /// A unique ID for the filter.
     pub id: String,
