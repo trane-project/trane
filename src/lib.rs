@@ -214,7 +214,7 @@ impl Trane {
     /// Returns a clone of the data used by the scheduler. This function is needed by tests that
     /// need to verify internal methods.
     #[allow(dead_code)]
-    fn scheduler_data(&self) -> SchedulerData {
+    fn get_scheduler_data(&self) -> SchedulerData {
         self.scheduler_data.clone()
     }
 }
@@ -481,7 +481,7 @@ mod test {
     fn scheduler_data() -> Result<()> {
         let dir = tempfile::tempdir()?;
         let trane = Trane::new(dir.path())?;
-        trane.scheduler_data();
+        trane.get_scheduler_data();
         Ok(())
     }
 }
