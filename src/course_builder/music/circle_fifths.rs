@@ -172,3 +172,20 @@ impl CircleFifthsCourse {
         })
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::course_builder::music::notes::*;
+
+    #[test]
+    fn clockwise() {
+        assert_eq!(Note::C.clockwise(), Some(Note::G));
+        assert_eq!(Note::G.clockwise(), Some(Note::D));
+        assert_eq!(Note::D.clockwise(), Some(Note::A));
+        assert_eq!(Note::A.clockwise(), Some(Note::E));
+        assert_eq!(Note::E.clockwise(), Some(Note::B));
+        assert_eq!(Note::B.clockwise(), Some(Note::F_SHARP));
+        assert_eq!(Note::F_SHARP.clockwise(), Some(Note::C_SHARP));
+        assert_eq!(Note::C_SHARP.clockwise(), None);
+    }
+}
