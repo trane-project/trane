@@ -253,6 +253,7 @@ pub struct NamedFilter {
 mod test {
     use anyhow::Result;
     use std::collections::BTreeMap;
+    use ustr::Ustr;
 
     use crate::data::{
         filter::{FilterOp, FilterType, KeyValueFilter, MetadataFilter, UnitFilter},
@@ -481,5 +482,30 @@ mod test {
         };
         assert!(!filter.apply(&metadata));
         Ok(())
+    }
+
+    #[test]
+    fn unit_filter_clone() {
+        let filter = UnitFilter::CourseFilter {
+            course_ids: vec![Ustr::from("course1")],
+        };
+        assert_eq!(filter.clone(), filter);
+
+        let filter = UnitFilter::LessonFilter {
+            lesson_ids: vec![Ustr::from("lesson1")],
+        };
+        assert_eq!(filter.clone(), filter);
+
+        let filter = UnitFilter::MetadataFilter {
+            filter: MetadataFilter {
+                course_filter: None,
+                lesson_filter: None,
+                op: FilterOp::Any,
+            },
+        };
+        assert_eq!(filter.clone(), filter);
+
+        let filter = UnitFilter::ReviewListFilter;
+        assert_eq!(filter.clone(), filter);
     }
 }
