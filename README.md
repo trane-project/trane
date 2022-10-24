@@ -25,6 +25,9 @@ play on its homophone (as in "*trane* a new skill").
 For a guide to getting started with using Trane, see the [quick
 start](https://trane-project.github.io/quick_start.html) guide at the official site.
 
+For a video showing Trane in action, see the [Tour of
+Trane](https://www.youtube.com/watch?v=3ZTUBvYjWnw) video.
+
 ## Documentation
 
 Full documentation for The Trane Project, including this library, can be found at the [official
