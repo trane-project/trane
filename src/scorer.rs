@@ -20,13 +20,13 @@ const INITIAL_WEIGHT: f32 = 10.0;
 const MIN_WEIGHT: f32 = 1.0;
 
 /// The score of a trial diminishes by the number of days multiplied by this factor.
-const SCORE_ADJUSTMENT_FACTOR: f32 = 0.1;
+const SCORE_ADJUSTMENT_FACTOR: f32 = 0.05;
 
 /// A trait exposing a function to score an exercise based on the results of previous trials.
 pub trait ExerciseScorer {
     /// Returns a score (between 0.0 and 5.0) for the exercise based on the results and timestamps
     /// of previous trials.
-    fn score(&self, previous_trials: Vec<ExerciseTrial>) -> f32;
+    fn score(&self, previous_trials: &[ExerciseTrial]) -> f32;
 }
 
 /// A simple scorer that computes a score based on the weighted average of previous scores.
@@ -37,7 +37,7 @@ pub trait ExerciseScorer {
 pub struct SimpleScorer {}
 
 impl ExerciseScorer for SimpleScorer {
-    fn score(&self, previous_trials: Vec<ExerciseTrial>) -> f32 {
+    fn score(&self, previous_trials: &[ExerciseTrial]) -> f32 {
         // An exercise with no previous trials is assigned a score of 0.0.
         if previous_trials.is_empty() {
             return 0.0;
@@ -119,6 +119,8 @@ mod test {
         },
     };
 
+    use super::SCORE_ADJUSTMENT_FACTOR;
+
     const SECONDS_IN_DAY: i64 = 60 * 60 * 24;
     const SCORER: SimpleScorer = SimpleScorer {};
 
@@ -130,7 +132,7 @@ mod test {
 
     #[test]
     fn no_previous_trials() {
-        assert_eq!(0.0, SCORER.score(vec![]))
+        assert_eq!(0.0, SCORER.score(&vec![]))
     }
 
     #[test]
@@ -138,11 +140,11 @@ mod test {
         let score1 = 4.0;
         let days1 = 1.0;
         let weight1 = INITIAL_WEIGHT - days1 * WEIGHT_DAY_FACTOR + WEIGHT_INDEX_FACTOR;
-        let adjusted_score1 = score1 - days1 * 0.1;
+        let adjusted_score1 = score1 - days1 * SCORE_ADJUSTMENT_FACTOR;
 
         assert_eq!(
             adjusted_score1 * weight1 / weight1,
-            SCORER.score(vec![ExerciseTrial {
+            SCORER.score(&vec![ExerciseTrial {
                 score: score1,
                 timestamp: generate_timestamp(days1 as i64)
             }])
@@ -158,17 +160,17 @@ mod test {
         let days1 = 5.0;
         let weight1 =
             INITIAL_WEIGHT - days1 * WEIGHT_DAY_FACTOR + (num_scores) * WEIGHT_INDEX_FACTOR;
-        let adjusted_score1 = score1 - days1 * 0.1;
+        let adjusted_score1 = score1 - days1 * SCORE_ADJUSTMENT_FACTOR;
 
         let score2 = 5.0;
         let days2 = 10.0;
         let weight2 =
             INITIAL_WEIGHT - days2 * WEIGHT_DAY_FACTOR + (num_scores - 1.0) * WEIGHT_INDEX_FACTOR;
-        let adjusted_score2 = score2 - days2 * 0.1;
+        let adjusted_score2 = score2 - days2 * SCORE_ADJUSTMENT_FACTOR;
 
         assert_eq!(
             (weight1 * adjusted_score1 + weight2 * adjusted_score2) / (weight1 + weight2),
-            SCORER.score(vec![
+            SCORER.score(&vec![
                 ExerciseTrial {
                     score: score1,
                     timestamp: generate_timestamp(days1 as i64)
@@ -199,7 +201,7 @@ mod test {
 
         assert_eq!(
             (weight1 * adjusted_score1 + weight2 * adjusted_score2) / (weight1 + weight2),
-            SCORER.score(vec![
+            SCORER.score(&vec![
                 ExerciseTrial {
                     score: score1,
                     timestamp: generate_timestamp(days1 as i64)
@@ -221,7 +223,7 @@ mod test {
         let days1 = 4.0;
         let weight1 =
             INITIAL_WEIGHT - days1 * WEIGHT_DAY_FACTOR + (num_scores) * WEIGHT_INDEX_FACTOR;
-        let adjusted_score1 = score1 - days1 * 0.1;
+        let adjusted_score1 = score1 - days1 * SCORE_ADJUSTMENT_FACTOR;
 
         // The second score is very old. Both its score and weight should be set to the minimum.
         let score2 = 5.0;
@@ -231,7 +233,7 @@ mod test {
 
         assert_eq!(
             (weight1 * adjusted_score1 + weight2 * adjusted_score2) / (weight1 + weight2),
-            SCORER.score(vec![
+            SCORER.score(&vec![
                 ExerciseTrial {
                     score: score1,
                     timestamp: generate_timestamp(days1 as i64)
