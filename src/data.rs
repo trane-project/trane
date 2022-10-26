@@ -537,17 +537,17 @@ impl Default for SchedulerOptions {
             },
             current_window_opts: MasteryWindow {
                 percentage: 0.5,
-                range: (2.5, 3.9),
+                range: (2.5, 3.8),
             },
             easy_window_opts: MasteryWindow {
                 percentage: 0.2,
-                range: (3.9, 4.7),
+                range: (3.8, 4.7),
             },
             mastered_window_opts: MasteryWindow {
                 percentage: 0.1,
                 range: (4.7, 5.0),
             },
-            passing_score: 3.9,
+            passing_score: 3.8,
             num_scores: 25,
         }
     }
