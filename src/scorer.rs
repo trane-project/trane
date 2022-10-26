@@ -5,12 +5,12 @@ use chrono::{TimeZone, Utc};
 use crate::data::ExerciseTrial;
 
 /// The weight of a score diminishes by the number of days multiplied by this factor.
-const WEIGHT_DAY_FACTOR: f32 = 0.05;
+const WEIGHT_DAY_FACTOR: f32 = 0.1;
 
 /// The weight of a trial is adjusted based on the index of the trial in the list multiplied by this
 /// factor. The most recent trial (with index zero) has the highest weight. This prevents scores
 /// from the same day to be assigned the same weight.
-const WEIGHT_INDEX_FACTOR: f32 = 0.1;
+const WEIGHT_INDEX_FACTOR: f32 = 0.5;
 
 /// The initial weight for a score.
 const INITIAL_WEIGHT: f32 = 10.0;
@@ -20,7 +20,7 @@ const INITIAL_WEIGHT: f32 = 10.0;
 const MIN_WEIGHT: f32 = 1.0;
 
 /// The score of a trial diminishes by the number of days multiplied by this factor.
-const SCORE_ADJUSTMENT_FACTOR: f32 = 0.05;
+const SCORE_ADJUSTMENT_FACTOR: f32 = 0.025;
 
 /// A trait exposing a function to score an exercise based on the results of previous trials.
 pub trait ExerciseScorer {
