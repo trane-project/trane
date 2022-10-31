@@ -176,7 +176,7 @@ impl PracticeStats for PracticeStatsDB {
         let uids = uid_stmt
             .query_map([], |row| row.get(0))?
             .map(|r| r.with_context(|| "cannot query uids table in practice stats DB"))
-            .collect::<Result<Vec<i64>>>()?;
+            .collect::<Result<Vec<i64>>>()?; // grcov-excl-line
 
         // Delete the oldest trials for each UID but keep the most recent `num_scores` trials.
         for uid in uids {
@@ -184,15 +184,15 @@ impl PracticeStats for PracticeStatsDB {
                 "DELETE FROM practice_stats WHERE unit_uid = ?1 AND timestamp NOT IN (
                     SELECT timestamp FROM practice_stats WHERE unit_uid = ?1
                     ORDER BY timestamp DESC LIMIT ?2);",
-            )?;
+            )?; // grcov-excl-line
             stmt.execute(params![uid, num_scores])
-                .with_context(|| "cannot trim scores from practice stats DB")?;
+                .with_context(|| "cannot trim scores from practice stats DB")?; // grcov-excl-line
         }
 
         // Call the `VACUUM` command to reclaim the space freed by the deleted trials.
         connection
             .execute_batch("VACUUM;")
-            .with_context(|| "cannot vacuum practice stats DB")?;
+            .with_context(|| "cannot vacuum practice stats DB")?; // grcov-excl-line
         Ok(())
     }
 }
