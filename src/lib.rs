@@ -304,6 +304,10 @@ impl PracticeStats for Trane {
             .write()
             .record_exercise_score(exercise_id, score, timestamp)
     }
+
+    fn trim_scores(&mut self, num_scores: usize) -> Result<()> {
+        self.practice_stats.write().trim_scores(num_scores)
+    }
 }
 
 impl ReviewList for Trane {

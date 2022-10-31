@@ -28,6 +28,10 @@ pub trait PracticeStats {
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<()>;
+
+    /// Deletes all the exercise trials except for the last `num_scores` with the aim of keeping the
+    /// storage size under check.
+    fn trim_scores(&mut self, num_scores: usize) -> Result<()>;
 }
 
 /// An implementation of [PracticeStats] backed by SQLite.
@@ -55,13 +59,6 @@ impl PracticeStatsDB {
             .down("DROP TABLE practice_stats"),
             // Create an index of `unit_ids`.
             M::up("CREATE INDEX unit_ids ON uids (unit_id);").down("DROP INDEX unit_ids"),
-            // Originally the trials were indexed solely by `unit_uid`. This index was replaced so
-            // this migration is immediately canceled by the one right below. Remove both of them
-            // altogether in a later version.
-            M::up("CREATE INDEX unit_scores ON practice_stats (unit_uid);")
-                .down("DROP INDEX unit_scores"),
-            M::up("DROP INDEX unit_scores")
-                .down("CREATE INDEX unit_scores ON practice_stats (unit_uid);"),
             // Create a combined index of `unit_uid` and `timestamp` for fast trial retrieval.
             M::up("CREATE INDEX trials ON practice_stats (unit_uid, timestamp);")
                 .down("DROP INDEX trials"),
@@ -106,13 +103,11 @@ impl PracticeStats for PracticeStatsDB {
     fn get_scores(&self, exercise_id: &Ustr, num_scores: usize) -> Result<Vec<ExerciseTrial>> {
         // Retrieve the exercise trials from the database.
         let connection = self.pool.get()?;
-        let mut stmt = connection
-            .prepare_cached(
-                "SELECT score, timestamp from practice_stats WHERE unit_uid = (
+        let mut stmt = connection.prepare_cached(
+            "SELECT score, timestamp from practice_stats WHERE unit_uid = (
                     SELECT unit_uid FROM uids WHERE unit_id = ?1)
                     ORDER BY timestamp DESC LIMIT ?2;",
-            )
-            .with_context(|| "cannot prepare statement to query practice stats DB")?; //grcov-excl-line
+        )?; //grcov-excl-line
 
         // Convert the results into a vector of `ExerciseTrial` objects.
         #[allow(clippy::let_and_return)]
@@ -173,6 +168,33 @@ impl PracticeStats for PracticeStatsDB {
         })?; // grcov-excl-line
         Ok(())
     }
+
+    fn trim_scores(&mut self, num_scores: usize) -> Result<()> {
+        // Get all the UIDs from the database.
+        let connection = self.pool.get()?;
+        let mut uid_stmt = connection.prepare_cached("SELECT unit_uid from uids")?;
+        let uids = uid_stmt
+            .query_map([], |row| row.get(0))?
+            .map(|r| r.with_context(|| "cannot query uids table in practice stats DB"))
+            .collect::<Result<Vec<i64>>>()?;
+
+        // Delete the oldest trials for each UID but keep the most recent `num_scores` trials.
+        for uid in uids {
+            let mut stmt = connection.prepare_cached(
+                "DELETE FROM practice_stats WHERE unit_uid = ?1 AND timestamp NOT IN (
+                    SELECT timestamp FROM practice_stats WHERE unit_uid = ?1
+                    ORDER BY timestamp DESC LIMIT ?2);",
+            )?;
+            stmt.execute(params![uid, num_scores])
+                .with_context(|| "cannot trim scores from practice stats DB")?;
+        }
+
+        // Call the `VACUUM` command to reclaim the space freed by the deleted trials.
+        connection
+            .execute_batch("VACUUM;")
+            .with_context(|| "cannot vacuum practice stats DB")?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -202,7 +224,7 @@ mod test {
                 if i == 0 {
                     return true;
                 }
-                actual[i - 1].score > actual[i].score
+                actual[i - 1].score >= actual[i].score
             })
             .all(|b| b);
         assert!(all_sorted);
@@ -242,6 +264,50 @@ mod test {
         let stats = new_tests_stats()?;
         let scores = stats.get_scores(&Ustr::from("ex_123"), 10)?;
         assert_scores(vec![], scores);
+        Ok(())
+    }
+
+    #[test]
+    fn trim_scores_some_scores_removed() -> Result<()> {
+        let mut stats = new_tests_stats()?;
+        let exercise1_id = Ustr::from("exercise1");
+        stats.record_exercise_score(&exercise1_id, MasteryScore::Three, 1)?;
+        stats.record_exercise_score(&exercise1_id, MasteryScore::Four, 2)?;
+        stats.record_exercise_score(&exercise1_id, MasteryScore::Five, 3)?;
+
+        let exercise2_id = Ustr::from("exercise2");
+        stats.record_exercise_score(&exercise2_id, MasteryScore::One, 1)?;
+        stats.record_exercise_score(&exercise2_id, MasteryScore::One, 2)?;
+        stats.record_exercise_score(&exercise2_id, MasteryScore::Three, 3)?;
+
+        stats.trim_scores(2)?;
+
+        let scores = stats.get_scores(&exercise1_id, 10)?;
+        assert_scores(vec![5.0, 4.0], scores);
+        let scores = stats.get_scores(&exercise2_id, 10)?;
+        assert_scores(vec![3.0, 1.0], scores);
+        Ok(())
+    }
+
+    #[test]
+    fn trim_scores_no_scores_removed() -> Result<()> {
+        let mut stats = new_tests_stats()?;
+        let exercise1_id = Ustr::from("exercise1");
+        stats.record_exercise_score(&exercise1_id, MasteryScore::Three, 1)?;
+        stats.record_exercise_score(&exercise1_id, MasteryScore::Four, 2)?;
+        stats.record_exercise_score(&exercise1_id, MasteryScore::Five, 3)?;
+
+        let exercise2_id = Ustr::from("exercise2");
+        stats.record_exercise_score(&exercise2_id, MasteryScore::One, 1)?;
+        stats.record_exercise_score(&exercise2_id, MasteryScore::One, 2)?;
+        stats.record_exercise_score(&exercise2_id, MasteryScore::Three, 3)?;
+
+        stats.trim_scores(10)?;
+
+        let scores = stats.get_scores(&exercise1_id, 10)?;
+        assert_scores(vec![5.0, 4.0, 3.0], scores);
+        let scores = stats.get_scores(&exercise2_id, 10)?;
+        assert_scores(vec![3.0, 1.0, 1.0], scores);
         Ok(())
     }
 }
