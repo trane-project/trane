@@ -443,7 +443,7 @@ impl TraneSimulation {
                 trane.score_exercise(&exercise_id, score.clone(), Utc::now().timestamp())?;
                 self.answer_history
                     .entry(exercise_id)
-                    .or_insert(vec![])
+                    .or_default()
                     .push(score);
             }
         }
