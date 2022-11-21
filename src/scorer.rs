@@ -117,7 +117,6 @@ unsafe impl Sync for SimpleScorer {}
 
 #[cfg(test)]
 mod test {
-    use anyhow::Result;
     use chrono::Utc;
 
     use crate::{
@@ -140,13 +139,12 @@ mod test {
     }
 
     #[test]
-    fn no_previous_trials() -> Result<()> {
-        assert_eq!(0.0, SCORER.score(&vec![])?);
-        Ok(())
+    fn no_previous_trials() {
+        assert_eq!(0.0, SCORER.score(&vec![]).unwrap());
     }
 
     #[test]
-    fn single_trial() -> Result<()> {
+    fn single_trial() {
         let score1 = 4.0;
         let days1 = 1.0;
         let weight1 = INITIAL_WEIGHT - days1 * WEIGHT_DAY_FACTOR + WEIGHT_INDEX_FACTOR;
@@ -154,16 +152,17 @@ mod test {
 
         assert_eq!(
             adjusted_score1 * weight1 / weight1,
-            SCORER.score(&vec![ExerciseTrial {
-                score: score1,
-                timestamp: generate_timestamp(days1 as i64)
-            }])?
+            SCORER
+                .score(&vec![ExerciseTrial {
+                    score: score1,
+                    timestamp: generate_timestamp(days1 as i64)
+                }])
+                .unwrap()
         );
-        Ok(())
     }
 
     #[test]
-    fn score_and_weight_adjusted_by_day_and_index() -> Result<()> {
+    fn score_and_weight_adjusted_by_day_and_index() {
         // Both scores are from a few days ago. Calculate their weight and adjusted scores based on
         // the formula.
         let num_scores = 2.0;
@@ -181,22 +180,23 @@ mod test {
 
         assert_eq!(
             (weight1 * adjusted_score1 + weight2 * adjusted_score2) / (weight1 + weight2),
-            SCORER.score(&vec![
-                ExerciseTrial {
-                    score: score1,
-                    timestamp: generate_timestamp(days1 as i64)
-                },
-                ExerciseTrial {
-                    score: score2,
-                    timestamp: generate_timestamp(days2 as i64)
-                },
-            ])?
+            SCORER
+                .score(&vec![
+                    ExerciseTrial {
+                        score: score1,
+                        timestamp: generate_timestamp(days1 as i64)
+                    },
+                    ExerciseTrial {
+                        score: score2,
+                        timestamp: generate_timestamp(days2 as i64)
+                    },
+                ])
+                .unwrap()
         );
-        Ok(())
     }
 
     #[test]
-    fn score_after_now() -> Result<()> {
+    fn score_after_now() {
         // The first score is from zero days ago. Its adjusted score is equal to the original score.
         let num_scores = 2.0;
         let score1 = 2.0;
@@ -213,22 +213,23 @@ mod test {
 
         assert_eq!(
             (weight1 * adjusted_score1 + weight2 * adjusted_score2) / (weight1 + weight2),
-            SCORER.score(&vec![
-                ExerciseTrial {
-                    score: score1,
-                    timestamp: generate_timestamp(days1 as i64)
-                },
-                ExerciseTrial {
-                    score: score2,
-                    timestamp: generate_timestamp(days2 as i64)
-                },
-            ])?
+            SCORER
+                .score(&vec![
+                    ExerciseTrial {
+                        score: score1,
+                        timestamp: generate_timestamp(days1 as i64)
+                    },
+                    ExerciseTrial {
+                        score: score2,
+                        timestamp: generate_timestamp(days2 as i64)
+                    },
+                ])
+                .unwrap()
         );
-        Ok(())
     }
 
     #[test]
-    fn score_and_weight_never_less_than_minimum() -> Result<()> {
+    fn score_and_weight_never_less_than_minimum() {
         // The first score is from a few days ago. Its weight and adjusted score should not be
         // capped to a minimum.
         let num_scores = 2.0;
@@ -246,18 +247,19 @@ mod test {
 
         assert_eq!(
             (weight1 * adjusted_score1 + weight2 * adjusted_score2) / (weight1 + weight2),
-            SCORER.score(&vec![
-                ExerciseTrial {
-                    score: score1,
-                    timestamp: generate_timestamp(days1 as i64)
-                },
-                ExerciseTrial {
-                    score: score2,
-                    timestamp: generate_timestamp(days2 as i64)
-                },
-            ])?
+            SCORER
+                .score(&vec![
+                    ExerciseTrial {
+                        score: score1,
+                        timestamp: generate_timestamp(days1 as i64)
+                    },
+                    ExerciseTrial {
+                        score: score2,
+                        timestamp: generate_timestamp(days2 as i64)
+                    },
+                ])
+                .unwrap()
         );
-        Ok(())
     }
 
     #[test]
