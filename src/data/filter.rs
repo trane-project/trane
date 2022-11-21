@@ -128,7 +128,7 @@ pub struct MetadataFilter {
 
 /// A filter on a course or lesson manifest.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum UnitFilter {
+pub enum UnitFilter { // grcov-excl-line: Code coverage report for this line is flaky.
     /// A filter to show exercises belonging to the given courses.
     CourseFilter {
         /// The IDs of the courses to filter.
