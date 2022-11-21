@@ -1,5 +1,6 @@
 //! Contains the logic to score an exercise based on the results and timestamps of previous trials.
 
+use anyhow::{anyhow, Result};
 use chrono::{TimeZone, Utc};
 
 use crate::data::ExerciseTrial;
@@ -26,7 +27,7 @@ const SCORE_ADJUSTMENT_FACTOR: f32 = 0.025;
 pub trait ExerciseScorer {
     /// Returns a score (between 0.0 and 5.0) for the exercise based on the results and timestamps
     /// of previous trials.
-    fn score(&self, previous_trials: &[ExerciseTrial]) -> f32;
+    fn score(&self, previous_trials: &[ExerciseTrial]) -> Result<f32>;
 }
 
 /// A simple scorer that computes a score based on the weighted average of previous scores.
@@ -37,18 +38,24 @@ pub trait ExerciseScorer {
 pub struct SimpleScorer {}
 
 impl ExerciseScorer for SimpleScorer {
-    fn score(&self, previous_trials: &[ExerciseTrial]) -> f32 {
+    fn score(&self, previous_trials: &[ExerciseTrial]) -> Result<f32> {
         // An exercise with no previous trials is assigned a score of 0.0.
         if previous_trials.is_empty() {
-            return 0.0;
+            return Ok(0.0);
         }
 
         // Calculate the number of days since each trial.
         let now = Utc::now();
-        let days: Vec<f32> = previous_trials
+        let days = previous_trials
             .iter()
-            .map(|t| -> f32 { (now - Utc.timestamp(t.timestamp, 0)).num_days() as f32 })
-            .collect();
+            .map(|t| -> Result<f32> {
+                if let Some(utc_timestame) = Utc.timestamp_opt(t.timestamp, 0).earliest() {
+                    Ok((now - utc_timestame).num_days() as f32)
+                } else {
+                    Err(anyhow!("Invalid timestamp for exercise trial"))
+                }
+            })
+            .collect::<Result<Vec<f32>>>()?;
 
         // Calculate the weight of each score based on the number of days since the trial.
         let weights: Vec<f32> = previous_trials
@@ -95,7 +102,8 @@ impl ExerciseScorer for SimpleScorer {
         // Calculate the weighted average.
         // weighted average = (cross product of scores and their weights) / (sum of weights)
         let cross_product: f32 = scores.iter().zip(weights.iter()).map(|(s, w)| s * *w).sum();
-        cross_product / weights.iter().sum::<f32>()
+        let weight_sum = weights.iter().sum::<f32>();
+        Ok(cross_product / weight_sum)
     }
 }
 
@@ -109,6 +117,7 @@ unsafe impl Sync for SimpleScorer {}
 
 #[cfg(test)]
 mod test {
+    use anyhow::Result;
     use chrono::Utc;
 
     use crate::{
@@ -131,12 +140,13 @@ mod test {
     }
 
     #[test]
-    fn no_previous_trials() {
-        assert_eq!(0.0, SCORER.score(&vec![]))
+    fn no_previous_trials() -> Result<()> {
+        assert_eq!(0.0, SCORER.score(&vec![])?);
+        Ok(())
     }
 
     #[test]
-    fn single_trial() {
+    fn single_trial() -> Result<()> {
         let score1 = 4.0;
         let days1 = 1.0;
         let weight1 = INITIAL_WEIGHT - days1 * WEIGHT_DAY_FACTOR + WEIGHT_INDEX_FACTOR;
@@ -147,12 +157,13 @@ mod test {
             SCORER.score(&vec![ExerciseTrial {
                 score: score1,
                 timestamp: generate_timestamp(days1 as i64)
-            }])
-        )
+            }])?
+        );
+        Ok(())
     }
 
     #[test]
-    fn score_and_weight_adjusted_by_day_and_index() {
+    fn score_and_weight_adjusted_by_day_and_index() -> Result<()> {
         // Both scores are from a few days ago. Calculate their weight and adjusted scores based on
         // the formula.
         let num_scores = 2.0;
@@ -179,12 +190,13 @@ mod test {
                     score: score2,
                     timestamp: generate_timestamp(days2 as i64)
                 },
-            ])
-        )
+            ])?
+        );
+        Ok(())
     }
 
     #[test]
-    fn score_after_now() {
+    fn score_after_now() -> Result<()> {
         // The first score is from zero days ago. Its adjusted score is equal to the original score.
         let num_scores = 2.0;
         let score1 = 2.0;
@@ -210,12 +222,13 @@ mod test {
                     score: score2,
                     timestamp: generate_timestamp(days2 as i64)
                 },
-            ])
-        )
+            ])?
+        );
+        Ok(())
     }
 
     #[test]
-    fn score_and_weight_never_less_than_minimum() {
+    fn score_and_weight_never_less_than_minimum() -> Result<()> {
         // The first score is from a few days ago. Its weight and adjusted score should not be
         // capped to a minimum.
         let num_scores = 2.0;
@@ -242,7 +255,19 @@ mod test {
                     score: score2,
                     timestamp: generate_timestamp(days2 as i64)
                 },
-            ])
-        )
+            ])?
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn invalid_timestamp() {
+        // The timestamp is before the Unix epoch.
+        assert!(SCORER
+            .score(&vec![ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(1e10 as i64)
+            },])
+            .is_err());
     }
 }
