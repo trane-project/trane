@@ -76,7 +76,7 @@ impl ScoreCache {
             .data
             .practice_stats
             .read()
-            .get_scores(exercise_id, self.options.read().num_scores)
+            .get_scores(exercise_id, self.options.read().num_trials)
             .unwrap_or_default();
         let score = self.scorer.score(&scores)?;
         self.exercise_cache.write().insert(*exercise_id, score);

@@ -522,8 +522,8 @@ pub struct SchedulerOptions {
     /// The minimum average score of a unit required to move on to its dependents.
     pub passing_score: f32,
 
-    /// The maximum number of scores to lookup in the practice stats.
-    pub num_scores: usize,
+    /// The number of trials to retrive from the practice stats to compute an exercise's score.
+    pub num_trials: usize,
 }
 
 impl Default for SchedulerOptions {
@@ -537,18 +537,18 @@ impl Default for SchedulerOptions {
             },
             current_window_opts: MasteryWindow {
                 percentage: 0.5,
-                range: (2.5, 3.8),
+                range: (2.5, 3.75),
             },
             easy_window_opts: MasteryWindow {
                 percentage: 0.2,
-                range: (3.8, 4.7),
+                range: (3.75, 4.7),
             },
             mastered_window_opts: MasteryWindow {
                 percentage: 0.1,
                 range: (4.7, 5.0),
             },
-            passing_score: 3.8,
-            num_scores: 25,
+            passing_score: 3.75,
+            num_trials: 20,
         }
     }
 }
