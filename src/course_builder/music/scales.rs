@@ -6,7 +6,7 @@ use crate::course_builder::music::intervals::*;
 use crate::course_builder::music::notes::*;
 
 /// Defines a tonal scale.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Scale {
     /// The tonic of the scale.
     pub tonic: Note,
@@ -16,13 +16,24 @@ pub struct Scale {
 }
 
 /// Defines a type of scale.
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 #[allow(missing_docs)]
 pub enum ScaleType {
     Major,
     Minor,
     MajorPentatonic,
     MinorPentatonic,
+}
+
+impl ToString for ScaleType {
+    fn to_string(&self) -> String {
+        match self {
+            ScaleType::Major => "Major".to_string(),
+            ScaleType::Minor => "Minor".to_string(),
+            ScaleType::MajorPentatonic => "Major Pentatonic".to_string(),
+            ScaleType::MinorPentatonic => "Minor Pentatonic".to_string(),
+        }
+    }
 }
 
 impl Note {
