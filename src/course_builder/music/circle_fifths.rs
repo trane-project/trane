@@ -80,7 +80,7 @@ pub struct CircleFifthsCourse {
     /// circle of fifths. This is useful, for example, to generate a course based on the minor scale
     /// in the correct order by the number of flats or sharps in the scale (i.e., the lesson based
     /// on A minor appears first because it's the relative minor of C major).
-    pub note_alias: Option<Box<dyn Fn(Note) -> Result<Note>>>,
+    pub note_alias: Option<fn(Note) -> Result<Note>>,
 
     /// The template used to generate the lesson manifests.
     pub lesson_manifest_template: LessonManifestBuilder,
