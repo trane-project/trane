@@ -235,7 +235,7 @@ impl TestCourse {
                 course_instructions: Some(BasicAsset::MarkdownAsset {
                     path: "instructions.md".to_string(),
                 }),
-                course_generator_config: None,
+                generator_config: None,
             },
             lesson_manifest_template: LessonManifestBuilder::default()
                 .course_id(self.id.to_ustr())

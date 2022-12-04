@@ -20,8 +20,8 @@ use walkdir::{DirEntry, WalkDir};
 
 use crate::{
     data::{
-        CourseManifest, ExerciseManifest, GenerateManifests, LessonManifest, NormalizePaths,
-        UnitType,
+        course_generator::TraneImprovisationUserConfig, CourseGeneratorUserConfig, CourseManifest,
+        ExerciseManifest, GenerateManifests, LessonManifest, NormalizePaths, UnitType,
     },
     graph::{InMemoryUnitGraph, UnitGraph},
 };
@@ -361,10 +361,17 @@ impl LocalCourseLibrary {
             &course_manifest.metadata,
         )?; // grcov-excl-line
 
-        // If the course has a course generator config, generate the lessons and exercises and add
-        // them to the library.
-        if let Some(generator_config) = &course_manifest.course_generator_config {
-            let generated_manifests = generator_config.generate_manifests(course_manifest.id)?;
+        // If the course has a generator config, generate the lessons and exercises and add them to
+        // the library.
+        if let Some(generator_config) = &course_manifest.generator_config {
+            // TODO: use the real user config.
+            let user_config =
+                CourseGeneratorUserConfig::TraneImprovisation(TraneImprovisationUserConfig {
+                    instruments: vec![],
+                });
+
+            let generated_manifests =
+                generator_config.generate_manifests(&course_manifest, &user_config)?;
             for (lesson_manifest, exercise_manifests) in generated_manifests {
                 // All the generated lessons will use the root of the course as the `dir_entry`.
                 self.process_lesson_manifest(

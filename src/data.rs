@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
 use ustr::Ustr;
 
-use self::course_generator::TraneImprovisation;
+use self::course_generator::{TraneImprovisationConfig, TraneImprovisationUserConfig};
 
 /// The score used by students to evaluate their mastery of a particular exercise after a trial.
 /// More detailed descriptions of the levels are provided using the example of an exercise that
@@ -224,23 +224,31 @@ impl VerifyPaths for BasicAsset {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum CourseGenerator {
-    TraneImprovisation(TraneImprovisation),
+    TraneImprovisation(TraneImprovisationConfig),
+}
+
+pub enum CourseGeneratorUserConfig {
+    TraneImprovisation(TraneImprovisationUserConfig),
 }
 
 pub trait GenerateManifests {
     fn generate_manifests(
         &self,
-        course_id: Ustr,
+        course_manifest: &CourseManifest,
+        user_config: &CourseGeneratorUserConfig,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>>;
 }
 
 impl GenerateManifests for CourseGenerator {
     fn generate_manifests(
         &self,
-        course_id: Ustr,
+        course_manifest: &CourseManifest,
+        user_config: &CourseGeneratorUserConfig,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         match self {
-            CourseGenerator::TraneImprovisation(config) => config.generate_manifests(course_id),
+            CourseGenerator::TraneImprovisation(config) => {
+                config.generate_manifests(course_manifest, user_config)
+            }
         }
     }
 }
@@ -292,7 +300,7 @@ pub struct CourseManifest {
     /// easier creation of courses for specific purposes without requiring the manual creation of
     /// all the files a normal course would need.
     #[builder(default)]
-    pub course_generator_config: Option<CourseGenerator>,
+    pub generator_config: Option<CourseGenerator>,
 }
 
 impl NormalizePaths for CourseManifest {
@@ -441,6 +449,9 @@ pub enum ExerciseAsset {
         /// slice in the key of D Major" or "Practice measures 1 through 4". A missing description
         /// implies the entire slice should be practiced as is.
         description: Option<String>,
+
+        /// An optional path to a MusicXML file containing the sheet music for the exercise.
+        backup: Option<String>,
     },
 
     /// An asset representing a flashcard with a front and back each stored in a markdown file. The
@@ -469,6 +480,7 @@ impl NormalizePaths for ExerciseAsset {
                     back_path: abs_back_path,
                 })
             }
+            // TODO: Implement normalization for SoundSliceAsset.
             ExerciseAsset::SoundSliceAsset { .. } => Ok(self.clone()),
         }
     }
@@ -569,7 +581,7 @@ pub struct SchedulerOptions {
     /// The minimum average score of a unit required to move on to its dependents.
     pub passing_score: f32,
 
-    /// The number of trials to retrive from the practice stats to compute an exercise's score.
+    /// The number of trials to retrieve from the practice stats to compute an exercise's score.
     pub num_trials: usize,
 }
 
@@ -680,6 +692,7 @@ mod test {
         let soundslice = ExerciseAsset::SoundSliceAsset {
             link: "https://www.soundslice.com/slices/QfZcc/".to_string(),
             description: Some("Test".to_string()),
+            backup: None,
         };
         soundslice.normalize_paths(Path::new("./"))?;
         Ok(())
@@ -690,6 +703,7 @@ mod test {
         let soundslice = ExerciseAsset::SoundSliceAsset {
             link: "https://www.soundslice.com/slices/QfZcc/".to_string(),
             description: Some("Test".to_string()),
+            backup: None,
         };
         soundslice.verify_paths(Path::new("./"))?;
         Ok(())
