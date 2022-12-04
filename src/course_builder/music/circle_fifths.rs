@@ -10,8 +10,8 @@
 use anyhow::Result;
 
 use crate::{
-    course_builder::{music::notes::*, AssetBuilder, CourseBuilder, LessonBuilder},
-    data::{CourseManifest, LessonManifestBuilder},
+    course_builder::{AssetBuilder, CourseBuilder, LessonBuilder},
+    data::{music::notes::*, CourseManifest, LessonManifestBuilder},
 };
 
 impl Note {

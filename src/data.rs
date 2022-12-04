@@ -4,6 +4,7 @@
 
 pub mod course_generator;
 pub mod filter;
+pub mod music;
 
 use anyhow::Result;
 use derive_builder::Builder;

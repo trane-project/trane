@@ -2,8 +2,8 @@
 
 use anyhow::{anyhow, Result};
 
-use crate::course_builder::music::intervals::*;
-use crate::course_builder::music::notes::*;
+use crate::data::music::intervals::*;
+use crate::data::music::notes::*;
 
 /// Defines a tonal scale.
 #[derive(Clone, Debug)]
