@@ -2,6 +2,7 @@
 //! store the results of a student's attempt at mastering an exercise, the options avaialble to
 //! control the behavior of the scheduler, among other things.
 
+pub mod course_generator;
 pub mod filter;
 
 use anyhow::Result;
@@ -9,6 +10,8 @@ use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
 use ustr::Ustr;
+
+use self::course_generator::TraneImprovisation;
 
 /// The score used by students to evaluate their mastery of a particular exercise after a trial.
 /// More detailed descriptions of the levels are provided using the example of an exercise that
@@ -180,6 +183,16 @@ pub enum BasicAsset {
         /// The path to the markdown file.
         path: String,
     },
+
+    /// An asset containing its content as a string.
+    InlinedAsset {
+        /// The content of the asset.
+        content: String,
+    },
+
+    /// An asset containing its content as a unique string. Useful for generating assets that are
+    /// replicated across many units.
+    InlinedUniqueAsset { content: Ustr },
 }
 
 impl NormalizePaths for BasicAsset {
@@ -189,6 +202,8 @@ impl NormalizePaths for BasicAsset {
                 let abs_path = normalize_path(dir, path)?;
                 Ok(BasicAsset::MarkdownAsset { path: abs_path })
             }
+            BasicAsset::InlinedAsset { .. } => Ok(self.clone()),
+            BasicAsset::InlinedUniqueAsset { .. } => Ok(self.clone()),
         }
     }
 }
@@ -200,6 +215,31 @@ impl VerifyPaths for BasicAsset {
                 let abs_path = dir.join(Path::new(path));
                 Ok(abs_path.exists())
             }
+            BasicAsset::InlinedAsset { .. } => Ok(true),
+            BasicAsset::InlinedUniqueAsset { .. } => Ok(true),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum CourseGenerator {
+    TraneImprovisation(TraneImprovisation),
+}
+
+pub trait GenerateManifests {
+    fn generate_manifests(
+        &self,
+        course_id: Ustr,
+    ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>>;
+}
+
+impl GenerateManifests for CourseGenerator {
+    fn generate_manifests(
+        &self,
+        course_id: Ustr,
+    ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
+        match self {
+            CourseGenerator::TraneImprovisation(config) => config.generate_manifests(course_id),
         }
     }
 }
@@ -246,6 +286,12 @@ pub struct CourseManifest {
     /// An optional asset, which presents instructions common to all exercises in the course.
     #[builder(default)]
     pub course_instructions: Option<BasicAsset>,
+
+    /// An optional configuration to generate material for this course. Generated courses allow
+    /// easier creation of courses for specific purposes without requiring the manual creation of
+    /// all the files a normal course would need.
+    #[builder(default)]
+    pub course_generator_config: Option<CourseGenerator>,
 }
 
 impl NormalizePaths for CourseManifest {

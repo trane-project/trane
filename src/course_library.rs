@@ -19,7 +19,10 @@ use ustr::{Ustr, UstrMap};
 use walkdir::{DirEntry, WalkDir};
 
 use crate::{
-    data::{CourseManifest, ExerciseManifest, LessonManifest, NormalizePaths, UnitType},
+    data::{
+        CourseManifest, ExerciseManifest, GenerateManifests, LessonManifest, NormalizePaths,
+        UnitType,
+    },
     graph::{InMemoryUnitGraph, UnitGraph},
 };
 
@@ -247,6 +250,7 @@ impl LocalCourseLibrary {
         course_manifest: &CourseManifest,
         lesson_manifest: LessonManifest,
         index_writer: &mut IndexWriter,
+        generated_exercises: Option<&Vec<ExerciseManifest>>,
     ) -> Result<()> {
         // Verify that the IDs mentioned in the manifests are valid and agree with each other.
         ensure!(!lesson_manifest.id.is_empty(), "ID in manifest is empty",);
@@ -277,6 +281,19 @@ impl LocalCourseLibrary {
             &lesson_manifest.description,
             &lesson_manifest.metadata,
         )?; // grcov-excl-line
+
+        // Add the generated exercises to the lesson.
+        if let Some(exercises) = generated_exercises {
+            for exercise_manifest in exercises {
+                let exercise_manifest =
+                    &exercise_manifest.normalize_paths(dir_entry.path().parent().unwrap())?;
+                self.process_exercise_manifest(
+                    &lesson_manifest,
+                    exercise_manifest.clone(),
+                    index_writer,
+                )?;
+            }
+        }
 
         // Start a new search from the parent of the passed `DirEntry`, which corresponds to the
         // lesson's root. Each exercise in the lesson must be contained in a directory that is a
@@ -344,6 +361,22 @@ impl LocalCourseLibrary {
             &course_manifest.metadata,
         )?; // grcov-excl-line
 
+        // If the course has a course generator config, generate the lessons and exercises and add
+        // them to the library.
+        if let Some(generator_config) = &course_manifest.course_generator_config {
+            let generated_manifests = generator_config.generate_manifests(course_manifest.id)?;
+            for (lesson_manifest, exercise_manifests) in generated_manifests {
+                // All the generated lessons will use the root of the course as the `dir_entry`.
+                self.process_lesson_manifest(
+                    dir_entry,
+                    &course_manifest,
+                    lesson_manifest,
+                    index_writer,
+                    Some(&exercise_manifests),
+                )?;
+            }
+        }
+
         // Start a new search from the parent of the passed `DirEntry`, which corresponds to the
         // course's root. Each lesson in the course must be contained in a directory that is a
         // direct descendant of its root. Therefore, all the lesson manifests will be found at a
@@ -374,6 +407,7 @@ impl LocalCourseLibrary {
                         &course_manifest,
                         lesson_manifest,
                         index_writer,
+                        None,
                     )?; // grcov-excl-line
                 }
             }
