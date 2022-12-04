@@ -20,8 +20,9 @@ use walkdir::{DirEntry, WalkDir};
 
 use crate::{
     data::{
-        course_generator::TraneImprovisationUserConfig, CourseGeneratorUserConfig, CourseManifest,
-        ExerciseManifest, GenerateManifests, LessonManifest, NormalizePaths, UnitType,
+        course_generator::trane_improvisation::TraneImprovisationUserConfig,
+        CourseGeneratorUserConfig, CourseManifest, ExerciseManifest, GenerateManifests,
+        LessonManifest, NormalizePaths, UnitType,
     },
     graph::{InMemoryUnitGraph, UnitGraph},
 };

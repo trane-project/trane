@@ -12,7 +12,9 @@ use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
 use ustr::Ustr;
 
-use self::course_generator::{TraneImprovisationConfig, TraneImprovisationUserConfig};
+use self::course_generator::trane_improvisation::{
+    TraneImprovisationConfig, TraneImprovisationUserConfig,
+};
 
 /// The score used by students to evaluate their mastery of a particular exercise after a trial.
 /// More detailed descriptions of the levels are provided using the example of an exercise that
