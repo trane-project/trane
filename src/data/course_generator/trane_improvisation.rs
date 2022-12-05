@@ -1,12 +1,46 @@
 use anyhow::Result;
+use chrono::format::format;
+use indoc::indoc;
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use ustr::Ustr;
 
 use crate::data::{
     music::{modes::Mode, notes::Note},
-    CourseGeneratorUserConfig, CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseType,
-    GenerateManifests, LessonManifest,
+    BasicAsset, CourseGeneratorUserConfig, CourseManifest, ExerciseAsset, ExerciseManifest,
+    ExerciseType, GenerateManifests, LessonManifest,
 };
+
+const SINGING_DESCRIPTION: &str = indoc! {"
+    Listen to, audiate, and sing the passage. Refer to the lesson instructions for
+    more details.
+"};
+
+const RHYTHM_DESCRIPTION: &str = indoc! {"
+    Sight-sing or use your instrument to improvise using the rhythm of the passage.
+"};
+
+lazy_static! {
+    /// The instructions for the singing lessons.
+    pub static ref SINGING_INSTRUCTIONS: Ustr = Ustr::from(indoc! {"
+        This step involves listening to the musical passage, audiating it in your head,
+        and then singing it. You should sing the passage as accurately as possible, but
+        it's not required that you use solfege syllables or numbers to identify the notes.
+
+        This step does not require listening to the passage in all keys. You can choose
+        the original key of the passage, or any other key that you prefer. No improvisation
+        is required in this step.
+    "});
+
+    /// The instructions for the rhythm lessons.
+    pub static ref RHYTHM_INSTRUCTIONS: Ustr = Ustr::from(indoc! {"
+        This step involves sight-singing or the stated instrument to improvise using the
+        rhythm of the passage.
+
+        When sight-singing, you can use a simple rhytm syllable system or a more complex
+        one (e.g the Kodaly system).
+    "});
+}
 
 /// A single musical passage to be used in a Trane improvisation course. A course can contain
 /// multiple passages but all of those passages are assumed to have the same key or mode.
@@ -49,39 +83,28 @@ pub struct TraneImprovisationUserConfig {
 }
 
 impl TraneImprovisationConfig {
-    fn singing_lesson_id(&self, course_id: Ustr, key: Option<Note>) -> Ustr {
-        match key {
-            None => Ustr::from(&format!("{}::singing", course_id)),
-            Some(key) => Ustr::from(&format!("{}::singing::{}", course_id, key.to_string())),
-        }
+    fn exercise_id(&self, lesson_id: Ustr, exercise_index: usize) -> Ustr {
+        Ustr::from(&format!("{}::exercise_{}", lesson_id, exercise_index))
     }
 
-    fn singing_exercise_id(&self, lesson_id: Ustr, exercise_index: usize) -> Ustr {
-        Ustr::from(&format!("{}::exercise_{}", lesson_id, exercise_index))
+    fn singing_lesson_id(&self, course_id: Ustr) -> Ustr {
+        Ustr::from(&format!("{}::singing", course_id))
     }
 
     fn generate_singing_exercise(
         &self,
         course_manifest: &CourseManifest,
         lesson_id: Ustr,
-        key: Option<Note>,
         passage: (usize, &ImprovisationPassage),
     ) -> Result<ExerciseManifest> {
-        let exercise_name = match key {
-            None => format!("{} - Singing", course_manifest.name),
-            Some(key) => format!(
-                "{} - Singing - {} Major (or equivalent)",
-                course_manifest.name,
-                key.to_string()
-            ),
-        };
+        let exercise_name = format!("{} - Singing", course_manifest.name);
 
         Ok(ExerciseManifest {
-            id: self.singing_exercise_id(lesson_id, passage.0),
+            id: self.exercise_id(lesson_id, passage.0),
             lesson_id,
             course_id: course_manifest.id,
             name: exercise_name,
-            description: None,
+            description: Some(SINGING_DESCRIPTION.to_string()),
             exercise_type: ExerciseType::Procedural,
             exercise_asset: ExerciseAsset::SoundSliceAsset {
                 link: passage.1.soundslice_link.clone(),
@@ -94,37 +117,107 @@ impl TraneImprovisationConfig {
     fn generate_singing_lesson(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &TraneImprovisationUserConfig,
-        key: Option<Note>,
-        dummy_lesson: bool,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
-        if dummy_lesson {
-            let lesson_manifest = LessonManifest {
-                id: self.singing_lesson_id(course_manifest.id, None),
-                course_id: course_manifest.id,
-                name: format!("{} - Singing", course_manifest.name),
-                description: Some("Singing".to_string()),
-                dependencies: vec![],
-                metadata: None,
-                lesson_instructions: None,
-                lesson_material: None,
-            };
-            return Ok(vec![(lesson_manifest, vec![])]);
-        }
+        let lesson_manifest = LessonManifest {
+            id: self.singing_lesson_id(course_manifest.id),
+            course_id: course_manifest.id,
+            name: format!("{} - Singing", course_manifest.name),
+            description: Some(SINGING_DESCRIPTION.to_string()),
+            dependencies: vec![],
+            metadata: None,
+            lesson_instructions: Some(BasicAsset::InlinedUniqueAsset {
+                content: *SINGING_INSTRUCTIONS,
+            }),
+            lesson_material: None,
+        };
 
-        unimplemented!()
+        let exercises = self
+            .passages
+            .iter()
+            .enumerate()
+            .map(|passage| {
+                self.generate_singing_exercise(course_manifest, lesson_manifest.id, passage)
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(vec![(lesson_manifest, exercises)])
     }
 
-    fn generate_singing_lessons(
+    fn rhythm_lesson_id(&self, course_id: Ustr, instrument: Option<&str>) -> Ustr {
+        match instrument {
+            Some(instrument) => Ustr::from(&format!("{}::rhythm::{}", course_id, instrument)),
+            None => Ustr::from(&format!("{}::rhythm", course_id)),
+        }
+    }
+
+    fn generate_rhythm_exercise(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &TraneImprovisationUserConfig,
-    ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
-        unimplemented!()
+        lesson_id: Ustr,
+        instrument: Option<&str>,
+        passage: (usize, &ImprovisationPassage),
+    ) -> Result<ExerciseManifest> {
+        let exercise_name = match instrument {
+            Some(instrument) => format!("{} - Rhythm - {}", course_manifest.name, instrument),
+            None => format!("{} - Rhythm", course_manifest.name),
+        };
+
+        Ok(ExerciseManifest {
+            id: self.exercise_id(lesson_id, passage.0),
+            lesson_id,
+            course_id: course_manifest.id,
+            name: exercise_name,
+            description: Some(RHYTHM_DESCRIPTION.to_string()),
+            exercise_type: ExerciseType::Procedural,
+            exercise_asset: ExerciseAsset::SoundSliceAsset {
+                link: passage.1.soundslice_link.clone(),
+                description: None,
+                backup: passage.1.music_xml_file.clone(),
+            },
+        })
     }
 
-    fn rhythm_lesson_id(&self, course_id: Ustr) -> Ustr {
-        Ustr::from(&format!("{}::rhythm", course_id))
+    fn generate_rhythm_lesson(
+        &self,
+        course_manifest: &CourseManifest,
+        instrument: Option<&str>,
+    ) -> Result<(LessonManifest, Vec<ExerciseManifest>)> {
+        let lesson_id = self.rhythm_lesson_id(course_manifest.id, instrument);
+        let lesson_name = match instrument {
+            Some(instrument) => format!("{} - Rhythm - {}", course_manifest.name, instrument),
+            None => format!("{} - Rhythm", course_manifest.name),
+        };
+        let lesson_dependencies = match instrument {
+            Some(_) => vec![self.rhythm_lesson_id(course_manifest.id, None)],
+            None => vec![],
+        };
+
+        let lesson_manifest = LessonManifest {
+            id: lesson_id,
+            course_id: course_manifest.id,
+            name: lesson_name,
+            description: Some(RHYTHM_DESCRIPTION.to_string()),
+            dependencies: lesson_dependencies,
+            metadata: None,
+            lesson_instructions: Some(BasicAsset::InlinedUniqueAsset {
+                content: *RHYTHM_INSTRUCTIONS,
+            }),
+            lesson_material: None,
+        };
+
+        let exercises = self
+            .passages
+            .iter()
+            .enumerate()
+            .map(|passage| {
+                self.generate_rhythm_exercise(
+                    course_manifest,
+                    lesson_manifest.id,
+                    instrument,
+                    passage,
+                )
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok((lesson_manifest, exercises))
     }
 
     fn generate_rhythm_lessons(
@@ -132,7 +225,19 @@ impl TraneImprovisationConfig {
         course_manifest: &CourseManifest,
         user_config: &TraneImprovisationUserConfig,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
-        unimplemented!()
+        let mut all_instuments: Vec<Option<&str>> = user_config
+            .instruments
+            .iter()
+            .map(|s| Some(s.as_str()))
+            .collect();
+        all_instuments.push(None);
+
+        let lessons = all_instuments
+            .iter()
+            .map(|instrument| self.generate_rhythm_lesson(course_manifest, *instrument))
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(lessons)
     }
 
     fn melody_lesson_id(&self, course_id: Ustr, key: Option<Note>) -> Ustr {
@@ -209,7 +314,7 @@ impl TraneImprovisationConfig {
         user_config: &TraneImprovisationUserConfig,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         Ok(vec![
-            self.generate_singing_lessons(course_manifest, user_config)?,
+            self.generate_singing_lesson(course_manifest)?,
             self.generate_rhythm_lessons(course_manifest, user_config)?,
         ]
         .into_iter()
@@ -223,7 +328,7 @@ impl TraneImprovisationConfig {
         user_config: &TraneImprovisationUserConfig,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         Ok(vec![
-            self.generate_singing_lessons(course_manifest, user_config)?,
+            self.generate_singing_lesson(course_manifest)?,
             self.generate_rhythm_lessons(course_manifest, user_config)?,
             self.generate_melody_lessons(course_manifest, user_config)?,
             self.generate_basic_harmony_lessons(course_manifest, user_config)?,
