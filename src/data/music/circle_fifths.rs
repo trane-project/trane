@@ -72,4 +72,10 @@ impl Note {
             _ => None,
         }
     }
+
+    /// Returns the previous key in the circle of fifths, that is, the key with one fewer sharp or
+    /// flat.
+    pub fn previous_key(&self) -> Option<Note> {
+        unimplemented!()
+    }
 }
