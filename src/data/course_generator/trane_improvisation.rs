@@ -30,6 +30,11 @@ const ADVANCED_HARMONY_DESCRIPTION: &str = indoc! {"
     Sight-sing or use your instrument to improvise using all the harmony of the passage.
 "};
 
+const MASTERY_DESCRIPTION: &str = indoc! {"
+    Sight-sing or use your instrument to improvise using all the melodic, rhythmic, and harmonic
+    elements of the passage.
+"};
+
 lazy_static! {
     /// The instructions for the singing lessons.
     pub static ref SINGING_INSTRUCTIONS: Ustr = Ustr::from(indoc! {"
@@ -78,6 +83,12 @@ lazy_static! {
 
         Use your prefered sight-singing system (refer to the course instructions). When
         using your instrument, you should sing along.
+    "});
+
+    /// The instructions for the rhythm lessons.
+    pub static ref MASTERY_INSTRUCTIONS: Ustr = Ustr::from(indoc! {"
+        Using all you have learned in the previous lessons, select a key at random and
+        improvise using all the melodic, rhythmic, and harmonic elements of the passage.
     "});
 }
 
@@ -347,7 +358,7 @@ impl TraneImprovisationConfig {
             ),
         };
 
-        let previous_key = key.previous_key();
+        let previous_key = key.previous_key_in_circle();
         let lesson_dependencies = match (previous_key, instrument) {
             (None, None) => vec![self.singing_lesson_id(course_manifest.id)],
             (None, Some(_)) => {
@@ -489,7 +500,7 @@ impl TraneImprovisationConfig {
             ),
         };
 
-        let previous_key = key.previous_key();
+        let previous_key = key.previous_key_in_circle();
         let lesson_dependencies = match (previous_key, instrument) {
             (None, None) => vec![self.singing_lesson_id(course_manifest.id)],
             (None, Some(_)) => {
@@ -635,7 +646,7 @@ impl TraneImprovisationConfig {
             ),
         };
 
-        let previous_key = key.previous_key();
+        let previous_key = key.previous_key_in_circle();
         let lesson_dependencies = match (previous_key, instrument) {
             (None, None) => vec![self.basic_harmony_lesson_id(course_manifest.id, key, None)],
             (None, Some(instrument)) => {
@@ -709,11 +720,90 @@ impl TraneImprovisationConfig {
             .collect::<Result<Vec<_>>>()
     }
 
-    fn mastery_lesson_id(&self, course_id: Ustr, key: Option<Note>) -> Ustr {
-        match key {
-            None => Ustr::from(&Ustr::from(&format!("{}::mastery", course_id))),
-            Some(key) => Ustr::from(&format!("{}::mastery::{}", course_id, key.to_string())),
+    fn mastery_lesson_id(&self, course_id: Ustr, instrument: Option<&str>) -> Ustr {
+        match instrument {
+            Some(instrument) => Ustr::from(&format!("{}::mastery::{}", course_id, instrument)),
+            None => Ustr::from(&format!("{}::mastery", course_id)),
         }
+    }
+
+    fn generate_mastery_exercise(
+        &self,
+        course_manifest: &CourseManifest,
+        lesson_id: Ustr,
+        instrument: Option<&str>,
+        passage: (usize, &ImprovisationPassage),
+    ) -> Result<ExerciseManifest> {
+        let exercise_name = match instrument {
+            Some(instrument) => format!("{} - Mastery - {}", course_manifest.name, instrument),
+            None => format!("{} - Mastery", course_manifest.name),
+        };
+
+        Ok(ExerciseManifest {
+            id: self.exercise_id(lesson_id, passage.0),
+            lesson_id,
+            course_id: course_manifest.id,
+            name: exercise_name,
+            description: Some(MASTERY_DESCRIPTION.to_string()),
+            exercise_type: ExerciseType::Procedural,
+            exercise_asset: ExerciseAsset::SoundSliceAsset {
+                link: passage.1.soundslice_link.clone(),
+                description: None,
+                backup: passage.1.music_xml_file.clone(),
+            },
+        })
+    }
+
+    fn generate_mastery_lesson(
+        &self,
+        course_manifest: &CourseManifest,
+        instrument: Option<&str>,
+    ) -> Result<(LessonManifest, Vec<ExerciseManifest>)> {
+        let lesson_id = self.mastery_lesson_id(course_manifest.id, instrument);
+        let lesson_name = match instrument {
+            Some(instrument) => format!("{} - Mastery - {}", course_manifest.name, instrument),
+            None => format!("{} - Mastery", course_manifest.name),
+        };
+
+        let last_keys = Note::last_keys_in_circle();
+        let lesson_dependencies = last_keys
+            .iter()
+            .flat_map(|key| {
+                vec![
+                    self.rhythm_lesson_id(course_manifest.id, instrument),
+                    self.melody_lesson_id(course_manifest.id, *key, instrument),
+                    self.advanced_harmony_lesson_id(course_manifest.id, *key, instrument),
+                ]
+            })
+            .collect::<Vec<_>>();
+
+        let lesson_manifest = LessonManifest {
+            id: lesson_id,
+            course_id: course_manifest.id,
+            name: lesson_name,
+            description: Some(MASTERY_DESCRIPTION.to_string()),
+            dependencies: lesson_dependencies,
+            metadata: None,
+            lesson_instructions: Some(BasicAsset::InlinedUniqueAsset {
+                content: *MASTERY_INSTRUCTIONS,
+            }),
+            lesson_material: None,
+        };
+
+        let exercises = self
+            .passages
+            .iter()
+            .enumerate()
+            .map(|passage| {
+                self.generate_mastery_exercise(
+                    course_manifest,
+                    lesson_manifest.id,
+                    instrument,
+                    passage,
+                )
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok((lesson_manifest, exercises))
     }
 
     fn generate_mastery_lessons(
@@ -721,7 +811,12 @@ impl TraneImprovisationConfig {
         course_manifest: &CourseManifest,
         user_config: &TraneImprovisationUserConfig,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
-        unimplemented!()
+        let all_instruments = Self::all_instruments(user_config)?;
+        let lessons = all_instruments
+            .iter()
+            .map(|instrument| self.generate_mastery_lesson(course_manifest, *instrument))
+            .collect::<Result<Vec<_>>>()?;
+        Ok(lessons)
     }
 
     fn generate_rhtyhm_only_manifests(
