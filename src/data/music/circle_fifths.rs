@@ -1,6 +1,32 @@
 use crate::data::music::notes::Note;
 
 impl Note {
+    // Returns all the notes in the circle of fifths.
+    pub fn all_keys() -> Vec<Note> {
+        vec![
+            // Key with no sharps or flats.
+            Note::C,
+
+            // Keys with at least one sharp.
+            Note::G,
+            Note::D,
+            Note::A,
+            Note::E,
+            Note::B,
+            Note::F_SHARP,
+            Note::C_SHARP,
+
+            // Keys with at least one flat.
+            Note::F,
+            Note::B_FLAT,
+            Note::E_FLAT,
+            Note::A_FLAT,
+            Note::D_FLAT,
+            Note::G_FLAT,
+            Note::C_FLAT,
+        ]
+    }
+
     /// Returns the note obtained by moving clockwise through the circle of fifths.
     pub fn clockwise(&self) -> Option<Note> {
         match *self {
