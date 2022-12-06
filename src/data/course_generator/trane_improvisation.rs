@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::Result;
 use indoc::indoc;
 use lazy_static::lazy_static;
@@ -117,7 +119,7 @@ pub struct TraneImprovisationConfig {
     pub rhythm_only: bool,
 
     /// The passages to be used in the course.
-    pub passages: Vec<ImprovisationPassage>,
+    pub passages: HashMap<usize, ImprovisationPassage>,
 }
 
 /// Settings for generating a new improvisation course that are specific to a user.
@@ -189,9 +191,12 @@ impl TraneImprovisationConfig {
         let exercises = self
             .passages
             .iter()
-            .enumerate()
-            .map(|passage| {
-                self.generate_singing_exercise(course_manifest, lesson_manifest.id, passage)
+            .map(|(index, passage)| {
+                self.generate_singing_exercise(
+                    course_manifest,
+                    lesson_manifest.id,
+                    (*index, passage),
+                )
             })
             .collect::<Result<Vec<_>>>()?;
         Ok(vec![(lesson_manifest, exercises)])
@@ -262,13 +267,12 @@ impl TraneImprovisationConfig {
         let exercises = self
             .passages
             .iter()
-            .enumerate()
-            .map(|passage| {
+            .map(|(index, passage)| {
                 self.generate_rhythm_exercise(
                     course_manifest,
                     lesson_manifest.id,
                     instrument,
-                    passage,
+                    (*index, passage),
                 )
             })
             .collect::<Result<Vec<_>>>()?;
@@ -391,14 +395,13 @@ impl TraneImprovisationConfig {
         let exercises = self
             .passages
             .iter()
-            .enumerate()
-            .map(|passage| {
+            .map(|(index, passage)| {
                 self.generate_melody_exercise(
                     course_manifest,
                     lesson_manifest.id,
                     key,
                     instrument,
-                    passage,
+                    (*index, passage),
                 )
             })
             .collect::<Result<Vec<_>>>()?;
@@ -537,14 +540,13 @@ impl TraneImprovisationConfig {
         let exercises = self
             .passages
             .iter()
-            .enumerate()
-            .map(|passage| {
+            .map(|(index, passage)| {
                 self.generate_basic_harmony_exercise(
                     course_manifest,
                     lesson_manifest.id,
                     key,
                     instrument,
-                    passage,
+                    (*index, passage),
                 )
             })
             .collect::<Result<Vec<_>>>()?;
@@ -690,14 +692,13 @@ impl TraneImprovisationConfig {
         let exercises = self
             .passages
             .iter()
-            .enumerate()
-            .map(|passage| {
+            .map(|(index, passage)| {
                 self.generate_advanced_harmony_exercise(
                     course_manifest,
                     lesson_manifest.id,
                     key,
                     instrument,
-                    passage,
+                    (*index, passage),
                 )
             })
             .collect::<Result<Vec<_>>>()?;
@@ -793,13 +794,12 @@ impl TraneImprovisationConfig {
         let exercises = self
             .passages
             .iter()
-            .enumerate()
-            .map(|passage| {
+            .map(|(index, passage)| {
                 self.generate_mastery_exercise(
                     course_manifest,
                     lesson_manifest.id,
                     instrument,
-                    passage,
+                    (*index, passage),
                 )
             })
             .collect::<Result<Vec<_>>>()?;
