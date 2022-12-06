@@ -6,7 +6,6 @@ impl Note {
         vec![
             // Key with no sharps or flats.
             Note::C,
-
             // Keys with at least one sharp.
             Note::G,
             Note::D,
@@ -15,7 +14,6 @@ impl Note {
             Note::B,
             Note::F_SHARP,
             Note::C_SHARP,
-
             // Keys with at least one flat.
             Note::F,
             Note::B_FLAT,
