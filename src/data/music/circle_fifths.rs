@@ -105,9 +105,6 @@ impl Note {
     /// Returns the last keys accessible by traversing the circle of fifths in clockwise and
     /// counter-clockwise directions.
     pub fn last_keys_in_circle() -> Vec<Note> {
-        vec![
-            Note::C_SHARP,
-            Note::C_FLAT,
-        ]
+        vec![Note::C_SHARP, Note::C_FLAT]
     }
 }
