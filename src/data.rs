@@ -195,7 +195,10 @@ pub enum BasicAsset {
 
     /// An asset containing its content as a unique string. Useful for generating assets that are
     /// replicated across many units.
-    InlinedUniqueAsset { content: Ustr },
+    InlinedUniqueAsset {
+        /// The content of the asset.
+        content: Ustr,
+    },
 }
 
 impl NormalizePaths for BasicAsset {
@@ -224,16 +227,23 @@ impl VerifyPaths for BasicAsset {
     }
 }
 
+/// A configuration used for generating special types of courses on the fly.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum CourseGenerator {
+    /// The configuration for generating a Trane improvisation course.
     TraneImprovisation(TraneImprovisationConfig),
 }
 
+/// The configuration for generating special types of courses on the fly that is specific to each
+/// user.
 pub enum CourseGeneratorUserConfig {
+    /// The user configuration used for generating a Trane improvisation course.
     TraneImprovisation(TraneImprovisationUserConfig),
 }
 
+/// The trait to return all the generated lesson and exercise manifests for a course.
 pub trait GenerateManifests {
+    /// Returns all the generated lesson and exercise manifests for a course.
     fn generate_manifests(
         &self,
         course_manifest: &CourseManifest,
@@ -482,8 +492,21 @@ impl NormalizePaths for ExerciseAsset {
                     back_path: abs_back_path,
                 })
             }
-            // TODO: Implement normalization for SoundSliceAsset.
-            ExerciseAsset::SoundSliceAsset { .. } => Ok(self.clone()),
+            ExerciseAsset::SoundSliceAsset {
+                link,
+                description,
+                backup,
+            } => match backup {
+                None => Ok(self.clone()),
+                Some(path) => {
+                    let abs_path = normalize_path(dir, path)?;
+                    return Ok(ExerciseAsset::SoundSliceAsset {
+                        link: link.clone(),
+                        description: description.clone(),
+                        backup: Some(abs_path),
+                    });
+                }
+            },
         }
     }
 }

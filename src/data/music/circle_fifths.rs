@@ -1,7 +1,10 @@
+//! Contains functions for working with the circle of fifths.
+
 use crate::data::music::notes::Note;
 
+// TODO: option to not include enharmonic keys.
 impl Note {
-    // Returns all the notes in the circle of fifths.
+    /// Returns all the notes in the circle of fifths.
     pub fn all_keys() -> Vec<Note> {
         vec![
             // Key with no sharps or flats.
@@ -36,7 +39,7 @@ impl Note {
             Note::B => Some(Note::F_SHARP),
             Note::F_SHARP => Some(Note::C_SHARP),
             Note::C_SHARP => None,
-
+            
             Note::F => Some(Note::C),
             Note::B_FLAT => Some(Note::F),
             Note::E_FLAT => Some(Note::B_FLAT),
@@ -76,7 +79,7 @@ impl Note {
     pub fn previous_key_in_circle(&self) -> Option<Note> {
         match *self {
             // The key of C is always the first key in the circle of fifths from which traversal
-            // should start.
+            // should start, so it has no previous key.
             Note::C => None,
 
             // The keys with at least one sharp.
