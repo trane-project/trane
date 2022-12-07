@@ -4,7 +4,7 @@
 //! courses that the student wishes to practice together. Courses, lessons, and exercises are
 //! defined by their manifest files (see [data](crate::data)).
 
-use anyhow::{anyhow, ensure, Result};
+use anyhow::{anyhow, ensure, Context, Result};
 use parking_lot::RwLock;
 use serde::de::DeserializeOwned;
 use std::{collections::BTreeMap, fs::File, io::BufReader, path::Path, sync::Arc};
@@ -20,11 +20,11 @@ use walkdir::{DirEntry, WalkDir};
 
 use crate::{
     data::{
-        course_generator::trane_improvisation::TraneImprovisationUserConfig,
-        CourseGeneratorUserConfig, CourseManifest, ExerciseManifest, GenerateManifests,
-        LessonManifest, NormalizePaths, UnitType,
+        CourseGeneratorPreferences, CourseManifest, ExerciseManifest, GenerateManifests,
+        LessonManifest, NormalizePaths, UnitType, UserPreferences,
     },
     graph::{InMemoryUnitGraph, UnitGraph},
+    USER_PREFERENCES_PATH,
 };
 
 /// The file name for all course manifests.
@@ -116,6 +116,9 @@ pub(crate) struct LocalCourseLibrary {
 
     /// A mapping of exercise ID to its corresponding exercise manifest.
     exercise_map: UstrMap<ExerciseManifest>,
+
+    /// The user preferences.
+    user_preferences: UserPreferences,
 
     /// A tantivy index used for searching the course library.
     index: Index,
@@ -365,14 +368,12 @@ impl LocalCourseLibrary {
         // If the course has a generator config, generate the lessons and exercises and add them to
         // the library.
         if let Some(generator_config) = &course_manifest.generator_config {
-            // TODO: use the real user config.
-            let user_config =
-                CourseGeneratorUserConfig::TraneImprovisation(TraneImprovisationUserConfig {
-                    instruments: vec![],
-                });
+            let generator_prefs = CourseGeneratorPreferences {
+                trane_improvisation: self.user_preferences.trane_improvisation.clone(),
+            };
 
             let generated_manifests =
-                generator_config.generate_manifests(&course_manifest, &user_config)?;
+                generator_config.generate_manifests(&course_manifest, &generator_prefs)?;
             for (lesson_manifest, exercise_manifests) in generated_manifests {
                 // All the generated lessons will use the root of the course as the `dir_entry`.
                 self.process_lesson_manifest(
@@ -423,6 +424,16 @@ impl LocalCourseLibrary {
         Ok(())
     }
 
+    /// Returns the user preferences stored in the local course library.
+    fn open_preferences(library_root: &Path) -> Result<UserPreferences> {
+        let path = library_root.join(USER_PREFERENCES_PATH);
+        let file = File::open(path.clone())
+            .with_context(|| anyhow!("cannot open user preferences file {}", path.display()))?;
+        let reader = BufReader::new(file);
+        serde_json::from_reader(reader)
+            .with_context(|| anyhow!("cannot parse user preferences file {}", path.display()))
+    }
+
     /// A constructor taking the path to the root of the library.
     pub fn new(library_root: &Path) -> Result<Self> {
         // Verify that the library root is a directory.
@@ -437,6 +448,7 @@ impl LocalCourseLibrary {
             course_map: UstrMap::default(),
             lesson_map: UstrMap::default(),
             exercise_map: UstrMap::default(),
+            user_preferences: Self::open_preferences(library_root)?,
             unit_graph: Arc::new(RwLock::new(InMemoryUnitGraph::default())),
             index: Index::create_in_ram(Self::search_schema()),
             reader: None,

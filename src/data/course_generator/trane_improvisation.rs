@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use ustr::Ustr;
 
 use crate::data::{
-    music::notes::Note, BasicAsset, CourseGeneratorUserConfig, CourseManifest, ExerciseAsset,
+    music::notes::Note, BasicAsset, CourseGeneratorPreferences, CourseManifest, ExerciseAsset,
     ExerciseManifest, ExerciseType, GenerateManifests, LessonManifest,
 };
 
@@ -152,8 +152,8 @@ pub struct TraneImprovisationConfig {
 }
 
 /// Settings for generating a new improvisation course that are specific to a user.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct TraneImprovisationUserConfig {
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct TraneImprovisationPreferences {
     /// The list of instruments the user wants to practice.
     pub instruments: Vec<String>,
 }
@@ -166,7 +166,7 @@ impl TraneImprovisationConfig {
 
     /// Returns the list of all instruments that the user can practice. A value of None represents
     /// the voice lessons which must be mastered before practicing specific instruments.
-    fn all_instruments(user_config: &TraneImprovisationUserConfig) -> Result<Vec<Option<&str>>> {
+    fn all_instruments(user_config: &TraneImprovisationPreferences) -> Result<Vec<Option<&str>>> {
         let mut all_instuments: Vec<Option<&str>> = user_config
             .instruments
             .iter()
@@ -341,7 +341,7 @@ impl TraneImprovisationConfig {
     fn generate_rhythm_lessons(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &TraneImprovisationUserConfig,
+        user_config: &TraneImprovisationPreferences,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         // Generate a lesson for each instrument.
         let all_instruments = Self::all_instruments(user_config)?;
@@ -491,7 +491,7 @@ impl TraneImprovisationConfig {
     fn generate_melody_lessons(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &TraneImprovisationUserConfig,
+        user_config: &TraneImprovisationPreferences,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         // Get a list of all keys and instruments.
         let all_keys = Note::all_keys(false);
@@ -663,7 +663,7 @@ impl TraneImprovisationConfig {
     fn generate_basic_harmony_lessons(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &TraneImprovisationUserConfig,
+        user_config: &TraneImprovisationPreferences,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         // Get all keys and instruments.
         let all_keys = Note::all_keys(false);
@@ -841,7 +841,7 @@ impl TraneImprovisationConfig {
     fn generate_advanced_harmony_lessons(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &TraneImprovisationUserConfig,
+        user_config: &TraneImprovisationPreferences,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         // Get all keys and instruments.
         let all_keys = Note::all_keys(false);
@@ -969,7 +969,7 @@ impl TraneImprovisationConfig {
     fn generate_mastery_lessons(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &TraneImprovisationUserConfig,
+        user_config: &TraneImprovisationPreferences,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         let all_instruments = Self::all_instruments(user_config)?;
         let lessons = all_instruments
@@ -983,7 +983,7 @@ impl TraneImprovisationConfig {
     fn generate_rhtyhm_only_manifests(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &TraneImprovisationUserConfig,
+        user_config: &TraneImprovisationPreferences,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         Ok(vec![
             self.generate_singing_lesson(course_manifest)?,
@@ -998,7 +998,7 @@ impl TraneImprovisationConfig {
     fn generate_all_manifests(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &TraneImprovisationUserConfig,
+        user_config: &TraneImprovisationPreferences,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         Ok(vec![
             self.generate_singing_lesson(course_manifest)?,
@@ -1018,16 +1018,17 @@ impl GenerateManifests for TraneImprovisationConfig {
     fn generate_manifests(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &CourseGeneratorUserConfig,
+        preferences: &CourseGeneratorPreferences,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
-        match user_config {
-            CourseGeneratorUserConfig::TraneImprovisation(user_config) => {
-                if self.rhythm_only {
-                    self.generate_rhtyhm_only_manifests(course_manifest, user_config)
-                } else {
-                    self.generate_all_manifests(course_manifest, user_config)
-                }
-            }
+        let default_preferences = TraneImprovisationPreferences::default();
+        let preferences = match &preferences.trane_improvisation {
+            Some(preferences) => preferences,
+            None => &default_preferences,
+        };
+        if self.rhythm_only {
+            self.generate_rhtyhm_only_manifests(course_manifest, preferences)
+        } else {
+            self.generate_all_manifests(course_manifest, preferences)
         }
     }
 }

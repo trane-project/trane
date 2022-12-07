@@ -13,7 +13,7 @@ use std::{collections::BTreeMap, path::Path};
 use ustr::Ustr;
 
 use self::course_generator::trane_improvisation::{
-    TraneImprovisationConfig, TraneImprovisationUserConfig,
+    TraneImprovisationConfig, TraneImprovisationPreferences,
 };
 
 /// The score used by students to evaluate their mastery of a particular exercise after a trial.
@@ -236,9 +236,17 @@ pub enum CourseGenerator {
 
 /// The configuration for generating special types of courses on the fly that is specific to each
 /// user.
-pub enum CourseGeneratorUserConfig {
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct CourseGeneratorPreferences {
     /// The user configuration used for generating a Trane improvisation course.
-    TraneImprovisation(TraneImprovisationUserConfig),
+    pub trane_improvisation: Option<TraneImprovisationPreferences>,
+}
+
+/// The user-specific configuration
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct UserPreferences {
+    /// The preferences for generating Trane improvisation courses.
+    pub trane_improvisation: Option<TraneImprovisationPreferences>,
 }
 
 /// The trait to return all the generated lesson and exercise manifests for a course.
@@ -247,7 +255,7 @@ pub trait GenerateManifests {
     fn generate_manifests(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &CourseGeneratorUserConfig,
+        preferences: &CourseGeneratorPreferences,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>>;
 }
 
@@ -255,11 +263,11 @@ impl GenerateManifests for CourseGenerator {
     fn generate_manifests(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &CourseGeneratorUserConfig,
+        preferences: &CourseGeneratorPreferences,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         match self {
             CourseGenerator::TraneImprovisation(config) => {
-                config.generate_manifests(course_manifest, user_config)
+                config.generate_manifests(course_manifest, preferences)
             }
         }
     }
