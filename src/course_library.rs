@@ -460,6 +460,7 @@ impl LocalCourseLibrary {
             ));
         }
 
+        // File should exist and be a regular file at this point.
         let file = File::open(path.clone())
             .with_context(|| anyhow!("cannot open user preferences file {}", path.display()))?;
         let reader = BufReader::new(file);
