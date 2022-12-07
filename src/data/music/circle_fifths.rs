@@ -2,30 +2,49 @@
 
 use crate::data::music::notes::Note;
 
-// TODO: option to not include enharmonic keys.
 impl Note {
     /// Returns all the notes in the circle of fifths.
-    pub fn all_keys() -> Vec<Note> {
-        vec![
-            // Key with no sharps or flats.
-            Note::C,
-            // Keys with at least one sharp.
-            Note::G,
-            Note::D,
-            Note::A,
-            Note::E,
-            Note::B,
-            Note::F_SHARP,
-            Note::C_SHARP,
-            // Keys with at least one flat.
-            Note::F,
-            Note::B_FLAT,
-            Note::E_FLAT,
-            Note::A_FLAT,
-            Note::D_FLAT,
-            Note::G_FLAT,
-            Note::C_FLAT,
-        ]
+    pub fn all_keys(include_enharmonic: bool) -> Vec<Note> {
+        if include_enharmonic {
+            vec![
+                // Key with no sharps or flats.
+                Note::C,
+                // Keys with at least one sharp.
+                Note::G,
+                Note::D,
+                Note::A,
+                Note::E,
+                Note::B,
+                Note::F_SHARP,
+                Note::C_SHARP,
+                // Keys with at least one flat.
+                Note::F,
+                Note::B_FLAT,
+                Note::E_FLAT,
+                Note::A_FLAT,
+                Note::D_FLAT,
+                Note::G_FLAT,
+                Note::C_FLAT,
+            ]
+        } else {
+            vec![
+                // Key with no sharps or flats.
+                Note::C,
+                // Keys with at least one sharp.
+                Note::G,
+                Note::D,
+                Note::A,
+                Note::E,
+                Note::B,
+                // Keys with at least one flat.
+                Note::F,
+                Note::B_FLAT,
+                Note::E_FLAT,
+                Note::A_FLAT,
+                Note::D_FLAT,
+                Note::G_FLAT,
+            ]
+        }
     }
 
     /// Returns the note obtained by moving clockwise through the circle of fifths.
@@ -39,7 +58,7 @@ impl Note {
             Note::B => Some(Note::F_SHARP),
             Note::F_SHARP => Some(Note::C_SHARP),
             Note::C_SHARP => None,
-            
+
             Note::F => Some(Note::C),
             Note::B_FLAT => Some(Note::F),
             Note::E_FLAT => Some(Note::B_FLAT),

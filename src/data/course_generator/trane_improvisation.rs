@@ -5,7 +5,7 @@
 //! melodic and harmonic elements of each passage are used to generate a series of lessons for each
 //! key and for all the instruments the user selects.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use anyhow::Result;
 use indoc::indoc;
@@ -47,11 +47,24 @@ const ADVANCED_HARMONY_DESCRIPTION: &str = indoc! {"
     Sight-sing or use your instrument to improvise using all the harmony of the passage.
 "};
 
+/// The description of the mastery lesson.
 const MASTERY_DESCRIPTION: &str = indoc! {"
     Sight-sing or use your instrument to improvise using all the melodic, rhythmic, and
     harmonic elements of the passage.
     Refer to the lesson instructions for more details.
 "};
+
+/// The metadata key indicating the lesson belongs to a Trane improvisation course.
+const COURSE_METADATA: &str = "trane_improvisation";
+
+/// The metadata key indicating the type of the improvisation lesson.
+const LESSON_METADATA: &str = "trane_improvisation_lesson";
+
+/// The metadata key indicating the key of the improvisation lesson.
+const KEY_METADATA: &str = "key";
+
+/// The metadata key indicating the instrument of the improvisation lesson.
+const INSTRUMENT_METADATA: &str = "instrument";
 
 lazy_static! {
     /// The instructions for the singing lessons.
@@ -203,8 +216,11 @@ impl TraneImprovisationConfig {
             name: format!("{} - Singing", course_manifest.name),
             description: Some(SINGING_DESCRIPTION.to_string()),
             dependencies: vec![],
-            // TODO: add metadata.
-            metadata: None,
+            metadata: Some(BTreeMap::from([
+                (COURSE_METADATA.to_string(), vec!["true".to_string()]),
+                (LESSON_METADATA.to_string(), vec!["singing".to_string()]),
+                (INSTRUMENT_METADATA.to_string(), vec!["voice".to_string()]),
+            ])),
             lesson_instructions: Some(BasicAsset::InlinedUniqueAsset {
                 content: *SINGING_INSTRUCTIONS,
             }),
@@ -284,13 +300,21 @@ impl TraneImprovisationConfig {
         };
 
         // Generate the lesson manifest.
+        let instrument_name = match instrument {
+            Some(instrument) => instrument.to_string(),
+            None => "voice".to_string(),
+        };
         let lesson_manifest = LessonManifest {
             id: lesson_id,
             course_id: course_manifest.id,
             name: lesson_name,
             description: Some(RHYTHM_DESCRIPTION.to_string()),
             dependencies: lesson_dependencies,
-            metadata: None,
+            metadata: Some(BTreeMap::from([
+                (COURSE_METADATA.to_string(), vec!["true".to_string()]),
+                (LESSON_METADATA.to_string(), vec!["rhythm".to_string()]),
+                (INSTRUMENT_METADATA.to_string(), vec![instrument_name]),
+            ])),
             lesson_instructions: Some(BasicAsset::InlinedUniqueAsset {
                 content: *RHYTHM_INSTRUCTIONS,
             }),
@@ -424,13 +448,22 @@ impl TraneImprovisationConfig {
         };
 
         // Generate the lesson manifest.
+        let instrument_name = match instrument {
+            Some(instrument) => instrument.to_string(),
+            None => "voice".to_string(),
+        };
         let lesson_manifest = LessonManifest {
             id: lesson_id,
             course_id: course_manifest.id,
             name: lesson_name,
             description: Some(MELODY_DESCRIPTION.to_string()),
             dependencies: lesson_dependencies,
-            metadata: None,
+            metadata: Some(BTreeMap::from([
+                (COURSE_METADATA.to_string(), vec!["true".to_string()]),
+                (LESSON_METADATA.to_string(), vec!["melody".to_string()]),
+                (INSTRUMENT_METADATA.to_string(), vec![instrument_name]),
+                (KEY_METADATA.to_string(), vec![key.to_string()]),
+            ])),
             lesson_instructions: Some(BasicAsset::InlinedUniqueAsset {
                 content: *MELODY_INSTRUCTIONS,
             }),
@@ -461,7 +494,7 @@ impl TraneImprovisationConfig {
         user_config: &TraneImprovisationUserConfig,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         // Get a list of all keys and instruments.
-        let all_keys = Note::all_keys();
+        let all_keys = Note::all_keys(false);
         let all_instruments = Self::all_instruments(user_config)?;
 
         // Generate a lesson for each key and instrument pair.
@@ -584,13 +617,25 @@ impl TraneImprovisationConfig {
         };
 
         // Generate the lesson manifest.
+        let instrument_name = match instrument {
+            Some(instrument) => instrument.to_string(),
+            None => "voice".to_string(),
+        };
         let lesson_manifest = LessonManifest {
             id: lesson_id,
             course_id: course_manifest.id,
             name: lesson_name,
             description: Some(BASIC_HARMONY_DESCRIPTION.to_string()),
             dependencies: lesson_dependencies,
-            metadata: None,
+            metadata: Some(BTreeMap::from([
+                (COURSE_METADATA.to_string(), vec!["true".to_string()]),
+                (
+                    LESSON_METADATA.to_string(),
+                    vec!["basic_harmony".to_string()],
+                ),
+                (INSTRUMENT_METADATA.to_string(), vec![instrument_name]),
+                (KEY_METADATA.to_string(), vec![key.to_string()]),
+            ])),
             lesson_instructions: Some(BasicAsset::InlinedUniqueAsset {
                 content: *BASIC_HARMONY_INSTRUCTIONS,
             }),
@@ -621,7 +666,7 @@ impl TraneImprovisationConfig {
         user_config: &TraneImprovisationUserConfig,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         // Get all keys and instruments.
-        let all_keys = Note::all_keys();
+        let all_keys = Note::all_keys(false);
         let all_instruments = Self::all_instruments(user_config)?;
 
         // Generate a lesson for each key and instrument pair.
@@ -750,13 +795,25 @@ impl TraneImprovisationConfig {
         };
 
         // Generate the lesson manifest.
+        let instrument_name = match instrument {
+            Some(instrument) => instrument.to_string(),
+            None => "voice".to_string(),
+        };
         let lesson_manifest = LessonManifest {
             id: lesson_id,
             course_id: course_manifest.id,
             name: lesson_name,
             description: Some(ADVANCED_HARMONY_DESCRIPTION.to_string()),
             dependencies: lesson_dependencies,
-            metadata: None,
+            metadata: Some(BTreeMap::from([
+                (COURSE_METADATA.to_string(), vec!["true".to_string()]),
+                (
+                    LESSON_METADATA.to_string(),
+                    vec!["advanced_harmony".to_string()],
+                ),
+                (INSTRUMENT_METADATA.to_string(), vec![instrument_name]),
+                (KEY_METADATA.to_string(), vec![key.to_string()]),
+            ])),
             lesson_instructions: Some(BasicAsset::InlinedUniqueAsset {
                 content: *ADVANCED_HARMONY_INSTRUCTIONS,
             }),
@@ -787,7 +844,7 @@ impl TraneImprovisationConfig {
         user_config: &TraneImprovisationUserConfig,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         // Get all keys and instruments.
-        let all_keys = Note::all_keys();
+        let all_keys = Note::all_keys(false);
         let all_instruments = Self::all_instruments(user_config)?;
 
         // Generate a lesson for each key and instrument pair.
@@ -871,13 +928,21 @@ impl TraneImprovisationConfig {
             .collect::<Vec<_>>();
 
         // Generate the lesson manifest.
+        let instrument_name = match instrument {
+            Some(instrument) => instrument.to_string(),
+            None => "voice".to_string(),
+        };
         let lesson_manifest = LessonManifest {
             id: lesson_id,
             course_id: course_manifest.id,
             name: lesson_name,
             description: Some(MASTERY_DESCRIPTION.to_string()),
             dependencies: lesson_dependencies,
-            metadata: None,
+            metadata: Some(BTreeMap::from([
+                (COURSE_METADATA.to_string(), vec!["true".to_string()]),
+                (LESSON_METADATA.to_string(), vec!["mastery".to_string()]),
+                (INSTRUMENT_METADATA.to_string(), vec![instrument_name]),
+            ])),
             lesson_instructions: Some(BasicAsset::InlinedUniqueAsset {
                 content: *MASTERY_INSTRUCTIONS,
             }),

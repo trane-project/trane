@@ -500,11 +500,11 @@ impl NormalizePaths for ExerciseAsset {
                 None => Ok(self.clone()),
                 Some(path) => {
                     let abs_path = normalize_path(dir, path)?;
-                    return Ok(ExerciseAsset::SoundSliceAsset {
+                    Ok(ExerciseAsset::SoundSliceAsset {
                         link: link.clone(),
                         description: description.clone(),
                         backup: Some(abs_path),
-                    });
+                    })
                 }
             },
         }
