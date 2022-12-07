@@ -7,7 +7,13 @@
 use anyhow::{anyhow, ensure, Context, Result};
 use parking_lot::RwLock;
 use serde::de::DeserializeOwned;
-use std::{collections::BTreeMap, fs::File, io::BufReader, path::Path, sync::Arc};
+use std::{
+    collections::BTreeMap,
+    fs::File,
+    io::{BufReader, Write},
+    path::Path,
+    sync::Arc,
+};
 use tantivy::{
     collector::TopDocs,
     doc,
@@ -426,7 +432,34 @@ impl LocalCourseLibrary {
 
     /// Returns the user preferences stored in the local course library.
     fn open_preferences(library_root: &Path) -> Result<UserPreferences> {
+        // Create the user preferences file if it does not exist already.
         let path = library_root.join(USER_PREFERENCES_PATH);
+        if !path.exists() {
+            // Create the file.
+            let mut file = File::create(path.clone()).with_context(|| {
+                format!(
+                    "failed to create user preferences file at {}",
+                    path.display()
+                )
+            })?;
+
+            // Write the default user preferences to the file.
+            let default_prefs = UserPreferences::default();
+            let prefs_json = serde_json::to_string_pretty(&default_prefs)? + "\n";
+            file.write_all(prefs_json.as_bytes()).with_context(|| {
+                format!(
+                    "failed to write to user preferences file at {}",
+                    path.display()
+                )
+            })?;
+        } else if !path.is_file() {
+            // The user preferences file exists but is not a regular file.
+            return Err(anyhow!(
+                "user preferences file must be a regular file at {}",
+                path.display()
+            ));
+        }
+
         let file = File::open(path.clone())
             .with_context(|| anyhow!("cannot open user preferences file {}", path.display()))?;
         let reader = BufReader::new(file);

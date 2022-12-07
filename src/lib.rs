@@ -48,12 +48,7 @@ pub mod testutil;
 use anyhow::{anyhow, Context, Result};
 use parking_lot::RwLock;
 use review_list::{ReviewList, ReviewListDB};
-use std::{
-    fs::{create_dir, File},
-    io::Write,
-    path::Path,
-    sync::Arc,
-};
+use std::{fs::create_dir, path::Path, sync::Arc};
 use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::mantra_miner::TraneMantraMiner;
@@ -62,7 +57,7 @@ use course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary};
 use data::{
     filter::{NamedFilter, UnitFilter},
     CourseManifest, ExerciseManifest, ExerciseTrial, LessonManifest, MasteryScore,
-    SchedulerOptions, UnitType, UserPreferences,
+    SchedulerOptions, UnitType,
 };
 use filter_manager::{FilterManager, LocalFilterManager};
 use graph::UnitGraph;
@@ -157,34 +152,6 @@ impl Trane {
                     filters_path.display()
                 )
             })?;
-        }
-
-        // Create the user preferences file if it does not exist already.
-        let prefs_path = trane_path.join(USER_PREFERENCES_PATH);
-        if !prefs_path.exists() {
-            // Create the file.
-            let mut file = File::create(prefs_path.clone()).with_context(|| {
-                format!(
-                    "failed to create user preferences file at {}",
-                    prefs_path.display()
-                )
-            })?;
-
-            // Write the default user preferences to the file.
-            let default_prefs = UserPreferences::default();
-            let prefs_json = serde_json::to_string_pretty(&default_prefs)? + "\n";
-            file.write_all(prefs_json.as_bytes()).with_context(|| {
-                format!(
-                    "failed to write to user preferences file at {}",
-                    prefs_path.display()
-                )
-            })?;
-        } else if !prefs_path.is_file() {
-            // The user preferences file exists but is not a regular file.
-            return Err(anyhow!(
-                "user preferences file must be a regular file at {}",
-                prefs_path.display()
-            ));
         }
 
         Ok(())
