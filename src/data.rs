@@ -531,7 +531,14 @@ impl VerifyPaths for ExerciseAsset {
                 let back_abs_path = dir.join(Path::new(back_path));
                 Ok(front_abs_path.exists() && back_abs_path.exists())
             }
-            ExerciseAsset::SoundSliceAsset { .. } => Ok(true),
+            ExerciseAsset::SoundSliceAsset { backup, .. } => match backup {
+                None => Ok(true),
+                Some(path) => {
+                    // The backup path must exist.
+                    let abs_path = dir.join(Path::new(path));
+                    Ok(abs_path.exists())
+                }
+            },
         }
     }
 }
@@ -728,6 +735,15 @@ mod test {
             backup: None,
         };
         soundslice.normalize_paths(Path::new("./"))?;
+
+        let temp_dir = tempfile::tempdir()?;
+        let temp_file = tempfile::NamedTempFile::new_in(temp_dir.path())?;
+        let soundslice = ExerciseAsset::SoundSliceAsset {
+            link: "https://www.soundslice.com/slices/QfZcc/".to_string(),
+            description: Some("Test".to_string()),
+            backup: Some(temp_file.path().as_os_str().to_str().unwrap().to_string()),
+        };
+        soundslice.normalize_paths(temp_dir.path())?;
         Ok(())
     }
 
@@ -738,7 +754,42 @@ mod test {
             description: Some("Test".to_string()),
             backup: None,
         };
-        soundslice.verify_paths(Path::new("./"))?;
+        assert!(soundslice.verify_paths(Path::new("./"))?);
+
+        let soundslice = ExerciseAsset::SoundSliceAsset {
+            link: "https://www.soundslice.com/slices/QfZcc/".to_string(),
+            description: Some("Test".to_string()),
+            backup: Some("./bad_file".to_string()),
+        };
+        assert!(!soundslice.verify_paths(Path::new("./"))?);
+        Ok(())
+    }
+
+    #[test]
+    fn normalize_inlined_assets() -> Result<()> {
+        let inlined_asset = BasicAsset::InlinedAsset {
+            content: "Test".to_string(),
+        };
+        inlined_asset.normalize_paths(Path::new("./"))?;
+
+        let inlined_asset = BasicAsset::InlinedUniqueAsset {
+            content: Ustr::from("Test"),
+        };
+        inlined_asset.normalize_paths(Path::new("./"))?;
+        Ok(())
+    }
+
+    #[test]
+    fn verify_inlined_assets() -> Result<()> {
+        let inlined_asset = BasicAsset::InlinedAsset {
+            content: "Test".to_string(),
+        };
+        assert!(inlined_asset.verify_paths(Path::new("./"))?);
+
+        let inlined_asset = BasicAsset::InlinedUniqueAsset {
+            content: Ustr::from("Test"),
+        };
+        assert!(inlined_asset.verify_paths(Path::new("./"))?);
         Ok(())
     }
 
