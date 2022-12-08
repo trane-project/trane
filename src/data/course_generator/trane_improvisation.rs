@@ -14,8 +14,8 @@ use ustr::Ustr;
 
 use crate::data::{
     course_generator::trane_improvisation::constants::*, music::notes::Note, BasicAsset,
-    CourseGeneratorPreferences, CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseType,
-    GenerateManifests, LessonManifest,
+    CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseType, GenerateManifests,
+    LessonManifest, UserPreferences,
 };
 
 /// A single musical passage to be used in a Trane improvisation course. A course can contain
@@ -911,7 +911,7 @@ impl GenerateManifests for TraneImprovisationConfig {
     fn generate_manifests(
         &self,
         course_manifest: &CourseManifest,
-        preferences: &CourseGeneratorPreferences,
+        preferences: &UserPreferences,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         let default_preferences = TraneImprovisationPreferences::default();
         let preferences = match &preferences.trane_improvisation {

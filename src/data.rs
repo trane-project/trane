@@ -146,7 +146,7 @@ where
     fn normalize_paths(&self, dir: &Path) -> Result<Self>;
 }
 
-/// Convers from a relative to an absolute path given a path and a directory.
+/// Converts a relative to an absolute path given a path and a directory.
 fn normalize_path(dir: &Path, path: &str) -> Result<String> {
     Ok(dir
         .join(path)
@@ -234,14 +234,6 @@ pub enum CourseGenerator {
     TraneImprovisation(TraneImprovisationConfig),
 }
 
-/// The configuration for generating special types of courses on the fly that is specific to each
-/// user.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct CourseGeneratorPreferences {
-    /// The user configuration used for generating a Trane improvisation course.
-    pub trane_improvisation: Option<TraneImprovisationPreferences>,
-}
-
 /// The user-specific configuration
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct UserPreferences {
@@ -255,7 +247,7 @@ pub trait GenerateManifests {
     fn generate_manifests(
         &self,
         course_manifest: &CourseManifest,
-        preferences: &CourseGeneratorPreferences,
+        preferences: &UserPreferences,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>>;
 }
 
@@ -263,7 +255,7 @@ impl GenerateManifests for CourseGenerator {
     fn generate_manifests(
         &self,
         course_manifest: &CourseManifest,
-        preferences: &CourseGeneratorPreferences,
+        preferences: &UserPreferences,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         match self {
             CourseGenerator::TraneImprovisation(config) => {
