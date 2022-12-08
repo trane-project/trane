@@ -472,7 +472,7 @@ impl TraneImprovisationConfig {
         instrument: Option<&str>,
     ) -> Result<(LessonManifest, Vec<ExerciseManifest>)> {
         // Generate the lesson ID and name.
-        let lesson_id = self.melody_lesson_id(course_manifest.id, key, instrument);
+        let lesson_id = self.basic_harmony_lesson_id(course_manifest.id, key, instrument);
         let lesson_name = match instrument {
             Some(instrument) => format!(
                 "{} - Basic Harmony - Key of {} - {}",
@@ -643,7 +643,7 @@ impl TraneImprovisationConfig {
         key: Note,
         instrument: Option<&str>,
     ) -> Result<(LessonManifest, Vec<ExerciseManifest>)> {
-        let lesson_id = self.melody_lesson_id(course_manifest.id, key, instrument);
+        let lesson_id = self.advanced_harmony_lesson_id(course_manifest.id, key, instrument);
         let lesson_name = match instrument {
             Some(instrument) => format!(
                 "{} - Advanced Harmony - Key of {} - {}",

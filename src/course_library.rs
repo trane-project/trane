@@ -75,6 +75,9 @@ pub trait CourseLibrary {
     /// Returns the IDs of all exercises in the given lesson sorted alphabetically.
     fn get_exercise_ids(&self, lesson_id: &Ustr) -> Result<Vec<Ustr>>;
 
+    /// Returns the IDs of all exercises in the given course sorted alphabetically.
+    fn get_all_exercise_ids(&self) -> Result<Vec<Ustr>>;
+
     /// Returns the IDs of all the units which match the given query.
     fn search(&self, query: &str) -> Result<Vec<Ustr>>;
 }
@@ -582,6 +585,12 @@ impl CourseLibrary for LocalCourseLibrary {
             .unwrap_or_default()
             .into_iter()
             .collect::<Vec<Ustr>>();
+        exercises.sort();
+        Ok(exercises)
+    }
+
+    fn get_all_exercise_ids(&self) -> Result<Vec<Ustr>> {
+        let mut exercises = self.exercise_map.keys().cloned().collect::<Vec<Ustr>>();
         exercises.sort();
         Ok(exercises)
     }

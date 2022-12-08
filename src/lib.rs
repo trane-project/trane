@@ -275,6 +275,10 @@ impl CourseLibrary for Trane {
         self.course_library.read().get_exercise_ids(lesson_id)
     }
 
+    fn get_all_exercise_ids(&self) -> Result<Vec<Ustr>> {
+        self.course_library.read().get_all_exercise_ids()
+    }
+
     fn search(&self, query: &str) -> Result<Vec<Ustr>> {
         self.course_library.read().search(query)
     }
