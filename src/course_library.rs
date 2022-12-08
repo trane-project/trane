@@ -450,11 +450,13 @@ impl LocalCourseLibrary {
             let default_prefs = UserPreferences::default();
             let prefs_json = serde_json::to_string_pretty(&default_prefs)? + "\n";
             file.write_all(prefs_json.as_bytes()).with_context(|| {
+                // grcov-excl-start
                 format!(
                     "failed to write to user preferences file at {}",
                     path.display()
                 )
-            })?;
+                // grcov-excl-stop
+            })?; // grcov-excl-line
         } else if !path.is_file() {
             // The user preferences file exists but is not a regular file.
             return Err(anyhow!(
@@ -481,11 +483,12 @@ impl LocalCourseLibrary {
         );
 
         // Initialize the local course library.
+        let user_preferences = Self::open_preferences(library_root)?;
         let mut library = LocalCourseLibrary {
             course_map: UstrMap::default(),
             lesson_map: UstrMap::default(),
             exercise_map: UstrMap::default(),
-            user_preferences: Self::open_preferences(library_root)?,
+            user_preferences,
             unit_graph: Arc::new(RwLock::new(InMemoryUnitGraph::default())),
             index: Index::create_in_ram(Self::search_schema()),
             reader: None,
@@ -632,7 +635,8 @@ impl GetUnitGraph for LocalCourseLibrary {
 
 #[cfg(test)]
 mod test {
-    use std::path::Path;
+    use anyhow::Result;
+    use std::{os::unix::prelude::PermissionsExt, path::Path};
 
     use crate::course_library::LocalCourseLibrary;
 
@@ -641,5 +645,24 @@ mod test {
         let path = Path::new("foo");
         let result = LocalCourseLibrary::new(path);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn user_preferences_file_is_a_dir() -> Result<()> {
+        // Create directory called "user_preferences.json" which is not a file.
+        let temp_dir = tempfile::tempdir()?;
+        std::fs::create_dir(temp_dir.path().join("user_preferences.json"))?;
+        assert!(LocalCourseLibrary::new(temp_dir.path()).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn user_preferences_bad_permissions() -> Result<()> {
+        // Set permissions of library root directory to 000.
+        let temp_dir = tempfile::tempdir()?;
+        std::fs::set_permissions(temp_dir.path(), std::fs::Permissions::from_mode(0o000))?;
+
+        assert!(LocalCourseLibrary::new(temp_dir.path()).is_err());
+        Ok(())
     }
 }

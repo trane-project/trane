@@ -61,14 +61,14 @@ impl TraneImprovisationConfig {
 
     /// Returns the list of all instruments that the user can practice. A value of None represents
     /// the voice lessons which must be mastered before practicing specific instruments.
-    fn all_instruments(user_config: &TraneImprovisationPreferences) -> Result<Vec<Option<&str>>> {
+    fn all_instruments(user_config: &TraneImprovisationPreferences) -> Vec<Option<&str>> {
         let mut all_instuments: Vec<Option<&str>> = user_config
             .instruments
             .iter()
             .map(|s| Some(s.as_str()))
             .collect();
         all_instuments.push(None);
-        Ok(all_instuments)
+        all_instuments
     }
 
     /// Returns the ID of the singing lesson for the given course.
@@ -82,8 +82,8 @@ impl TraneImprovisationConfig {
         course_manifest: &CourseManifest,
         lesson_id: Ustr,
         passage: (usize, &ImprovisationPassage),
-    ) -> Result<ExerciseManifest> {
-        Ok(ExerciseManifest {
+    ) -> ExerciseManifest {
+        ExerciseManifest {
             id: self.exercise_id(lesson_id, passage.0),
             lesson_id,
             course_id: course_manifest.id,
@@ -95,14 +95,14 @@ impl TraneImprovisationConfig {
                 description: None,
                 backup: passage.1.music_xml_file.clone(),
             },
-        })
+        }
     }
 
     /// Generates the singing lesson for this course.
     fn generate_singing_lesson(
         &self,
         course_manifest: &CourseManifest,
-    ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
+    ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Generate the lesson manifest.
         let lesson_manifest = LessonManifest {
             id: self.singing_lesson_id(course_manifest.id),
@@ -132,8 +132,8 @@ impl TraneImprovisationConfig {
                     (*index, passage),
                 )
             })
-            .collect::<Result<Vec<_>>>()?;
-        Ok(vec![(lesson_manifest, exercises)])
+            .collect::<Vec<_>>();
+        vec![(lesson_manifest, exercises)]
     }
 
     /// Returns the ID of the rhythm lesson for the given course and instrument.
@@ -151,7 +151,7 @@ impl TraneImprovisationConfig {
         lesson_id: Ustr,
         instrument: Option<&str>,
         passage: (usize, &ImprovisationPassage),
-    ) -> Result<ExerciseManifest> {
+    ) -> ExerciseManifest {
         // Generate the exercise name.
         let exercise_name = match instrument {
             Some(instrument) => format!("{} - Rhythm - {}", course_manifest.name, instrument),
@@ -159,7 +159,7 @@ impl TraneImprovisationConfig {
         };
 
         // Generate the exercise manifest.
-        Ok(ExerciseManifest {
+        ExerciseManifest {
             id: self.exercise_id(lesson_id, passage.0),
             lesson_id,
             course_id: course_manifest.id,
@@ -171,7 +171,7 @@ impl TraneImprovisationConfig {
                 description: None,
                 backup: passage.1.music_xml_file.clone(),
             },
-        })
+        }
     }
 
     /// Generates the rhythm lesson for the given instrument.
@@ -179,7 +179,7 @@ impl TraneImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         instrument: Option<&str>,
-    ) -> Result<(LessonManifest, Vec<ExerciseManifest>)> {
+    ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Generate the lesson ID and name.
         let lesson_id = self.rhythm_lesson_id(course_manifest.id, instrument);
         let lesson_name = match instrument {
@@ -227,8 +227,8 @@ impl TraneImprovisationConfig {
                     (*index, passage),
                 )
             })
-            .collect::<Result<Vec<_>>>()?;
-        Ok((lesson_manifest, exercises))
+            .collect::<Vec<_>>();
+        (lesson_manifest, exercises)
     }
 
     /// Generates all the rhythm lessons for this course.
@@ -236,14 +236,14 @@ impl TraneImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         user_config: &TraneImprovisationPreferences,
-    ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
+    ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Generate a lesson for each instrument.
-        let all_instruments = Self::all_instruments(user_config)?;
+        let all_instruments = Self::all_instruments(user_config);
         let lessons = all_instruments
             .iter()
             .map(|instrument| self.generate_rhythm_lesson(course_manifest, *instrument))
-            .collect::<Result<Vec<_>>>()?;
-        Ok(lessons)
+            .collect::<Vec<_>>();
+        lessons
     }
 
     /// Returns the ID of the melody lesson for the given course, key, and instrument.
@@ -267,7 +267,7 @@ impl TraneImprovisationConfig {
         key: Note,
         instrument: Option<&str>,
         passage: (usize, &ImprovisationPassage),
-    ) -> Result<ExerciseManifest> {
+    ) -> ExerciseManifest {
         // Generate the exercise name.
         let exercise_name = match instrument {
             Some(instrument) => format!(
@@ -284,7 +284,7 @@ impl TraneImprovisationConfig {
         };
 
         // Generate the exercise manifest.
-        Ok(ExerciseManifest {
+        ExerciseManifest {
             id: self.exercise_id(lesson_id, passage.0),
             lesson_id,
             course_id: course_manifest.id,
@@ -296,7 +296,7 @@ impl TraneImprovisationConfig {
                 description: None,
                 backup: passage.1.music_xml_file.clone(),
             },
-        })
+        }
     }
 
     /// Generates the melody lesson for the given key and instrument.
@@ -305,7 +305,7 @@ impl TraneImprovisationConfig {
         course_manifest: &CourseManifest,
         key: Note,
         instrument: Option<&str>,
-    ) -> Result<(LessonManifest, Vec<ExerciseManifest>)> {
+    ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Generate the lesson ID and name.
         let lesson_id = self.melody_lesson_id(course_manifest.id, key, instrument);
         let lesson_name = match instrument {
@@ -377,8 +377,8 @@ impl TraneImprovisationConfig {
                     (*index, passage),
                 )
             })
-            .collect::<Result<Vec<_>>>()?;
-        Ok((lesson_manifest, exercises))
+            .collect::<Vec<_>>();
+        (lesson_manifest, exercises)
     }
 
     /// Generates all the melody lessons for the given course.
@@ -386,10 +386,10 @@ impl TraneImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         user_config: &TraneImprovisationPreferences,
-    ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
+    ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Get a list of all keys and instruments.
         let all_keys = Note::all_keys(false);
-        let all_instruments = Self::all_instruments(user_config)?;
+        let all_instruments = Self::all_instruments(user_config);
 
         // Generate a lesson for each key and instrument pair.
         all_keys
@@ -399,7 +399,7 @@ impl TraneImprovisationConfig {
                     self.generate_melody_lesson(course_manifest, *key, *instrument)
                 })
             })
-            .collect::<Result<Vec<_>>>()
+            .collect::<Vec<_>>()
     }
 
     /// Returns the ID of the basic harmony lesson for the given course, key, and instrument.
@@ -432,7 +432,7 @@ impl TraneImprovisationConfig {
         key: Note,
         instrument: Option<&str>,
         passage: (usize, &ImprovisationPassage),
-    ) -> Result<ExerciseManifest> {
+    ) -> ExerciseManifest {
         // Generate the exercise name.
         let exercise_name = match instrument {
             Some(instrument) => format!(
@@ -449,7 +449,7 @@ impl TraneImprovisationConfig {
         };
 
         // Generate the exercise manifest.
-        Ok(ExerciseManifest {
+        ExerciseManifest {
             id: self.exercise_id(lesson_id, passage.0),
             lesson_id,
             course_id: course_manifest.id,
@@ -461,7 +461,7 @@ impl TraneImprovisationConfig {
                 description: None,
                 backup: passage.1.music_xml_file.clone(),
             },
-        })
+        }
     }
 
     /// Generates the basic harmony lesson for the given key and instrument.
@@ -470,7 +470,7 @@ impl TraneImprovisationConfig {
         course_manifest: &CourseManifest,
         key: Note,
         instrument: Option<&str>,
-    ) -> Result<(LessonManifest, Vec<ExerciseManifest>)> {
+    ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Generate the lesson ID and name.
         let lesson_id = self.basic_harmony_lesson_id(course_manifest.id, key, instrument);
         let lesson_name = match instrument {
@@ -549,8 +549,8 @@ impl TraneImprovisationConfig {
                     (*index, passage),
                 )
             })
-            .collect::<Result<Vec<_>>>()?;
-        Ok((lesson_manifest, exercises))
+            .collect::<Vec<_>>();
+        (lesson_manifest, exercises)
     }
 
     /// Generates all basic harmony lessons for the given course.
@@ -558,10 +558,10 @@ impl TraneImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         user_config: &TraneImprovisationPreferences,
-    ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
+    ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Get all keys and instruments.
         let all_keys = Note::all_keys(false);
-        let all_instruments = Self::all_instruments(user_config)?;
+        let all_instruments = Self::all_instruments(user_config);
 
         // Generate a lesson for each key and instrument pair.
         all_keys
@@ -571,7 +571,7 @@ impl TraneImprovisationConfig {
                     self.generate_basic_harmony_lesson(course_manifest, *key, *instrument)
                 })
             })
-            .collect::<Result<Vec<_>>>()
+            .collect::<Vec<_>>()
     }
 
     /// Returns the ID of the advanced harmony lesson for the given course, key, and instrument.
@@ -604,7 +604,7 @@ impl TraneImprovisationConfig {
         key: Note,
         instrument: Option<&str>,
         passage: (usize, &ImprovisationPassage),
-    ) -> Result<ExerciseManifest> {
+    ) -> ExerciseManifest {
         // Generate the exercise name.
         let exercise_name = match instrument {
             Some(instrument) => format!(
@@ -621,7 +621,7 @@ impl TraneImprovisationConfig {
         };
 
         // Generate the exercise manifest.
-        Ok(ExerciseManifest {
+        ExerciseManifest {
             id: self.exercise_id(lesson_id, passage.0),
             lesson_id,
             course_id: course_manifest.id,
@@ -633,7 +633,7 @@ impl TraneImprovisationConfig {
                 description: None,
                 backup: passage.1.music_xml_file.clone(),
             },
-        })
+        }
     }
 
     /// Generates the advanced harmony lesson for the given key and instrument.
@@ -642,7 +642,7 @@ impl TraneImprovisationConfig {
         course_manifest: &CourseManifest,
         key: Note,
         instrument: Option<&str>,
-    ) -> Result<(LessonManifest, Vec<ExerciseManifest>)> {
+    ) -> (LessonManifest, Vec<ExerciseManifest>) {
         let lesson_id = self.advanced_harmony_lesson_id(course_manifest.id, key, instrument);
         let lesson_name = match instrument {
             Some(instrument) => format!(
@@ -727,8 +727,8 @@ impl TraneImprovisationConfig {
                     (*index, passage),
                 )
             })
-            .collect::<Result<Vec<_>>>()?;
-        Ok((lesson_manifest, exercises))
+            .collect::<Vec<_>>();
+        (lesson_manifest, exercises)
     }
 
     /// Generates all the advanced harmony lessons for the given course.
@@ -736,10 +736,10 @@ impl TraneImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         user_config: &TraneImprovisationPreferences,
-    ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
+    ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Get all keys and instruments.
         let all_keys = Note::all_keys(false);
-        let all_instruments = Self::all_instruments(user_config)?;
+        let all_instruments = Self::all_instruments(user_config);
 
         // Generate a lesson for each key and instrument pair.
         all_keys
@@ -749,7 +749,7 @@ impl TraneImprovisationConfig {
                     self.generate_advanced_harmony_lesson(course_manifest, *key, *instrument)
                 })
             })
-            .collect::<Result<Vec<_>>>()
+            .collect::<Vec<_>>()
     }
 
     /// Returns the ID of the mastery lesson for the given course and instrument.
@@ -767,7 +767,7 @@ impl TraneImprovisationConfig {
         lesson_id: Ustr,
         instrument: Option<&str>,
         passage: (usize, &ImprovisationPassage),
-    ) -> Result<ExerciseManifest> {
+    ) -> ExerciseManifest {
         // Generate the exercise name.
         let exercise_name = match instrument {
             Some(instrument) => format!("{} - Mastery - {}", course_manifest.name, instrument),
@@ -775,7 +775,7 @@ impl TraneImprovisationConfig {
         };
 
         // Generate the exercise manifest.
-        Ok(ExerciseManifest {
+        ExerciseManifest {
             id: self.exercise_id(lesson_id, passage.0),
             lesson_id,
             course_id: course_manifest.id,
@@ -787,7 +787,7 @@ impl TraneImprovisationConfig {
                 description: None,
                 backup: passage.1.music_xml_file.clone(),
             },
-        })
+        }
     }
 
     /// Generates the mastery lesson for the given instrument.
@@ -795,7 +795,7 @@ impl TraneImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         instrument: Option<&str>,
-    ) -> Result<(LessonManifest, Vec<ExerciseManifest>)> {
+    ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Generate the lesson ID and name.
         let lesson_id = self.mastery_lesson_id(course_manifest.id, instrument);
         let lesson_name = match instrument {
@@ -855,8 +855,8 @@ impl TraneImprovisationConfig {
                     (*index, passage),
                 )
             })
-            .collect::<Result<Vec<_>>>()?;
-        Ok((lesson_manifest, exercises))
+            .collect::<Vec<_>>();
+        (lesson_manifest, exercises)
     }
 
     /// Generates all the mastery lessons for the given course.
@@ -864,13 +864,12 @@ impl TraneImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         user_config: &TraneImprovisationPreferences,
-    ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
-        let all_instruments = Self::all_instruments(user_config)?;
-        let lessons = all_instruments
+    ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
+        let all_instruments = Self::all_instruments(user_config);
+        all_instruments
             .iter()
             .map(|instrument| self.generate_mastery_lesson(course_manifest, *instrument))
-            .collect::<Result<Vec<_>>>()?;
-        Ok(lessons)
+            .collect::<Vec<_>>()
     }
 
     /// Generates the manifests, but only for the rhythm lessons.
@@ -880,8 +879,8 @@ impl TraneImprovisationConfig {
         user_config: &TraneImprovisationPreferences,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         Ok(vec![
-            self.generate_singing_lesson(course_manifest)?,
-            self.generate_rhythm_lessons(course_manifest, user_config)?,
+            self.generate_singing_lesson(course_manifest),
+            self.generate_rhythm_lessons(course_manifest, user_config),
         ]
         .into_iter()
         .flatten()
@@ -895,12 +894,12 @@ impl TraneImprovisationConfig {
         user_config: &TraneImprovisationPreferences,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         Ok(vec![
-            self.generate_singing_lesson(course_manifest)?,
-            self.generate_rhythm_lessons(course_manifest, user_config)?,
-            self.generate_melody_lessons(course_manifest, user_config)?,
-            self.generate_basic_harmony_lessons(course_manifest, user_config)?,
-            self.generate_advanced_harmony_lessons(course_manifest, user_config)?,
-            self.generate_mastery_lessons(course_manifest, user_config)?,
+            self.generate_singing_lesson(course_manifest),
+            self.generate_rhythm_lessons(course_manifest, user_config),
+            self.generate_melody_lessons(course_manifest, user_config),
+            self.generate_basic_harmony_lessons(course_manifest, user_config),
+            self.generate_advanced_harmony_lessons(course_manifest, user_config),
+            self.generate_mastery_lessons(course_manifest, user_config),
         ]
         .into_iter()
         .flatten()

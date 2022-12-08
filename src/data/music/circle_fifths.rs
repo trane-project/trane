@@ -2,6 +2,8 @@
 
 use crate::data::music::notes::Note;
 
+// These functions return constant values, so there's no need to test them.
+// grcov-excl-start
 impl Note {
     /// Returns all the notes in the circle of fifths.
     pub fn all_keys(include_enharmonic: bool) -> Vec<Note> {
@@ -130,3 +132,4 @@ impl Note {
         vec![Note::C_SHARP, Note::C_FLAT]
     }
 }
+// grcov-excl-stop
