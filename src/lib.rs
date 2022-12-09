@@ -45,10 +45,10 @@ pub mod scheduler;
 pub mod scorer;
 pub mod testutil;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::Result;
 use parking_lot::RwLock;
 use review_list::{ReviewList, ReviewListDB};
-use std::{fs::create_dir, path::Path, sync::Arc};
+use std::{path::Path, sync::Arc};
 use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::mantra_miner::TraneMantraMiner;
@@ -122,45 +122,9 @@ pub struct Trane {
 }
 
 impl Trane {
-    /// Initializes the config directory at path `.trane` inside the library root.
-    fn init_config_directory(library_root: &Path) -> Result<()> {
-        if !library_root.is_dir() {
-            return Err(anyhow!("library_root must be the path to a directory"));
-        }
-
-        // Create the config folder inside the library root if it does not exist already.
-        let trane_path = library_root.join(TRANE_CONFIG_DIR_PATH);
-        if !trane_path.exists() {
-            create_dir(trane_path.clone()).with_context(|| {
-                format!(
-                    "failed to create config directory at {}",
-                    trane_path.display()
-                )
-            })?;
-        } else if !trane_path.is_dir() {
-            return Err(anyhow!(
-                "config path .trane inside library must be a directory"
-            ));
-        }
-
-        // Create the `filters` directory if it does not exist already.
-        let filters_path = trane_path.join(FILTERS_DIR);
-        if !filters_path.is_dir() {
-            create_dir(filters_path.clone()).with_context(|| {
-                format!(
-                    "failed to create filters directory at {}",
-                    filters_path.display()
-                )
-            })?;
-        }
-
-        Ok(())
-    }
-
     /// Creates a new instance of the library given the path to the root of a course library. The
     /// user data will be stored in a directory named `.trane` inside the library root directory.
     pub fn new(library_root: &Path) -> Result<Trane> {
-        Self::init_config_directory(library_root)?;
         let config_path = library_root.join(Path::new(TRANE_CONFIG_DIR_PATH));
 
         let course_library = Arc::new(RwLock::new(LocalCourseLibrary::new(library_root)?));
@@ -436,13 +400,6 @@ mod test {
     use std::{fs::*, os::unix::prelude::PermissionsExt, thread, time::Duration};
 
     use crate::Trane;
-
-    #[test]
-    fn init_bad_path() -> Result<()> {
-        let file = tempfile::NamedTempFile::new()?;
-        assert!(Trane::init_config_directory(file.path()).is_err());
-        Ok(())
-    }
 
     #[test]
     fn library_root() -> Result<()> {
