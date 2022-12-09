@@ -700,8 +700,8 @@ mod test {
         let config_dir = temp_dir.path().join(TRANE_CONFIG_DIR_PATH);
         create_dir(config_dir.clone())?;
 
-        // Set permissions of `.trane` directory to 000.
-        std::fs::set_permissions(temp_dir.path(), std::fs::Permissions::from_mode(0o000))?;
+        // Set permissions of `.trane` directory to read-only.
+        std::fs::set_permissions(temp_dir.path(), std::fs::Permissions::from_mode(0o444))?;
 
         assert!(LocalCourseLibrary::new(temp_dir.path()).is_err());
         Ok(())
@@ -716,8 +716,8 @@ mod test {
         let filters_dir = config_dir.join(USER_PREFERENCES_PATH);
         create_dir(filters_dir)?;
 
-        // Set permissions of `.trane` directory to 000.
-        std::fs::set_permissions(temp_dir.path(), std::fs::Permissions::from_mode(0o000))?;
+        // Set permissions of `.trane` directory to read-only.
+        std::fs::set_permissions(temp_dir.path(), std::fs::Permissions::from_mode(0o444))?;
 
         assert!(LocalCourseLibrary::new(temp_dir.path()).is_err());
         Ok(())
