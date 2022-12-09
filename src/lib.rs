@@ -65,22 +65,22 @@ use practice_stats::{PracticeStats, PracticeStatsDB};
 use scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseScheduler};
 
 /// The path to the folder inside each course library containing the user data.
-const TRANE_CONFIG_DIR_PATH: &str = ".trane";
+pub const TRANE_CONFIG_DIR_PATH: &str = ".trane";
 
 /// The path to the SQLite database containing the results of previous exercise trials.
-const PRACTICE_STATS_PATH: &str = "practice_stats.db";
+pub const PRACTICE_STATS_PATH: &str = "practice_stats.db";
 
 /// The path to the SQLite database containing the list of units to ignore during scheduling.
-const BLACKLIST_PATH: &str = "blacklist.db";
+pub const BLACKLIST_PATH: &str = "blacklist.db";
 
 /// The path to the SQLite database containing the list of units the student wishes to review.
-const REVIEW_LIST_PATH: &str = "review_list.db";
+pub const REVIEW_LIST_PATH: &str = "review_list.db";
 
 /// The path to the directory containing unit filters saved by the user.
-const FILTERS_DIR: &str = "filters";
+pub const FILTERS_DIR: &str = "filters";
 
 /// The path to the file containing user preferences.
-const USER_PREFERENCES_PATH: &str = "user_preferences.json";
+pub const USER_PREFERENCES_PATH: &str = "user_preferences.json";
 
 /// Trane is a library for the acquisition of highly hierarchical knowledge and skills based on the
 /// principles of mastery learning and spaced repetition. Given a list of courses, its lessons and

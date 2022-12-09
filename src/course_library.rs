@@ -431,9 +431,12 @@ impl LocalCourseLibrary {
 
     /// Initializes the config directory at path `.trane` inside the library root.
     fn init_config_directory(library_root: &Path) -> Result<()> {
-        if !library_root.is_dir() {
-            return Err(anyhow!("library_root must be the path to a directory"));
-        }
+        // Verify that the library root is a directory.
+        ensure!(
+            library_root.is_dir(),
+            "library root {} is not a directory",
+            library_root.display(),
+        );
 
         // Create the config folder inside the library root if it does not exist already.
         let trane_path = library_root.join(TRANE_CONFIG_DIR_PATH);
@@ -509,13 +512,6 @@ impl LocalCourseLibrary {
 
     /// A constructor taking the path to the root of the library.
     pub fn new(library_root: &Path) -> Result<Self> {
-        // Verify that the library root is a directory.
-        ensure!(
-            library_root.is_dir(),
-            "library root {} is not a directory",
-            library_root.display(),
-        );
-
         // Initialize the local course library.
         Self::init_config_directory(library_root)?;
         let user_preferences = Self::open_preferences(library_root)?;
@@ -671,7 +667,7 @@ impl GetUnitGraph for LocalCourseLibrary {
 #[cfg(test)]
 mod test {
     use anyhow::Result;
-    use std::os::unix::prelude::PermissionsExt;
+    use std::{fs::create_dir, os::unix::prelude::PermissionsExt};
 
     use crate::{course_library::LocalCourseLibrary, TRANE_CONFIG_DIR_PATH, USER_PREFERENCES_PATH};
 
@@ -698,9 +694,29 @@ mod test {
     }
 
     #[test]
-    fn user_preferences_bad_permissions() -> Result<()> {
-        // Set permissions of library root directory to 000.
+    fn cannot_create_filters_directory() -> Result<()> {
+        // Create config directory.
         let temp_dir = tempfile::tempdir()?;
+        let config_dir = temp_dir.path().join(TRANE_CONFIG_DIR_PATH);
+        create_dir(config_dir.clone())?;
+
+        // Set permissions of `.trane` directory to 000.
+        std::fs::set_permissions(temp_dir.path(), std::fs::Permissions::from_mode(0o000))?;
+
+        assert!(LocalCourseLibrary::new(temp_dir.path()).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn cannot_create_user_preferences() -> Result<()> {
+        // Create config and filters directories.
+        let temp_dir = tempfile::tempdir()?;
+        let config_dir = temp_dir.path().join(TRANE_CONFIG_DIR_PATH);
+        create_dir(config_dir.clone())?;
+        let filters_dir = config_dir.join(USER_PREFERENCES_PATH);
+        create_dir(filters_dir)?;
+
+        // Set permissions of `.trane` directory to 000.
         std::fs::set_permissions(temp_dir.path(), std::fs::Permissions::from_mode(0o000))?;
 
         assert!(LocalCourseLibrary::new(temp_dir.path()).is_err());
