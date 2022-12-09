@@ -1,7 +1,12 @@
 //! End-to-end tests to verify that the Trane Improvisation course generator works as expected.
 
 use anyhow::Result;
-use std::{collections::HashMap, fs::File, io::Write, path::Path};
+use std::{
+    collections::HashMap,
+    fs::{create_dir, File},
+    io::Write,
+    path::Path,
+};
 use tempfile::TempDir;
 use trane::{
     course_builder::CourseBuilder,
@@ -13,7 +18,7 @@ use trane::{
         CourseGenerator, CourseManifest, LessonManifestBuilder, MasteryScore, UserPreferences,
     },
     testutil::{assert_simulation_scores, TraneSimulation},
-    Trane,
+    Trane, TRANE_CONFIG_DIR_PATH, USER_PREFERENCES_PATH,
 };
 use ustr::Ustr;
 
@@ -61,26 +66,28 @@ fn trane_improvisation_builder(
 
 /// Creates the courses, initializes the Trane library, and returns a Trane instance.
 fn init_improv_simulation(
-    library_directory: &Path,
+    library_root: &Path,
     course_builders: &Vec<CourseBuilder>,
     user_preferences: Option<&UserPreferences>,
 ) -> Result<Trane> {
     // Build the courses.
     course_builders
         .into_iter()
-        .map(|course_builder| course_builder.build(library_directory))
+        .map(|course_builder| course_builder.build(library_root))
         .collect::<Result<()>>()?;
 
+    // Write the user preferences if provided.
     if let Some(user_preferences) = user_preferences {
-        // Write the user preferences.
-        let prefs_path = library_directory.join("user_preferences.json");
+        let config_dir = library_root.join(TRANE_CONFIG_DIR_PATH);
+        create_dir(config_dir.clone())?;
+        let prefs_path = config_dir.join(USER_PREFERENCES_PATH);
         let mut file = File::create(prefs_path.clone())?;
         let prefs_json = serde_json::to_string_pretty(user_preferences)? + "\n";
         file.write_all(prefs_json.as_bytes())?;
     }
 
     // Initialize the Trane library.
-    let trane = Trane::new(library_directory)?;
+    let trane = Trane::new(library_root)?;
     Ok(trane)
 }
 

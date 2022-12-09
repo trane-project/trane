@@ -45,10 +45,10 @@ pub mod scheduler;
 pub mod scorer;
 pub mod testutil;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::Result;
 use parking_lot::RwLock;
 use review_list::{ReviewList, ReviewListDB};
-use std::{fs::create_dir, path::Path, sync::Arc};
+use std::{path::Path, sync::Arc};
 use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::mantra_miner::TraneMantraMiner;
@@ -65,22 +65,22 @@ use practice_stats::{PracticeStats, PracticeStatsDB};
 use scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseScheduler};
 
 /// The path to the folder inside each course library containing the user data.
-const TRANE_CONFIG_DIR_PATH: &str = ".trane";
+pub const TRANE_CONFIG_DIR_PATH: &str = ".trane";
 
 /// The path to the SQLite database containing the results of previous exercise trials.
-const PRACTICE_STATS_PATH: &str = "practice_stats.db";
+pub const PRACTICE_STATS_PATH: &str = "practice_stats.db";
 
 /// The path to the SQLite database containing the list of units to ignore during scheduling.
-const BLACKLIST_PATH: &str = "blacklist.db";
+pub const BLACKLIST_PATH: &str = "blacklist.db";
 
 /// The path to the SQLite database containing the list of units the student wishes to review.
-const REVIEW_LIST_PATH: &str = "review_list.db";
+pub const REVIEW_LIST_PATH: &str = "review_list.db";
 
 /// The path to the directory containing unit filters saved by the user.
-const FILTERS_DIR: &str = "filters";
+pub const FILTERS_DIR: &str = "filters";
 
 /// The path to the file containing user preferences.
-const USER_PREFERENCES_PATH: &str = "user_preferences.json";
+pub const USER_PREFERENCES_PATH: &str = "user_preferences.json";
 
 /// Trane is a library for the acquisition of highly hierarchical knowledge and skills based on the
 /// principles of mastery learning and spaced repetition. Given a list of courses, its lessons and
@@ -122,45 +122,9 @@ pub struct Trane {
 }
 
 impl Trane {
-    /// Initializes the config directory at path `.trane` inside the library root.
-    fn init_config_directory(library_root: &Path) -> Result<()> {
-        if !library_root.is_dir() {
-            return Err(anyhow!("library_root must be the path to a directory"));
-        }
-
-        // Create the config folder inside the library root if it does not exist already.
-        let trane_path = library_root.join(TRANE_CONFIG_DIR_PATH);
-        if !trane_path.exists() {
-            create_dir(trane_path.clone()).with_context(|| {
-                format!(
-                    "failed to create config directory at {}",
-                    trane_path.display()
-                )
-            })?;
-        } else if !trane_path.is_dir() {
-            return Err(anyhow!(
-                "config path .trane inside library must be a directory"
-            ));
-        }
-
-        // Create the `filters` directory if it does not exist already.
-        let filters_path = trane_path.join(FILTERS_DIR);
-        if !filters_path.is_dir() {
-            create_dir(filters_path.clone()).with_context(|| {
-                format!(
-                    "failed to create filters directory at {}",
-                    filters_path.display()
-                )
-            })?;
-        }
-
-        Ok(())
-    }
-
     /// Creates a new instance of the library given the path to the root of a course library. The
     /// user data will be stored in a directory named `.trane` inside the library root directory.
     pub fn new(library_root: &Path) -> Result<Trane> {
-        Self::init_config_directory(library_root)?;
         let config_path = library_root.join(Path::new(TRANE_CONFIG_DIR_PATH));
 
         let course_library = Arc::new(RwLock::new(LocalCourseLibrary::new(library_root)?));
@@ -436,13 +400,6 @@ mod test {
     use std::{fs::*, os::unix::prelude::PermissionsExt, thread, time::Duration};
 
     use crate::Trane;
-
-    #[test]
-    fn init_bad_path() -> Result<()> {
-        let file = tempfile::NamedTempFile::new()?;
-        assert!(Trane::init_config_directory(file.path()).is_err());
-        Ok(())
-    }
 
     #[test]
     fn library_root() -> Result<()> {
