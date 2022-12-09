@@ -113,4 +113,11 @@ mod test {
             "A_sharp"
         );
     }
+
+    #[test]
+    fn note_clone() {
+        let note = Note(NaturalNote::A, Accidental::Natural);
+        let clone = note.clone();
+        assert_eq!(note, clone);
+    }
 }
