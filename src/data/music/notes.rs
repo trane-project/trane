@@ -100,8 +100,17 @@ mod test {
 
     #[test]
     fn to_ascii_string() {
-        assert_eq!(Note::A.to_ascii_string(), "A");
-        assert_eq!(Note::A_FLAT.to_ascii_string(), "A_flat");
-        assert_eq!(Note::A_SHARP.to_ascii_string(), "A_sharp");
+        assert_eq!(
+            Note(NaturalNote::A, Accidental::Natural).to_ascii_string(),
+            "A"
+        );
+        assert_eq!(
+            Note(NaturalNote::A, Accidental::Flat).to_ascii_string(),
+            "A_flat"
+        );
+        assert_eq!(
+            Note(NaturalNote::A, Accidental::Sharp).to_ascii_string(),
+            "A_sharp"
+        );
     }
 }
