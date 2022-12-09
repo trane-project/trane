@@ -479,7 +479,7 @@ impl LocalCourseLibrary {
             let default_prefs = UserPreferences::default();
             let prefs_json = serde_json::to_string_pretty(&default_prefs)? + "\n";
             file.write_all(prefs_json.as_bytes()).with_context(|| {
-                // grcov-excl-start
+                // grcov-excl-start: File should be writable.
                 format!(
                     "failed to write to user preferences file at {}",
                     user_prefs_path.display()

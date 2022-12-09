@@ -126,6 +126,7 @@ pub struct MetadataFilter {
     pub op: FilterOp,
 }
 
+// grcov-excl-start: Code coverage for this struct is flaky for some unknown reason.
 /// A filter on a course or lesson manifest.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum UnitFilter {
@@ -150,6 +151,7 @@ pub enum UnitFilter {
     /// A filter that indicates only exercises from the review list should be scheduled.
     ReviewListFilter,
 }
+// grcov-excl-stop
 
 impl UnitFilter {
     /// Returns whether the course with the given ID passes the course filter.
