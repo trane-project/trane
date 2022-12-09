@@ -128,8 +128,12 @@ impl Note {
 
     /// Returns the last keys accessible by traversing the circle of fifths in clockwise and
     /// counter-clockwise directions.
-    pub fn last_keys_in_circle() -> Vec<Note> {
-        vec![Note::C_SHARP, Note::C_FLAT]
+    pub fn last_keys_in_circle(include_enharmonic: bool) -> Vec<Note> {
+        if include_enharmonic {
+            vec![Note::C_SHARP, Note::C_FLAT]
+        } else {
+            vec![Note::B, Note::G_FLAT]
+        }
     }
 }
 // grcov-excl-stop
