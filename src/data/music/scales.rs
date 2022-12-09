@@ -2,8 +2,8 @@
 
 use anyhow::{anyhow, Result};
 
-use crate::course_builder::music::intervals::*;
-use crate::course_builder::music::notes::*;
+use crate::data::music::intervals::*;
+use crate::data::music::notes::*;
 
 /// Defines a tonal scale.
 #[derive(Clone, Debug)]
@@ -37,7 +37,7 @@ impl ToString for ScaleType {
 }
 
 impl Note {
-    /// Returns the note that is the relative minor of the given note.
+    /// Returns the note that is the relative minor of the given major key.
     pub fn relative_minor(&self) -> Result<Note> {
         match *self {
             Note::A => Ok(Note::F_SHARP),
@@ -62,7 +62,7 @@ impl Note {
         }
     }
 
-    /// Returns the note that is the relative major of the given note.
+    /// Returns the note that is the relative major of the given minor key.
     pub fn relative_major(&self) -> Result<Note> {
         match *self {
             Note::A => Ok(Note::C),

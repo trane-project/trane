@@ -93,3 +93,24 @@ impl ToString for Note {
         output
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn to_ascii_string() {
+        assert_eq!(
+            Note(NaturalNote::A, Accidental::Natural).to_ascii_string(),
+            "A"
+        );
+        assert_eq!(
+            Note(NaturalNote::A, Accidental::Flat).to_ascii_string(),
+            "A_flat"
+        );
+        assert_eq!(
+            Note(NaturalNote::A, Accidental::Sharp).to_ascii_string(),
+            "A_sharp"
+        );
+    }
+}

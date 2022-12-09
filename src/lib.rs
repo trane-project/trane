@@ -79,6 +79,9 @@ const REVIEW_LIST_PATH: &str = "review_list.db";
 /// The path to the directory containing unit filters saved by the user.
 const FILTERS_DIR: &str = "filters";
 
+/// The path to the file containing user preferences.
+const USER_PREFERENCES_PATH: &str = "user_preferences.json";
+
 /// Trane is a library for the acquisition of highly hierarchical knowledge and skills based on the
 /// principles of mastery learning and spaced repetition. Given a list of courses, its lessons and
 /// corresponding exercises, Trane presents the student with a list of exercises based on the
@@ -270,6 +273,10 @@ impl CourseLibrary for Trane {
 
     fn get_exercise_ids(&self, lesson_id: &Ustr) -> Result<Vec<Ustr>> {
         self.course_library.read().get_exercise_ids(lesson_id)
+    }
+
+    fn get_all_exercise_ids(&self) -> Result<Vec<Ustr>> {
+        self.course_library.read().get_all_exercise_ids()
     }
 
     fn search(&self, query: &str) -> Result<Vec<Ustr>> {

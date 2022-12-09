@@ -4,10 +4,16 @@
 //! courses that the student wishes to practice together. Courses, lessons, and exercises are
 //! defined by their manifest files (see [data](crate::data)).
 
-use anyhow::{anyhow, ensure, Result};
+use anyhow::{anyhow, ensure, Context, Result};
 use parking_lot::RwLock;
 use serde::de::DeserializeOwned;
-use std::{collections::BTreeMap, fs::File, io::BufReader, path::Path, sync::Arc};
+use std::{
+    collections::BTreeMap,
+    fs::File,
+    io::{BufReader, Write},
+    path::Path,
+    sync::Arc,
+};
 use tantivy::{
     collector::TopDocs,
     doc,
@@ -19,8 +25,12 @@ use ustr::{Ustr, UstrMap};
 use walkdir::{DirEntry, WalkDir};
 
 use crate::{
-    data::{CourseManifest, ExerciseManifest, LessonManifest, NormalizePaths, UnitType},
+    data::{
+        CourseManifest, ExerciseManifest, GenerateManifests, LessonManifest, NormalizePaths,
+        UnitType, UserPreferences,
+    },
     graph::{InMemoryUnitGraph, UnitGraph},
+    USER_PREFERENCES_PATH,
 };
 
 /// The file name for all course manifests.
@@ -64,6 +74,9 @@ pub trait CourseLibrary {
 
     /// Returns the IDs of all exercises in the given lesson sorted alphabetically.
     fn get_exercise_ids(&self, lesson_id: &Ustr) -> Result<Vec<Ustr>>;
+
+    /// Returns the IDs of all exercises in the given course sorted alphabetically.
+    fn get_all_exercise_ids(&self) -> Result<Vec<Ustr>>;
 
     /// Returns the IDs of all the units which match the given query.
     fn search(&self, query: &str) -> Result<Vec<Ustr>>;
@@ -112,6 +125,9 @@ pub(crate) struct LocalCourseLibrary {
 
     /// A mapping of exercise ID to its corresponding exercise manifest.
     exercise_map: UstrMap<ExerciseManifest>,
+
+    /// The user preferences.
+    user_preferences: UserPreferences,
 
     /// A tantivy index used for searching the course library.
     index: Index,
@@ -247,6 +263,7 @@ impl LocalCourseLibrary {
         course_manifest: &CourseManifest,
         lesson_manifest: LessonManifest,
         index_writer: &mut IndexWriter,
+        generated_exercises: Option<&Vec<ExerciseManifest>>,
     ) -> Result<()> {
         // Verify that the IDs mentioned in the manifests are valid and agree with each other.
         ensure!(!lesson_manifest.id.is_empty(), "ID in manifest is empty",);
@@ -277,6 +294,19 @@ impl LocalCourseLibrary {
             &lesson_manifest.description,
             &lesson_manifest.metadata,
         )?; // grcov-excl-line
+
+        // Add the generated exercises to the lesson.
+        if let Some(exercises) = generated_exercises {
+            for exercise_manifest in exercises {
+                let exercise_manifest =
+                    &exercise_manifest.normalize_paths(dir_entry.path().parent().unwrap())?;
+                self.process_exercise_manifest(
+                    &lesson_manifest,
+                    exercise_manifest.clone(),
+                    index_writer,
+                )?; // grcov-excl-line
+            }
+        }
 
         // Start a new search from the parent of the passed `DirEntry`, which corresponds to the
         // lesson's root. Each exercise in the lesson must be contained in a directory that is a
@@ -344,6 +374,23 @@ impl LocalCourseLibrary {
             &course_manifest.metadata,
         )?; // grcov-excl-line
 
+        // If the course has a generator config, generate the lessons and exercises and add them to
+        // the library.
+        if let Some(generator_config) = &course_manifest.generator_config {
+            let generated_manifests =
+                generator_config.generate_manifests(&course_manifest, &self.user_preferences)?;
+            for (lesson_manifest, exercise_manifests) in generated_manifests {
+                // All the generated lessons will use the root of the course as the `dir_entry`.
+                self.process_lesson_manifest(
+                    dir_entry,
+                    &course_manifest,
+                    lesson_manifest,
+                    index_writer,
+                    Some(&exercise_manifests),
+                )?; // grcov-excl-line
+            }
+        }
+
         // Start a new search from the parent of the passed `DirEntry`, which corresponds to the
         // course's root. Each lesson in the course must be contained in a directory that is a
         // direct descendant of its root. Therefore, all the lesson manifests will be found at a
@@ -374,11 +421,52 @@ impl LocalCourseLibrary {
                         &course_manifest,
                         lesson_manifest,
                         index_writer,
+                        None,
                     )?; // grcov-excl-line
                 }
             }
         }
         Ok(())
+    }
+
+    /// Returns the user preferences stored in the local course library.
+    fn open_preferences(library_root: &Path) -> Result<UserPreferences> {
+        // Create the user preferences file if it does not exist already.
+        let path = library_root.join(USER_PREFERENCES_PATH);
+        if !path.exists() {
+            // Create the file.
+            let mut file = File::create(path.clone()).with_context(|| {
+                format!(
+                    "failed to create user preferences file at {}",
+                    path.display()
+                )
+            })?;
+
+            // Write the default user preferences to the file.
+            let default_prefs = UserPreferences::default();
+            let prefs_json = serde_json::to_string_pretty(&default_prefs)? + "\n";
+            file.write_all(prefs_json.as_bytes()).with_context(|| {
+                // grcov-excl-start
+                format!(
+                    "failed to write to user preferences file at {}",
+                    path.display()
+                )
+                // grcov-excl-stop
+            })?; // grcov-excl-line
+        } else if !path.is_file() {
+            // The user preferences file exists but is not a regular file.
+            return Err(anyhow!(
+                "user preferences file must be a regular file at {}",
+                path.display()
+            ));
+        }
+
+        // File should exist and be a regular file at this point.
+        let file = File::open(path.clone())
+            .with_context(|| anyhow!("cannot open user preferences file {}", path.display()))?;
+        let reader = BufReader::new(file);
+        serde_json::from_reader(reader)
+            .with_context(|| anyhow!("cannot parse user preferences file {}", path.display()))
     }
 
     /// A constructor taking the path to the root of the library.
@@ -391,10 +479,12 @@ impl LocalCourseLibrary {
         );
 
         // Initialize the local course library.
+        let user_preferences = Self::open_preferences(library_root)?;
         let mut library = LocalCourseLibrary {
             course_map: UstrMap::default(),
             lesson_map: UstrMap::default(),
             exercise_map: UstrMap::default(),
+            user_preferences,
             unit_graph: Arc::new(RwLock::new(InMemoryUnitGraph::default())),
             index: Index::create_in_ram(Self::search_schema()),
             reader: None,
@@ -498,6 +588,12 @@ impl CourseLibrary for LocalCourseLibrary {
         Ok(exercises)
     }
 
+    fn get_all_exercise_ids(&self) -> Result<Vec<Ustr>> {
+        let mut exercises = self.exercise_map.keys().cloned().collect::<Vec<Ustr>>();
+        exercises.sort();
+        Ok(exercises)
+    }
+
     fn search(&self, query: &str) -> Result<Vec<Ustr>> {
         // Retrieve a searcher from the reader and parse the query.
         ensure!(self.reader.is_some(), "search index reader not available");
@@ -535,7 +631,8 @@ impl GetUnitGraph for LocalCourseLibrary {
 
 #[cfg(test)]
 mod test {
-    use std::path::Path;
+    use anyhow::Result;
+    use std::{os::unix::prelude::PermissionsExt, path::Path};
 
     use crate::course_library::LocalCourseLibrary;
 
@@ -544,5 +641,24 @@ mod test {
         let path = Path::new("foo");
         let result = LocalCourseLibrary::new(path);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn user_preferences_file_is_a_dir() -> Result<()> {
+        // Create directory called "user_preferences.json" which is not a file.
+        let temp_dir = tempfile::tempdir()?;
+        std::fs::create_dir(temp_dir.path().join("user_preferences.json"))?;
+        assert!(LocalCourseLibrary::new(temp_dir.path()).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn user_preferences_bad_permissions() -> Result<()> {
+        // Set permissions of library root directory to 000.
+        let temp_dir = tempfile::tempdir()?;
+        std::fs::set_permissions(temp_dir.path(), std::fs::Permissions::from_mode(0o000))?;
+
+        assert!(LocalCourseLibrary::new(temp_dir.path()).is_err());
+        Ok(())
     }
 }

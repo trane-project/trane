@@ -2,13 +2,19 @@
 //! store the results of a student's attempt at mastering an exercise, the options avaialble to
 //! control the behavior of the scheduler, among other things.
 
+pub mod course_generator;
 pub mod filter;
+pub mod music;
 
 use anyhow::Result;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
 use ustr::Ustr;
+
+use self::course_generator::trane_improvisation::{
+    TraneImprovisationConfig, TraneImprovisationPreferences,
+};
 
 /// The score used by students to evaluate their mastery of a particular exercise after a trial.
 /// More detailed descriptions of the levels are provided using the example of an exercise that
@@ -140,7 +146,7 @@ where
     fn normalize_paths(&self, dir: &Path) -> Result<Self>;
 }
 
-/// Convers from a relative to an absolute path given a path and a directory.
+/// Converts a relative to an absolute path given a path and a directory.
 fn normalize_path(dir: &Path, path: &str) -> Result<String> {
     Ok(dir
         .join(path)
@@ -180,6 +186,19 @@ pub enum BasicAsset {
         /// The path to the markdown file.
         path: String,
     },
+
+    /// An asset containing its content as a string.
+    InlinedAsset {
+        /// The content of the asset.
+        content: String,
+    },
+
+    /// An asset containing its content as a unique string. Useful for generating assets that are
+    /// replicated across many units.
+    InlinedUniqueAsset {
+        /// The content of the asset.
+        content: Ustr,
+    },
 }
 
 impl NormalizePaths for BasicAsset {
@@ -189,6 +208,8 @@ impl NormalizePaths for BasicAsset {
                 let abs_path = normalize_path(dir, path)?;
                 Ok(BasicAsset::MarkdownAsset { path: abs_path })
             }
+            BasicAsset::InlinedAsset { .. } => Ok(self.clone()),
+            BasicAsset::InlinedUniqueAsset { .. } => Ok(self.clone()),
         }
     }
 }
@@ -199,6 +220,46 @@ impl VerifyPaths for BasicAsset {
             BasicAsset::MarkdownAsset { path } => {
                 let abs_path = dir.join(Path::new(path));
                 Ok(abs_path.exists())
+            }
+            BasicAsset::InlinedAsset { .. } => Ok(true),
+            BasicAsset::InlinedUniqueAsset { .. } => Ok(true),
+        }
+    }
+}
+
+/// A configuration used for generating special types of courses on the fly.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum CourseGenerator {
+    /// The configuration for generating a Trane improvisation course.
+    TraneImprovisation(TraneImprovisationConfig),
+}
+
+/// The user-specific configuration
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct UserPreferences {
+    /// The preferences for generating Trane improvisation courses.
+    pub trane_improvisation: Option<TraneImprovisationPreferences>,
+}
+
+/// The trait to return all the generated lesson and exercise manifests for a course.
+pub trait GenerateManifests {
+    /// Returns all the generated lesson and exercise manifests for a course.
+    fn generate_manifests(
+        &self,
+        course_manifest: &CourseManifest,
+        preferences: &UserPreferences,
+    ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>>;
+}
+
+impl GenerateManifests for CourseGenerator {
+    fn generate_manifests(
+        &self,
+        course_manifest: &CourseManifest,
+        preferences: &UserPreferences,
+    ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
+        match self {
+            CourseGenerator::TraneImprovisation(config) => {
+                config.generate_manifests(course_manifest, preferences)
             }
         }
     }
@@ -246,6 +307,12 @@ pub struct CourseManifest {
     /// An optional asset, which presents instructions common to all exercises in the course.
     #[builder(default)]
     pub course_instructions: Option<BasicAsset>,
+
+    /// An optional configuration to generate material for this course. Generated courses allow
+    /// easier creation of courses for specific purposes without requiring the manual creation of
+    /// all the files a normal course would need.
+    #[builder(default)]
+    pub generator_config: Option<CourseGenerator>,
 }
 
 impl NormalizePaths for CourseManifest {
@@ -394,6 +461,9 @@ pub enum ExerciseAsset {
         /// slice in the key of D Major" or "Practice measures 1 through 4". A missing description
         /// implies the entire slice should be practiced as is.
         description: Option<String>,
+
+        /// An optional path to a MusicXML file containing the sheet music for the exercise.
+        backup: Option<String>,
     },
 
     /// An asset representing a flashcard with a front and back each stored in a markdown file. The
@@ -422,7 +492,21 @@ impl NormalizePaths for ExerciseAsset {
                     back_path: abs_back_path,
                 })
             }
-            ExerciseAsset::SoundSliceAsset { .. } => Ok(self.clone()),
+            ExerciseAsset::SoundSliceAsset {
+                link,
+                description,
+                backup,
+            } => match backup {
+                None => Ok(self.clone()),
+                Some(path) => {
+                    let abs_path = normalize_path(dir, path)?;
+                    Ok(ExerciseAsset::SoundSliceAsset {
+                        link: link.clone(),
+                        description: description.clone(),
+                        backup: Some(abs_path),
+                    })
+                }
+            },
         }
     }
 }
@@ -439,7 +523,14 @@ impl VerifyPaths for ExerciseAsset {
                 let back_abs_path = dir.join(Path::new(back_path));
                 Ok(front_abs_path.exists() && back_abs_path.exists())
             }
-            ExerciseAsset::SoundSliceAsset { .. } => Ok(true),
+            ExerciseAsset::SoundSliceAsset { backup, .. } => match backup {
+                None => Ok(true),
+                Some(path) => {
+                    // The backup path must exist.
+                    let abs_path = dir.join(Path::new(path));
+                    Ok(abs_path.exists())
+                }
+            },
         }
     }
 }
@@ -522,7 +613,7 @@ pub struct SchedulerOptions {
     /// The minimum average score of a unit required to move on to its dependents.
     pub passing_score: f32,
 
-    /// The number of trials to retrive from the practice stats to compute an exercise's score.
+    /// The number of trials to retrieve from the practice stats to compute an exercise's score.
     pub num_trials: usize,
 }
 
@@ -633,8 +724,18 @@ mod test {
         let soundslice = ExerciseAsset::SoundSliceAsset {
             link: "https://www.soundslice.com/slices/QfZcc/".to_string(),
             description: Some("Test".to_string()),
+            backup: None,
         };
         soundslice.normalize_paths(Path::new("./"))?;
+
+        let temp_dir = tempfile::tempdir()?;
+        let temp_file = tempfile::NamedTempFile::new_in(temp_dir.path())?;
+        let soundslice = ExerciseAsset::SoundSliceAsset {
+            link: "https://www.soundslice.com/slices/QfZcc/".to_string(),
+            description: Some("Test".to_string()),
+            backup: Some(temp_file.path().as_os_str().to_str().unwrap().to_string()),
+        };
+        soundslice.normalize_paths(temp_dir.path())?;
         Ok(())
     }
 
@@ -643,8 +744,44 @@ mod test {
         let soundslice = ExerciseAsset::SoundSliceAsset {
             link: "https://www.soundslice.com/slices/QfZcc/".to_string(),
             description: Some("Test".to_string()),
+            backup: None,
         };
-        soundslice.verify_paths(Path::new("./"))?;
+        assert!(soundslice.verify_paths(Path::new("./"))?);
+
+        let soundslice = ExerciseAsset::SoundSliceAsset {
+            link: "https://www.soundslice.com/slices/QfZcc/".to_string(),
+            description: Some("Test".to_string()),
+            backup: Some("./bad_file".to_string()),
+        };
+        assert!(!soundslice.verify_paths(Path::new("./"))?);
+        Ok(())
+    }
+
+    #[test]
+    fn normalize_inlined_assets() -> Result<()> {
+        let inlined_asset = BasicAsset::InlinedAsset {
+            content: "Test".to_string(),
+        };
+        inlined_asset.normalize_paths(Path::new("./"))?;
+
+        let inlined_asset = BasicAsset::InlinedUniqueAsset {
+            content: Ustr::from("Test"),
+        };
+        inlined_asset.normalize_paths(Path::new("./"))?;
+        Ok(())
+    }
+
+    #[test]
+    fn verify_inlined_assets() -> Result<()> {
+        let inlined_asset = BasicAsset::InlinedAsset {
+            content: "Test".to_string(),
+        };
+        assert!(inlined_asset.verify_paths(Path::new("./"))?);
+
+        let inlined_asset = BasicAsset::InlinedUniqueAsset {
+            content: Ustr::from("Test"),
+        };
+        assert!(inlined_asset.verify_paths(Path::new("./"))?);
         Ok(())
     }
 
