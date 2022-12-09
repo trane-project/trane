@@ -146,7 +146,7 @@ impl PracticeStats for PracticeStatsDB {
         uid_stmt
             .execute(params![exercise_id.as_str()])
             .with_context(|| {
-                // grcov-excl-start
+                // grcov-excl-start: This should be unreachable in normal circumstances.
                 format!(
                     "cannot add {} to uids table in practice stats DB",
                     exercise_id
@@ -165,7 +165,7 @@ impl PracticeStats for PracticeStatsDB {
             timestamp
         ])
         .with_context(|| {
-            // grcov-excl-start
+            // grcov-excl-start: This should be unreachable in normal circumstances.
             format!(
                 "cannot record score {:?} for exercise {} to practice stats DB",
                 score, exercise_id

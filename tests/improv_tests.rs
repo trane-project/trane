@@ -213,3 +213,382 @@ fn all_exercises_visited_rhythm_only() -> Result<()> {
     }
     Ok(())
 }
+
+/// A test that verifies that not making progress on the singing lessons blocks all further
+/// progress.
+#[test]
+fn no_progress_past_singing_lessons() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let first_course_id = Ustr::from("trane::test::improv_course_0");
+    let second_course_id = Ustr::from("trane::test::improv_course_1");
+    let user_prefs = UserPreferences {
+        trane_improvisation: Some(TraneImprovisationPreferences {
+            instruments: vec!["guitar".to_string(), "piano".to_string()],
+        }),
+    };
+    let mut trane = init_improv_simulation(
+        &temp_dir.path(),
+        &vec![
+            trane_improvisation_builder(first_course_id, 0, vec![], 5, false),
+            trane_improvisation_builder(second_course_id, 1, vec![first_course_id], 5, false),
+        ],
+        Some(&user_prefs),
+    )?;
+
+    // Run the simulation. Give every exercise a score of one, which should block all further
+    // progress past the starting lessons.
+    let exercise_ids = trane.get_all_exercise_ids()?;
+    let mut simulation = TraneSimulation::new(
+        exercise_ids.len() * 5,
+        Box::new(|_| Some(MasteryScore::One)),
+    );
+    simulation.run_simulation(&mut trane, &vec![], None)?;
+
+    // Only exercises from the singing lessons are in the answer history.
+    for exercise_id in exercise_ids {
+        if exercise_id.contains("singing") {
+            assert!(
+                simulation.answer_history.contains_key(&exercise_id),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        } else {
+            assert!(
+                !simulation.answer_history.contains_key(&exercise_id),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        }
+    }
+    Ok(())
+}
+
+// A test that verifies that not mastering the basic harmony lessons blocks all progress on the
+// advanced harmony and mastery lessons.
+#[test]
+fn basic_harmony_blocks_advanced_harmony() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let first_course_id = Ustr::from("trane::test::improv_course_0");
+    let second_course_id = Ustr::from("trane::test::improv_course_1");
+    let user_prefs = UserPreferences {
+        trane_improvisation: Some(TraneImprovisationPreferences {
+            instruments: vec!["guitar".to_string(), "piano".to_string()],
+        }),
+    };
+    let mut trane = init_improv_simulation(
+        &temp_dir.path(),
+        &vec![
+            trane_improvisation_builder(first_course_id, 0, vec![], 5, false),
+            trane_improvisation_builder(second_course_id, 1, vec![first_course_id], 5, false),
+        ],
+        Some(&user_prefs),
+    )?;
+
+    // Run the simulation. Give every exercise a score of five, except for the basic harmony
+    // exercises, which should block progress to the advanced harmony and mastery lessons.
+    let exercise_ids = trane.get_all_exercise_ids()?;
+    let mut simulation = TraneSimulation::new(
+        exercise_ids.len() * 5,
+        Box::new(|exercise_id| {
+            if exercise_id.contains("basic_harmony") {
+                Some(MasteryScore::One)
+            } else {
+                Some(MasteryScore::Five)
+            }
+        }),
+    );
+    simulation.run_simulation(&mut trane, &vec![], None)?;
+
+    // Exercises from the advanced harmony and mastery lessons should not be in the answer history.
+    // Exercises from the singing, melody, and rhythm lessons should be in the answer history. The
+    // first basic harmony lesson should be in the answer history.
+    for exercise_id in exercise_ids {
+        if exercise_id.contains("advanced_harmony") || exercise_id.contains("mastery") {
+            assert!(
+                !simulation.answer_history.contains_key(&exercise_id),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        } else if exercise_id.contains("singing")
+            || exercise_id.contains("melody")
+            || exercise_id.contains("rhythm")
+            || exercise_id.contains("basic_harmony::c")
+        {
+            assert!(
+                simulation.answer_history.contains_key(&exercise_id),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        }
+    }
+    Ok(())
+}
+
+// A test that verifies that not mastering the basic harmony lessons blocks all progress on the
+// advanced harmony and mastery lessons.
+#[test]
+fn advanced_harmony_blocks_mastery() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let first_course_id = Ustr::from("trane::test::improv_course_0");
+    let second_course_id = Ustr::from("trane::test::improv_course_1");
+    let user_prefs = UserPreferences {
+        trane_improvisation: Some(TraneImprovisationPreferences {
+            instruments: vec!["guitar".to_string(), "piano".to_string()],
+        }),
+    };
+    let mut trane = init_improv_simulation(
+        &temp_dir.path(),
+        &vec![
+            trane_improvisation_builder(first_course_id, 0, vec![], 5, false),
+            trane_improvisation_builder(second_course_id, 1, vec![first_course_id], 5, false),
+        ],
+        Some(&user_prefs),
+    )?;
+
+    // Run the simulation. Give every exercise a score of five, except for the advanced harmony
+    // exercises, which should block progress to the mastery lessons.
+    let exercise_ids = trane.get_all_exercise_ids()?;
+    let mut simulation = TraneSimulation::new(
+        exercise_ids.len() * 5,
+        Box::new(|exercise_id| {
+            if exercise_id.contains("advanced_harmony") {
+                Some(MasteryScore::One)
+            } else {
+                Some(MasteryScore::Five)
+            }
+        }),
+    );
+    simulation.run_simulation(&mut trane, &vec![], None)?;
+
+    // Exercises from the mastery lessons should not be in the answer history. Exercises from the
+    // singing, melody, rhythm, and basic harmony lessons should be in the answer history. The first
+    // advanced harmony lesson should be in the answer history.
+    for exercise_id in exercise_ids {
+        if exercise_id.contains("mastery") {
+            assert!(
+                !simulation.answer_history.contains_key(&exercise_id),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        } else if exercise_id.contains("singing")
+            || exercise_id.contains("melody")
+            || exercise_id.contains("rhythm")
+            || exercise_id.contains("basic_harmony")
+            || exercise_id.contains("advanced_harmony::c")
+        {
+            assert!(
+                simulation.answer_history.contains_key(&exercise_id),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        }
+    }
+    Ok(())
+}
+
+// A test that verifies that not mastering the melody lessons blocks all progress on the mastery
+// lessons.
+#[test]
+fn melody_blocks_mastery() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let first_course_id = Ustr::from("trane::test::improv_course_0");
+    let second_course_id = Ustr::from("trane::test::improv_course_1");
+    let user_prefs = UserPreferences {
+        trane_improvisation: Some(TraneImprovisationPreferences {
+            instruments: vec!["guitar".to_string(), "piano".to_string()],
+        }),
+    };
+    let mut trane = init_improv_simulation(
+        &temp_dir.path(),
+        &vec![
+            trane_improvisation_builder(first_course_id, 0, vec![], 5, false),
+            trane_improvisation_builder(second_course_id, 1, vec![first_course_id], 5, false),
+        ],
+        Some(&user_prefs),
+    )?;
+
+    // Run the simulation. Give every exercise a score of five, except for the melody exercises,
+    // which should block all further progress past the starting lessons.
+    let exercise_ids = trane.get_all_exercise_ids()?;
+    let mut simulation = TraneSimulation::new(
+        exercise_ids.len() * 5,
+        Box::new(|exercise_id| {
+            if exercise_id.contains("melody") {
+                Some(MasteryScore::One)
+            } else {
+                Some(MasteryScore::Five)
+            }
+        }),
+    );
+    simulation.run_simulation(&mut trane, &vec![], None)?;
+
+    // Exercises from the mastery lessons should not be in the answer history. Exercises from the
+    // singing, basic harmony, advanced harmony, and rhythm lessons should be in the answer history.
+    // The first melody lesson should be in the answer history.
+    for exercise_id in exercise_ids {
+        if exercise_id.contains("mastery") {
+            assert!(
+                !simulation.answer_history.contains_key(&exercise_id),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        } else if exercise_id.contains("singing")
+            || exercise_id.contains("basic_harmony")
+            || exercise_id.contains("advanced_harmony")
+            || exercise_id.contains("rhythm")
+            || exercise_id.contains("melody::c")
+        {
+            assert!(
+                simulation.answer_history.contains_key(&exercise_id),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        }
+    }
+    Ok(())
+}
+
+// A test that verifies that not mastering the rhythm lessons blocks all progress on the mastery
+// lessons.
+#[test]
+fn rhythm_blocks_mastery() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let first_course_id = Ustr::from("trane::test::improv_course_0");
+    let second_course_id = Ustr::from("trane::test::improv_course_1");
+    let user_prefs = UserPreferences {
+        trane_improvisation: Some(TraneImprovisationPreferences {
+            instruments: vec!["guitar".to_string(), "piano".to_string()],
+        }),
+    };
+    let mut trane = init_improv_simulation(
+        &temp_dir.path(),
+        &vec![
+            trane_improvisation_builder(first_course_id, 0, vec![], 5, false),
+            trane_improvisation_builder(second_course_id, 1, vec![first_course_id], 5, false),
+        ],
+        Some(&user_prefs),
+    )?;
+
+    // Run the simulation. Give every exercise a score of five, except for the rhythm exercises,
+    // which should block all further progress past the starting lessons.
+    let exercise_ids = trane.get_all_exercise_ids()?;
+    let mut simulation = TraneSimulation::new(
+        exercise_ids.len() * 5,
+        Box::new(|exercise_id| {
+            if exercise_id.contains("rhythm") {
+                Some(MasteryScore::One)
+            } else {
+                Some(MasteryScore::Five)
+            }
+        }),
+    );
+    simulation.run_simulation(&mut trane, &vec![], None)?;
+
+    // Exercises from the mastery lessons should not be in the answer history. Exercises from the
+    // singing, basic harmony, advanced harmony, and melody lessons should be in the answer history.
+    // The rhythm lessons for individual instruments should not be in the answer history.
+    for exercise_id in exercise_ids {
+        if exercise_id.contains("mastery")
+            || exercise_id.contains("rhythm::piano")
+            || exercise_id.contains("rhythm::guitar")
+        {
+            assert!(
+                !simulation.answer_history.contains_key(&exercise_id),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        } else if exercise_id.contains("singing")
+            || exercise_id.contains("basic_harmony")
+            || exercise_id.contains("advanced_harmony")
+            || exercise_id.contains("melody")
+            || exercise_id.contains("rhythm")
+        {
+            assert!(
+                simulation.answer_history.contains_key(&exercise_id),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        }
+    }
+    Ok(())
+}
+
+// A test that verifies that not mastering the sight-singing lessons blocks all progress on the
+// instrument lessons.
+#[test]
+fn sight_singing_lessons_block_instruments() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let first_course_id = Ustr::from("trane::test::improv_course_0");
+    let second_course_id = Ustr::from("trane::test::improv_course_1");
+    let user_prefs = UserPreferences {
+        trane_improvisation: Some(TraneImprovisationPreferences {
+            instruments: vec!["guitar".to_string(), "piano".to_string()],
+        }),
+    };
+    let mut trane = init_improv_simulation(
+        &temp_dir.path(),
+        &vec![
+            trane_improvisation_builder(first_course_id, 0, vec![], 5, false),
+            trane_improvisation_builder(second_course_id, 1, vec![first_course_id], 5, false),
+        ],
+        Some(&user_prefs),
+    )?;
+
+    // Run the simulation. Give all the exercises involving sight-singing and not an instrument a
+    // score of one. Give all other exercises a score of five.
+    let exercise_ids = trane.get_all_exercise_ids()?;
+    let mut simulation = TraneSimulation::new(
+        exercise_ids.len() * 5,
+        Box::new(|exercise_id| {
+            if exercise_id.contains("singing") {
+                Some(MasteryScore::Five)
+            } else if !(exercise_id.contains("piano") || exercise_id.contains("guitar")) {
+                Some(MasteryScore::One)
+            } else {
+                Some(MasteryScore::Five)
+            }
+        }),
+    );
+    simulation.run_simulation(&mut trane, &vec![], None)?;
+
+    // Verify that none of the exercises for piano or guitar are in the answer history.
+    for exercise_id in exercise_ids {
+        if exercise_id.contains("piano") || exercise_id.contains("guitar") {
+            assert!(
+                !simulation.answer_history.contains_key(&exercise_id),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        } else if exercise_id.contains("mastery") {
+            assert!(
+                !simulation.answer_history.contains_key(&exercise_id),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        } else if exercise_id.contains("singing")
+            || exercise_id.contains("rhythm")
+            || exercise_id.contains("melody::c")
+            || exercise_id.contains("basic_harmony::c")
+            || exercise_id.contains("advanced_harmony::c")
+        {
+            assert!(
+                simulation.answer_history.contains_key(&exercise_id),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        }
+    }
+    Ok(())
+}

@@ -99,6 +99,13 @@ mod test {
     use super::*;
 
     #[test]
+    fn to_string() {
+        assert_eq!(Note(NaturalNote::A, Accidental::Natural).to_string(), "A");
+        assert_eq!(Note(NaturalNote::A, Accidental::Flat).to_string(), "A♭");
+        assert_eq!(Note(NaturalNote::A, Accidental::Sharp).to_string(), "A♯");
+    }
+
+    #[test]
     fn to_ascii_string() {
         assert_eq!(
             Note(NaturalNote::A, Accidental::Natural).to_ascii_string(),

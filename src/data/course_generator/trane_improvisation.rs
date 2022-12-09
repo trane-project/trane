@@ -805,7 +805,7 @@ impl TraneImprovisationConfig {
 
         // The mastery lesson depends on the last rhythm, melody, and harmony lessons as well as the
         // sight-singing mastery lesson if the lesson is for an instrument.
-        let last_keys = Note::last_keys_in_circle();
+        let last_keys = Note::last_keys_in_circle(false);
         let lesson_dependencies = last_keys
             .iter()
             .flat_map(|key| {
@@ -817,6 +817,8 @@ impl TraneImprovisationConfig {
                 if instrument.is_some() {
                     dependencies.push(self.mastery_lesson_id(course_manifest.id, None))
                 }
+                println!("lesson ID: {}", lesson_id);
+                println!("mastery dependencies: {:?}", dependencies);
                 dependencies
             })
             .collect::<Vec<_>>();
