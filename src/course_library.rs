@@ -667,7 +667,10 @@ impl GetUnitGraph for LocalCourseLibrary {
 #[cfg(test)]
 mod test {
     use anyhow::Result;
-    use std::{fs::create_dir, os::unix::prelude::PermissionsExt};
+    use std::{
+        fs::{create_dir, File},
+        os::unix::prelude::PermissionsExt,
+    };
 
     use crate::{
         course_library::LocalCourseLibrary, FILTERS_DIR, TRANE_CONFIG_DIR_PATH,
@@ -719,8 +722,11 @@ mod test {
         let filters_dir = config_dir.join(FILTERS_DIR);
         create_dir(filters_dir)?;
 
-        // Set permissions of `.trane` directory to read-only.
-        std::fs::set_permissions(temp_dir.path(), std::fs::Permissions::from_mode(0o444))?;
+        // Create the user preferences and set its permissions to read-only. The file will appear as
+        // not existing and attempting to create it will fail.
+        let user_preferences = config_dir.join(USER_PREFERENCES_PATH);
+        File::create(user_preferences.clone())?;
+        std::fs::set_permissions(user_preferences, std::fs::Permissions::from_mode(0o000))?;
 
         assert!(LocalCourseLibrary::new(temp_dir.path()).is_err());
         Ok(())
