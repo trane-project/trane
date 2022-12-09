@@ -669,7 +669,10 @@ mod test {
     use anyhow::Result;
     use std::{fs::create_dir, os::unix::prelude::PermissionsExt};
 
-    use crate::{course_library::LocalCourseLibrary, TRANE_CONFIG_DIR_PATH, USER_PREFERENCES_PATH};
+    use crate::{
+        course_library::LocalCourseLibrary, FILTERS_DIR, TRANE_CONFIG_DIR_PATH,
+        USER_PREFERENCES_PATH,
+    };
 
     #[test]
     fn path_is_not_dir() -> Result<()> {
@@ -713,7 +716,7 @@ mod test {
         let temp_dir = tempfile::tempdir()?;
         let config_dir = temp_dir.path().join(TRANE_CONFIG_DIR_PATH);
         create_dir(config_dir.clone())?;
-        let filters_dir = config_dir.join(USER_PREFERENCES_PATH);
+        let filters_dir = config_dir.join(FILTERS_DIR);
         create_dir(filters_dir)?;
 
         // Set permissions of `.trane` directory to read-only.
