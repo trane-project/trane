@@ -241,6 +241,21 @@ pub struct UserPreferences {
     pub trane_improvisation: Option<TraneImprovisationPreferences>,
 }
 
+/// A struct holding the results from running a course generator.
+pub struct GeneratedCourse {
+    /// The lessons and exercise manifests generated for the course.
+    pub lessons: Vec<(LessonManifest, Vec<ExerciseManifest>)>,
+
+    /// Updated course metadata. If None, the existing metadata is used.
+    pub updated_metadata: Option<BTreeMap<String, Vec<String>>>,
+
+    /// Updated course material. If None, the existing course material is used.
+    pub updated_material: Option<BasicAsset>,
+
+    /// Updated course instructions. If None, the existing instructions are used.
+    pub updated_instructions: Option<BasicAsset>,
+}
+
 /// The trait to return all the generated lesson and exercise manifests for a course.
 pub trait GenerateManifests {
     /// Returns all the generated lesson and exercise manifests for a course.
@@ -248,7 +263,7 @@ pub trait GenerateManifests {
         &self,
         course_manifest: &CourseManifest,
         preferences: &UserPreferences,
-    ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>>;
+    ) -> Result<GeneratedCourse>;
 }
 
 impl GenerateManifests for CourseGenerator {
@@ -256,7 +271,7 @@ impl GenerateManifests for CourseGenerator {
         &self,
         course_manifest: &CourseManifest,
         preferences: &UserPreferences,
-    ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
+    ) -> Result<GeneratedCourse> {
         match self {
             CourseGenerator::TraneImprovisation(config) => {
                 config.generate_manifests(course_manifest, preferences)

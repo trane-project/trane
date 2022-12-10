@@ -15,7 +15,7 @@ use ustr::Ustr;
 use crate::data::{
     course_generator::trane_improvisation::constants::*, music::notes::Note, BasicAsset,
     CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseType, GenerateManifests,
-    LessonManifest, UserPreferences,
+    GeneratedCourse, LessonManifest, UserPreferences,
 };
 
 /// A single musical passage to be used in a Trane improvisation course. A course can contain
@@ -111,7 +111,6 @@ impl TraneImprovisationConfig {
             description: Some(SINGING_DESCRIPTION.to_string()),
             dependencies: vec![],
             metadata: Some(BTreeMap::from([
-                (COURSE_METADATA.to_string(), vec!["true".to_string()]),
                 (LESSON_METADATA.to_string(), vec!["singing".to_string()]),
                 (INSTRUMENT_METADATA.to_string(), vec!["voice".to_string()]),
             ])),
@@ -205,7 +204,6 @@ impl TraneImprovisationConfig {
             description: Some(RHYTHM_DESCRIPTION.to_string()),
             dependencies: lesson_dependencies,
             metadata: Some(BTreeMap::from([
-                (COURSE_METADATA.to_string(), vec!["true".to_string()]),
                 (LESSON_METADATA.to_string(), vec!["rhythm".to_string()]),
                 (INSTRUMENT_METADATA.to_string(), vec![instrument_name]),
             ])),
@@ -353,7 +351,6 @@ impl TraneImprovisationConfig {
             description: Some(MELODY_DESCRIPTION.to_string()),
             dependencies: lesson_dependencies,
             metadata: Some(BTreeMap::from([
-                (COURSE_METADATA.to_string(), vec!["true".to_string()]),
                 (LESSON_METADATA.to_string(), vec!["melody".to_string()]),
                 (INSTRUMENT_METADATA.to_string(), vec![instrument_name]),
                 (KEY_METADATA.to_string(), vec![key.to_string()]),
@@ -522,7 +519,6 @@ impl TraneImprovisationConfig {
             description: Some(BASIC_HARMONY_DESCRIPTION.to_string()),
             dependencies: lesson_dependencies,
             metadata: Some(BTreeMap::from([
-                (COURSE_METADATA.to_string(), vec!["true".to_string()]),
                 (
                     LESSON_METADATA.to_string(),
                     vec!["basic_harmony".to_string()],
@@ -700,7 +696,6 @@ impl TraneImprovisationConfig {
             description: Some(ADVANCED_HARMONY_DESCRIPTION.to_string()),
             dependencies: lesson_dependencies,
             metadata: Some(BTreeMap::from([
-                (COURSE_METADATA.to_string(), vec!["true".to_string()]),
                 (
                     LESSON_METADATA.to_string(),
                     vec!["advanced_harmony".to_string()],
@@ -835,7 +830,6 @@ impl TraneImprovisationConfig {
             description: Some(MASTERY_DESCRIPTION.to_string()),
             dependencies: lesson_dependencies,
             metadata: Some(BTreeMap::from([
-                (COURSE_METADATA.to_string(), vec!["true".to_string()]),
                 (LESSON_METADATA.to_string(), vec!["mastery".to_string()]),
                 (INSTRUMENT_METADATA.to_string(), vec![instrument_name]),
             ])),
@@ -914,16 +908,38 @@ impl GenerateManifests for TraneImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         preferences: &UserPreferences,
-    ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
+    ) -> Result<GeneratedCourse> {
+        // Get the user's preferences for this course or use the default preferences if none are
+        // specified.
         let default_preferences = TraneImprovisationPreferences::default();
         let preferences = match &preferences.trane_improvisation {
             Some(preferences) => preferences,
             None => &default_preferences,
         };
-        if self.rhythm_only {
-            self.generate_rhtyhm_only_manifests(course_manifest, preferences)
+
+        // Generate the lesson and exercise manifests.
+        let lessons = if self.rhythm_only {
+            self.generate_rhtyhm_only_manifests(course_manifest, preferences)?
         } else {
-            self.generate_all_manifests(course_manifest, preferences)
-        }
+            self.generate_all_manifests(course_manifest, preferences)?
+        };
+
+        // Update the course's metadata and instructions.
+        let mut metadata = course_manifest.metadata.clone().unwrap_or_default();
+        metadata.insert(COURSE_METADATA.to_string(), vec!["true".to_string()]);
+        let instructions = if course_manifest.course_instructions.is_none() {
+            Some(BasicAsset::InlinedUniqueAsset {
+                content: *COURSE_INSTRUCTIONS,
+            })
+        } else {
+            None
+        };
+
+        Ok(GeneratedCourse {
+            lessons,
+            updated_metadata: Some(metadata),
+            updated_instructions: instructions,
+            updated_material: None,
+        })
     }
 }
