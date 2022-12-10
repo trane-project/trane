@@ -283,17 +283,6 @@ impl LocalCourseLibrary {
             UnitType::Lesson,
             &lesson_manifest.dependencies,
         )?;
-        self.lesson_map
-            .insert(lesson_manifest.id, lesson_manifest.clone());
-
-        // Add the lesson manifest to the search index.
-        Self::add_to_index_writer(
-            index_writer,
-            lesson_manifest.id,
-            &lesson_manifest.name,
-            &lesson_manifest.description,
-            &lesson_manifest.metadata,
-        )?; // grcov-excl-line
 
         // Add the generated exercises to the lesson.
         if let Some(exercises) = generated_exercises {
@@ -341,6 +330,17 @@ impl LocalCourseLibrary {
                 }
             }
         }
+
+        // Add the lesson manifest to the lesson map and the search index.
+        self.lesson_map
+            .insert(lesson_manifest.id, lesson_manifest.clone());
+        Self::add_to_index_writer(
+            index_writer,
+            lesson_manifest.id,
+            &lesson_manifest.name,
+            &lesson_manifest.description,
+            &lesson_manifest.metadata,
+        )?; // grcov-excl-line
         Ok(())
     }
 
@@ -349,7 +349,7 @@ impl LocalCourseLibrary {
     fn process_course_manifest(
         &mut self,
         dir_entry: &DirEntry,
-        course_manifest: CourseManifest,
+        mut course_manifest: CourseManifest,
         index_writer: &mut IndexWriter,
     ) -> Result<()> {
         // Verify that the exercise ID is valid.
@@ -362,24 +362,13 @@ impl LocalCourseLibrary {
             UnitType::Course,
             &course_manifest.dependencies,
         )?;
-        self.course_map
-            .insert(course_manifest.id, course_manifest.clone());
-
-        // Add the course manifest to the search index.
-        Self::add_to_index_writer(
-            index_writer,
-            course_manifest.id,
-            &course_manifest.name,
-            &course_manifest.description,
-            &course_manifest.metadata,
-        )?; // grcov-excl-line
 
         // If the course has a generator config, generate the lessons and exercises and add them to
         // the library.
         if let Some(generator_config) = &course_manifest.generator_config {
-            let generated_manifests =
+            let generated_course =
                 generator_config.generate_manifests(&course_manifest, &self.user_preferences)?;
-            for (lesson_manifest, exercise_manifests) in generated_manifests {
+            for (lesson_manifest, exercise_manifests) in generated_course.lessons {
                 // All the generated lessons will use the root of the course as the `dir_entry`.
                 self.process_lesson_manifest(
                     dir_entry,
@@ -388,6 +377,14 @@ impl LocalCourseLibrary {
                     index_writer,
                     Some(&exercise_manifests),
                 )?; // grcov-excl-line
+            }
+
+            // Update the course manifest's metadata, material, and instructions if needed.
+            if generated_course.updated_metadata.is_some() {
+                course_manifest.metadata = generated_course.updated_metadata;
+            }
+            if generated_course.updated_instructions.is_some() {
+                course_manifest.course_instructions = generated_course.updated_instructions;
             }
         }
 
@@ -426,6 +423,18 @@ impl LocalCourseLibrary {
                 }
             }
         }
+
+        // Add the course manifest to the course map and the search index. This needs to happen at
+        // the end in case the course has a generator config and the course manifest was updated.
+        self.course_map
+            .insert(course_manifest.id, course_manifest.clone());
+        Self::add_to_index_writer(
+            index_writer,
+            course_manifest.id,
+            &course_manifest.name,
+            &course_manifest.description,
+            &course_manifest.metadata,
+        )?; // grcov-excl-line
         Ok(())
     }
 
