@@ -939,7 +939,45 @@ impl GenerateManifests for TraneImprovisationConfig {
             lessons,
             updated_metadata: Some(metadata),
             updated_instructions: instructions,
-            updated_material: None,
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use anyhow::Result;
+    use std::collections::HashMap;
+    use ustr::Ustr;
+
+    use crate::data::{
+        course_generator::trane_improvisation::TraneImprovisationConfig, BasicAsset,
+        CourseGenerator, CourseManifest, GenerateManifests, UserPreferences,
+    };
+
+    #[test]
+    fn do_not_replace_existing_instructions() -> Result<()> {
+        let course_generator = CourseGenerator::TraneImprovisation(TraneImprovisationConfig {
+            rhythm_only: false,
+            passages: HashMap::new(),
+            improvisation_dependencies: vec![],
+        });
+        let course_manifest = CourseManifest {
+            id: Ustr::from("testID"),
+            name: "Test".to_string(),
+            description: None,
+            dependencies: vec![],
+            authors: None,
+            metadata: None,
+            course_instructions: Some(BasicAsset::InlinedAsset {
+                content: "test".to_string(),
+            }),
+            course_material: None,
+            generator_config: Some(course_generator.clone()),
+        };
+        let preferences = UserPreferences::default();
+        let generated_course =
+            course_generator.generate_manifests(&course_manifest, &preferences)?;
+        assert!(generated_course.updated_instructions.is_none());
+        Ok(())
     }
 }

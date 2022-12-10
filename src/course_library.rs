@@ -383,9 +383,6 @@ impl LocalCourseLibrary {
             if generated_course.updated_metadata.is_some() {
                 course_manifest.metadata = generated_course.updated_metadata;
             }
-            if generated_course.updated_material.is_some() {
-                course_manifest.course_material = generated_course.updated_material;
-            }
             if generated_course.updated_instructions.is_some() {
                 course_manifest.course_instructions = generated_course.updated_instructions;
             }

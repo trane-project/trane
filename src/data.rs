@@ -249,9 +249,6 @@ pub struct GeneratedCourse {
     /// Updated course metadata. If None, the existing metadata is used.
     pub updated_metadata: Option<BTreeMap<String, Vec<String>>>,
 
-    /// Updated course material. If None, the existing course material is used.
-    pub updated_material: Option<BasicAsset>,
-
     /// Updated course instructions. If None, the existing instructions are used.
     pub updated_instructions: Option<BasicAsset>,
 }
