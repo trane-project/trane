@@ -88,11 +88,11 @@ impl TraneImprovisationConfig {
             lesson_id,
             course_id: course_manifest.id,
             name: format!("{} - Singing", course_manifest.name),
-            description: Some(SINGING_DESCRIPTION.to_string()),
+            description: None,
             exercise_type: ExerciseType::Procedural,
             exercise_asset: ExerciseAsset::SoundSliceAsset {
                 link: passage.1.soundslice_link.clone(),
-                description: None,
+                description: Some(SINGING_DESCRIPTION.to_string()),
                 backup: passage.1.music_xml_file.clone(),
             },
         }
@@ -163,11 +163,11 @@ impl TraneImprovisationConfig {
             lesson_id,
             course_id: course_manifest.id,
             name: exercise_name,
-            description: Some(RHYTHM_DESCRIPTION.to_string()),
+            description: None,
             exercise_type: ExerciseType::Procedural,
             exercise_asset: ExerciseAsset::SoundSliceAsset {
                 link: passage.1.soundslice_link.clone(),
-                description: None,
+                description: Some(RHYTHM_DESCRIPTION.to_string()),
                 backup: passage.1.music_xml_file.clone(),
             },
         }
@@ -287,11 +287,11 @@ impl TraneImprovisationConfig {
             lesson_id,
             course_id: course_manifest.id,
             name: exercise_name,
-            description: Some(MELODY_DESCRIPTION.to_string()),
+            description: None,
             exercise_type: ExerciseType::Procedural,
             exercise_asset: ExerciseAsset::SoundSliceAsset {
                 link: passage.1.soundslice_link.clone(),
-                description: None,
+                description: Some(MELODY_DESCRIPTION.to_string()),
                 backup: passage.1.music_xml_file.clone(),
             },
         }
@@ -451,11 +451,11 @@ impl TraneImprovisationConfig {
             lesson_id,
             course_id: course_manifest.id,
             name: exercise_name,
-            description: Some(BASIC_HARMONY_DESCRIPTION.to_string()),
+            description: None,
             exercise_type: ExerciseType::Procedural,
             exercise_asset: ExerciseAsset::SoundSliceAsset {
                 link: passage.1.soundslice_link.clone(),
-                description: None,
+                description: Some(BASIC_HARMONY_DESCRIPTION.to_string()),
                 backup: passage.1.music_xml_file.clone(),
             },
         }
@@ -622,11 +622,11 @@ impl TraneImprovisationConfig {
             lesson_id,
             course_id: course_manifest.id,
             name: exercise_name,
-            description: Some(ADVANCED_HARMONY_DESCRIPTION.to_string()),
+            description: None,
             exercise_type: ExerciseType::Procedural,
             exercise_asset: ExerciseAsset::SoundSliceAsset {
                 link: passage.1.soundslice_link.clone(),
-                description: None,
+                description: Some(ADVANCED_HARMONY_DESCRIPTION.to_string()),
                 backup: passage.1.music_xml_file.clone(),
             },
         }
@@ -775,11 +775,11 @@ impl TraneImprovisationConfig {
             lesson_id,
             course_id: course_manifest.id,
             name: exercise_name,
-            description: Some(MASTERY_DESCRIPTION.to_string()),
+            description: None,
             exercise_type: ExerciseType::Procedural,
             exercise_asset: ExerciseAsset::SoundSliceAsset {
                 link: passage.1.soundslice_link.clone(),
-                description: None,
+                description: Some(MASTERY_DESCRIPTION.to_string()),
                 backup: passage.1.music_xml_file.clone(),
             },
         }
