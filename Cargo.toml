@@ -1,6 +1,6 @@
 [package]
 name = "trane"
-version = "0.7.3"
+version = "0.8.0"
 edition = "2021"
 description = "An automated system for learning complex skills"
 license = "GPL-3.0"
@@ -13,7 +13,7 @@ name = "trane"
 [dependencies]
 anyhow = "1.0.66"
 chrono = "0.4.23"
-derive_builder = "0.11.2"
+derive_builder = "0.12.0"
 indoc = "1.0.7"
 lazy_static = "1.4.0"
 mantra-miner = "0.1.1"
@@ -21,11 +21,11 @@ parking_lot = { version = "0.12.1", features = ["hardware-lock-elision"] }
 r2d2 = "0.8.10"
 r2d2_sqlite = "0.21.0"
 rand = "0.8.5"
-rayon = "1.6.0"
+rayon = "1.6.1"
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 rusqlite_migration = "1.0.1"
-serde = { version = "1.0.147", features = ["derive"] }
-serde_json = "1.0.88"
+serde = { version = "1.0.149", features = ["derive"] }
+serde_json = "1.0.89"
 strum = { version = "0.24.1", features = ["derive"] }
 tantivy = "0.18.1"
 tempfile = "3.3.0"
