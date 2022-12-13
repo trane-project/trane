@@ -1,6 +1,7 @@
 //! End-to-end tests to verify that the Trane Improvisation course generator works as expected.
 
 use anyhow::Result;
+use lazy_static::lazy_static;
 use std::{
     collections::HashMap,
     fs::{create_dir, File},
@@ -21,6 +22,17 @@ use trane::{
     Trane, TRANE_CONFIG_DIR_PATH, USER_PREFERENCES_PATH,
 };
 use ustr::Ustr;
+
+lazy_static! {
+    static ref COURSE0_ID: Ustr = Ustr::from("trane::test::improv_course_0");
+    static ref COURSE1_ID: Ustr = Ustr::from("trane::test::improv_course_1");
+    static ref USER_PREFS: UserPreferences = UserPreferences {
+        trane_improvisation: Some(TraneImprovisationPreferences {
+            instruments: vec!["guitar".to_string(), "piano".to_string()],
+            rhythm_only_instruments: vec!["drums".to_string()],
+        }),
+    };
+}
 
 /// Returns a course builder with a Trane Improvisation generator.
 fn trane_improvisation_builder(
@@ -96,20 +108,13 @@ fn init_improv_simulation(
 fn all_exercises_visited() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let first_course_id = Ustr::from("trane::test::improv_course_0");
-    let second_course_id = Ustr::from("trane::test::improv_course_1");
-    let user_prefs = UserPreferences {
-        trane_improvisation: Some(TraneImprovisationPreferences {
-            instruments: vec!["guitar".to_string(), "piano".to_string()],
-        }),
-    };
     let mut trane = init_improv_simulation(
         &temp_dir.path(),
         &vec![
-            trane_improvisation_builder(first_course_id, 0, vec![], 5, false),
-            trane_improvisation_builder(second_course_id, 1, vec![first_course_id], 5, false),
+            trane_improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
+            trane_improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
         ],
-        Some(&user_prefs),
+        Some(&USER_PREFS),
     )?;
 
     // Run the simulation.
@@ -177,20 +182,13 @@ fn all_exercises_visited_no_instruments() -> Result<()> {
 fn all_exercises_visited_rhythm_only() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let first_course_id = Ustr::from("trane::test::improv_course_0");
-    let second_course_id = Ustr::from("trane::test::improv_course_1");
-    let user_prefs = UserPreferences {
-        trane_improvisation: Some(TraneImprovisationPreferences {
-            instruments: vec!["guitar".to_string(), "piano".to_string()],
-        }),
-    };
     let mut trane = init_improv_simulation(
         &temp_dir.path(),
         &vec![
-            trane_improvisation_builder(first_course_id, 0, vec![], 5, true),
-            trane_improvisation_builder(second_course_id, 1, vec![first_course_id], 5, true),
+            trane_improvisation_builder(*COURSE0_ID, 0, vec![], 5, true),
+            trane_improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, true),
         ],
-        Some(&user_prefs),
+        Some(&USER_PREFS),
     )?;
 
     // Run the simulation.
@@ -220,20 +218,13 @@ fn all_exercises_visited_rhythm_only() -> Result<()> {
 fn no_progress_past_singing_lessons() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let first_course_id = Ustr::from("trane::test::improv_course_0");
-    let second_course_id = Ustr::from("trane::test::improv_course_1");
-    let user_prefs = UserPreferences {
-        trane_improvisation: Some(TraneImprovisationPreferences {
-            instruments: vec!["guitar".to_string(), "piano".to_string()],
-        }),
-    };
     let mut trane = init_improv_simulation(
         &temp_dir.path(),
         &vec![
-            trane_improvisation_builder(first_course_id, 0, vec![], 5, false),
-            trane_improvisation_builder(second_course_id, 1, vec![first_course_id], 5, false),
+            trane_improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
+            trane_improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
         ],
-        Some(&user_prefs),
+        Some(&USER_PREFS),
     )?;
 
     // Run the simulation. Give every exercise a score of one, which should block all further
@@ -271,20 +262,13 @@ fn no_progress_past_singing_lessons() -> Result<()> {
 fn basic_harmony_blocks_advanced_harmony() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let first_course_id = Ustr::from("trane::test::improv_course_0");
-    let second_course_id = Ustr::from("trane::test::improv_course_1");
-    let user_prefs = UserPreferences {
-        trane_improvisation: Some(TraneImprovisationPreferences {
-            instruments: vec!["guitar".to_string(), "piano".to_string()],
-        }),
-    };
     let mut trane = init_improv_simulation(
         &temp_dir.path(),
         &vec![
-            trane_improvisation_builder(first_course_id, 0, vec![], 5, false),
-            trane_improvisation_builder(second_course_id, 1, vec![first_course_id], 5, false),
+            trane_improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
+            trane_improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
         ],
-        Some(&user_prefs),
+        Some(&USER_PREFS),
     )?;
 
     // Run the simulation. Give every exercise a score of five, except for the basic harmony
@@ -334,20 +318,13 @@ fn basic_harmony_blocks_advanced_harmony() -> Result<()> {
 fn advanced_harmony_blocks_mastery() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let first_course_id = Ustr::from("trane::test::improv_course_0");
-    let second_course_id = Ustr::from("trane::test::improv_course_1");
-    let user_prefs = UserPreferences {
-        trane_improvisation: Some(TraneImprovisationPreferences {
-            instruments: vec!["guitar".to_string(), "piano".to_string()],
-        }),
-    };
     let mut trane = init_improv_simulation(
         &temp_dir.path(),
         &vec![
-            trane_improvisation_builder(first_course_id, 0, vec![], 5, false),
-            trane_improvisation_builder(second_course_id, 1, vec![first_course_id], 5, false),
+            trane_improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
+            trane_improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
         ],
-        Some(&user_prefs),
+        Some(&USER_PREFS),
     )?;
 
     // Run the simulation. Give every exercise a score of five, except for the advanced harmony
@@ -398,20 +375,13 @@ fn advanced_harmony_blocks_mastery() -> Result<()> {
 fn melody_blocks_mastery() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let first_course_id = Ustr::from("trane::test::improv_course_0");
-    let second_course_id = Ustr::from("trane::test::improv_course_1");
-    let user_prefs = UserPreferences {
-        trane_improvisation: Some(TraneImprovisationPreferences {
-            instruments: vec!["guitar".to_string(), "piano".to_string()],
-        }),
-    };
     let mut trane = init_improv_simulation(
         &temp_dir.path(),
         &vec![
-            trane_improvisation_builder(first_course_id, 0, vec![], 5, false),
-            trane_improvisation_builder(second_course_id, 1, vec![first_course_id], 5, false),
+            trane_improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
+            trane_improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
         ],
-        Some(&user_prefs),
+        Some(&USER_PREFS),
     )?;
 
     // Run the simulation. Give every exercise a score of five, except for the melody exercises,
@@ -462,20 +432,13 @@ fn melody_blocks_mastery() -> Result<()> {
 fn rhythm_blocks_mastery() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let first_course_id = Ustr::from("trane::test::improv_course_0");
-    let second_course_id = Ustr::from("trane::test::improv_course_1");
-    let user_prefs = UserPreferences {
-        trane_improvisation: Some(TraneImprovisationPreferences {
-            instruments: vec!["guitar".to_string(), "piano".to_string()],
-        }),
-    };
     let mut trane = init_improv_simulation(
         &temp_dir.path(),
         &vec![
-            trane_improvisation_builder(first_course_id, 0, vec![], 5, false),
-            trane_improvisation_builder(second_course_id, 1, vec![first_course_id], 5, false),
+            trane_improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
+            trane_improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
         ],
-        Some(&user_prefs),
+        Some(&*USER_PREFS),
     )?;
 
     // Run the simulation. Give every exercise a score of five, except for the rhythm exercises,
@@ -500,6 +463,7 @@ fn rhythm_blocks_mastery() -> Result<()> {
         if exercise_id.contains("mastery")
             || exercise_id.contains("rhythm::piano")
             || exercise_id.contains("rhythm::guitar")
+            || exercise_id.contains("rhythm::drums")
         {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_id),
@@ -529,20 +493,13 @@ fn rhythm_blocks_mastery() -> Result<()> {
 fn sight_singing_lessons_block_instruments() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let first_course_id = Ustr::from("trane::test::improv_course_0");
-    let second_course_id = Ustr::from("trane::test::improv_course_1");
-    let user_prefs = UserPreferences {
-        trane_improvisation: Some(TraneImprovisationPreferences {
-            instruments: vec!["guitar".to_string(), "piano".to_string()],
-        }),
-    };
     let mut trane = init_improv_simulation(
         &temp_dir.path(),
         &vec![
-            trane_improvisation_builder(first_course_id, 0, vec![], 5, false),
-            trane_improvisation_builder(second_course_id, 1, vec![first_course_id], 5, false),
+            trane_improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
+            trane_improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
         ],
-        Some(&user_prefs),
+        Some(&USER_PREFS),
     )?;
 
     // Run the simulation. Give all the exercises involving sight-singing and not an instrument a
@@ -564,7 +521,10 @@ fn sight_singing_lessons_block_instruments() -> Result<()> {
 
     // Verify that none of the exercises for piano or guitar are in the answer history.
     for exercise_id in exercise_ids {
-        if exercise_id.contains("piano") || exercise_id.contains("guitar") {
+        if exercise_id.contains("piano")
+            || exercise_id.contains("guitar")
+            || exercise_id.contains("drums")
+        {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_id),
                 "exercise {:?} should not have been scheduled",
