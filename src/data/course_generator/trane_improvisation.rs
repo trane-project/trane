@@ -51,6 +51,10 @@ pub struct TraneImprovisationConfig {
 pub struct TraneImprovisationPreferences {
     /// The list of instruments the user wants to practice.
     pub instruments: Vec<String>,
+
+    /// The list of instruments that only use rhythm. Exercises for these instruments will only
+    /// show up in the rhythm lessons.
+    pub rhythm_only_instruments: Vec<String>,
 }
 
 impl TraneImprovisationConfig {
@@ -59,16 +63,32 @@ impl TraneImprovisationConfig {
         Ustr::from(&format!("{}::exercise_{}", lesson_id, exercise_index))
     }
 
-    /// Returns the list of all instruments that the user can practice. A value of None represents
-    /// the voice lessons which must be mastered before practicing specific instruments.
-    fn all_instruments(user_config: &TraneImprovisationPreferences) -> Vec<Option<&str>> {
-        let mut all_instuments: Vec<Option<&str>> = user_config
+    /// Returns the list of instruments the user can practice in the rhythm lessons. A value of None
+    /// represents the voice lessons which must be mastered before practicing specific instruments.
+    fn rhythm_lesson_instruments(user_config: &TraneImprovisationPreferences) -> Vec<Option<&str>> {
+        // Combine `None` with the list of instruments and rhythm-only instruments.
+        let mut rhythm_instruments: Vec<Option<&str>> = user_config
+            .instruments
+            .iter()
+            .chain(user_config.rhythm_only_instruments.iter())
+            .map(|s| Some(s.as_str()))
+            .collect();
+        rhythm_instruments.push(None);
+        rhythm_instruments
+    }
+
+    /// Returns the list of instruments that the user can practice during a lesson (except for the
+    /// rhythm lessons as explained in `rhythm_lesson_instruments`). A value of None represents the
+    /// voice lessons which must be mastered before practicing specific instruments.
+    fn lesson_instruments(user_config: &TraneImprovisationPreferences) -> Vec<Option<&str>> {
+        // Combine `None` with the list of instruments.
+        let mut lesson_instruments: Vec<Option<&str>> = user_config
             .instruments
             .iter()
             .map(|s| Some(s.as_str()))
             .collect();
-        all_instuments.push(None);
-        all_instuments
+        lesson_instruments.push(None);
+        lesson_instruments
     }
 
     /// Returns the ID of the singing lesson for the given course.
@@ -236,8 +256,8 @@ impl TraneImprovisationConfig {
         user_config: &TraneImprovisationPreferences,
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Generate a lesson for each instrument.
-        let all_instruments = Self::all_instruments(user_config);
-        let lessons = all_instruments
+        let lesson_instruments = Self::rhythm_lesson_instruments(user_config);
+        let lessons = lesson_instruments
             .iter()
             .map(|instrument| self.generate_rhythm_lesson(course_manifest, *instrument))
             .collect::<Vec<_>>();
@@ -386,13 +406,13 @@ impl TraneImprovisationConfig {
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Get a list of all keys and instruments.
         let all_keys = Note::all_keys(false);
-        let all_instruments = Self::all_instruments(user_config);
+        let lesson_instruments = Self::lesson_instruments(user_config);
 
         // Generate a lesson for each key and instrument pair.
         all_keys
             .iter()
             .flat_map(|key| {
-                all_instruments.iter().map(|instrument| {
+                lesson_instruments.iter().map(|instrument| {
                     self.generate_melody_lesson(course_manifest, *key, *instrument)
                 })
             })
@@ -557,13 +577,13 @@ impl TraneImprovisationConfig {
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Get all keys and instruments.
         let all_keys = Note::all_keys(false);
-        let all_instruments = Self::all_instruments(user_config);
+        let lesson_instruments = Self::lesson_instruments(user_config);
 
         // Generate a lesson for each key and instrument pair.
         all_keys
             .iter()
             .flat_map(|key| {
-                all_instruments.iter().map(|instrument| {
+                lesson_instruments.iter().map(|instrument| {
                     self.generate_basic_harmony_lesson(course_manifest, *key, *instrument)
                 })
             })
@@ -734,13 +754,13 @@ impl TraneImprovisationConfig {
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Get all keys and instruments.
         let all_keys = Note::all_keys(false);
-        let all_instruments = Self::all_instruments(user_config);
+        let lesson_instruments = Self::lesson_instruments(user_config);
 
         // Generate a lesson for each key and instrument pair.
         all_keys
             .iter()
             .flat_map(|key| {
-                all_instruments.iter().map(|instrument| {
+                lesson_instruments.iter().map(|instrument| {
                     self.generate_advanced_harmony_lesson(course_manifest, *key, *instrument)
                 })
             })
@@ -861,8 +881,8 @@ impl TraneImprovisationConfig {
         course_manifest: &CourseManifest,
         user_config: &TraneImprovisationPreferences,
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
-        let all_instruments = Self::all_instruments(user_config);
-        all_instruments
+        let lesson_instruments = Self::lesson_instruments(user_config);
+        lesson_instruments
             .iter()
             .map(|instrument| self.generate_mastery_lesson(course_manifest, *instrument))
             .collect::<Vec<_>>()
