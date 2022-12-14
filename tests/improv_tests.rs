@@ -14,7 +14,8 @@ use trane::{
     course_library::CourseLibrary,
     data::{
         course_generator::trane_improvisation::{
-            ImprovisationPassage, TraneImprovisationConfig, TraneImprovisationPreferences,
+            ImprovisationPassage, Instrument, TraneImprovisationConfig,
+            TraneImprovisationPreferences,
         },
         CourseGenerator, CourseManifest, LessonManifestBuilder, MasteryScore, UserPreferences,
     },
@@ -28,8 +29,20 @@ lazy_static! {
     static ref COURSE1_ID: Ustr = Ustr::from("trane::test::improv_course_1");
     static ref USER_PREFS: UserPreferences = UserPreferences {
         trane_improvisation: Some(TraneImprovisationPreferences {
-            instruments: vec!["guitar".to_string(), "piano".to_string()],
-            rhythm_only_instruments: vec!["drums".to_string()],
+            instruments: vec![
+                Instrument {
+                    name: "Guitar".to_string(),
+                    id: "guitar".to_string(),
+                },
+                Instrument {
+                    name: "Piano".to_string(),
+                    id: "piano".to_string(),
+                },
+            ],
+            rhythm_only_instruments: vec![Instrument {
+                name: "Drums".to_string(),
+                id: "drums".to_string(),
+            }],
         }),
     };
 }

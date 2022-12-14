@@ -46,15 +46,25 @@ pub struct TraneImprovisationConfig {
     pub passages: HashMap<usize, ImprovisationPassage>,
 }
 
+/// Describes an instrument that can be used to practice in a Trane improvisation course.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Instrument {
+    /// The name of the instrument. For example, "Tenor Saxophone".
+    pub name: String,
+
+    /// An ID for this instrument used to generate lesson IDs. For example, "tenor_saxophone".
+    pub id: String,
+}
+
 /// Settings for generating a new improvisation course that are specific to a user.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct TraneImprovisationPreferences {
     /// The list of instruments the user wants to practice.
-    pub instruments: Vec<String>,
+    pub instruments: Vec<Instrument>,
 
     /// The list of instruments that only use rhythm. Exercises for these instruments will only
     /// show up in the rhythm lessons.
-    pub rhythm_only_instruments: Vec<String>,
+    pub rhythm_only_instruments: Vec<Instrument>,
 }
 
 impl TraneImprovisationConfig {
@@ -65,13 +75,15 @@ impl TraneImprovisationConfig {
 
     /// Returns the list of instruments the user can practice in the rhythm lessons. A value of None
     /// represents the voice lessons which must be mastered before practicing specific instruments.
-    fn rhythm_lesson_instruments(user_config: &TraneImprovisationPreferences) -> Vec<Option<&str>> {
+    fn rhythm_lesson_instruments(
+        user_config: &TraneImprovisationPreferences,
+    ) -> Vec<Option<&Instrument>> {
         // Combine `None` with the list of instruments and rhythm-only instruments.
-        let mut rhythm_instruments: Vec<Option<&str>> = user_config
+        let mut rhythm_instruments: Vec<Option<&Instrument>> = user_config
             .instruments
             .iter()
             .chain(user_config.rhythm_only_instruments.iter())
-            .map(|s| Some(s.as_str()))
+            .map(Some)
             .collect();
         rhythm_instruments.push(None);
         rhythm_instruments
@@ -80,13 +92,10 @@ impl TraneImprovisationConfig {
     /// Returns the list of instruments that the user can practice during a lesson (except for the
     /// rhythm lessons as explained in `rhythm_lesson_instruments`). A value of None represents the
     /// voice lessons which must be mastered before practicing specific instruments.
-    fn lesson_instruments(user_config: &TraneImprovisationPreferences) -> Vec<Option<&str>> {
+    fn lesson_instruments(user_config: &TraneImprovisationPreferences) -> Vec<Option<&Instrument>> {
         // Combine `None` with the list of instruments.
-        let mut lesson_instruments: Vec<Option<&str>> = user_config
-            .instruments
-            .iter()
-            .map(|s| Some(s.as_str()))
-            .collect();
+        let mut lesson_instruments: Vec<Option<&Instrument>> =
+            user_config.instruments.iter().map(Some).collect();
         lesson_instruments.push(None);
         lesson_instruments
     }
@@ -156,9 +165,9 @@ impl TraneImprovisationConfig {
     }
 
     /// Returns the ID of the rhythm lesson for the given course and instrument.
-    fn rhythm_lesson_id(&self, course_id: Ustr, instrument: Option<&str>) -> Ustr {
+    fn rhythm_lesson_id(&self, course_id: Ustr, instrument: Option<&Instrument>) -> Ustr {
         match instrument {
-            Some(instrument) => Ustr::from(&format!("{}::rhythm::{}", course_id, instrument)),
+            Some(instrument) => Ustr::from(&format!("{}::rhythm::{}", course_id, instrument.id)),
             None => Ustr::from(&format!("{}::rhythm", course_id)),
         }
     }
@@ -168,12 +177,12 @@ impl TraneImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         lesson_id: Ustr,
-        instrument: Option<&str>,
+        instrument: Option<&Instrument>,
         passage: (usize, &ImprovisationPassage),
     ) -> ExerciseManifest {
         // Generate the exercise name.
         let exercise_name = match instrument {
-            Some(instrument) => format!("{} - Rhythm - {}", course_manifest.name, instrument),
+            Some(instrument) => format!("{} - Rhythm - {}", course_manifest.name, instrument.name),
             None => format!("{} - Rhythm - Sight-singing", course_manifest.name),
         };
 
@@ -197,12 +206,12 @@ impl TraneImprovisationConfig {
     fn generate_rhythm_lesson(
         &self,
         course_manifest: &CourseManifest,
-        instrument: Option<&str>,
+        instrument: Option<&Instrument>,
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Generate the lesson ID and name.
         let lesson_id = self.rhythm_lesson_id(course_manifest.id, instrument);
         let lesson_name = match instrument {
-            Some(instrument) => format!("{} - Rhythm - {}", course_manifest.name, instrument),
+            Some(instrument) => format!("{} - Rhythm - {}", course_manifest.name, instrument.name),
             None => format!("{} - Rhythm - Sight-singing", course_manifest.name),
         };
 
@@ -213,8 +222,8 @@ impl TraneImprovisationConfig {
         };
 
         // Generate the lesson manifest.
-        let instrument_name = match instrument {
-            Some(instrument) => instrument.to_string(),
+        let instrument_id = match instrument {
+            Some(instrument) => instrument.id.to_string(),
             None => "voice".to_string(),
         };
         let lesson_manifest = LessonManifest {
@@ -225,7 +234,7 @@ impl TraneImprovisationConfig {
             dependencies: lesson_dependencies,
             metadata: Some(BTreeMap::from([
                 (LESSON_METADATA.to_string(), vec!["rhythm".to_string()]),
-                (INSTRUMENT_METADATA.to_string(), vec![instrument_name]),
+                (INSTRUMENT_METADATA.to_string(), vec![instrument_id]),
             ])),
             lesson_instructions: Some(BasicAsset::InlinedUniqueAsset {
                 content: *RHYTHM_INSTRUCTIONS,
@@ -265,14 +274,19 @@ impl TraneImprovisationConfig {
     }
 
     /// Returns the ID of the melody lesson for the given course, key, and instrument.
-    fn melody_lesson_id(&self, course_id: Ustr, key: Note, instrument: Option<&str>) -> Ustr {
+    fn melody_lesson_id(
+        &self,
+        course_id: Ustr,
+        key: Note,
+        instrument: Option<&Instrument>,
+    ) -> Ustr {
         match instrument {
             None => Ustr::from(&format!("{}::melody::{}", course_id, key.to_string())),
             Some(instrument) => Ustr::from(&format!(
                 "{}::melody::{}::{}",
                 course_id,
                 key.to_string(),
-                instrument
+                instrument.id
             )),
         }
     }
@@ -283,7 +297,7 @@ impl TraneImprovisationConfig {
         course_manifest: &CourseManifest,
         lesson_id: Ustr,
         key: Note,
-        instrument: Option<&str>,
+        instrument: Option<&Instrument>,
         passage: (usize, &ImprovisationPassage),
     ) -> ExerciseManifest {
         // Generate the exercise name.
@@ -292,7 +306,7 @@ impl TraneImprovisationConfig {
                 "{} - Melody - Key of {} - {}",
                 course_manifest.name,
                 key.to_string(),
-                instrument
+                instrument.name
             ),
             None => format!(
                 "{} - Melody - Key of {} - Sight-singing",
@@ -322,7 +336,7 @@ impl TraneImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         key: Note,
-        instrument: Option<&str>,
+        instrument: Option<&Instrument>,
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Generate the lesson ID and name.
         let lesson_id = self.melody_lesson_id(course_manifest.id, key, instrument);
@@ -331,7 +345,7 @@ impl TraneImprovisationConfig {
                 "{} - Melody - Key of {} - {}",
                 course_manifest.name,
                 key.to_string(),
-                instrument
+                instrument.name
             ),
             None => format!(
                 "{} - Melody - Key of {} - Sight-singing",
@@ -360,8 +374,8 @@ impl TraneImprovisationConfig {
         };
 
         // Generate the lesson manifest.
-        let instrument_name = match instrument {
-            Some(instrument) => instrument.to_string(),
+        let instrument_id = match instrument {
+            Some(instrument) => instrument.id.to_string(),
             None => "voice".to_string(),
         };
         let lesson_manifest = LessonManifest {
@@ -372,7 +386,7 @@ impl TraneImprovisationConfig {
             dependencies: lesson_dependencies,
             metadata: Some(BTreeMap::from([
                 (LESSON_METADATA.to_string(), vec!["melody".to_string()]),
-                (INSTRUMENT_METADATA.to_string(), vec![instrument_name]),
+                (INSTRUMENT_METADATA.to_string(), vec![instrument_id]),
                 (KEY_METADATA.to_string(), vec![key.to_string()]),
             ])),
             lesson_instructions: Some(BasicAsset::InlinedUniqueAsset {
@@ -424,7 +438,7 @@ impl TraneImprovisationConfig {
         &self,
         course_id: Ustr,
         key: Note,
-        instrument: Option<&str>,
+        instrument: Option<&Instrument>,
     ) -> Ustr {
         match instrument {
             None => Ustr::from(&format!(
@@ -436,7 +450,7 @@ impl TraneImprovisationConfig {
                 "{}::basic_harmony::{}::{}",
                 course_id,
                 key.to_string(),
-                instrument
+                instrument.id
             )),
         }
     }
@@ -447,7 +461,7 @@ impl TraneImprovisationConfig {
         course_manifest: &CourseManifest,
         lesson_id: Ustr,
         key: Note,
-        instrument: Option<&str>,
+        instrument: Option<&Instrument>,
         passage: (usize, &ImprovisationPassage),
     ) -> ExerciseManifest {
         // Generate the exercise name.
@@ -456,7 +470,7 @@ impl TraneImprovisationConfig {
                 "{} - Basic Harmony - Key of {} - {}",
                 course_manifest.name,
                 key.to_string(),
-                instrument
+                instrument.name
             ),
             None => format!(
                 "{} - Basic Harmony - Key of {} - Sight-singing",
@@ -486,7 +500,7 @@ impl TraneImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         key: Note,
-        instrument: Option<&str>,
+        instrument: Option<&Instrument>,
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Generate the lesson ID and name.
         let lesson_id = self.basic_harmony_lesson_id(course_manifest.id, key, instrument);
@@ -495,7 +509,7 @@ impl TraneImprovisationConfig {
                 "{} - Basic Harmony - Key of {} - {}",
                 course_manifest.name,
                 key.to_string(),
-                instrument
+                instrument.name
             ),
             None => format!(
                 "{} - Basic Harmony - Key of {}",
@@ -528,8 +542,8 @@ impl TraneImprovisationConfig {
         };
 
         // Generate the lesson manifest.
-        let instrument_name = match instrument {
-            Some(instrument) => instrument.to_string(),
+        let instrument_id = match instrument {
+            Some(instrument) => instrument.id.to_string(),
             None => "voice".to_string(),
         };
         let lesson_manifest = LessonManifest {
@@ -543,7 +557,7 @@ impl TraneImprovisationConfig {
                     LESSON_METADATA.to_string(),
                     vec!["basic_harmony".to_string()],
                 ),
-                (INSTRUMENT_METADATA.to_string(), vec![instrument_name]),
+                (INSTRUMENT_METADATA.to_string(), vec![instrument_id]),
                 (KEY_METADATA.to_string(), vec![key.to_string()]),
             ])),
             lesson_instructions: Some(BasicAsset::InlinedUniqueAsset {
@@ -595,7 +609,7 @@ impl TraneImprovisationConfig {
         &self,
         course_id: Ustr,
         key: Note,
-        instrument: Option<&str>,
+        instrument: Option<&Instrument>,
     ) -> Ustr {
         match instrument {
             None => Ustr::from(&format!(
@@ -607,7 +621,7 @@ impl TraneImprovisationConfig {
                 "{}::advanced_harmony::{}::{}",
                 course_id,
                 key.to_string(),
-                instrument
+                instrument.id
             )),
         }
     }
@@ -618,7 +632,7 @@ impl TraneImprovisationConfig {
         course_manifest: &CourseManifest,
         lesson_id: Ustr,
         key: Note,
-        instrument: Option<&str>,
+        instrument: Option<&Instrument>,
         passage: (usize, &ImprovisationPassage),
     ) -> ExerciseManifest {
         // Generate the exercise name.
@@ -627,7 +641,7 @@ impl TraneImprovisationConfig {
                 "{} - Advanced Harmony - Key of {} - {}",
                 course_manifest.name,
                 key.to_string(),
-                instrument
+                instrument.name
             ),
             None => format!(
                 "{} - Advanced Harmony - Key of {}",
@@ -657,7 +671,7 @@ impl TraneImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         key: Note,
-        instrument: Option<&str>,
+        instrument: Option<&Instrument>,
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         let lesson_id = self.advanced_harmony_lesson_id(course_manifest.id, key, instrument);
         let lesson_name = match instrument {
@@ -665,7 +679,7 @@ impl TraneImprovisationConfig {
                 "{} - Advanced Harmony - Key of {} - {}",
                 course_manifest.name,
                 key.to_string(),
-                instrument
+                instrument.name
             ),
             None => format!(
                 "{} - Advanced Harmony - Key of {} - Sight-singing",
@@ -705,8 +719,8 @@ impl TraneImprovisationConfig {
         };
 
         // Generate the lesson manifest.
-        let instrument_name = match instrument {
-            Some(instrument) => instrument.to_string(),
+        let instrument_id = match instrument {
+            Some(instrument) => instrument.id.to_string(),
             None => "voice".to_string(),
         };
         let lesson_manifest = LessonManifest {
@@ -720,7 +734,7 @@ impl TraneImprovisationConfig {
                     LESSON_METADATA.to_string(),
                     vec!["advanced_harmony".to_string()],
                 ),
-                (INSTRUMENT_METADATA.to_string(), vec![instrument_name]),
+                (INSTRUMENT_METADATA.to_string(), vec![instrument_id]),
                 (KEY_METADATA.to_string(), vec![key.to_string()]),
             ])),
             lesson_instructions: Some(BasicAsset::InlinedUniqueAsset {
@@ -768,9 +782,9 @@ impl TraneImprovisationConfig {
     }
 
     /// Returns the ID of the mastery lesson for the given course and instrument.
-    fn mastery_lesson_id(&self, course_id: Ustr, instrument: Option<&str>) -> Ustr {
+    fn mastery_lesson_id(&self, course_id: Ustr, instrument: Option<&Instrument>) -> Ustr {
         match instrument {
-            Some(instrument) => Ustr::from(&format!("{}::mastery::{}", course_id, instrument)),
+            Some(instrument) => Ustr::from(&format!("{}::mastery::{}", course_id, instrument.id)),
             None => Ustr::from(&format!("{}::mastery", course_id)),
         }
     }
@@ -780,12 +794,12 @@ impl TraneImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         lesson_id: Ustr,
-        instrument: Option<&str>,
+        instrument: Option<&Instrument>,
         passage: (usize, &ImprovisationPassage),
     ) -> ExerciseManifest {
         // Generate the exercise name.
         let exercise_name = match instrument {
-            Some(instrument) => format!("{} - Mastery - {}", course_manifest.name, instrument),
+            Some(instrument) => format!("{} - Mastery - {}", course_manifest.name, instrument.name),
             None => format!("{} - Mastery - Sight-singing", course_manifest.name),
         };
 
@@ -809,12 +823,12 @@ impl TraneImprovisationConfig {
     fn generate_mastery_lesson(
         &self,
         course_manifest: &CourseManifest,
-        instrument: Option<&str>,
+        instrument: Option<&Instrument>,
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Generate the lesson ID and name.
         let lesson_id = self.mastery_lesson_id(course_manifest.id, instrument);
         let lesson_name = match instrument {
-            Some(instrument) => format!("{} - Mastery - {}", course_manifest.name, instrument),
+            Some(instrument) => format!("{} - Mastery - {}", course_manifest.name, instrument.name),
             None => format!("{} - Mastery - Sight-singing", course_manifest.name),
         };
 
@@ -839,8 +853,8 @@ impl TraneImprovisationConfig {
             .collect::<Vec<_>>();
 
         // Generate the lesson manifest.
-        let instrument_name = match instrument {
-            Some(instrument) => instrument.to_string(),
+        let instrument_id = match instrument {
+            Some(instrument) => instrument.id.to_string(),
             None => "voice".to_string(),
         };
         let lesson_manifest = LessonManifest {
@@ -851,7 +865,7 @@ impl TraneImprovisationConfig {
             dependencies: lesson_dependencies,
             metadata: Some(BTreeMap::from([
                 (LESSON_METADATA.to_string(), vec!["mastery".to_string()]),
-                (INSTRUMENT_METADATA.to_string(), vec![instrument_name]),
+                (INSTRUMENT_METADATA.to_string(), vec![instrument_id]),
             ])),
             lesson_instructions: Some(BasicAsset::InlinedUniqueAsset {
                 content: *MASTERY_INSTRUCTIONS,
