@@ -984,8 +984,8 @@ mod test {
     use ustr::Ustr;
 
     use crate::data::{
-        course_generator::trane_improvisation::TraneImprovisationConfig, BasicAsset,
-        CourseGenerator, CourseManifest, GenerateManifests, UserPreferences,
+        course_generator::trane_improvisation::{Instrument, TraneImprovisationConfig},
+        BasicAsset, CourseGenerator, CourseManifest, GenerateManifests, UserPreferences,
     };
 
     #[test]
@@ -1013,5 +1013,16 @@ mod test {
             course_generator.generate_manifests(&course_manifest, &preferences)?;
         assert!(generated_course.updated_instructions.is_none());
         Ok(())
+    }
+
+    #[test]
+    fn instrument_clone() {
+        let instrument = Instrument {
+            name: "Piano".to_string(),
+            id: "piano".to_string(),
+        };
+        let instrument_clone = instrument.clone();
+        assert_eq!(instrument.name, instrument_clone.name);
+        assert_eq!(instrument.id, instrument_clone.id);
     }
 }
