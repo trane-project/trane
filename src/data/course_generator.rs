@@ -6,3 +6,4 @@
 //! version of Trane.
 
 pub mod trane_improvisation;
+pub mod trane_music_piece;
