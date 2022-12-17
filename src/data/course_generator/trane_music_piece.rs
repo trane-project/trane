@@ -9,6 +9,49 @@ use crate::data::{
     GeneratedCourse, LessonManifest, UserPreferences,
 };
 
+/// Represents a music asset to be practiced.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum MusicAsset {
+    /// A link to a SoundSlice.
+    SoundSlice(String),
+
+    /// The path to a local file. For example, the path to a PDF of the sheet music.
+    LocalFile(String),
+}
+
+impl MusicAsset {
+    /// Generates an exercise asset from this music asset.
+    pub fn generate_exercise_asset(&self, start: &str, end: &str) -> ExerciseAsset {
+        match self {
+            MusicAsset::SoundSlice(url) => {
+                let description = formatdoc! {"
+                    Play the following passage of music in the piece.
+
+                        Start: {}
+                        End: {}
+                ", start, end};
+                ExerciseAsset::SoundSliceAsset {
+                    link: url.clone(),
+                    description: Some(description),
+                    backup: None,
+                }
+            }
+            MusicAsset::LocalFile(path) => {
+                let description = formatdoc! {"
+                    Play the following passage of music in the piece.
+                    - Start: {}
+                    -End: {}
+                    
+                    The file containing the music sheet is located at {}.
+                ", path, start, end};
+                ExerciseAsset::BasicAsset(BasicAsset::InlinedAsset {
+                    content: description,
+                })
+            }
+        }
+    }
+}
+
 /// Represents a music passage to be practiced.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum MusicPassage {
@@ -46,6 +89,22 @@ impl MusicPassage {
         match self {
             MusicPassage::SinglePassage { .. } => None,
             MusicPassage::ComplexPassage { dependencies, .. } => Some(dependencies),
+        }
+    }
+
+    /// Retrieve the start of the passage.
+    fn passage_start(&self) -> &str {
+        match self {
+            MusicPassage::SinglePassage { start, .. } => start,
+            MusicPassage::ComplexPassage { start, .. } => start,
+        }
+    }
+
+    /// Retrieve the end of the passage.
+    fn passage_end(&self) -> &str {
+        match self {
+            MusicPassage::SinglePassage { end, .. } => end,
+            MusicPassage::ComplexPassage { end, .. } => end,
         }
     }
 
@@ -117,10 +176,8 @@ impl MusicPassage {
             name: course_manifest.name.clone(),
             description: None,
             exercise_type: ExerciseType::Procedural,
-            exercise_asset: ExerciseAsset::FlashcardAsset {
-                front_path: "".to_string(),
-                back_path: "".to_string(),
-            },
+            exercise_asset: music_asset
+                .generate_exercise_asset(self.passage_start(), self.passage_end()),
         };
         lessons.push((lesson_manifest, vec![exercise_manifest]));
 
@@ -143,49 +200,6 @@ impl MusicPassage {
                 Some(dependencies),
                 music_asset,
             )),
-        }
-    }
-}
-
-/// Represents a music asset to be practiced.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub enum MusicAsset {
-    /// A link to a SoundSlice.
-    SoundSlice(String),
-
-    /// The path to a local file. For example, the path to a PDF of the sheet music.
-    LocalFile(String),
-}
-
-impl MusicAsset {
-    /// Generates an exercise asset from this music asset.
-    pub fn generate_exercise_asset(&self, start: &str, end: &str) -> ExerciseAsset {
-        match self {
-            MusicAsset::SoundSlice(url) => {
-                let description = formatdoc! {"
-                    Play the following passage of music in the piece.
-
-                        Start: {}
-                        End: {}
-                ", start, end};
-                ExerciseAsset::SoundSliceAsset {
-                    link: url.clone(),
-                    description: Some(description),
-                    backup: None,
-                }
-            }
-            MusicAsset::LocalFile(path) => {
-                let description = formatdoc! {"
-                    Play the following passage of music in the piece.
-                    - Start: {}
-                    -End: {}
-                    
-                    The file containing the music sheet is located at {}.
-                ", path, start, end};
-                ExerciseAsset::BasicAsset(BasicAsset::InlinedAsset {
-                    content: description,
-                })
-            }
         }
     }
 }
