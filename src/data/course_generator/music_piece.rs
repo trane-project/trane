@@ -62,7 +62,7 @@ impl MusicAsset {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum MusicPassage {
     /// A single passage with no dependencies.
-    SinglePassage {
+    SimplePassage {
         /// The start of the passage. For example, "Measure 1", "Measure 3, beat 2", "Start of third
         /// movement", etc. Start and end values are stored as strings to allow for flexibility in
         /// defining their values.
@@ -93,7 +93,7 @@ impl MusicPassage {
     /// Retrieves the dependencies of this passage.
     fn passage_dependencies(&self) -> Option<&HashMap<usize, MusicPassage>> {
         match self {
-            MusicPassage::SinglePassage { .. } => None,
+            MusicPassage::SimplePassage { .. } => None,
             MusicPassage::ComplexPassage { dependencies, .. } => Some(dependencies),
         }
     }
@@ -101,7 +101,7 @@ impl MusicPassage {
     /// Retrieve the start of the passage.
     fn passage_start(&self) -> &str {
         match self {
-            MusicPassage::SinglePassage { start, .. } => start,
+            MusicPassage::SimplePassage { start, .. } => start,
             MusicPassage::ComplexPassage { start, .. } => start,
         }
     }
@@ -109,7 +109,7 @@ impl MusicPassage {
     /// Retrieve the end of the passage.
     fn passage_end(&self) -> &str {
         match self {
-            MusicPassage::SinglePassage { end, .. } => end,
+            MusicPassage::SimplePassage { end, .. } => end,
             MusicPassage::ComplexPassage { end, .. } => end,
         }
     }
@@ -197,7 +197,7 @@ impl MusicPassage {
         music_asset: &MusicAsset,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         match &self {
-            MusicPassage::SinglePassage { .. } => {
+            MusicPassage::SimplePassage { .. } => {
                 Ok(self.generate_lesson_helper(course_manifest, vec![], None, music_asset))
             }
             MusicPassage::ComplexPassage { dependencies, .. } => Ok(self.generate_lesson_helper(
