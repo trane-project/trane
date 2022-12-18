@@ -195,17 +195,17 @@ impl MusicPassage {
         &self,
         course_manifest: &CourseManifest,
         music_asset: &MusicAsset,
-    ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
+    ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         match &self {
             MusicPassage::SimplePassage { .. } => {
-                Ok(self.generate_lesson_helper(course_manifest, vec![], None, music_asset))
+                self.generate_lesson_helper(course_manifest, vec![], None, music_asset)
             }
-            MusicPassage::ComplexPassage { dependencies, .. } => Ok(self.generate_lesson_helper(
+            MusicPassage::ComplexPassage { dependencies, .. } => self.generate_lesson_helper(
                 course_manifest,
                 vec![0],
                 Some(dependencies),
                 music_asset,
-            )),
+            ),
         }
     }
 }
@@ -229,7 +229,7 @@ impl GenerateManifests for MusicPieceConfig {
         Ok(GeneratedCourse {
             lessons: self
                 .passages
-                .generate_lessons(course_manifest, &self.music_asset)?,
+                .generate_lessons(course_manifest, &self.music_asset),
             updated_instructions: None,
             updated_metadata: None,
         })
