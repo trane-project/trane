@@ -1,0 +1,24 @@
+name: Run a set of tests with code coverage information
+
+on:
+  workflow_call:
+    inputs:
+      extra-flags:
+        required: false
+        type: string
+
+jobs:
+  run-tests:
+    name: Run tests with code coverage information
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run tests with code coverage information 
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features --no-fail-fast ${{ input.extra-flags }}
+        env:
+          RUSTC_BOOTSTRAP: '1'
+          CARGO_INCREMENTAL: '0'
+          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+          RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
