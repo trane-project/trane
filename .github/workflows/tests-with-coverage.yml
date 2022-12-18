@@ -12,6 +12,7 @@ jobs:
     name: Run tests with code coverage information
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v1
       - name: Run tests with code coverage information 
         uses: actions-rs/cargo@v1
         with:
