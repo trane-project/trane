@@ -12,8 +12,9 @@ use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
 use ustr::Ustr;
 
-use self::course_generator::trane_improvisation::{
-    TraneImprovisationConfig, TraneImprovisationPreferences,
+use self::course_generator::{
+    music_piece::MusicPieceConfig,
+    trane_improvisation::{TraneImprovisationConfig, TraneImprovisationPreferences},
 };
 
 /// The score used by students to evaluate their mastery of a particular exercise after a trial.
@@ -232,6 +233,9 @@ impl VerifyPaths for BasicAsset {
 pub enum CourseGenerator {
     /// The configuration for generating a Trane improvisation course.
     TraneImprovisation(TraneImprovisationConfig),
+
+    /// The configuration for generating a music piece course.
+    MusicPiece(MusicPieceConfig),
 }
 
 /// The user-specific configuration
@@ -271,6 +275,9 @@ impl GenerateManifests for CourseGenerator {
     ) -> Result<GeneratedCourse> {
         match self {
             CourseGenerator::TraneImprovisation(config) => {
+                config.generate_manifests(course_manifest, preferences)
+            }
+            CourseGenerator::MusicPiece(config) => {
                 config.generate_manifests(course_manifest, preferences)
             }
         }
@@ -488,6 +495,9 @@ pub enum ExerciseAsset {
         /// The path to the file containing the back of the flashcard.
         back_path: String,
     },
+
+    /// A basic asset storing the material of the exercise.
+    BasicAsset(BasicAsset),
 }
 
 impl NormalizePaths for ExerciseAsset {
@@ -519,6 +529,9 @@ impl NormalizePaths for ExerciseAsset {
                     })
                 }
             },
+            ExerciseAsset::BasicAsset(asset) => {
+                Ok(ExerciseAsset::BasicAsset(asset.normalize_paths(dir)?))
+            }
         }
     }
 }
@@ -543,6 +556,7 @@ impl VerifyPaths for ExerciseAsset {
                     Ok(abs_path.exists())
                 }
             },
+            ExerciseAsset::BasicAsset(asset) => asset.verify_paths(dir),
         }
     }
 }
@@ -822,6 +836,26 @@ mod test {
         let temp_dir = tempfile::tempdir()?;
         let temp_file_path = "missing_file";
         assert!(normalize_path(temp_dir.path(), temp_file_path).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn exercise_basic_asset_verify_paths() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let basic_asset = ExerciseAsset::BasicAsset(BasicAsset::InlinedAsset {
+            content: "my content".to_string(),
+        });
+        assert!(basic_asset.verify_paths(temp_dir.path())?);
+        Ok(())
+    }
+
+    #[test]
+    fn exercise_basic_asset_normalize_paths() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let basic_asset = ExerciseAsset::BasicAsset(BasicAsset::InlinedAsset {
+            content: "my content".to_string(),
+        });
+        basic_asset.normalize_paths(temp_dir.path())?;
         Ok(())
     }
 }

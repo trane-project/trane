@@ -5,4 +5,5 @@
 //! with a minimal configuration and ensures the generated manifests always match the current
 //! version of Trane.
 
+pub mod music_piece;
 pub mod trane_improvisation;

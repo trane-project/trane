@@ -313,7 +313,7 @@ impl RandomCourseLibrary {
         let num_dependencies = rng
             .gen_range(self.course_dependencies_range.0..=self.course_dependencies_range.1)
             as usize;
-        let mut dependencies = Vec::with_capacity(num_dependencies as usize);
+        let mut dependencies = Vec::with_capacity(num_dependencies);
         for _ in 0..num_dependencies.min(course_id.0) {
             let dependency_id = TestId(rng.gen_range(0..course_id.0), None, None);
             if dependencies.contains(&dependency_id) {
@@ -330,7 +330,7 @@ impl RandomCourseLibrary {
         let num_dependencies = rng
             .gen_range(self.lesson_dependencies_range.0..=self.lesson_dependencies_range.1)
             as usize;
-        let mut dependencies = Vec::with_capacity(num_dependencies as usize);
+        let mut dependencies = Vec::with_capacity(num_dependencies);
         for _ in 0..num_dependencies.min(lesson_id.1.unwrap_or(0)) {
             let dependency_id = TestId(
                 lesson_id.0,
