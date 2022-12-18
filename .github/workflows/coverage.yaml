@@ -41,6 +41,7 @@ jobs:
           --test music_piece_tests,
         ]
     steps:
+      - uses: actions/checkout@v1
       - uses: ./.github/workflows/tests-with-coverage.yml
         with:
           extra-flags: ${{ matrix.extra-flags }} 
