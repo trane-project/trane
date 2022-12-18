@@ -1,4 +1,4 @@
-//! Contains constants used by the Trane improvisation courses.
+//! Contains constants used by the improvisation courses.
 
 use indoc::indoc;
 use lazy_static::lazy_static;
@@ -41,11 +41,11 @@ pub const MASTERY_DESCRIPTION: &str = indoc! {"
     Refer to the lesson instructions for more details.
 "};
 
-/// The metadata key indicating the lesson belongs to a Trane improvisation course.
-pub const COURSE_METADATA: &str = "trane_improvisation";
+/// The metadata key indicating the lesson belongs to an improvisation course.
+pub const COURSE_METADATA: &str = "improvisation";
 
 /// The metadata key indicating the type of the improvisation lesson.
-pub const LESSON_METADATA: &str = "trane_improvisation_lesson";
+pub const LESSON_METADATA: &str = "improvisation_lesson";
 
 /// The metadata key indicating the key of the improvisation lesson.
 pub const KEY_METADATA: &str = "key";
