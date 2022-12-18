@@ -838,4 +838,24 @@ mod test {
         assert!(normalize_path(temp_dir.path(), temp_file_path).is_err());
         Ok(())
     }
+
+    #[test]
+    fn exercise_basic_asset_verify_paths() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let basic_asset = ExerciseAsset::BasicAsset(BasicAsset::InlinedAsset {
+            content: "my content".to_string(),
+        });
+        assert!(basic_asset.verify_paths(temp_dir.path())?);
+        Ok(())
+    }
+
+    #[test]
+    fn exercise_basic_asset_normalize_paths() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let basic_asset = ExerciseAsset::BasicAsset(BasicAsset::InlinedAsset {
+            content: "my content".to_string(),
+        });
+        basic_asset.normalize_paths(temp_dir.path())?;
+        Ok(())
+    }
 }
