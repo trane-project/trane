@@ -30,6 +30,7 @@ jobs:
   test:
     name: Run all tests
     needs: build
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         extra-flags: [
