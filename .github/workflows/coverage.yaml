@@ -40,11 +40,9 @@ jobs:
           --test large_tests,
           --test music_piece_tests,
         ]
-    steps:
-      - uses: actions/checkout@v1
-      - uses: ./.github/workflows/tests-with-coverage.yml
-        with:
-          extra-flags: ${{ matrix.extra-flags }} 
+      uses: ./.github/workflows/tests-with-coverage.yml
+      with:
+        extra-flags: ${{ matrix.extra-flags }} 
   code-coverage:
     name: Code Coverage
     needs: test
