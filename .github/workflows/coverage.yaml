@@ -33,11 +33,11 @@ jobs:
     strategy:
       matrix:
         extra-flags: [
-          '--lib',
-          '--test basic_tests'
-          '--test improvisation_tests',
-          '--test large_tests',
-          '--test music_piece_tests',
+          --lib,
+          --test basic_tests,
+          --test improvisation_tests,
+          --test large_tests,
+          --test music_piece_tests,
         ]
     steps:
       - uses: ./.github/workflows/tests-with-coverage.yml
