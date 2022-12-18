@@ -21,7 +21,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --all-features --no-fail-fast
+          args: --all-features 
         env:
           RUSTC_BOOTSTRAP: '1'
           CARGO_INCREMENTAL: '0'
