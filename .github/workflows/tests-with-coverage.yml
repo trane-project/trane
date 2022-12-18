@@ -17,7 +17,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all-features --no-fail-fast ${{ input.extra-flags }}
+          args: --all-features --no-fail-fast ${{ inputs.extra-flags }}
         env:
           RUSTC_BOOTSTRAP: '1'
           CARGO_INCREMENTAL: '0'
