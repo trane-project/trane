@@ -202,7 +202,7 @@ impl MusicPassage {
             }
             MusicPassage::ComplexPassage { dependencies, .. } => Ok(self.generate_lesson_helper(
                 course_manifest,
-                vec![],
+                vec![0],
                 Some(dependencies),
                 music_asset,
             )),
