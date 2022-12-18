@@ -1,9 +1,9 @@
 //! Defines a special course to teach improvisation based on a set of musical passages.
 //!  
-//! The Trane improvisation course generator creates a course that teaches the user how to improvise
-//! based on a set of musical passages. The passages are provided by the user, and the rhythmic,
-//! melodic and harmonic elements of each passage are used to generate a series of lessons for each
-//! key and for all the instruments the user selects.
+//! The improvisation course generator creates a course that teaches the user how to improvise based
+//! on a set of musical passages. The passages are provided by the user, and the rhythmic, melodic
+//! and harmonic elements of each passage are used to generate a series of lessons for each key and
+//! for all the instruments the user selects.
 
 mod constants;
 
@@ -13,13 +13,13 @@ use std::collections::{BTreeMap, HashMap};
 use ustr::Ustr;
 
 use crate::data::{
-    course_generator::trane_improvisation::constants::*, music::notes::Note, BasicAsset,
-    CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseType, GenerateManifests,
-    GeneratedCourse, LessonManifest, UserPreferences,
+    course_generator::improvisation::constants::*, music::notes::Note, BasicAsset, CourseManifest,
+    ExerciseAsset, ExerciseManifest, ExerciseType, GenerateManifests, GeneratedCourse,
+    LessonManifest, UserPreferences,
 };
 
-/// A single musical passage to be used in a Trane improvisation course. A course can contain
-/// multiple passages but all of those passages are assumed to have the same key or mode.
+/// A single musical passage to be used in a improvisation course. A course can contain multiple
+/// passages but all of those passages are assumed to have the same key or mode.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ImprovisationPassage {
     /// The link to a SoundSlice page that contains the passage to be played.
@@ -32,9 +32,9 @@ pub struct ImprovisationPassage {
 
 /// The configuration for creating a new improvisation course.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct TraneImprovisationConfig {
-    /// The dependencies on other Trane improvisation courses. Specifying these dependencies here
-    /// instead of the [CourseManifest](crate::data::CourseManifest) allows Trane to generate more
+pub struct ImprovisationConfig {
+    /// The dependencies on other improvisation courses. Specifying these dependencies here instead
+    /// of the [CourseManifest](crate::data::CourseManifest) allows Trane to generate more
     /// fine-grained dependencies.
     pub improvisation_dependencies: Vec<Ustr>,
 
@@ -46,7 +46,7 @@ pub struct TraneImprovisationConfig {
     pub passages: HashMap<usize, ImprovisationPassage>,
 }
 
-/// Describes an instrument that can be used to practice in a Trane improvisation course.
+/// Describes an instrument that can be used to practice in an improvisation course.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Instrument {
     /// The name of the instrument. For example, "Tenor Saxophone".
@@ -58,7 +58,7 @@ pub struct Instrument {
 
 /// Settings for generating a new improvisation course that are specific to a user.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct TraneImprovisationPreferences {
+pub struct ImprovisationPreferences {
     /// The list of instruments the user wants to practice.
     pub instruments: Vec<Instrument>,
 
@@ -67,7 +67,7 @@ pub struct TraneImprovisationPreferences {
     pub rhythm_only_instruments: Vec<Instrument>,
 }
 
-impl TraneImprovisationConfig {
+impl ImprovisationConfig {
     /// Returns the ID for a given exercise given the lesson ID and the exercise index.
     fn exercise_id(&self, lesson_id: Ustr, exercise_index: usize) -> Ustr {
         Ustr::from(&format!("{}::exercise_{}", lesson_id, exercise_index))
@@ -76,7 +76,7 @@ impl TraneImprovisationConfig {
     /// Returns the list of instruments the user can practice in the rhythm lessons. A value of None
     /// represents the voice lessons which must be mastered before practicing specific instruments.
     fn rhythm_lesson_instruments(
-        user_config: &TraneImprovisationPreferences,
+        user_config: &ImprovisationPreferences,
     ) -> Vec<Option<&Instrument>> {
         // Combine `None` with the list of instruments and rhythm-only instruments.
         let mut rhythm_instruments: Vec<Option<&Instrument>> = user_config
@@ -92,7 +92,7 @@ impl TraneImprovisationConfig {
     /// Returns the list of instruments that the user can practice during a lesson (except for the
     /// rhythm lessons as explained in `rhythm_lesson_instruments`). A value of None represents the
     /// voice lessons which must be mastered before practicing specific instruments.
-    fn lesson_instruments(user_config: &TraneImprovisationPreferences) -> Vec<Option<&Instrument>> {
+    fn lesson_instruments(user_config: &ImprovisationPreferences) -> Vec<Option<&Instrument>> {
         // Combine `None` with the list of instruments.
         let mut lesson_instruments: Vec<Option<&Instrument>> =
             user_config.instruments.iter().map(Some).collect();
@@ -262,7 +262,7 @@ impl TraneImprovisationConfig {
     fn generate_rhythm_lessons(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &TraneImprovisationPreferences,
+        user_config: &ImprovisationPreferences,
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Generate a lesson for each instrument.
         let lesson_instruments = Self::rhythm_lesson_instruments(user_config);
@@ -416,7 +416,7 @@ impl TraneImprovisationConfig {
     fn generate_melody_lessons(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &TraneImprovisationPreferences,
+        user_config: &ImprovisationPreferences,
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Get a list of all keys and instruments.
         let all_keys = Note::all_keys(false);
@@ -587,7 +587,7 @@ impl TraneImprovisationConfig {
     fn generate_basic_harmony_lessons(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &TraneImprovisationPreferences,
+        user_config: &ImprovisationPreferences,
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Get all keys and instruments.
         let all_keys = Note::all_keys(false);
@@ -764,7 +764,7 @@ impl TraneImprovisationConfig {
     fn generate_advanced_harmony_lessons(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &TraneImprovisationPreferences,
+        user_config: &ImprovisationPreferences,
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Get all keys and instruments.
         let all_keys = Note::all_keys(false);
@@ -893,7 +893,7 @@ impl TraneImprovisationConfig {
     fn generate_mastery_lessons(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &TraneImprovisationPreferences,
+        user_config: &ImprovisationPreferences,
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         let lesson_instruments = Self::lesson_instruments(user_config);
         lesson_instruments
@@ -906,7 +906,7 @@ impl TraneImprovisationConfig {
     fn generate_rhtyhm_only_manifests(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &TraneImprovisationPreferences,
+        user_config: &ImprovisationPreferences,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         Ok(vec![
             self.generate_singing_lesson(course_manifest),
@@ -921,7 +921,7 @@ impl TraneImprovisationConfig {
     fn generate_all_manifests(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &TraneImprovisationPreferences,
+        user_config: &ImprovisationPreferences,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         Ok(vec![
             self.generate_singing_lesson(course_manifest),
@@ -937,7 +937,7 @@ impl TraneImprovisationConfig {
     }
 }
 
-impl GenerateManifests for TraneImprovisationConfig {
+impl GenerateManifests for ImprovisationConfig {
     fn generate_manifests(
         &self,
         course_manifest: &CourseManifest,
@@ -945,8 +945,8 @@ impl GenerateManifests for TraneImprovisationConfig {
     ) -> Result<GeneratedCourse> {
         // Get the user's preferences for this course or use the default preferences if none are
         // specified.
-        let default_preferences = TraneImprovisationPreferences::default();
-        let preferences = match &preferences.trane_improvisation {
+        let default_preferences = ImprovisationPreferences::default();
+        let preferences = match &preferences.improvisation {
             Some(preferences) => preferences,
             None => &default_preferences,
         };
@@ -984,13 +984,13 @@ mod test {
     use ustr::Ustr;
 
     use crate::data::{
-        course_generator::trane_improvisation::{Instrument, TraneImprovisationConfig},
+        course_generator::improvisation::{ImprovisationConfig, Instrument},
         BasicAsset, CourseGenerator, CourseManifest, GenerateManifests, UserPreferences,
     };
 
     #[test]
     fn do_not_replace_existing_instructions() -> Result<()> {
-        let course_generator = CourseGenerator::TraneImprovisation(TraneImprovisationConfig {
+        let course_generator = CourseGenerator::Improvisation(ImprovisationConfig {
             rhythm_only: false,
             passages: HashMap::new(),
             improvisation_dependencies: vec![],

@@ -1,4 +1,4 @@
-//! End-to-end tests to verify that the Trane Improvisation course generator works as expected.
+//! End-to-end tests to verify that the improvisation course generator works as expected.
 
 use anyhow::Result;
 use lazy_static::lazy_static;
@@ -13,9 +13,8 @@ use trane::{
     course_builder::CourseBuilder,
     course_library::CourseLibrary,
     data::{
-        course_generator::trane_improvisation::{
-            ImprovisationPassage, Instrument, TraneImprovisationConfig,
-            TraneImprovisationPreferences,
+        course_generator::improvisation::{
+            ImprovisationConfig, ImprovisationPassage, ImprovisationPreferences, Instrument,
         },
         CourseGenerator, CourseManifest, LessonManifestBuilder, MasteryScore, UserPreferences,
     },
@@ -28,7 +27,7 @@ lazy_static! {
     static ref COURSE0_ID: Ustr = Ustr::from("trane::test::improv_course_0");
     static ref COURSE1_ID: Ustr = Ustr::from("trane::test::improv_course_1");
     static ref USER_PREFS: UserPreferences = UserPreferences {
-        trane_improvisation: Some(TraneImprovisationPreferences {
+        improvisation: Some(ImprovisationPreferences {
             instruments: vec![
                 Instrument {
                     name: "Guitar".to_string(),
@@ -47,8 +46,8 @@ lazy_static! {
     };
 }
 
-/// Returns a course builder with a Trane Improvisation generator.
-fn trane_improvisation_builder(
+/// Returns a course builder with an improvisation generator.
+fn improvisation_builder(
     course_id: Ustr,
     course_index: usize,
     dependencies: Vec<Ustr>,
@@ -75,13 +74,11 @@ fn trane_improvisation_builder(
             metadata: None,
             course_material: None,
             course_instructions: None,
-            generator_config: Some(CourseGenerator::TraneImprovisation(
-                TraneImprovisationConfig {
-                    improvisation_dependencies: dependencies,
-                    rhythm_only,
-                    passages,
-                },
-            )),
+            generator_config: Some(CourseGenerator::Improvisation(ImprovisationConfig {
+                improvisation_dependencies: dependencies,
+                rhythm_only,
+                passages,
+            })),
         },
         lesson_manifest_template: LessonManifestBuilder::default().clone(),
         lesson_builders: vec![],
@@ -116,7 +113,7 @@ fn init_improv_simulation(
     Ok(trane)
 }
 
-/// A test that verifies that all Trane Improvisation exercises are visited.
+/// A test that verifies that all improvisation exercises are visited.
 #[test]
 fn all_exercises_visited() -> Result<()> {
     // Initialize test course library.
@@ -124,8 +121,8 @@ fn all_exercises_visited() -> Result<()> {
     let mut trane = init_improv_simulation(
         &temp_dir.path(),
         &vec![
-            trane_improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
-            trane_improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
+            improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
+            improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
         ],
         Some(&USER_PREFS),
     )?;
@@ -151,7 +148,7 @@ fn all_exercises_visited() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies that all Trane Improvisation exercises are visited when no instruments are
+/// A test that verifies that all improvisation exercises are visited when no instruments are
 /// specified.
 #[test]
 fn all_exercises_visited_no_instruments() -> Result<()> {
@@ -162,8 +159,8 @@ fn all_exercises_visited_no_instruments() -> Result<()> {
     let mut trane = init_improv_simulation(
         &temp_dir.path(),
         &vec![
-            trane_improvisation_builder(first_course_id, 0, vec![], 5, false),
-            trane_improvisation_builder(second_course_id, 1, vec![first_course_id], 5, false),
+            improvisation_builder(first_course_id, 0, vec![], 5, false),
+            improvisation_builder(second_course_id, 1, vec![first_course_id], 5, false),
         ],
         None,
     )?;
@@ -189,7 +186,7 @@ fn all_exercises_visited_no_instruments() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies that all Trane Improvisation exercises are visited when only rhythm lessons
+/// A test that verifies that all improvisation exercises are visited when only rhythm lessons
 /// are specified in the configuration.
 #[test]
 fn all_exercises_visited_rhythm_only() -> Result<()> {
@@ -198,8 +195,8 @@ fn all_exercises_visited_rhythm_only() -> Result<()> {
     let mut trane = init_improv_simulation(
         &temp_dir.path(),
         &vec![
-            trane_improvisation_builder(*COURSE0_ID, 0, vec![], 5, true),
-            trane_improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, true),
+            improvisation_builder(*COURSE0_ID, 0, vec![], 5, true),
+            improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, true),
         ],
         Some(&USER_PREFS),
     )?;
@@ -234,8 +231,8 @@ fn no_progress_past_singing_lessons() -> Result<()> {
     let mut trane = init_improv_simulation(
         &temp_dir.path(),
         &vec![
-            trane_improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
-            trane_improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
+            improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
+            improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
         ],
         Some(&USER_PREFS),
     )?;
@@ -278,8 +275,8 @@ fn basic_harmony_blocks_advanced_harmony() -> Result<()> {
     let mut trane = init_improv_simulation(
         &temp_dir.path(),
         &vec![
-            trane_improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
-            trane_improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
+            improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
+            improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
         ],
         Some(&USER_PREFS),
     )?;
@@ -334,8 +331,8 @@ fn advanced_harmony_blocks_mastery() -> Result<()> {
     let mut trane = init_improv_simulation(
         &temp_dir.path(),
         &vec![
-            trane_improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
-            trane_improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
+            improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
+            improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
         ],
         Some(&USER_PREFS),
     )?;
@@ -391,8 +388,8 @@ fn melody_blocks_mastery() -> Result<()> {
     let mut trane = init_improv_simulation(
         &temp_dir.path(),
         &vec![
-            trane_improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
-            trane_improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
+            improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
+            improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
         ],
         Some(&USER_PREFS),
     )?;
@@ -448,8 +445,8 @@ fn rhythm_blocks_mastery() -> Result<()> {
     let mut trane = init_improv_simulation(
         &temp_dir.path(),
         &vec![
-            trane_improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
-            trane_improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
+            improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
+            improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
         ],
         Some(&*USER_PREFS),
     )?;
@@ -509,8 +506,8 @@ fn sight_singing_lessons_block_instruments() -> Result<()> {
     let mut trane = init_improv_simulation(
         &temp_dir.path(),
         &vec![
-            trane_improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
-            trane_improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
+            improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
+            improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
         ],
         Some(&USER_PREFS),
     )?;

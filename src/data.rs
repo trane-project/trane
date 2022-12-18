@@ -13,8 +13,8 @@ use std::{collections::BTreeMap, path::Path};
 use ustr::Ustr;
 
 use self::course_generator::{
+    improvisation::{ImprovisationConfig, ImprovisationPreferences},
     music_piece::MusicPieceConfig,
-    trane_improvisation::{TraneImprovisationConfig, TraneImprovisationPreferences},
 };
 
 /// The score used by students to evaluate their mastery of a particular exercise after a trial.
@@ -231,8 +231,8 @@ impl VerifyPaths for BasicAsset {
 /// A configuration used for generating special types of courses on the fly.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum CourseGenerator {
-    /// The configuration for generating a Trane improvisation course.
-    TraneImprovisation(TraneImprovisationConfig),
+    /// The configuration for generating an improvisation course.
+    Improvisation(ImprovisationConfig),
 
     /// The configuration for generating a music piece course.
     MusicPiece(MusicPieceConfig),
@@ -241,8 +241,8 @@ pub enum CourseGenerator {
 /// The user-specific configuration
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct UserPreferences {
-    /// The preferences for generating Trane improvisation courses.
-    pub trane_improvisation: Option<TraneImprovisationPreferences>,
+    /// The preferences for generating improvisation courses.
+    pub improvisation: Option<ImprovisationPreferences>,
 }
 
 /// A struct holding the results from running a course generator.
@@ -274,7 +274,7 @@ impl GenerateManifests for CourseGenerator {
         preferences: &UserPreferences,
     ) -> Result<GeneratedCourse> {
         match self {
-            CourseGenerator::TraneImprovisation(config) => {
+            CourseGenerator::Improvisation(config) => {
                 config.generate_manifests(course_manifest, preferences)
             }
             CourseGenerator::MusicPiece(config) => {

@@ -1,4 +1,4 @@
-# Trane Improvisation Course Instructions
+# Improvisation Course Instructions
 
 This course is designed to help you learn how to improvise based on the musical passages that you
 provide. The aim of the exercises is not to play the passage as accurately as possible, but to learn
