@@ -1,3 +1,9 @@
+//! Contains the logic for generating a course to learn a piece of music.
+//!
+//! Given a piece of music and the passages and sub-passages in which it is divided, this module
+//! generates a course that allows the user to learn the piece of music by first practicing the
+//! smallest passages and then working up until the full piece is mastered.
+
 use anyhow::Result;
 use indoc::formatdoc;
 use serde::{Deserialize, Serialize};
@@ -70,7 +76,7 @@ pub enum MusicPassage {
     /// A passage that requires mastery of other smaller passages. For example, a three-movement
     /// piano concerto requires that the musician masters each of the individual movements.
     ComplexPassage {
-        /// The start of the passsage.
+        /// The start of the passage.
         start: String,
 
         /// The end of the passage.
@@ -115,7 +121,7 @@ impl MusicPassage {
         passage_path: Vec<usize>,
     ) -> Ustr {
         // An empty passage path means the course consists of only a lesson. Give this lesson a
-        // hardcoded ID.
+        // hard-coded ID.
         if passage_path.is_empty() {
             return Ustr::from(&format!("{}::lesson", course_manifest.id));
         }
@@ -206,7 +212,7 @@ impl MusicPassage {
 
 /// The config to create a course that teaches a piece of music.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct TraneMusicPieceConfig {
+pub struct MusicPieceConfig {
     /// The asset containing the music to be practiced.
     pub music_asset: MusicAsset,
 
@@ -214,7 +220,7 @@ pub struct TraneMusicPieceConfig {
     pub passages: MusicPassage,
 }
 
-impl GenerateManifests for TraneMusicPieceConfig {
+impl GenerateManifests for MusicPieceConfig {
     fn generate_manifests(
         &self,
         course_manifest: &CourseManifest,

@@ -13,8 +13,8 @@ use std::{collections::BTreeMap, path::Path};
 use ustr::Ustr;
 
 use self::course_generator::{
+    music_piece::MusicPieceConfig,
     trane_improvisation::{TraneImprovisationConfig, TraneImprovisationPreferences},
-    trane_music_piece::TraneMusicPieceConfig,
 };
 
 /// The score used by students to evaluate their mastery of a particular exercise after a trial.
@@ -233,7 +233,9 @@ impl VerifyPaths for BasicAsset {
 pub enum CourseGenerator {
     /// The configuration for generating a Trane improvisation course.
     TraneImprovisation(TraneImprovisationConfig),
-    TraneMusicPiece(TraneMusicPieceConfig),
+
+    /// The configuration for generating a music piece course.
+    MusicPiece(MusicPieceConfig),
 }
 
 /// The user-specific configuration
@@ -275,7 +277,7 @@ impl GenerateManifests for CourseGenerator {
             CourseGenerator::TraneImprovisation(config) => {
                 config.generate_manifests(course_manifest, preferences)
             }
-            CourseGenerator::TraneMusicPiece(config) => {
+            CourseGenerator::MusicPiece(config) => {
                 config.generate_manifests(course_manifest, preferences)
             }
         }
@@ -494,6 +496,7 @@ pub enum ExerciseAsset {
         back_path: String,
     },
 
+    /// A basic asset storing the material of the exercise.
     BasicAsset(BasicAsset),
 }
 
