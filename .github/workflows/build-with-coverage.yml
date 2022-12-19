@@ -14,8 +14,8 @@ env:
   RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
 
 jobs:
-  run-tests:
-    name: Run tests with code coverage information
+  build:
+    name: Build with code coverage information
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -31,5 +31,5 @@ jobs:
       - name: Run tests with code coverage information 
         uses: actions-rs/cargo@v1
         with:
-          command: test
-          args: --all-features --no-fail-fast ${{ inputs.extra-flags }}
+          command: build
+          args: --all-features ${{ inputs.extra-flags }}

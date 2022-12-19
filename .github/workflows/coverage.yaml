@@ -13,29 +13,7 @@ env:
 
 jobs:
   build:
-    name: Build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources 
-        uses: actions/checkout@v3
-      - name: Install Rust toolchain 
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: 'rust-cache'
-      - name: Build binaries with code coverage information 
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --all-features --tests
-  
-  test:
-    name: Run all tests
-    needs: build
+    name: Build all tests
     strategy:
       matrix:
         extra-flags: [
@@ -45,13 +23,13 @@ jobs:
           --test large_tests,
           --test music_piece_tests,
         ]
-    uses: ./.github/workflows/tests-with-coverage.yml
+    uses: ./.github/workflows/build-with-coverage.yml
     with:
       extra-flags: ${{ matrix.extra-flags }} 
   
   code-coverage:
     name: Code Coverage
-    needs: test
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources 
@@ -65,6 +43,11 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: 'rust-cache'
+      - name: Run tests with code coverage information 
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features --no-fail-fast
       - name: Run grcov 
         id: coverage
         uses: rraval/grcov@master
