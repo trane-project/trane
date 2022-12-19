@@ -56,6 +56,11 @@ jobs:
     steps:
       - name: Checkout sources 
         uses: actions/checkout@v3
+      - name: Install Rust toolchain 
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
