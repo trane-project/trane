@@ -60,7 +60,7 @@ fn improvisation_builder(
             soundslice_link: format!("https://www.soundslice.com/slices/{}/", i),
             music_xml_file: None,
         };
-        passages.insert(i, passage);
+        passages.insert(format!("{}", i), passage);
     }
 
     CourseBuilder {

@@ -18,7 +18,7 @@ use crate::data::{
     LessonManifest, UserPreferences,
 };
 
-/// A single musical passage to be used in a improvisation course. A course can contain multiple
+/// A single musical passage to be used in an improvisation course. A course can contain multiple
 /// passages but all of those passages are assumed to have the same key or mode.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ImprovisationPassage {
@@ -43,7 +43,7 @@ pub struct ImprovisationConfig {
     pub rhythm_only: bool,
 
     /// The passages to be used in the course.
-    pub passages: HashMap<usize, ImprovisationPassage>,
+    pub passages: HashMap<String, ImprovisationPassage>,
 }
 
 /// Describes an instrument that can be used to practice in an improvisation course.
@@ -69,8 +69,8 @@ pub struct ImprovisationPreferences {
 
 impl ImprovisationConfig {
     /// Returns the ID for a given exercise given the lesson ID and the exercise index.
-    fn exercise_id(&self, lesson_id: Ustr, exercise_index: usize) -> Ustr {
-        Ustr::from(&format!("{}::exercise_{}", lesson_id, exercise_index))
+    fn exercise_id(&self, lesson_id: Ustr, passage_id: &str) -> Ustr {
+        Ustr::from(&format!("{}::exercise_{}", lesson_id, passage_id))
     }
 
     /// Returns the list of instruments the user can practice in the rhythm lessons. A value of None
@@ -110,7 +110,7 @@ impl ImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         lesson_id: Ustr,
-        passage: (usize, &ImprovisationPassage),
+        passage: (&str, &ImprovisationPassage),
     ) -> ExerciseManifest {
         ExerciseManifest {
             id: self.exercise_id(lesson_id, passage.0),
@@ -153,12 +153,8 @@ impl ImprovisationConfig {
         let exercises = self
             .passages
             .iter()
-            .map(|(index, passage)| {
-                self.generate_singing_exercise(
-                    course_manifest,
-                    lesson_manifest.id,
-                    (*index, passage),
-                )
+            .map(|(id, passage)| {
+                self.generate_singing_exercise(course_manifest, lesson_manifest.id, (id, passage))
             })
             .collect::<Vec<_>>();
         vec![(lesson_manifest, exercises)]
@@ -178,7 +174,7 @@ impl ImprovisationConfig {
         course_manifest: &CourseManifest,
         lesson_id: Ustr,
         instrument: Option<&Instrument>,
-        passage: (usize, &ImprovisationPassage),
+        passage: (&str, &ImprovisationPassage),
     ) -> ExerciseManifest {
         // Generate the exercise name.
         let exercise_name = match instrument {
@@ -246,12 +242,12 @@ impl ImprovisationConfig {
         let exercises = self
             .passages
             .iter()
-            .map(|(index, passage)| {
+            .map(|(id, passage)| {
                 self.generate_rhythm_exercise(
                     course_manifest,
                     lesson_manifest.id,
                     instrument,
-                    (*index, passage),
+                    (id, passage),
                 )
             })
             .collect::<Vec<_>>();
@@ -298,7 +294,7 @@ impl ImprovisationConfig {
         lesson_id: Ustr,
         key: Note,
         instrument: Option<&Instrument>,
-        passage: (usize, &ImprovisationPassage),
+        passage: (&str, &ImprovisationPassage),
     ) -> ExerciseManifest {
         // Generate the exercise name.
         let exercise_name = match instrument {
@@ -399,13 +395,13 @@ impl ImprovisationConfig {
         let exercises = self
             .passages
             .iter()
-            .map(|(index, passage)| {
+            .map(|(id, passage)| {
                 self.generate_melody_exercise(
                     course_manifest,
                     lesson_manifest.id,
                     key,
                     instrument,
-                    (*index, passage),
+                    (id, passage),
                 )
             })
             .collect::<Vec<_>>();
@@ -462,7 +458,7 @@ impl ImprovisationConfig {
         lesson_id: Ustr,
         key: Note,
         instrument: Option<&Instrument>,
-        passage: (usize, &ImprovisationPassage),
+        passage: (&str, &ImprovisationPassage),
     ) -> ExerciseManifest {
         // Generate the exercise name.
         let exercise_name = match instrument {
@@ -570,13 +566,13 @@ impl ImprovisationConfig {
         let exercises = self
             .passages
             .iter()
-            .map(|(index, passage)| {
+            .map(|(id, passage)| {
                 self.generate_basic_harmony_exercise(
                     course_manifest,
                     lesson_manifest.id,
                     key,
                     instrument,
-                    (*index, passage),
+                    (id, passage),
                 )
             })
             .collect::<Vec<_>>();
@@ -633,7 +629,7 @@ impl ImprovisationConfig {
         lesson_id: Ustr,
         key: Note,
         instrument: Option<&Instrument>,
-        passage: (usize, &ImprovisationPassage),
+        passage: (&str, &ImprovisationPassage),
     ) -> ExerciseManifest {
         // Generate the exercise name.
         let exercise_name = match instrument {
@@ -747,13 +743,13 @@ impl ImprovisationConfig {
         let exercises = self
             .passages
             .iter()
-            .map(|(index, passage)| {
+            .map(|(id, passage)| {
                 self.generate_advanced_harmony_exercise(
                     course_manifest,
                     lesson_manifest.id,
                     key,
                     instrument,
-                    (*index, passage),
+                    (id, passage),
                 )
             })
             .collect::<Vec<_>>();
@@ -795,7 +791,7 @@ impl ImprovisationConfig {
         course_manifest: &CourseManifest,
         lesson_id: Ustr,
         instrument: Option<&Instrument>,
-        passage: (usize, &ImprovisationPassage),
+        passage: (&str, &ImprovisationPassage),
     ) -> ExerciseManifest {
         // Generate the exercise name.
         let exercise_name = match instrument {
@@ -877,12 +873,12 @@ impl ImprovisationConfig {
         let exercises = self
             .passages
             .iter()
-            .map(|(index, passage)| {
+            .map(|(id, passage)| {
                 self.generate_mastery_exercise(
                     course_manifest,
                     lesson_manifest.id,
                     instrument,
-                    (*index, passage),
+                    (id, passage),
                 )
             })
             .collect::<Vec<_>>();
