@@ -7,6 +7,12 @@ on:
         required: false
         type: string
 
+env:
+  RUSTC_BOOTSTRAP: '1'
+  CARGO_INCREMENTAL: '0'
+  RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+  RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+
 jobs:
   run-tests:
     name: Run tests with code coverage information
@@ -16,15 +22,10 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
-          key: 'rust-cache'
           shared-key: 'rust-cache'
       - name: Run tests with code coverage information 
         uses: actions-rs/cargo@v1
         with:
           command: test
           args: --all-features --no-fail-fast ${{ inputs.extra-flags }}
-        env:
-          RUSTC_BOOTSTRAP: '1'
-          CARGO_INCREMENTAL: '0'
-          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-          RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+
