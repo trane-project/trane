@@ -19,6 +19,8 @@ jobs:
           override: true
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: 'rust-cache'
       - name: Build binaries with code coverage information 
         uses: actions-rs/cargo@v1
         with:
@@ -55,6 +57,8 @@ jobs:
         uses: actions/checkout@v3
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: 'rust-cache'
       - name: Run grcov 
         id: coverage
         uses: rraval/grcov@master
