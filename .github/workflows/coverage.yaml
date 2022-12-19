@@ -17,6 +17,8 @@ jobs:
         with:
           toolchain: stable
           override: true
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
       - name: Build binaries with code coverage information 
         uses: actions-rs/cargo@v1
         with:
@@ -27,6 +29,7 @@ jobs:
           CARGO_INCREMENTAL: '0'
           RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
           RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+  
   test:
     name: Run all tests
     needs: build
@@ -42,6 +45,7 @@ jobs:
     uses: ./.github/workflows/tests-with-coverage.yml
     with:
       extra-flags: ${{ matrix.extra-flags }} 
+  
   code-coverage:
     name: Code Coverage
     needs: test
@@ -49,6 +53,8 @@ jobs:
     steps:
       - name: Checkout sources 
         uses: actions/checkout@v3
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
       - name: Run grcov 
         id: coverage
         uses: rraval/grcov@master
