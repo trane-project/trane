@@ -20,6 +20,7 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
+          key: 'rust-cache'
           shared-key: 'rust-cache'
       - name: Build binaries with code coverage information 
         uses: actions-rs/cargo@v1
@@ -58,6 +59,7 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
+          key: 'rust-cache'
           shared-key: 'rust-cache'
       - name: Run grcov 
         id: coverage

@@ -16,6 +16,7 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
+          key: 'rust-cache'
           shared-key: 'rust-cache'
       - name: Run tests with code coverage information 
         uses: actions-rs/cargo@v1
