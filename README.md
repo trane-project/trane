@@ -33,10 +33,10 @@ hierarchical skills. That's quite a mouthful, so let's break it down.
   and similar software, such as Anki, which already make use of some the same learning principles,
   such as spaced repetition.
 
-Trane is based multiple proven principles of skill acquisition, such as spaced repetition, mastery
-learning, and chunking. For example, Trane makes sure that not too many very easy or hard exercises
-are shown to a student to avoid both extremes of frustration and boredom. Trane makes sure to
-periodically reinforce skills that have already been practiced and to include new skills
+Trane is based on multiple proven principles of skill acquisition, such as spaced repetition,
+mastery learning, and chunking. For example, Trane makes sure that not too many very easy or hard
+exercises are shown to a student to avoid both extremes of frustration and boredom. Trane makes sure
+to periodically reinforce skills that have already been practiced and to include new skills
 automatically when the skills that they depend on have been sufficiently mastered.
 
 If you are familiar with the experience of traversing the skill tree of a video game by grinding and
