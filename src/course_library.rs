@@ -22,7 +22,7 @@ use tantivy::{
     Index, IndexReader, IndexWriter, ReloadPolicy,
 };
 use ustr::{Ustr, UstrMap};
-use walkdir::{DirEntry, WalkDir};
+use walkdir::WalkDir;
 
 use crate::{
     data::{
@@ -259,7 +259,7 @@ impl LocalCourseLibrary {
     /// lesson.
     fn process_lesson_manifest(
         &mut self,
-        dir_entry: &DirEntry,
+        lesson_root: &Path,
         course_manifest: &CourseManifest,
         lesson_manifest: LessonManifest,
         index_writer: &mut IndexWriter,
@@ -287,8 +287,7 @@ impl LocalCourseLibrary {
         // Add the generated exercises to the lesson.
         if let Some(exercises) = generated_exercises {
             for exercise_manifest in exercises {
-                let exercise_manifest =
-                    &exercise_manifest.normalize_paths(dir_entry.path().parent().unwrap())?;
+                let exercise_manifest = &exercise_manifest.normalize_paths(lesson_root)?;
                 self.process_exercise_manifest(
                     &lesson_manifest,
                     exercise_manifest.clone(),
@@ -301,7 +300,6 @@ impl LocalCourseLibrary {
         // lesson's root. Each exercise in the lesson must be contained in a directory that is a
         // direct descendant of its root. Therefore, all the exercise manifests will be found at a
         // depth of two.
-        let lesson_root = dir_entry.path().parent().unwrap();
         for entry in WalkDir::new(lesson_root).min_depth(2).max_depth(2) {
             match entry {
                 Err(_) => continue,
@@ -348,7 +346,7 @@ impl LocalCourseLibrary {
     /// `DirEntry` and adds all the lessons in the course.
     fn process_course_manifest(
         &mut self,
-        dir_entry: &DirEntry,
+        course_root: &Path,
         mut course_manifest: CourseManifest,
         index_writer: &mut IndexWriter,
     ) -> Result<()> {
@@ -366,12 +364,15 @@ impl LocalCourseLibrary {
         // If the course has a generator config, generate the lessons and exercises and add them to
         // the library.
         if let Some(generator_config) = &course_manifest.generator_config {
-            let generated_course =
-                generator_config.generate_manifests(&course_manifest, &self.user_preferences)?;
+            let generated_course = generator_config.generate_manifests(
+                course_root,
+                &course_manifest,
+                &self.user_preferences,
+            )?;
             for (lesson_manifest, exercise_manifests) in generated_course.lessons {
-                // All the generated lessons will use the root of the course as the `dir_entry`.
+                // All the generated lessons will use the root of the course as their root.
                 self.process_lesson_manifest(
-                    dir_entry,
+                    course_root,
                     &course_manifest,
                     lesson_manifest,
                     index_writer,
@@ -392,7 +393,6 @@ impl LocalCourseLibrary {
         // course's root. Each lesson in the course must be contained in a directory that is a
         // direct descendant of its root. Therefore, all the lesson manifests will be found at a
         // depth of two.
-        let course_root = dir_entry.path().parent().unwrap();
         for entry in WalkDir::new(course_root).min_depth(2).max_depth(2) {
             match entry {
                 Err(_) => continue,
@@ -414,7 +414,7 @@ impl LocalCourseLibrary {
                     lesson_manifest = lesson_manifest
                         .normalize_paths(lesson_dir_entry.path().parent().unwrap())?;
                     self.process_lesson_manifest(
-                        &lesson_dir_entry,
+                        lesson_dir_entry.path().parent().unwrap(),
                         &course_manifest,
                         lesson_manifest,
                         index_writer,
@@ -561,7 +561,7 @@ impl LocalCourseLibrary {
                     course_manifest =
                         course_manifest.normalize_paths(dir_entry.path().parent().unwrap())?;
                     library.process_course_manifest(
-                        &dir_entry,
+                        dir_entry.path().parent().unwrap(),
                         course_manifest,
                         &mut index_writer,
                     )?; // grcov-excl-line

@@ -49,6 +49,10 @@ impl AssetBuilder {
             asset_path.display() // grcov-excl-line
         );
 
+        // Create any parent directories to the asset path to support specifying a directory in the
+        // path.
+        create_dir_all(asset_path.parent().unwrap())?;
+
         // Write the asset file.
         let mut asset_file = File::create(asset_path)?;
         asset_file.write_all(self.contents.as_bytes())?;

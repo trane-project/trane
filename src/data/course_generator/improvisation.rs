@@ -7,9 +7,13 @@
 
 mod constants;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
+use indoc::formatdoc;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    collections::{BTreeMap, HashSet},
+    path::Path,
+};
 use ustr::Ustr;
 
 use crate::data::{
@@ -22,12 +26,28 @@ use crate::data::{
 /// passages but all of those passages are assumed to have the same key or mode.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ImprovisationPassage {
-    /// The link to a SoundSlice page that contains the passage to be played.
-    pub soundslice_link: String,
+    /// A unique ID to identify this passage. This ID is used to generate the IDs of the exercises
+    /// which use this passage.
+    pub id: String,
 
-    /// An optional path to a MusicXML file that contains the passage to be played. This file should
-    /// contain the same passage as the SoundSlice link.
-    pub music_xml_file: Option<String>,
+    /// The path to the file containing the passage.
+    pub path: String,
+}
+
+impl ImprovisationPassage {
+    /// Generates an exercise asset for this passage with the given description.
+    fn generate_exercise_asset(&self, description: &str) -> ExerciseAsset {
+        ExerciseAsset::BasicAsset(BasicAsset::InlinedUniqueAsset {
+            content: formatdoc! {
+                "{}
+
+                The file containing the music sheet for this exercise is located at {}.",
+                description,
+                self.path,
+            }
+            .into(),
+        })
+    }
 }
 
 /// The configuration for creating a new improvisation course.
@@ -42,8 +62,14 @@ pub struct ImprovisationConfig {
     /// and harmony of the passages will not be generated. The mode of the course will be ignored.
     pub rhythm_only: bool,
 
-    /// The passages to be used in the course.
-    pub passages: HashMap<String, ImprovisationPassage>,
+    /// The directory where the passages are stored. The name of each file (minus the extension)
+    /// will be used to generate the ID for each exercise. Thus, each of those IDs must be unique.
+    /// For example, files `passage.pdf` and `passage.ly` break this rule, even though they have
+    /// unique file names.
+    ///
+    /// The directory can be written relative to the root of the course or as an absolute path. The
+    /// first option is recommended.
+    pub passage_directory: String,
 }
 
 /// Describes an instrument that can be used to practice in an improvisation course.
@@ -110,20 +136,16 @@ impl ImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         lesson_id: Ustr,
-        passage: (&str, &ImprovisationPassage),
+        passage: &ImprovisationPassage,
     ) -> ExerciseManifest {
         ExerciseManifest {
-            id: self.exercise_id(lesson_id, passage.0),
+            id: self.exercise_id(lesson_id, &passage.id),
             lesson_id,
             course_id: course_manifest.id,
             name: format!("{} - Singing", course_manifest.name),
             description: None,
             exercise_type: ExerciseType::Procedural,
-            exercise_asset: ExerciseAsset::SoundSliceAsset {
-                link: passage.1.soundslice_link.clone(),
-                description: Some(SINGING_DESCRIPTION.to_string()),
-                backup: passage.1.music_xml_file.clone(),
-            },
+            exercise_asset: passage.generate_exercise_asset(SINGING_DESCRIPTION),
         }
     }
 
@@ -131,6 +153,7 @@ impl ImprovisationConfig {
     fn generate_singing_lesson(
         &self,
         course_manifest: &CourseManifest,
+        passages: &[ImprovisationPassage],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Generate the lesson manifest.
         let lesson_manifest = LessonManifest {
@@ -150,11 +173,10 @@ impl ImprovisationConfig {
         };
 
         // Generate an exercise for each passage.
-        let exercises = self
-            .passages
+        let exercises = passages
             .iter()
-            .map(|(id, passage)| {
-                self.generate_singing_exercise(course_manifest, lesson_manifest.id, (id, passage))
+            .map(|passage| {
+                self.generate_singing_exercise(course_manifest, lesson_manifest.id, passage)
             })
             .collect::<Vec<_>>();
         vec![(lesson_manifest, exercises)]
@@ -174,7 +196,7 @@ impl ImprovisationConfig {
         course_manifest: &CourseManifest,
         lesson_id: Ustr,
         instrument: Option<&Instrument>,
-        passage: (&str, &ImprovisationPassage),
+        passage: &ImprovisationPassage,
     ) -> ExerciseManifest {
         // Generate the exercise name.
         let exercise_name = match instrument {
@@ -184,17 +206,13 @@ impl ImprovisationConfig {
 
         // Generate the exercise manifest.
         ExerciseManifest {
-            id: self.exercise_id(lesson_id, passage.0),
+            id: self.exercise_id(lesson_id, &passage.id),
             lesson_id,
             course_id: course_manifest.id,
             name: exercise_name,
             description: None,
             exercise_type: ExerciseType::Procedural,
-            exercise_asset: ExerciseAsset::SoundSliceAsset {
-                link: passage.1.soundslice_link.clone(),
-                description: Some(RHYTHM_DESCRIPTION.to_string()),
-                backup: passage.1.music_xml_file.clone(),
-            },
+            exercise_asset: passage.generate_exercise_asset(RHYTHM_DESCRIPTION),
         }
     }
 
@@ -203,6 +221,7 @@ impl ImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         instrument: Option<&Instrument>,
+        passages: &[ImprovisationPassage],
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Generate the lesson ID and name.
         let lesson_id = self.rhythm_lesson_id(course_manifest.id, instrument);
@@ -239,15 +258,14 @@ impl ImprovisationConfig {
         };
 
         // Generate an exercise for each passage.
-        let exercises = self
-            .passages
+        let exercises = passages
             .iter()
-            .map(|(id, passage)| {
+            .map(|passage| {
                 self.generate_rhythm_exercise(
                     course_manifest,
                     lesson_manifest.id,
                     instrument,
-                    (id, passage),
+                    passage,
                 )
             })
             .collect::<Vec<_>>();
@@ -259,12 +277,13 @@ impl ImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         user_config: &ImprovisationPreferences,
+        passages: &[ImprovisationPassage],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Generate a lesson for each instrument.
         let lesson_instruments = Self::rhythm_lesson_instruments(user_config);
         let lessons = lesson_instruments
             .iter()
-            .map(|instrument| self.generate_rhythm_lesson(course_manifest, *instrument))
+            .map(|instrument| self.generate_rhythm_lesson(course_manifest, *instrument, passages))
             .collect::<Vec<_>>();
         lessons
     }
@@ -294,7 +313,7 @@ impl ImprovisationConfig {
         lesson_id: Ustr,
         key: Note,
         instrument: Option<&Instrument>,
-        passage: (&str, &ImprovisationPassage),
+        passage: &ImprovisationPassage,
     ) -> ExerciseManifest {
         // Generate the exercise name.
         let exercise_name = match instrument {
@@ -313,17 +332,13 @@ impl ImprovisationConfig {
 
         // Generate the exercise manifest.
         ExerciseManifest {
-            id: self.exercise_id(lesson_id, passage.0),
+            id: self.exercise_id(lesson_id, &passage.id),
             lesson_id,
             course_id: course_manifest.id,
             name: exercise_name,
             description: None,
             exercise_type: ExerciseType::Procedural,
-            exercise_asset: ExerciseAsset::SoundSliceAsset {
-                link: passage.1.soundslice_link.clone(),
-                description: Some(MELODY_DESCRIPTION.to_string()),
-                backup: passage.1.music_xml_file.clone(),
-            },
+            exercise_asset: passage.generate_exercise_asset(MELODY_DESCRIPTION),
         }
     }
 
@@ -333,6 +348,7 @@ impl ImprovisationConfig {
         course_manifest: &CourseManifest,
         key: Note,
         instrument: Option<&Instrument>,
+        passages: &[ImprovisationPassage],
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Generate the lesson ID and name.
         let lesson_id = self.melody_lesson_id(course_manifest.id, key, instrument);
@@ -392,16 +408,15 @@ impl ImprovisationConfig {
         };
 
         // Generate an exercise for each passage.
-        let exercises = self
-            .passages
+        let exercises = passages
             .iter()
-            .map(|(id, passage)| {
+            .map(|passage| {
                 self.generate_melody_exercise(
                     course_manifest,
                     lesson_manifest.id,
                     key,
                     instrument,
-                    (id, passage),
+                    passage,
                 )
             })
             .collect::<Vec<_>>();
@@ -413,6 +428,7 @@ impl ImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         user_config: &ImprovisationPreferences,
+        passages: &[ImprovisationPassage],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Get a list of all keys and instruments.
         let all_keys = Note::all_keys(false);
@@ -423,7 +439,7 @@ impl ImprovisationConfig {
             .iter()
             .flat_map(|key| {
                 lesson_instruments.iter().map(|instrument| {
-                    self.generate_melody_lesson(course_manifest, *key, *instrument)
+                    self.generate_melody_lesson(course_manifest, *key, *instrument, passages)
                 })
             })
             .collect::<Vec<_>>()
@@ -458,7 +474,7 @@ impl ImprovisationConfig {
         lesson_id: Ustr,
         key: Note,
         instrument: Option<&Instrument>,
-        passage: (&str, &ImprovisationPassage),
+        passage: &ImprovisationPassage,
     ) -> ExerciseManifest {
         // Generate the exercise name.
         let exercise_name = match instrument {
@@ -477,17 +493,13 @@ impl ImprovisationConfig {
 
         // Generate the exercise manifest.
         ExerciseManifest {
-            id: self.exercise_id(lesson_id, passage.0),
+            id: self.exercise_id(lesson_id, &passage.id),
             lesson_id,
             course_id: course_manifest.id,
             name: exercise_name,
             description: None,
             exercise_type: ExerciseType::Procedural,
-            exercise_asset: ExerciseAsset::SoundSliceAsset {
-                link: passage.1.soundslice_link.clone(),
-                description: Some(BASIC_HARMONY_DESCRIPTION.to_string()),
-                backup: passage.1.music_xml_file.clone(),
-            },
+            exercise_asset: passage.generate_exercise_asset(BASIC_HARMONY_DESCRIPTION),
         }
     }
 
@@ -497,6 +509,7 @@ impl ImprovisationConfig {
         course_manifest: &CourseManifest,
         key: Note,
         instrument: Option<&Instrument>,
+        passages: &[ImprovisationPassage],
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Generate the lesson ID and name.
         let lesson_id = self.basic_harmony_lesson_id(course_manifest.id, key, instrument);
@@ -563,16 +576,15 @@ impl ImprovisationConfig {
         };
 
         // Generate an exercise for each passage.
-        let exercises = self
-            .passages
+        let exercises = passages
             .iter()
-            .map(|(id, passage)| {
+            .map(|passage| {
                 self.generate_basic_harmony_exercise(
                     course_manifest,
                     lesson_manifest.id,
                     key,
                     instrument,
-                    (id, passage),
+                    passage,
                 )
             })
             .collect::<Vec<_>>();
@@ -584,6 +596,7 @@ impl ImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         user_config: &ImprovisationPreferences,
+        passages: &[ImprovisationPassage],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Get all keys and instruments.
         let all_keys = Note::all_keys(false);
@@ -594,7 +607,7 @@ impl ImprovisationConfig {
             .iter()
             .flat_map(|key| {
                 lesson_instruments.iter().map(|instrument| {
-                    self.generate_basic_harmony_lesson(course_manifest, *key, *instrument)
+                    self.generate_basic_harmony_lesson(course_manifest, *key, *instrument, passages)
                 })
             })
             .collect::<Vec<_>>()
@@ -629,7 +642,7 @@ impl ImprovisationConfig {
         lesson_id: Ustr,
         key: Note,
         instrument: Option<&Instrument>,
-        passage: (&str, &ImprovisationPassage),
+        passage: &ImprovisationPassage,
     ) -> ExerciseManifest {
         // Generate the exercise name.
         let exercise_name = match instrument {
@@ -648,17 +661,13 @@ impl ImprovisationConfig {
 
         // Generate the exercise manifest.
         ExerciseManifest {
-            id: self.exercise_id(lesson_id, passage.0),
+            id: self.exercise_id(lesson_id, &passage.id),
             lesson_id,
             course_id: course_manifest.id,
             name: exercise_name,
             description: None,
             exercise_type: ExerciseType::Procedural,
-            exercise_asset: ExerciseAsset::SoundSliceAsset {
-                link: passage.1.soundslice_link.clone(),
-                description: Some(ADVANCED_HARMONY_DESCRIPTION.to_string()),
-                backup: passage.1.music_xml_file.clone(),
-            },
+            exercise_asset: passage.generate_exercise_asset(ADVANCED_HARMONY_DESCRIPTION),
         }
     }
 
@@ -668,6 +677,7 @@ impl ImprovisationConfig {
         course_manifest: &CourseManifest,
         key: Note,
         instrument: Option<&Instrument>,
+        passages: &[ImprovisationPassage],
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         let lesson_id = self.advanced_harmony_lesson_id(course_manifest.id, key, instrument);
         let lesson_name = match instrument {
@@ -740,16 +750,15 @@ impl ImprovisationConfig {
         };
 
         // Generate an exercise for each passage.
-        let exercises = self
-            .passages
+        let exercises = passages
             .iter()
-            .map(|(id, passage)| {
+            .map(|passage| {
                 self.generate_advanced_harmony_exercise(
                     course_manifest,
                     lesson_manifest.id,
                     key,
                     instrument,
-                    (id, passage),
+                    passage,
                 )
             })
             .collect::<Vec<_>>();
@@ -761,6 +770,7 @@ impl ImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         user_config: &ImprovisationPreferences,
+        passages: &[ImprovisationPassage],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Get all keys and instruments.
         let all_keys = Note::all_keys(false);
@@ -771,7 +781,12 @@ impl ImprovisationConfig {
             .iter()
             .flat_map(|key| {
                 lesson_instruments.iter().map(|instrument| {
-                    self.generate_advanced_harmony_lesson(course_manifest, *key, *instrument)
+                    self.generate_advanced_harmony_lesson(
+                        course_manifest,
+                        *key,
+                        *instrument,
+                        passages,
+                    )
                 })
             })
             .collect::<Vec<_>>()
@@ -791,7 +806,7 @@ impl ImprovisationConfig {
         course_manifest: &CourseManifest,
         lesson_id: Ustr,
         instrument: Option<&Instrument>,
-        passage: (&str, &ImprovisationPassage),
+        passage: &ImprovisationPassage,
     ) -> ExerciseManifest {
         // Generate the exercise name.
         let exercise_name = match instrument {
@@ -801,17 +816,13 @@ impl ImprovisationConfig {
 
         // Generate the exercise manifest.
         ExerciseManifest {
-            id: self.exercise_id(lesson_id, passage.0),
+            id: self.exercise_id(lesson_id, &passage.id),
             lesson_id,
             course_id: course_manifest.id,
             name: exercise_name,
             description: None,
             exercise_type: ExerciseType::Procedural,
-            exercise_asset: ExerciseAsset::SoundSliceAsset {
-                link: passage.1.soundslice_link.clone(),
-                description: Some(MASTERY_DESCRIPTION.to_string()),
-                backup: passage.1.music_xml_file.clone(),
-            },
+            exercise_asset: passage.generate_exercise_asset(MASTERY_DESCRIPTION),
         }
     }
 
@@ -820,6 +831,7 @@ impl ImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         instrument: Option<&Instrument>,
+        passages: &[ImprovisationPassage],
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Generate the lesson ID and name.
         let lesson_id = self.mastery_lesson_id(course_manifest.id, instrument);
@@ -842,8 +854,6 @@ impl ImprovisationConfig {
                 if instrument.is_some() {
                     dependencies.push(self.mastery_lesson_id(course_manifest.id, None))
                 }
-                println!("lesson ID: {}", lesson_id);
-                println!("mastery dependencies: {:?}", dependencies);
                 dependencies
             })
             .collect::<Vec<_>>();
@@ -870,15 +880,14 @@ impl ImprovisationConfig {
         };
 
         // Generate an exercise for each passage.
-        let exercises = self
-            .passages
+        let exercises = passages
             .iter()
-            .map(|(id, passage)| {
+            .map(|passage| {
                 self.generate_mastery_exercise(
                     course_manifest,
                     lesson_manifest.id,
                     instrument,
-                    (id, passage),
+                    passage,
                 )
             })
             .collect::<Vec<_>>();
@@ -890,12 +899,66 @@ impl ImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         user_config: &ImprovisationPreferences,
+        passages: &[ImprovisationPassage],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         let lesson_instruments = Self::lesson_instruments(user_config);
         lesson_instruments
             .iter()
-            .map(|instrument| self.generate_mastery_lesson(course_manifest, *instrument))
+            .map(|instrument| self.generate_mastery_lesson(course_manifest, *instrument, passages))
             .collect::<Vec<_>>()
+    }
+
+    /// Extracts the passage ID from the given file name.
+    fn extract_passage_id(file_name: &str) -> String {
+        // The passage ID is the file name without the final extension. If the file has no
+        // extension, the entire file name is used as the ID.
+        file_name
+            .rsplitn(2, '.')
+            .last()
+            .unwrap_or(file_name)
+            .to_string()
+    }
+
+    /// Reads all the files in the passage directory to generate the list of all the passages
+    /// included in the course.
+    fn read_passage_directory(&self, course_root: &Path) -> Result<Vec<ImprovisationPassage>> {
+        // Create the list of passages and a set of seen passage IDs to detect duplicates.
+        let mut passages = Vec::new();
+        let mut seen_passage_ids = HashSet::new();
+
+        // Read all the files in the passage directory.
+        let passage_dir = course_root.join(&self.passage_directory);
+        for entry in std::fs::read_dir(passage_dir)? {
+            // Only files inside the passage directory are considered.
+            let entry = entry?;
+            if !entry.file_type()?.is_file() {
+                continue;
+            }
+
+            // Extract the file name from the entry and use it to generate the passage ID.
+            let path = entry.path();
+            let file_name = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .ok_or_else(|| anyhow!("Failed to get the file name"))? // grcov-excl-line
+                .to_string();
+            let passage_id = Self::extract_passage_id(&file_name);
+
+            // Fail if the passage ID has already been seen.
+            if seen_passage_ids.contains(&passage_id) {
+                return Err(anyhow!("Duplicate passage ID: {}", passage_id));
+            }
+            seen_passage_ids.insert(passage_id.clone());
+
+            // Create the improvisation passage and add it to the list. It's ok to unwrap here as
+            // an invalid file name would have been caught above.
+            let passage = ImprovisationPassage {
+                id: passage_id,
+                path: entry.path().as_os_str().to_str().unwrap().to_string(),
+            };
+            passages.push(passage);
+        }
+        Ok(passages)
     }
 
     /// Generates the manifests, but only for the rhythm lessons.
@@ -903,10 +966,11 @@ impl ImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         user_config: &ImprovisationPreferences,
+        passages: Vec<ImprovisationPassage>,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         Ok(vec![
-            self.generate_singing_lesson(course_manifest),
-            self.generate_rhythm_lessons(course_manifest, user_config),
+            self.generate_singing_lesson(course_manifest, &passages),
+            self.generate_rhythm_lessons(course_manifest, user_config, &passages),
         ]
         .into_iter()
         .flatten()
@@ -918,14 +982,15 @@ impl ImprovisationConfig {
         &self,
         course_manifest: &CourseManifest,
         user_config: &ImprovisationPreferences,
+        passages: Vec<ImprovisationPassage>,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         Ok(vec![
-            self.generate_singing_lesson(course_manifest),
-            self.generate_rhythm_lessons(course_manifest, user_config),
-            self.generate_melody_lessons(course_manifest, user_config),
-            self.generate_basic_harmony_lessons(course_manifest, user_config),
-            self.generate_advanced_harmony_lessons(course_manifest, user_config),
-            self.generate_mastery_lessons(course_manifest, user_config),
+            self.generate_singing_lesson(course_manifest, &passages),
+            self.generate_rhythm_lessons(course_manifest, user_config, &passages),
+            self.generate_melody_lessons(course_manifest, user_config, &passages),
+            self.generate_basic_harmony_lessons(course_manifest, user_config, &passages),
+            self.generate_advanced_harmony_lessons(course_manifest, user_config, &passages),
+            self.generate_mastery_lessons(course_manifest, user_config, &passages),
         ]
         .into_iter()
         .flatten()
@@ -936,6 +1001,7 @@ impl ImprovisationConfig {
 impl GenerateManifests for ImprovisationConfig {
     fn generate_manifests(
         &self,
+        course_root: &Path,
         course_manifest: &CourseManifest,
         preferences: &UserPreferences,
     ) -> Result<GeneratedCourse> {
@@ -947,11 +1013,14 @@ impl GenerateManifests for ImprovisationConfig {
             None => &default_preferences,
         };
 
+        // Read the passages from the passage directory.
+        let passages = self.read_passage_directory(course_root)?;
+
         // Generate the lesson and exercise manifests.
         let lessons = if self.rhythm_only {
-            self.generate_rhtyhm_only_manifests(course_manifest, preferences)?
+            self.generate_rhtyhm_only_manifests(course_manifest, preferences, passages)?
         } else {
-            self.generate_all_manifests(course_manifest, preferences)?
+            self.generate_all_manifests(course_manifest, preferences, passages)?
         };
 
         // Update the course's metadata and instructions.
@@ -976,7 +1045,7 @@ impl GenerateManifests for ImprovisationConfig {
 #[cfg(test)]
 mod test {
     use anyhow::Result;
-    use std::collections::HashMap;
+    use std::fs::create_dir;
     use ustr::Ustr;
 
     use crate::data::{
@@ -986,10 +1055,13 @@ mod test {
 
     #[test]
     fn do_not_replace_existing_instructions() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        create_dir(temp_dir.path().join("passages"))?;
+
         let course_generator = CourseGenerator::Improvisation(ImprovisationConfig {
             rhythm_only: false,
-            passages: HashMap::new(),
             improvisation_dependencies: vec![],
+            passage_directory: "passages".to_string(),
         });
         let course_manifest = CourseManifest {
             id: Ustr::from("testID"),
@@ -1006,7 +1078,7 @@ mod test {
         };
         let preferences = UserPreferences::default();
         let generated_course =
-            course_generator.generate_manifests(&course_manifest, &preferences)?;
+            course_generator.generate_manifests(temp_dir.path(), &course_manifest, &preferences)?;
         assert!(generated_course.updated_instructions.is_none());
         Ok(())
     }
@@ -1020,5 +1092,26 @@ mod test {
         let instrument_clone = instrument.clone();
         assert_eq!(instrument.name, instrument_clone.name);
         assert_eq!(instrument.id, instrument_clone.id);
+    }
+
+    #[test]
+    fn passage_clone() {
+        let passage = super::ImprovisationPassage {
+            id: "test".to_string(),
+            path: "test".to_string(),
+        };
+        let passage_clone = passage.clone();
+        assert_eq!(passage.id, passage_clone.id);
+        assert_eq!(passage.path, passage_clone.path);
+    }
+
+    #[test]
+    fn extract_passage_id() {
+        assert_eq!(ImprovisationConfig::extract_passage_id("a"), "a");
+        assert_eq!(ImprovisationConfig::extract_passage_id("a.b"), "a");
+        assert_eq!(ImprovisationConfig::extract_passage_id("a.b.c"), "a.b");
+        assert_eq!(ImprovisationConfig::extract_passage_id("."), "");
+        assert_eq!(ImprovisationConfig::extract_passage_id("..."), "..");
+        assert_eq!(ImprovisationConfig::extract_passage_id(""), "");
     }
 }
