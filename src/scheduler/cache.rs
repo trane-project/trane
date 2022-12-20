@@ -1,9 +1,11 @@
+//@<lp-example-2
 //! Defines a cache that is used to retrieve unit scores and stores previously computed exercise and
 //! lesson scores
 //!
 //! During performance testing, it was found that caching exercise and lesson scores significantly
 //! improved the performance of exercise scheduling. Caching course scores had a negligible impact,
 //! so they are not cached, although they are still computed through this cache for consistency.
+//>@lp-example-2
 
 use anyhow::{anyhow, Result};
 use parking_lot::RwLock;
