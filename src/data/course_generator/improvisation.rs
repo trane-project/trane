@@ -908,6 +908,17 @@ impl ImprovisationConfig {
             .collect::<Vec<_>>()
     }
 
+    /// Extracts the passage ID from the given file name.
+    fn extract_passage_id(file_name: &str) -> String {
+        // The passage ID is the file name without the final extension. If the file has no
+        // extension, the entire file name is used as the ID.
+        file_name
+            .rsplitn(2, '.')
+            .last()
+            .unwrap_or(file_name)
+            .to_string()
+    }
+
     /// Reads all the files in the passage directory to generate the list of all the passages
     /// included in the course.
     fn read_passage_directory(&self, course_root: &Path) -> Result<Vec<ImprovisationPassage>> {
@@ -918,27 +929,20 @@ impl ImprovisationConfig {
         // Read all the files in the passage directory.
         let passage_dir = course_root.join(&self.passage_directory);
         for entry in std::fs::read_dir(passage_dir)? {
-            // Skip directories. Only files inside the passage directory are considered.
+            // Only files inside the passage directory are considered.
             let entry = entry?;
-            if entry.file_type()?.is_dir() {
+            if !entry.file_type()?.is_file() {
                 continue;
             }
 
-            // Extract the file name from the entry.
+            // Extract the file name from the entry and use it to generate the passage ID.
             let path = entry.path();
             let file_name = path
                 .file_name()
                 .and_then(|name| name.to_str())
-                .ok_or_else(|| anyhow!("Failed to get the file name"))?
+                .ok_or_else(|| anyhow!("Failed to get the file name"))? // grcov-excl-line
                 .to_string();
-
-            // The passage ID is the file name without the final extension. If the file has no
-            // extension, the entire file name is used as the ID.
-            let passage_id = file_name
-                .rsplitn(2, '.')
-                .last()
-                .ok_or_else(|| anyhow!("Failed to get the passage ID"))?
-                .to_string();
+            let passage_id = Self::extract_passage_id(&file_name);
 
             // Fail if the passage ID has already been seen.
             if seen_passage_ids.contains(&passage_id) {
@@ -1088,5 +1092,26 @@ mod test {
         let instrument_clone = instrument.clone();
         assert_eq!(instrument.name, instrument_clone.name);
         assert_eq!(instrument.id, instrument_clone.id);
+    }
+
+    #[test]
+    fn passage_clone() {
+        let passage = super::ImprovisationPassage {
+            id: "test".to_string(),
+            path: "test".to_string(),
+        };
+        let passage_clone = passage.clone();
+        assert_eq!(passage.id, passage_clone.id);
+        assert_eq!(passage.path, passage_clone.path);
+    }
+
+    #[test]
+    fn extract_passage_id() {
+        assert_eq!(ImprovisationConfig::extract_passage_id("a"), "a");
+        assert_eq!(ImprovisationConfig::extract_passage_id("a.b"), "a");
+        assert_eq!(ImprovisationConfig::extract_passage_id("a.b.c"), "a.b");
+        assert_eq!(ImprovisationConfig::extract_passage_id("."), "");
+        assert_eq!(ImprovisationConfig::extract_passage_id("..."), "..");
+        assert_eq!(ImprovisationConfig::extract_passage_id(""), "");
     }
 }

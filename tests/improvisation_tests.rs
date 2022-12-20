@@ -113,6 +113,53 @@ fn init_improv_simulation(
     Ok(trane)
 }
 
+/// A test that verifies that the course generator fails when multiple passages have the same ID.
+#[test]
+fn duplicate_passage_ids_fail() -> Result<()> {
+    // Generate a bad course with multiple passages with the same ID.
+    let mut asset_builders = Vec::new();
+    for extension in ["md", "pdf", "ly"].iter() {
+        // Create an asset builder for a file named `passage.{}` in the `passages` directory for
+        // each extension. They all have the same ID.
+        let passage_path = format!("passages/passage.{}", extension);
+        asset_builders.push(AssetBuilder {
+            file_name: passage_path.clone(),
+            contents: "".to_string(),
+        });
+    }
+    let bad_course_builder = CourseBuilder {
+        directory_name: "improv_course_0".to_string(),
+        course_manifest: CourseManifest {
+            id: *COURSE0_ID,
+            name: format!("Course {}", *COURSE0_ID),
+            dependencies: vec![],
+            description: None,
+            authors: None,
+            metadata: None,
+            course_material: None,
+            course_instructions: None,
+            generator_config: Some(CourseGenerator::Improvisation(ImprovisationConfig {
+                improvisation_dependencies: vec![],
+                rhythm_only: false,
+                passage_directory: "passages".to_string(),
+            })),
+        },
+        lesson_manifest_template: LessonManifestBuilder::default().clone(),
+        lesson_builders: vec![],
+        asset_builders: asset_builders,
+    };
+
+    // Initialize test course library. It should fail due to the duplicate passage IDs.
+    let temp_dir = TempDir::new()?;
+    let trane = init_improv_simulation(
+        &temp_dir.path(),
+        &vec![bad_course_builder],
+        Some(&USER_PREFS),
+    );
+    assert!(trane.is_err());
+    Ok(())
+}
+
 /// A test that verifies that all improvisation exercises are visited.
 #[test]
 fn all_exercises_visited() -> Result<()> {
