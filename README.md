@@ -20,18 +20,18 @@ hierarchical skills. That's quite a mouthful, so let's break it down.
   appropriate for the current moment.
 - **Arbitrary**: Although originally envisioned for practicing Jazz improvisation, Trane is not
   limited to a specific domain. Trane primarily works via plain-text files that are easily sharable
-  and extendable. This allows student to create their own materials or to use materials created by
+  and extendable. This allows student to create their own materials, to use materials created by
   others, and to seamlessly combine them. 
 - **Complex and hierarchical skills**: Consider the job of a master improviser, such as the namesake
   of this software, John Coltrane. Through years of practice, Coltrane developed mastery over a
-  large set of interconnected skills. A few examples include the breathing control required to play
-  the fiery stream of notes that characterize his style, the aural training required to recognize
-  and play in any key, and the fine motor skills required to play the intricate lines of his solos.
-  All these skills came together to create his unique and spiritually powerful sound. Trane is
-  designed to allow students to easily express these complex relationships and to take advantage of
-  that knowledge to guide the student's practice. This is perhaps the feature that is the core of
-  Trane and the main differentiation between it and similar software, such as Anki, which already
-  makes use of some the same learning principles, such as spaced repetition.
+  large set of interconnected skills. A few examples include the breathing control to play the fiery
+  stream of notes that characterize his style, the aural training to recognize and play in any key,
+  and the fine motor skills to play the intricate lines of his solos. All these skills came together
+  to create his unique and spiritually powerful sound. Trane is designed to allow students to easily
+  express these complex relationships and to take advantage of them to guide the student's practice.
+  This is perhaps the feature that is at the core of Trane and the main differentiation between it
+  and similar software, such as Anki, which already makes use of some the same learning principles,
+  such as spaced repetition.
 
 Trane is based multiple proven principles of skill acquisition, such as spaced repetition, mastery
 learning, and chunking. For example, Trane makes sure that not too many very easy or hard exercises
