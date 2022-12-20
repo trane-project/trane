@@ -854,8 +854,6 @@ impl ImprovisationConfig {
                 if instrument.is_some() {
                     dependencies.push(self.mastery_lesson_id(course_manifest.id, None))
                 }
-                println!("lesson ID: {}", lesson_id);
-                println!("mastery dependencies: {:?}", dependencies);
                 dependencies
             })
             .collect::<Vec<_>>();

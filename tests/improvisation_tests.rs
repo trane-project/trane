@@ -97,7 +97,6 @@ fn init_improv_simulation(
         .into_iter()
         .map(|course_builder| course_builder.build(library_root))
         .collect::<Result<()>>()?;
-    println!("built all the courses");
 
     // Write the user preferences if provided.
     if let Some(user_preferences) = user_preferences {

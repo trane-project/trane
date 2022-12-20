@@ -54,9 +54,8 @@ impl AssetBuilder {
         create_dir_all(asset_path.parent().unwrap())?;
 
         // Write the asset file.
-        let mut asset_file = File::create(asset_path.clone())?;
+        let mut asset_file = File::create(asset_path)?;
         asset_file.write_all(self.contents.as_bytes())?;
-        println!("craeted asset file {}", asset_path.display());
         Ok(())
     }
 }
@@ -218,13 +217,11 @@ impl CourseBuilder {
             asset_builder.build(&course_directory)?;
         }
 
-        println!("built all the assets");
         // Build all the lessons in the course.
         for lesson_builder in &self.lesson_builders {
             let lesson_directory = course_directory.join(&lesson_builder.directory_name);
             lesson_builder.build(&lesson_directory, self.lesson_manifest_template.clone())?;
         }
-        println!("built all the lessons");
 
         // Verify that all paths mentioned in the manifest are valid.
         ensure! {
