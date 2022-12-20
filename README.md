@@ -30,8 +30,7 @@ hierarchical skills. That's quite a mouthful, so let's break it down.
   to create his unique and spiritually powerful sound. Trane is designed to allow students to easily
   express these complex relationships and to take advantage of them to guide the student's practice.
   This is perhaps the feature that is at the core of Trane and the main differentiation between it
-  and similar software, such as Anki, which already make use of some the same learning principles,
-  such as spaced repetition.
+  and similar software, such as Anki, which already make use of some the same learning principles.
 
 Trane is based on multiple proven principles of skill acquisition, such as spaced repetition,
 mastery learning, and chunking. For example, Trane makes sure that not too many very easy or hard
