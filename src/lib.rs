@@ -17,6 +17,7 @@
 //! word train (as in the vehicle) to describe the overwhelming power of his playing. It is used
 //! here as a play on its homophone (as in "training a new skill").
 //!
+//@<lp-example-3
 //! Here's an overview of some of the most important modules in this crate and their purpose:
 //! - [data](crate::data): Contains the basic data structures used by Trane.
 //! - [graph](crate::graph): Defines the graph used by Trane to list the units of material and the
@@ -31,6 +32,7 @@
 //!   because their material has already been mastered or they do not wish to learn it.
 //! - [scorer](crate::scorer): Calculates a score for an exercise based on the results and
 //!   timestamps of previous trials.
+//>@lp-example-3
 
 pub mod blacklist;
 pub mod course_builder;

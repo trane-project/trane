@@ -67,6 +67,7 @@ impl MasteryScore {
     }
 }
 
+//@<lp-example-4
 /// The result of a single trial.
 pub struct ExerciseTrial {
     /// The score assigned to the exercise after the trial.
@@ -75,6 +76,7 @@ pub struct ExerciseTrial {
     /// The timestamp at which the trial happened.
     pub timestamp: i64,
 }
+//>@lp-example-4
 
 /// A mastery window consists a range of scores and the percentage of the total exercises in the
 /// batch returned by the scheduler that will fall within that range.
@@ -310,6 +312,7 @@ pub struct CourseManifest {
     #[builder(default)]
     pub authors: Option<Vec<String>>,
 
+    //@<lp-example-5
     //// A mapping of String keys to a list of String values. For example, ("genre", ["jazz"]) could
     /// be attached to a course named "Basic Jazz Chords on Guitar".
     ///
@@ -318,6 +321,7 @@ pub struct CourseManifest {
     /// might want to only focus on guitar scales or ear training.
     #[builder(default)]
     pub metadata: Option<BTreeMap<String, Vec<String>>>,
+    //>@lp-example-5
 
     /// An optional asset, which presents the material covered in the course.
     #[builder(default)]

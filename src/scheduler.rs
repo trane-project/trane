@@ -202,6 +202,7 @@ impl DepthFirstScheduler {
             .collect())
     }
 
+    //@<lp-example-1
     /// Returns an initial stack with all the starting units in the graph that are used to search
     /// the entire graph.
     fn get_initial_stack(&self, metadata_filter: Option<&MetadataFilter>) -> Vec<StackItem> {
@@ -233,6 +234,7 @@ impl DepthFirstScheduler {
         initial_stack.shuffle(&mut thread_rng());
         initial_stack
     }
+    //>@lp-example-1
 
     /// Gets the scores for the given exercises.
     fn get_exercise_scores(&self, exercises: &[Ustr]) -> Result<Vec<f32>> {
