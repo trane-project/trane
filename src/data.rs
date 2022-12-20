@@ -321,8 +321,8 @@ pub struct CourseManifest {
     /// might want to only focus on guitar scales or ear training.
     #[builder(default)]
     pub metadata: Option<BTreeMap<String, Vec<String>>>,
-    //>@lp-example-5
 
+    //>@lp-example-5
     /// An optional asset, which presents the material covered in the course.
     #[builder(default)]
     pub course_material: Option<BasicAsset>,
