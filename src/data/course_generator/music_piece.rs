@@ -7,7 +7,7 @@
 use anyhow::Result;
 use indoc::formatdoc;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 use ustr::Ustr;
 
 use crate::data::{
@@ -223,6 +223,7 @@ pub struct MusicPieceConfig {
 impl GenerateManifests for MusicPieceConfig {
     fn generate_manifests(
         &self,
+        _: &Path,
         course_manifest: &CourseManifest,
         _: &UserPreferences,
     ) -> Result<GeneratedCourse> {

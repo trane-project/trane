@@ -264,6 +264,7 @@ pub trait GenerateManifests {
     /// Returns all the generated lesson and exercise manifests for a course.
     fn generate_manifests(
         &self,
+        course_root: &Path,
         course_manifest: &CourseManifest,
         preferences: &UserPreferences,
     ) -> Result<GeneratedCourse>;
@@ -272,15 +273,16 @@ pub trait GenerateManifests {
 impl GenerateManifests for CourseGenerator {
     fn generate_manifests(
         &self,
+        course_root: &Path,
         course_manifest: &CourseManifest,
         preferences: &UserPreferences,
     ) -> Result<GeneratedCourse> {
         match self {
             CourseGenerator::Improvisation(config) => {
-                config.generate_manifests(course_manifest, preferences)
+                config.generate_manifests(course_root, course_manifest, preferences)
             }
             CourseGenerator::MusicPiece(config) => {
-                config.generate_manifests(course_manifest, preferences)
+                config.generate_manifests(course_root, course_manifest, preferences)
             }
         }
     }

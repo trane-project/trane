@@ -3,18 +3,17 @@
 use anyhow::Result;
 use lazy_static::lazy_static;
 use std::{
-    collections::HashMap,
     fs::{create_dir, File},
     io::Write,
     path::Path,
 };
 use tempfile::TempDir;
 use trane::{
-    course_builder::CourseBuilder,
+    course_builder::{AssetBuilder, CourseBuilder},
     course_library::CourseLibrary,
     data::{
         course_generator::improvisation::{
-            ImprovisationConfig, ImprovisationPassage, ImprovisationPreferences, Instrument,
+            ImprovisationConfig, ImprovisationPreferences, Instrument,
         },
         CourseGenerator, CourseManifest, LessonManifestBuilder, MasteryScore, UserPreferences,
     },
@@ -54,13 +53,14 @@ fn improvisation_builder(
     num_passages: usize,
     rhythm_only: bool,
 ) -> CourseBuilder {
-    let mut passages = HashMap::new();
+    let mut asset_builders = Vec::new();
     for i in 0..num_passages {
-        let passage = ImprovisationPassage {
-            soundslice_link: format!("https://www.soundslice.com/slices/{}/", i),
-            music_xml_file: None,
-        };
-        passages.insert(format!("{}", i), passage);
+        // Create an asset builder for a file named `i.ly` in the `passages` directory.
+        let passage_path = format!("passages/{}.ly", i);
+        asset_builders.push(AssetBuilder {
+            file_name: passage_path.clone(),
+            contents: "".to_string(),
+        });
     }
 
     CourseBuilder {
@@ -77,12 +77,12 @@ fn improvisation_builder(
             generator_config: Some(CourseGenerator::Improvisation(ImprovisationConfig {
                 improvisation_dependencies: dependencies,
                 rhythm_only,
-                passages,
+                passage_directory: "passages".to_string(),
             })),
         },
         lesson_manifest_template: LessonManifestBuilder::default().clone(),
         lesson_builders: vec![],
-        asset_builders: vec![],
+        asset_builders: asset_builders,
     }
 }
 
@@ -97,6 +97,7 @@ fn init_improv_simulation(
         .into_iter()
         .map(|course_builder| course_builder.build(library_root))
         .collect::<Result<()>>()?;
+    println!("built all the courses");
 
     // Write the user preferences if provided.
     if let Some(user_preferences) = user_preferences {
