@@ -146,8 +146,10 @@ impl Trane {
         let mut mantra_miner = TraneMantraMiner::default();
         mantra_miner.mantra_miner.start()?;
 
+        let options = SchedulerOptions::default();
+        options.verify()?;
         let scheduler_data = SchedulerData {
-            options: SchedulerOptions::default(),
+            options,
             course_library: course_library.clone(),
             unit_graph: unit_graph.clone(),
             practice_stats: practice_stats.clone(),
