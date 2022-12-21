@@ -1,10 +1,14 @@
 //! Contains the logic to generate a Trane course based on a knowledge base of markdown files
 //! representing the front and back of flashcard exercises.
 
-use std::{collections::BTreeMap, ffi::OsString};
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use std::{collections::BTreeMap, ffi::OsString, path::Path};
 use ustr::Ustr;
 
-use crate::data::ExerciseType;
+use crate::data::{
+    CourseManifest, ExerciseType, GenerateManifests, GeneratedCourse, UserPreferences,
+};
 
 /// Represents a knowledge base lesson.
 ///
@@ -101,4 +105,21 @@ pub struct KnowledgeBaseExercise {
 
     /// The type of knowledge the exercise tests.
     pub exercise_type: Option<ExerciseType>,
+}
+
+/// The configuration for a knowledge base course. Currently, this is an empty struct, but it is
+/// added for consistency with other course generators and to implement the
+/// [GenerateManifests](crate::data::GenerateManifests) trait.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct KnowledgeBaseConfig {}
+
+impl GenerateManifests for KnowledgeBaseConfig {
+    fn generate_manifests(
+        &self,
+        _: &Path,
+        _course_manifest: &CourseManifest,
+        _: &UserPreferences,
+    ) -> Result<GeneratedCourse> {
+        unimplemented!()
+    }
 }

@@ -14,6 +14,7 @@ use ustr::Ustr;
 
 use self::course_generator::{
     improvisation::{ImprovisationConfig, ImprovisationPreferences},
+    knowledge_base::KnowledgeBaseConfig,
     music_piece::MusicPieceConfig,
 };
 
@@ -236,6 +237,11 @@ pub enum CourseGenerator {
     /// The configuration for generating an improvisation course.
     Improvisation(ImprovisationConfig),
 
+    /// The configuration for generating a knowledge base course. Currently, there are no
+    /// configuration options, but the struct was added to implement the
+    /// [GenerateManifests](crate::manifest::GenerateManifests) trait.
+    KnowledgeBase(KnowledgeBaseConfig),
+
     /// The configuration for generating a music piece course.
     MusicPiece(MusicPieceConfig),
 }
@@ -279,6 +285,9 @@ impl GenerateManifests for CourseGenerator {
     ) -> Result<GeneratedCourse> {
         match self {
             CourseGenerator::Improvisation(config) => {
+                config.generate_manifests(course_root, course_manifest, preferences)
+            }
+            CourseGenerator::KnowledgeBase(config) => {
                 config.generate_manifests(course_root, course_manifest, preferences)
             }
             CourseGenerator::MusicPiece(config) => {
