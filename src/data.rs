@@ -917,34 +917,34 @@ mod test {
     }
 
     #[test]
-    fn verify_default_scheduler_options() {
+    fn valid_default_scheduler_options() {
         let options = SchedulerOptions::default();
         assert!(options.verify().is_ok());
     }
 
     #[test]
-    fn verify_scheduler_options_invalid_batch_size() {
+    fn scheduler_options_invalid_batch_size() {
         let mut options = SchedulerOptions::default();
         options.batch_size = 0;
         assert!(options.verify().is_err());
     }
 
     #[test]
-    fn verify_scheduler_options_invalid_mastered_window() {
+    fn scheduler_options_invalid_mastered_window() {
         let mut options = SchedulerOptions::default();
         options.mastered_window_opts.range.1 = 4.9;
         assert!(options.verify().is_err());
     }
 
     #[test]
-    fn verify_scheduler_options_invalid_target_window() {
+    fn scheduler_options_invalid_target_window() {
         let mut options = SchedulerOptions::default();
         options.target_window_opts.range.0 = 0.1;
         assert!(options.verify().is_err());
     }
 
     #[test]
-    fn verify_scheduler_options_gap_in_windows() {
+    fn scheduler_options_gap_in_windows() {
         let mut options = SchedulerOptions::default();
         options.target_window_opts.range.1 -= 0.1;
         assert!(options.verify().is_err());
@@ -955,6 +955,13 @@ mod test {
 
         let mut options = SchedulerOptions::default();
         options.easy_window_opts.range.1 -= 0.1;
+        assert!(options.verify().is_err());
+    }
+
+    #[test]
+    fn scheduler_options_invalid_percentage_sum() {
+        let mut options = SchedulerOptions::default();
+        options.target_window_opts.percentage -= 0.1;
         assert!(options.verify().is_err());
     }
 }
