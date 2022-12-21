@@ -956,9 +956,5 @@ mod test {
         let mut options = SchedulerOptions::default();
         options.easy_window_opts.range.1 -= 0.1;
         assert!(options.verify().is_err());
-
-        let mut options = SchedulerOptions::default();
-        options.mastered_window_opts.range.1 -= 0.1;
-        assert!(options.verify().is_err());
     }
 }
