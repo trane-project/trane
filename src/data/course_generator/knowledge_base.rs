@@ -1,6 +1,7 @@
-//! Contains the logic to generate a Trane course based on a knowledge base of markdown files.
-//
-// a
+//! Contains the logic to generate a Trane course based on a knowledge base of markdown files
+//! representing the front and back of flashcard exercises.
+
+use std::{collections::BTreeMap, ffi::OsString};
 
 /// Represents a knowledge base lesson.
 ///
@@ -11,16 +12,66 @@
 /// contains a directory of name `d.lesson` will generate the manifest for a lesson with ID
 /// `a::b::c::d`.
 ///
-/// Each of the optional fields in this struct can be set by writing a JSON file inside the lesson
-/// directory with the name `lesson.<PROPERTY_NAME>.json`, containing a JSON serialization of the
-/// desired value. For example, to set the lesson's dependencies one would write a file named
-/// `lesson.dependencies.json` which contains a JSON array of strings, each of them the ID of a
-/// dependency.
+/// All the optional fields mirror one of the fields in
+/// [LessonManifest](crate::data::LessonManifest) and their values can be set by writing a JSON file
+/// inside the lesson directory with the name `lesson.<PROPERTY_NAME>.json`. This file should
+/// contain a JSON serialization of the desired value. For example, to set the lesson's dependencies
+/// one would write a file named `lesson.dependencies.json` containing a JSON array of strings, each
+/// of them the ID of a dependency.
 pub struct KnowledgeBaseLesson {
+    /// The short ID of the lesson, which is used to easily identify the lesson and to generate the
+    /// final lesson ID.
     pub short_id: String,
+
+    /// The IDs of all dependencies of this lesson.
+    pub dependencies: Option<Vec<String>>,
+
+    /// The name of the lesson to be presented to the user.
+    pub name: Option<String>,
+
+    /// An optional description of the lesson.
+    pub description: Option<String>,
+
+    //// A mapping of String keys to a list of String values used to store arbitrary metadata about
+    ///the lesson. This value is set to a `BTreeMap` to ensure that the keys are sorted in a
+    ///consistent order when serialized. This is an implementation detail and does not affect how
+    ///the value should be written to a file. A JSON map of strings to list of strings works.
+    pub metadata: Option<BTreeMap<String, Vec<String>>>,
+
+    /// The path to a markdown file containing the material covered in the lesson.
+    pub lesson_material: Option<String>,
+
+    /// The path to a markdown file containing the instructions common to all exercises in the
+    /// lesson.
+    pub lesson_instructions: Option<String>,
 }
 
 /// Represents a knowledge base exercise.
+///
+/// Inside a knowledge base lesson directory, Trane will look for matching pairs of files with names
+/// `<SHORT_EXERCISE_ID>.front.md` and `<SHORT_EXERCISE_ID>.back.md`. The short ID is used to
+/// generate the final exercise ID, by combining it with the lesson ID, much in the way that the
+/// short lesson IDs are used to generate the lesson IDs. For example, files `e.front.md` and
+/// `e.back.md` in a course with ID `a::b::c` inside a lesson directory named `d.lesson` will
+/// generate and exercise with ID `a::b::c::d::e`.
+///
+/// Each the optional fields mirror one of the fields in
+/// [ExerciseManifest](crate::data::ExerciseManifest) and their values can be set by writing a JSON
+/// file inside the lesson directory with the name `<SHORT_EXERCISE_ID>.<PROPERTY_NAME>.json`. This
+/// file should contain a JSON serialization of the desired value. For example, to set the
+/// exercise's name for an exercise with a short ID value of `ex1`, one would write a file named
+/// `ex1.name.json` containing a JSON string with the desired name.
+///
+/// Trane will ignore any markdown files that do not match the exercise name pattern or that do not
+/// have a matching pair of front and back files.
 pub struct KnowledgeBaseExercise {
-    pub short_id: String
+    /// The short ID of the lesson, which is used to easily identify the exercise and to generate
+    /// the final exercise ID.
+    pub short_id: String,
+
+    /// The path to the file containing the front of the flashcard.
+    pub front_file: OsString,
+
+    /// The path to the file containing the back of the flashcard.
+    pub back_file: OsString,
 }
