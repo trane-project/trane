@@ -6,7 +6,7 @@ pub mod course_generator;
 pub mod filter;
 pub mod music;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
@@ -649,6 +649,57 @@ pub struct SchedulerOptions {
     pub num_trials: usize,
 }
 
+impl SchedulerOptions {
+    /// Verifies that the scheduler options are valid.
+    pub fn verify(&self) -> Result<()> {
+        // The batch size must be greater than 0.
+        if self.batch_size == 0 {
+            return Err(anyhow!(
+                "invalid scheduler options: batch_size must be greater than 0"
+            ));
+        }
+
+        // The sum of the percentages of the mastery windows must be 1.0.
+        if self.mastered_window_opts.percentage
+            + self.easy_window_opts.percentage
+            + self.current_window_opts.percentage
+            + self.target_window_opts.percentage
+            != 1.0
+        {
+            return Err(anyhow!(
+                "invalid scheduler options: the sum of the percentages of the mastery windows \
+                must be 1.0"
+            ));
+        }
+
+        // The target window's range must start at 0.0.
+        if self.target_window_opts.range.0 != 0.0 {
+            return Err(anyhow!(
+                "invalid scheduler options: the target window's range must start at 0.0"
+            ));
+        }
+
+        // The mastered window's range must end at 5.0.
+        if self.mastered_window_opts.range.1 != 5.0 {
+            return Err(anyhow!(
+                "invalid scheduler options: the mastered window's range must end at 5.0"
+            ));
+        }
+
+        // There must be no gaps in the mastery windows.
+        if self.target_window_opts.range.1 != self.current_window_opts.range.0
+            || self.current_window_opts.range.1 != self.easy_window_opts.range.0
+            || self.easy_window_opts.range.1 != self.mastered_window_opts.range.0
+        {
+            return Err(anyhow!(
+                "invalid scheduler options: there must be no gaps in the mastery windows"
+            ));
+        }
+
+        Ok(())
+    }
+}
+
 impl Default for SchedulerOptions {
     /// Returns the default scheduler options.
     fn default() -> Self {
@@ -863,5 +914,51 @@ mod test {
         });
         basic_asset.normalize_paths(temp_dir.path())?;
         Ok(())
+    }
+
+    #[test]
+    fn verify_default_scheduler_options() {
+        let options = SchedulerOptions::default();
+        assert!(options.verify().is_ok());
+    }
+
+    #[test]
+    fn verify_scheduler_options_invalid_batch_size() {
+        let mut options = SchedulerOptions::default();
+        options.batch_size = 0;
+        assert!(options.verify().is_err());
+    }
+
+    #[test]
+    fn verify_scheduler_options_invalid_mastered_window() {
+        let mut options = SchedulerOptions::default();
+        options.mastered_window_opts.range.1 = 4.9;
+        assert!(options.verify().is_err());
+    }
+
+    #[test]
+    fn verify_scheduler_options_invalid_target_window() {
+        let mut options = SchedulerOptions::default();
+        options.target_window_opts.range.0 = 0.1;
+        assert!(options.verify().is_err());
+    }
+
+    #[test]
+    fn verify_scheduler_options_gap_in_windows() {
+        let mut options = SchedulerOptions::default();
+        options.target_window_opts.range.1 -= 0.1;
+        assert!(options.verify().is_err());
+
+        let mut options = SchedulerOptions::default();
+        options.current_window_opts.range.1 -= 0.1;
+        assert!(options.verify().is_err());
+
+        let mut options = SchedulerOptions::default();
+        options.easy_window_opts.range.1 -= 0.1;
+        assert!(options.verify().is_err());
+
+        let mut options = SchedulerOptions::default();
+        options.mastered_window_opts.range.1 -= 0.1;
+        assert!(options.verify().is_err());
     }
 }
