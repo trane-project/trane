@@ -238,8 +238,7 @@ pub enum CourseGenerator {
     Improvisation(ImprovisationConfig),
 
     /// The configuration for generating a knowledge base course. Currently, there are no
-    /// configuration options, but the struct was added to implement the
-    /// [GenerateManifests](crate::manifest::GenerateManifests) trait.
+    /// configuration options, but the struct was added to implement the [GenerateManifests] trait.
     KnowledgeBase(KnowledgeBaseConfig),
 
     /// The configuration for generating a music piece course.
