@@ -2,6 +2,9 @@
 //! representing the front and back of flashcard exercises.
 
 use std::{collections::BTreeMap, ffi::OsString};
+use ustr::Ustr;
+
+use crate::data::ExerciseType;
 
 /// Represents a knowledge base lesson.
 ///
@@ -12,18 +15,27 @@ use std::{collections::BTreeMap, ffi::OsString};
 /// contains a directory of name `d.lesson` will generate the manifest for a lesson with ID
 /// `a::b::c::d`.
 ///
-/// All the optional fields mirror one of the fields in
+/// All the optional fields mirror one of the fields in the
 /// [LessonManifest](crate::data::LessonManifest) and their values can be set by writing a JSON file
 /// inside the lesson directory with the name `lesson.<PROPERTY_NAME>.json`. This file should
 /// contain a JSON serialization of the desired value. For example, to set the lesson's dependencies
 /// one would write a file named `lesson.dependencies.json` containing a JSON array of strings, each
 /// of them the ID of a dependency.
+///
+/// None of the `<SHORT_LESSON_ID>.lesson` directories should contain a `lesson_manifest.json` file,
+/// as that file would indicate to Trane that this is a regular lesson and not a generated lesson.
 pub struct KnowledgeBaseLesson {
     /// The short ID of the lesson, which is used to easily identify the lesson and to generate the
     /// final lesson ID.
-    pub short_id: String,
+    pub short_id: Ustr,
 
-    /// The IDs of all dependencies of this lesson.
+    /// The ID of the course to which this lesson belongs.
+    pub course_id: Ustr,
+
+    /// The IDs of all dependencies of this lesson. The values can be full lesson IDs or the short
+    /// ID of one of the other lessons in the course. If Trane finds a dependency with a short ID,
+    /// it will automatically generate the full lesson ID. Not setting this value will indicate that
+    /// the lesson has no dependencies.
     pub dependencies: Option<Vec<String>>,
 
     /// The name of the lesson to be presented to the user.
@@ -55,7 +67,7 @@ pub struct KnowledgeBaseLesson {
 /// `e.back.md` in a course with ID `a::b::c` inside a lesson directory named `d.lesson` will
 /// generate and exercise with ID `a::b::c::d::e`.
 ///
-/// Each the optional fields mirror one of the fields in
+/// Each the optional fields mirror one of the fields in the
 /// [ExerciseManifest](crate::data::ExerciseManifest) and their values can be set by writing a JSON
 /// file inside the lesson directory with the name `<SHORT_EXERCISE_ID>.<PROPERTY_NAME>.json`. This
 /// file should contain a JSON serialization of the desired value. For example, to set the
@@ -69,9 +81,24 @@ pub struct KnowledgeBaseExercise {
     /// the final exercise ID.
     pub short_id: String,
 
+    /// The short ID of the lesson to which this exercise belongs.
+    pub short_lesson_id: Ustr,
+
+    /// The ID of the course to which this lesson belongs.
+    pub course_id: Ustr,
+
     /// The path to the file containing the front of the flashcard.
     pub front_file: OsString,
 
     /// The path to the file containing the back of the flashcard.
     pub back_file: OsString,
+
+    /// The name of the exercise to be presented to the user.
+    pub name: Option<String>,
+
+    /// An optional description of the exercise.
+    pub description: Option<String>,
+
+    /// The type of knowledge the exercise tests.
+    pub exercise_type: Option<ExerciseType>,
 }
