@@ -355,7 +355,7 @@ impl KnowledgeBaseConfig {
                         } else {
                             // The dependency is already a full ID, so we can just add it to the
                             // list.
-                            dependency.clone()
+                            *dependency
                         }
                     })
                     .collect();
