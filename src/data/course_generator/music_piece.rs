@@ -223,9 +223,9 @@ pub struct MusicPieceConfig {
 impl GenerateManifests for MusicPieceConfig {
     fn generate_manifests(
         &self,
-        _: &Path,
+        _course_root: &Path,
         course_manifest: &CourseManifest,
-        _: &UserPreferences,
+        _preferences: &UserPreferences,
     ) -> Result<GeneratedCourse> {
         Ok(GeneratedCourse {
             lessons: self
