@@ -189,18 +189,12 @@ impl LocalCourseLibrary {
     }
 
     /// Opens the course, lesson, or exercise manifest located at the given path.
-    fn open_manifest<T: DeserializeOwned>(path: &str) -> Result<T> {
-        let file = File::open(path).map_err(|_| anyhow!("cannot open manifest file {}", path))?;
+    fn open_manifest<T: DeserializeOwned>(path: &Path) -> Result<T> {
+        let file = File::open(path)
+            .with_context(|| anyhow!("cannot open manifest file {}", path.display()))?;
         let reader = BufReader::new(file);
-        serde_json::from_reader(reader).map_err(|_| anyhow!("cannot parse manifest file {}", path))
-    }
-
-    /// Returns the full string representation of the given path.
-    fn get_full_path(path: &Path) -> Result<String> {
-        Ok(path
-            .to_str()
-            .ok_or_else(|| anyhow!("invalid dir entry {}", path.display()))?
-            .to_string())
+        serde_json::from_reader(reader)
+            .with_context(|| anyhow!("cannot parse manifest file {}", path.display()))
     }
 
     /// Returns the file name of the given path.
@@ -316,8 +310,8 @@ impl LocalCourseLibrary {
                     }
 
                     // Open the exercise manifest and process it.
-                    let path = Self::get_full_path(exercise_dir_entry.path())?;
-                    let mut exercise_manifest: ExerciseManifest = Self::open_manifest(&path)?;
+                    let mut exercise_manifest: ExerciseManifest =
+                        Self::open_manifest(exercise_dir_entry.path())?;
                     exercise_manifest = exercise_manifest
                         .normalize_paths(exercise_dir_entry.path().parent().unwrap())?;
                     self.process_exercise_manifest(
@@ -409,8 +403,8 @@ impl LocalCourseLibrary {
                     }
 
                     // Open the lesson manifest and process it.
-                    let path = Self::get_full_path(lesson_dir_entry.path())?;
-                    let mut lesson_manifest: LessonManifest = Self::open_manifest(&path)?;
+                    let mut lesson_manifest: LessonManifest =
+                        Self::open_manifest(lesson_dir_entry.path())?;
                     lesson_manifest = lesson_manifest
                         .normalize_paths(lesson_dir_entry.path().parent().unwrap())?;
                     self.process_lesson_manifest(
@@ -556,8 +550,8 @@ impl LocalCourseLibrary {
                     }
 
                     // Open the course manifest and process it.
-                    let path = Self::get_full_path(dir_entry.path())?;
-                    let mut course_manifest: CourseManifest = Self::open_manifest(&path)?;
+                    let mut course_manifest: CourseManifest =
+                        Self::open_manifest(dir_entry.path())?;
                     course_manifest =
                         course_manifest.normalize_paths(dir_entry.path().parent().unwrap())?;
                     library.process_course_manifest(

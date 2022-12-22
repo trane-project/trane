@@ -1,11 +1,12 @@
 //! Contains the logic to generate a Trane course based on a knowledge base of markdown files
 //! representing the front and back of flashcard exercises.
 
-use anyhow::{anyhow, Error, Result};
-use serde::{Deserialize, Serialize};
+use anyhow::{anyhow, Context, Error, Result};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
-    fs::read_dir,
+    fs::{read_dir, File},
+    io::BufReader,
     path::Path,
 };
 use ustr::{Ustr, UstrMap};
@@ -15,20 +16,52 @@ use crate::data::{
     GeneratedCourse, LessonManifest, UserPreferences,
 };
 
-/// An enum representing a type of valid file that can be found in a knowledge base lesson
-/// directory.
+/// The name of the file containing the dependencies of a lesson.
+const LESSON_DEPENDENCIES_FILE: &str = "lesson.dependencies.json";
+
+/// The name of the file containing the name of a lesson.
+const LESSON_NAME_FILE: &str = "lesson.name.json";
+
+/// The name of the file containing the description of a lesson.
+const LESSON_DESCRIPTION_FILE: &str = "lesson.description.json";
+
+/// The name of the file containing the metadata of a lesson.
+const LESSON_METADATA_FILE: &str = "lesson.metadata.json";
+
+/// The name of the file containing the path to the lesson material.
+const LESSON_MATERIAL_FILE: &str = "lesson.material.json";
+
+/// The name of the file containing the path to the lesson instructions.
+const LESSON_INSTRUCTIONS_FILE: &str = "lesson.instructions.json";
+
+/// The suffix of the file containing the front of the flashcard for an exercise.
+const EXERCISE_FRONT_SUFFIX: &str = ".front.md";
+
+/// The suffix of the file containing the back of the flashcard for an exercise.
+const EXERCISE_BACK_SUFFIX: &str = ".back.md";
+
+/// The suffix of the file containing the name of an exercise.
+const EXERCISE_NAME_SUFFIX: &str = ".name.json";
+
+/// The suffix of the file containing the description of an exercise.
+const EXERCISE_DESCRIPTION_SUFFIX: &str = ".description.json";
+
+/// The suffix of the file containing the metadata of an exercise.
+const EXERCISE_TYPE_SUFFIX: &str = ".type.json";
+
+/// An enum representing a type of file that can be found in a knowledge base lesson directory.
 enum KnowledgeBaseFile {
     /// The file containing the dependencies of the lesson.
-    Dependencies,
+    LessonDependencies,
 
     /// The file containing the name of the lesson.
-    Name,
+    LessonName,
 
     /// The file containing the description of the lesson.
-    Description,
+    LessonDescription,
 
     /// The file containing the metadata of the lesson.
-    Metadata,
+    LessonMetadata,
 
     /// The file containing the path to the lesson material.
     LessonMaterial,
@@ -37,10 +70,10 @@ enum KnowledgeBaseFile {
     LessonInstructions,
 
     /// The file containing the front of the flashcard for the exercise with the given short ID.
-    Front(String),
+    ExerciseFront(String),
 
     /// The file containing the back of the flashcard for the exercise with the given short ID.
-    Back(String),
+    ExerciseBack(String),
 
     /// The file containing the name of the exercise with the given short ID.
     ExerciseName(String),
@@ -52,39 +85,53 @@ enum KnowledgeBaseFile {
     ExerciseType(String),
 }
 
+impl KnowledgeBaseFile {
+    /// Opens the knowledge base file at the given path and deserializes its contents.
+    fn open<T: DeserializeOwned>(path: &Path) -> Result<T> {
+        let file = File::open(path)
+            .with_context(|| anyhow!("cannot open knowledge base file {}", path.display()))?;
+        let reader = BufReader::new(file);
+        serde_json::from_reader(reader)
+            .with_context(|| anyhow!("cannot parse knowledge base file {}", path.display()))
+    }
+}
+
 impl TryFrom<&str> for KnowledgeBaseFile {
     type Error = Error;
 
     /// Converts a file name to a `KnowledgeBaseFile` variant.
     fn try_from(file_name: &str) -> Result<Self> {
         match file_name {
-            "lesson.dependencies.json" => Ok(KnowledgeBaseFile::Dependencies),
-            "lesson.name.json" => Ok(KnowledgeBaseFile::Name),
-            "lesson.description.json" => Ok(KnowledgeBaseFile::Description),
-            "lesson.metadata.json" => Ok(KnowledgeBaseFile::Metadata),
-            "lesson.material.json" => Ok(KnowledgeBaseFile::LessonMaterial),
-            "lesson.instructions.json" => Ok(KnowledgeBaseFile::LessonInstructions),
-            file_name if file_name.ends_with(".front.md") => {
-                let short_id = file_name.strip_suffix(".front.md").unwrap();
-                Ok(KnowledgeBaseFile::Front(short_id.to_string()))
+            LESSON_DEPENDENCIES_FILE => Ok(KnowledgeBaseFile::LessonDependencies),
+            LESSON_NAME_FILE => Ok(KnowledgeBaseFile::LessonName),
+            LESSON_DESCRIPTION_FILE => Ok(KnowledgeBaseFile::LessonDescription),
+            LESSON_METADATA_FILE => Ok(KnowledgeBaseFile::LessonMetadata),
+            LESSON_MATERIAL_FILE => Ok(KnowledgeBaseFile::LessonMaterial),
+            LESSON_INSTRUCTIONS_FILE => Ok(KnowledgeBaseFile::LessonInstructions),
+            file_name if file_name.ends_with(EXERCISE_FRONT_SUFFIX) => {
+                let short_id = file_name.strip_suffix(EXERCISE_FRONT_SUFFIX).unwrap();
+                Ok(KnowledgeBaseFile::ExerciseFront(short_id.to_string()))
             }
-            file_name if file_name.ends_with(".back.md") => {
-                let short_id = file_name.strip_suffix(".back.md").unwrap();
-                Ok(KnowledgeBaseFile::Back(short_id.to_string()))
+            file_name if file_name.ends_with(EXERCISE_BACK_SUFFIX) => {
+                let short_id = file_name.strip_suffix(EXERCISE_BACK_SUFFIX).unwrap();
+                Ok(KnowledgeBaseFile::ExerciseBack(short_id.to_string()))
             }
-            file_name if file_name.ends_with(".name.json") => {
-                let short_id = file_name.strip_suffix(".name.json").unwrap();
+            file_name if file_name.ends_with(EXERCISE_NAME_SUFFIX) => {
+                let short_id = file_name.strip_suffix(EXERCISE_NAME_SUFFIX).unwrap();
                 Ok(KnowledgeBaseFile::ExerciseName(short_id.to_string()))
             }
-            file_name if file_name.ends_with(".description.json") => {
-                let short_id = file_name.strip_suffix(".description.json").unwrap();
+            file_name if file_name.ends_with(EXERCISE_NAME_SUFFIX) => {
+                let short_id = file_name.strip_suffix(EXERCISE_NAME_SUFFIX).unwrap();
                 Ok(KnowledgeBaseFile::ExerciseDescription(short_id.to_string()))
             }
-            file_name if file_name.ends_with(".type.json") => {
-                let short_id = file_name.strip_suffix(".type.json").unwrap();
+            file_name if file_name.ends_with(EXERCISE_TYPE_SUFFIX) => {
+                let short_id = file_name.strip_suffix(EXERCISE_TYPE_SUFFIX).unwrap();
                 Ok(KnowledgeBaseFile::ExerciseType(short_id.to_string()))
             }
-            _ => Err(anyhow!("Unknown file name: {}", file_name)),
+            _ => Err(anyhow!(
+                "Not a valid knowledge base file name: {}",
+                file_name
+            )),
         }
     }
 }
@@ -138,13 +185,51 @@ pub struct KnowledgeBaseExercise {
 impl KnowledgeBaseExercise {
     /// Generates the exercise from a list of knowledge base files.
     fn create_exercise(
-        _lesson_root: &Path,
-        _short_id: &str,
-        _short_lesson_id: Ustr,
-        _course_manifest: &CourseManifest,
-        _files: &[KnowledgeBaseFile],
+        lesson_root: &Path,
+        short_id: &str,
+        short_lesson_id: Ustr,
+        course_manifest: &CourseManifest,
+        files: &[KnowledgeBaseFile],
     ) -> Result<Self> {
-        unimplemented!()
+        // Create the exercise with `None` values for all optimal fields.
+        let mut exercise = KnowledgeBaseExercise {
+            short_id: short_id.to_string(),
+            short_lesson_id,
+            course_id: course_manifest.id,
+            front_file: lesson_root
+                .join(format!("{}{}", short_id, EXERCISE_FRONT_SUFFIX))
+                .to_string_lossy()
+                .to_string(),
+            back_file: lesson_root
+                .join(format!("{}{}", short_id, EXERCISE_BACK_SUFFIX))
+                .to_string_lossy()
+                .to_string(),
+            name: None,
+            description: None,
+            exercise_type: None,
+        };
+
+        // Iterate through the exercise files found in the lesson directory and set the
+        // corresponding field in the exercise.
+        for exercise_file in files {
+            match exercise_file {
+                KnowledgeBaseFile::ExerciseName(..) => {
+                    let path = lesson_root.join(format!("{}{}", EXERCISE_NAME_SUFFIX, short_id));
+                    exercise.name = Some(KnowledgeBaseFile::open(&path)?);
+                }
+                KnowledgeBaseFile::ExerciseDescription(..) => {
+                    let path =
+                        lesson_root.join(format!("{}{}", EXERCISE_DESCRIPTION_SUFFIX, short_id));
+                    exercise.description = Some(KnowledgeBaseFile::open(&path)?);
+                }
+                KnowledgeBaseFile::ExerciseType(..) => {
+                    let path = lesson_root.join(format!("{}{}", EXERCISE_TYPE_SUFFIX, short_id));
+                    exercise.exercise_type = Some(KnowledgeBaseFile::open(&path)?);
+                }
+                _ => {}
+            }
+        }
+        Ok(exercise)
     }
 }
 
@@ -231,10 +316,10 @@ impl KnowledgeBaseLesson {
         for (short_id, files) in exercise_files.iter() {
             let has_front = files
                 .iter()
-                .any(|file| matches!(file, KnowledgeBaseFile::Front(_)));
+                .any(|file| matches!(file, KnowledgeBaseFile::ExerciseFront(_)));
             let has_back = files
                 .iter()
-                .any(|file| matches!(file, KnowledgeBaseFile::Back(_)));
+                .any(|file| matches!(file, KnowledgeBaseFile::ExerciseBack(_)));
             if !has_front || !has_back {
                 to_remove.push(short_id.clone());
             }
@@ -246,12 +331,55 @@ impl KnowledgeBaseLesson {
 
     /// Generates the exercise from a list of knowledge base files.
     fn create_lesson(
-        _lesson_root: &Path,
-        _short_lesson_id: Ustr,
-        _course_manifest: &CourseManifest,
-        _files: &[KnowledgeBaseFile],
+        lesson_root: &Path,
+        short_lesson_id: Ustr,
+        course_manifest: &CourseManifest,
+        files: &[KnowledgeBaseFile],
     ) -> Result<Self> {
-        unimplemented!()
+        // Create the lesson with all the optional fields set to None.
+        let mut lesson = Self {
+            short_id: short_lesson_id,
+            course_id: course_manifest.id,
+            dependencies: None,
+            name: None,
+            description: None,
+            metadata: None,
+            lesson_material: None,
+            lesson_instructions: None,
+        };
+
+        // Iterate through the lesson files found in the lesson directory and set the corresponding
+        // field in the lesson.
+        for lesson_file in files {
+            match lesson_file {
+                KnowledgeBaseFile::LessonDependencies => {
+                    let path = lesson_root.join(LESSON_DEPENDENCIES_FILE);
+                    lesson.dependencies = Some(KnowledgeBaseFile::open(&path)?)
+                }
+                KnowledgeBaseFile::LessonName => {
+                    let path = lesson_root.join(LESSON_NAME_FILE);
+                    lesson.name = Some(KnowledgeBaseFile::open(&path)?)
+                }
+                KnowledgeBaseFile::LessonDescription => {
+                    let path = lesson_root.join(LESSON_DESCRIPTION_FILE);
+                    lesson.description = Some(KnowledgeBaseFile::open(&path)?)
+                }
+                KnowledgeBaseFile::LessonMetadata => {
+                    let path = lesson_root.join(LESSON_METADATA_FILE);
+                    lesson.metadata = Some(KnowledgeBaseFile::open(&path)?)
+                }
+                KnowledgeBaseFile::LessonMaterial => {
+                    let path = lesson_root.join(LESSON_MATERIAL_FILE);
+                    lesson.lesson_material = Some(path.to_str().unwrap().to_string())
+                }
+                KnowledgeBaseFile::LessonInstructions => {
+                    let path = lesson_root.join(LESSON_INSTRUCTIONS_FILE);
+                    lesson.lesson_instructions = Some(path.to_str().unwrap().to_string())
+                }
+                _ => {}
+            }
+        }
+        Ok(lesson)
     }
 
     /// Opens a lesson from the knowledge base with the given root and short ID.
@@ -269,8 +397,8 @@ impl KnowledgeBaseLesson {
             let file_name: &str = file_name.to_str().unwrap_or_default();
             if let Ok(kb_file) = KnowledgeBaseFile::try_from(file_name) {
                 match kb_file {
-                    KnowledgeBaseFile::Front(ref short_id)
-                    | KnowledgeBaseFile::Back(ref short_id)
+                    KnowledgeBaseFile::ExerciseFront(ref short_id)
+                    | KnowledgeBaseFile::ExerciseBack(ref short_id)
                     | KnowledgeBaseFile::ExerciseName(ref short_id)
                     | KnowledgeBaseFile::ExerciseDescription(ref short_id)
                     | KnowledgeBaseFile::ExerciseType(ref short_id) => {
@@ -284,6 +412,7 @@ impl KnowledgeBaseLesson {
             }
         }
 
+        // Create the knowledge base lesson.
         let lesson =
             Self::create_lesson(lesson_root, short_lesson_id, course_manifest, &lesson_files)?;
 
@@ -291,8 +420,8 @@ impl KnowledgeBaseLesson {
         // `.front.md`, for example.
         exercise_files.remove("");
 
-        // Filter out exercises that don't have both a front and back file and generate the
-        // exercises.
+        // Filter out exercises that don't have both a front and back file and create the knowledge
+        // base exercises.
         Self::find_matching_exercises(&mut exercise_files);
         let exercises = exercise_files
             .into_iter()
@@ -379,6 +508,7 @@ impl GenerateManifests for KnowledgeBaseConfig {
         // Iterate through all the directories in the course root, processing only those whose name
         // fits the pattern `<SHORT_LESSON_ID>.lesson`.
         for entry in read_dir(course_root)? {
+            // Ignore the entry if it's not a directory.
             let entry = entry?;
             let path = entry.path();
             if !path.is_dir() {
