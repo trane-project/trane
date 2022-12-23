@@ -318,7 +318,7 @@ pub struct KnowledgeBaseLesson {
 
 impl KnowledgeBaseLesson {
     // Filters out exercises that don't have both a front and back file.
-    fn find_matching_exercises(exercise_files: &mut HashMap<String, Vec<KnowledgeBaseFile>>) {
+    fn filter_matching_exercises(exercise_files: &mut HashMap<String, Vec<KnowledgeBaseFile>>) {
         let mut to_remove = Vec::new();
         for (short_id, files) in exercise_files.iter() {
             let has_front = files
@@ -429,7 +429,7 @@ impl KnowledgeBaseLesson {
 
         // Filter out exercises that don't have both a front and back file and create the knowledge
         // base exercises.
-        Self::find_matching_exercises(&mut exercise_files);
+        Self::filter_matching_exercises(&mut exercise_files);
         let exercises = exercise_files
             .into_iter()
             .map(|(short_id, files)| {
@@ -776,5 +776,29 @@ mod test {
             lesson_map.get(&short_lesson_id).unwrap().0.dependencies,
             Some(vec!["course1::lesson2".into()])
         );
+    }
+
+    /// Verifies that exercises with a missing front or back files are filtered out.
+    #[test]
+    fn filter_matching_exercises() {
+        let mut exercise_map = HashMap::default();
+        let ex1_id: String = "ex1".into();
+        let ex1_files = vec![
+            KnowledgeBaseFile::ExerciseFront("ex1".into()),
+            KnowledgeBaseFile::ExerciseBack("ex1".into()),
+        ];
+        let ex2_id: String = "ex2".into();
+        let ex2_files = vec![KnowledgeBaseFile::ExerciseFront("ex2".into())];
+        exercise_map.insert(ex1_id.clone(), ex1_files);
+        exercise_map.insert(ex2_id.clone(), ex2_files);
+
+        KnowledgeBaseLesson::filter_matching_exercises(&mut exercise_map);
+
+        let ex1_expected = vec![
+            KnowledgeBaseFile::ExerciseFront("ex1".into()),
+            KnowledgeBaseFile::ExerciseBack("ex1".into()),
+        ];
+        assert_eq!(exercise_map.get(&ex1_id).unwrap(), &ex1_expected);
+        assert!(!exercise_map.contains_key(&ex2_id));
     }
 }
