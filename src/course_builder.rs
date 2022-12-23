@@ -7,6 +7,7 @@
 //! development, so the format of the manifests is not stable yet. Generating the files by code
 //! makes it easier to make updates to the files as the format changes.
 
+pub mod knowledge_base_builder;
 pub mod music;
 
 use anyhow::{ensure, Result};
