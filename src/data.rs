@@ -596,7 +596,8 @@ pub struct ExerciseManifest {
     ///
     /// For example, "Exercise 1".
     pub name: String,
-
+    
+    /// An optional description of the exercise.
     #[builder(default)]
     pub description: Option<String>,
 
