@@ -750,7 +750,7 @@ mod test {
             course_id: "course1".into(),
             name: Some("Name".into()),
             description: Some("Description".into()),
-            dependencies: Some(vec!["lesson2".into()]),
+            dependencies: Some(vec!["lesson2".into(), "other::lesson1".into()]),
             metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
             lesson_instructions: Some("Instructions.md".into()),
             lesson_material: Some("Material.md".into()),
@@ -778,7 +778,7 @@ mod test {
 
         assert_eq!(
             lesson_map.get(&short_lesson_id).unwrap().0.dependencies,
-            Some(vec!["course1::lesson2".into()])
+            Some(vec!["course1::lesson2".into(), "other::lesson1".into()])
         );
     }
 
