@@ -562,6 +562,7 @@ mod test {
 
     use super::*;
 
+    // Verifies opening a valid knowledge base file.
     #[test]
     fn open_knowledge_base_file() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
@@ -574,6 +575,7 @@ mod test {
         Ok(())
     }
 
+    // Verifies the handling of invalid knowledge base files.
     #[test]
     fn open_knowledge_base_file_bad_format() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
@@ -586,6 +588,7 @@ mod test {
         Ok(())
     }
 
+    // Verifies the handling of knowledge base files that cannot be opened.
     #[test]
     fn open_knowledge_base_file_bad_permissions() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
@@ -601,6 +604,7 @@ mod test {
         Ok(())
     }
 
+    // Verifies that the all the files with knowledge base names are detected correctly.
     #[test]
     fn to_knowledge_base_file() {
         // Parse lesson file names.
@@ -658,6 +662,7 @@ mod test {
         assert!(KnowledgeBaseFile::try_from("ex1").is_err());
     }
 
+    // Verifies the conversion from a knowledge base lesson to a lesson manifest.
     #[test]
     fn lesson_to_manifest() {
         let lesson = KnowledgeBaseLesson {
@@ -688,6 +693,7 @@ mod test {
         assert_eq!(actual_manifest, expected_manifest);
     }
 
+    // Verifies the conversion from a knowledge base exercise to an exercise manifest.
     #[test]
     fn exercise_to_manifest() {
         let exercise = KnowledgeBaseExercise {
@@ -714,5 +720,61 @@ mod test {
         };
         let actual_manifest: ExerciseManifest = exercise.into();
         assert_eq!(actual_manifest, expected_manifest);
+    }
+
+    // Verifies that dependencies referenced by their short IDs are converted to full IDs.
+    #[test]
+    fn convert_to_full_dependencies() {
+        // Create an example course manifest.
+        let course_manifest = CourseManifest {
+            id: "course1".into(),
+            name: "Course 1".into(),
+            dependencies: vec![],
+            description: Some("Description".into()),
+            authors: None,
+            metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
+            course_instructions: None,
+            course_material: None,
+            generator_config: None,
+        };
+
+        // Create an example lesson with a dependency referred to by its short ID and an example
+        // exercise.
+        let short_lesson_id = Ustr::from("lesson1");
+        let lesson = KnowledgeBaseLesson {
+            short_id: short_lesson_id,
+            course_id: "course1".into(),
+            name: Some("Name".into()),
+            description: Some("Description".into()),
+            dependencies: Some(vec!["lesson2".into()]),
+            metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
+            lesson_instructions: Some("Instructions.md".into()),
+            lesson_material: Some("Material.md".into()),
+        };
+        let exercise = KnowledgeBaseExercise {
+            short_id: "ex1".into(),
+            short_lesson_id,
+            course_id: "course1".into(),
+            front_file: "ex1.front.md".into(),
+            back_file: "ex1.back.md".into(),
+            name: Some("Name".into()),
+            description: Some("Description".into()),
+            exercise_type: Some(ExerciseType::Procedural),
+        };
+        let mut lesson_map = UstrMap::default();
+        lesson_map.insert("lesson1".into(), (lesson, vec![exercise]));
+
+        // Convert the short IDs to full IDs.
+        let short_ids = HashSet::from_iter(vec!["lesson1".into(), "lesson2".into()]);
+        KnowledgeBaseConfig::convert_to_full_dependencies(
+            &course_manifest,
+            short_ids.clone(),
+            &mut lesson_map,
+        );
+
+        assert_eq!(
+            lesson_map.get(&short_lesson_id).unwrap().0.dependencies,
+            Some(vec!["course1::lesson2".into()])
+        );
     }
 }
