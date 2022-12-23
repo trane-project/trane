@@ -183,7 +183,7 @@ pub trait GetUnitType {
 
 /// An asset attached to a unit, which could be used to store instructions, or present the material
 /// introduced by a course or lesson.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum BasicAsset {
     /// An asset containing the path to a markdown file.
     MarkdownAsset {
@@ -387,7 +387,7 @@ impl GetUnitType for CourseManifest {
 }
 
 /// A manifest describing the contents of a lesson.
-#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
+#[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct LessonManifest {
     /// The ID assigned to this lesson.
@@ -470,7 +470,7 @@ impl GetUnitType for LessonManifest {
 }
 
 /// The type of knowledge tested by an exercise.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum ExerciseType {
     /// Represents an exercise that tests mastery of factual knowledge. For example, an exercise
     /// asking students to name the notes in a D Major chord.
@@ -482,7 +482,7 @@ pub enum ExerciseType {
 }
 
 /// The asset storing the material of a particular exercise.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub enum ExerciseAsset {
     /// An asset which stores a link to a SoundSlice.
@@ -576,7 +576,7 @@ impl VerifyPaths for ExerciseAsset {
 }
 
 /// Manifest describing a single exercise.
-#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
+#[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ExerciseManifest {
     /// The ID assigned to this exercise.
     ///
@@ -597,7 +597,6 @@ pub struct ExerciseManifest {
     /// For example, "Exercise 1".
     pub name: String,
 
-    /// An optional description of the exercise.
     #[builder(default)]
     pub description: Option<String>,
 

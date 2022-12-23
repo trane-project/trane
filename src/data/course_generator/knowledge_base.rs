@@ -16,6 +16,9 @@ use crate::data::{
     GeneratedCourse, LessonManifest, UserPreferences,
 };
 
+/// The suffix used to recognize a directory as a knowledge base lesson.
+const LESSON_SUFFIX: &str = ".lesson";
+
 /// The name of the file containing the dependencies of a lesson.
 const LESSON_DEPENDENCIES_FILE: &str = "lesson.dependencies.json";
 
@@ -50,6 +53,7 @@ const EXERCISE_DESCRIPTION_SUFFIX: &str = ".description.json";
 const EXERCISE_TYPE_SUFFIX: &str = ".type.json";
 
 /// An enum representing a type of file that can be found in a knowledge base lesson directory.
+#[derive(Debug, Eq, PartialEq)]
 enum KnowledgeBaseFile {
     /// The file containing the dependencies of the lesson.
     LessonDependencies,
@@ -120,8 +124,8 @@ impl TryFrom<&str> for KnowledgeBaseFile {
                 let short_id = file_name.strip_suffix(EXERCISE_NAME_SUFFIX).unwrap();
                 Ok(KnowledgeBaseFile::ExerciseName(short_id.to_string()))
             }
-            file_name if file_name.ends_with(EXERCISE_NAME_SUFFIX) => {
-                let short_id = file_name.strip_suffix(EXERCISE_NAME_SUFFIX).unwrap();
+            file_name if file_name.ends_with(EXERCISE_DESCRIPTION_SUFFIX) => {
+                let short_id = file_name.strip_suffix(EXERCISE_DESCRIPTION_SUFFIX).unwrap();
                 Ok(KnowledgeBaseFile::ExerciseDescription(short_id.to_string()))
             }
             file_name if file_name.ends_with(EXERCISE_TYPE_SUFFIX) => {
@@ -198,11 +202,13 @@ impl KnowledgeBaseExercise {
             course_id: course_manifest.id,
             front_file: lesson_root
                 .join(format!("{}{}", short_id, EXERCISE_FRONT_SUFFIX))
-                .to_string_lossy()
+                .to_str()
+                .unwrap_or_default()
                 .to_string(),
             back_file: lesson_root
                 .join(format!("{}{}", short_id, EXERCISE_BACK_SUFFIX))
-                .to_string_lossy()
+                .to_str()
+                .unwrap_or_default()
                 .to_string(),
             name: None,
             description: None,
@@ -210,7 +216,8 @@ impl KnowledgeBaseExercise {
         };
 
         // Iterate through the exercise files found in the lesson directory and set the
-        // corresponding field in the exercise.
+        // corresponding field in the exercise. The front and back files are ignored because the
+        // correct values were already set above.
         for exercise_file in files {
             match exercise_file {
                 KnowledgeBaseFile::ExerciseName(..) => {
@@ -518,7 +525,7 @@ impl GenerateManifests for KnowledgeBaseConfig {
             // Check if the directory name is in the format `<SHORT_LESSON_ID>.lesson`. If so, read
             // the knowledge base lesson and its exercises.
             let dir_name = path.file_name().unwrap_or_default().to_str().unwrap();
-            if let Some(short_id) = dir_name.strip_suffix(".lesson") {
+            if let Some(short_id) = dir_name.strip_suffix(LESSON_SUFFIX) {
                 lessons.insert(
                     short_id.into(),
                     KnowledgeBaseLesson::open_lesson(&path, course_manifest, short_id.into())?,
@@ -545,5 +552,167 @@ impl GenerateManifests for KnowledgeBaseConfig {
             updated_instructions: None,
             updated_metadata: None,
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use anyhow::Result;
+    use std::{fs::Permissions, io::Write, os::unix::prelude::PermissionsExt};
+
+    use super::*;
+
+    #[test]
+    fn open_knowledge_base_file() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let file_path = temp_dir.path().join("lesson.dependencies.properties");
+        let mut file = File::create(&file_path)?;
+        file.write_all(b"[\"lesson1\"]")?;
+
+        let dependencies: Vec<String> = KnowledgeBaseFile::open(&file_path)?;
+        assert_eq!(dependencies, vec!["lesson1".to_string()]);
+        Ok(())
+    }
+
+    #[test]
+    fn open_knowledge_base_file_bad_format() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let file_path = temp_dir.path().join("lesson.dependencies.properties");
+        let mut file = File::create(&file_path)?;
+        file.write_all(b"[\"lesson1\"")?;
+
+        let dependencies: Result<Vec<String>> = KnowledgeBaseFile::open(&file_path);
+        assert!(dependencies.is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn open_knowledge_base_file_bad_permissions() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let file_path = temp_dir.path().join("lesson.dependencies.properties");
+        let mut file = File::create(&file_path)?;
+        file.write_all(b"[\"lesson1\"]")?;
+
+        // Make the directory non-readable to test that the file can't be opened.
+        std::fs::set_permissions(temp_dir.path(), Permissions::from_mode(0o000))?;
+
+        let dependencies: Result<Vec<String>> = KnowledgeBaseFile::open(&file_path);
+        assert!(dependencies.is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn to_knowledge_base_file() {
+        // Parse lesson file names.
+        assert_eq!(
+            KnowledgeBaseFile::LessonDependencies,
+            KnowledgeBaseFile::try_from(LESSON_DEPENDENCIES_FILE).unwrap(),
+        );
+        assert_eq!(
+            KnowledgeBaseFile::LessonDescription,
+            KnowledgeBaseFile::try_from(LESSON_DESCRIPTION_FILE).unwrap(),
+        );
+        assert_eq!(
+            KnowledgeBaseFile::LessonMetadata,
+            KnowledgeBaseFile::try_from(LESSON_METADATA_FILE).unwrap(),
+        );
+        assert_eq!(
+            KnowledgeBaseFile::LessonInstructions,
+            KnowledgeBaseFile::try_from(LESSON_INSTRUCTIONS_FILE).unwrap(),
+        );
+        assert_eq!(
+            KnowledgeBaseFile::LessonMaterial,
+            KnowledgeBaseFile::try_from(LESSON_MATERIAL_FILE).unwrap(),
+        );
+
+        // Parse exercise file names.
+        assert_eq!(
+            KnowledgeBaseFile::ExerciseName("ex1".to_string()),
+            KnowledgeBaseFile::try_from(format!("{}{}", "ex1", EXERCISE_NAME_SUFFIX).as_str())
+                .unwrap(),
+        );
+        assert_eq!(
+            KnowledgeBaseFile::ExerciseFront("ex1".to_string()),
+            KnowledgeBaseFile::try_from(format!("{}{}", "ex1", EXERCISE_FRONT_SUFFIX).as_str())
+                .unwrap(),
+        );
+        assert_eq!(
+            KnowledgeBaseFile::ExerciseBack("ex1".to_string()),
+            KnowledgeBaseFile::try_from(format!("{}{}", "ex1", EXERCISE_BACK_SUFFIX).as_str())
+                .unwrap(),
+        );
+        assert_eq!(
+            KnowledgeBaseFile::ExerciseDescription("ex1".to_string()),
+            KnowledgeBaseFile::try_from(
+                format!("{}{}", "ex1", EXERCISE_DESCRIPTION_SUFFIX).as_str()
+            )
+            .unwrap(),
+        );
+        assert_eq!(
+            KnowledgeBaseFile::ExerciseType("ex1".to_string()),
+            KnowledgeBaseFile::try_from(format!("{}{}", "ex1", EXERCISE_TYPE_SUFFIX).as_str())
+                .unwrap(),
+        );
+
+        // Parse exercise file names with invalid exercise names.
+        assert!(KnowledgeBaseFile::try_from("ex1").is_err());
+    }
+
+    #[test]
+    fn lesson_to_manifest() {
+        let lesson = KnowledgeBaseLesson {
+            short_id: "lesson1".into(),
+            course_id: "course1".into(),
+            name: Some("Name".into()),
+            description: Some("Description".into()),
+            dependencies: Some(vec!["lesson2".into()]),
+            metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
+            lesson_instructions: Some("Instructions.md".into()),
+            lesson_material: Some("Material.md".into()),
+        };
+        let expected_manifest = LessonManifest {
+            id: "course1::lesson1".into(),
+            course_id: "course1".into(),
+            name: "Name".into(),
+            description: Some("Description".into()),
+            dependencies: vec!["lesson2".into()],
+            lesson_instructions: Some(BasicAsset::MarkdownAsset {
+                path: "Instructions.md".into(),
+            }),
+            lesson_material: Some(BasicAsset::MarkdownAsset {
+                path: "Material.md".into(),
+            }),
+            metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
+        };
+        let actual_manifest: LessonManifest = lesson.into();
+        assert_eq!(actual_manifest, expected_manifest);
+    }
+
+    #[test]
+    fn exercise_to_manifest() {
+        let exercise = KnowledgeBaseExercise {
+            short_id: "ex1".into(),
+            short_lesson_id: "lesson1".into(),
+            course_id: "course1".into(),
+            front_file: "ex1.front.md".into(),
+            back_file: "ex1.back.md".into(),
+            name: Some("Name".into()),
+            description: Some("Description".into()),
+            exercise_type: Some(ExerciseType::Procedural),
+        };
+        let expected_manifest = ExerciseManifest {
+            id: "course1::lesson1::ex1".into(),
+            lesson_id: "course1::lesson1".into(),
+            course_id: "course1".into(),
+            name: "Name".into(),
+            description: Some("Description".into()),
+            exercise_type: ExerciseType::Procedural,
+            exercise_asset: ExerciseAsset::FlashcardAsset {
+                front_path: "ex1.front.md".into(),
+                back_path: "ex1.back.md".into(),
+            },
+        };
+        let actual_manifest: ExerciseManifest = exercise.into();
+        assert_eq!(actual_manifest, expected_manifest);
     }
 }
