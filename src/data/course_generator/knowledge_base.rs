@@ -221,16 +221,16 @@ impl KnowledgeBaseExercise {
         for exercise_file in files {
             match exercise_file {
                 KnowledgeBaseFile::ExerciseName(..) => {
-                    let path = lesson_root.join(format!("{}{}", EXERCISE_NAME_SUFFIX, short_id));
+                    let path = lesson_root.join(format!("{}{}", short_id, EXERCISE_NAME_SUFFIX));
                     exercise.name = Some(KnowledgeBaseFile::open(&path)?);
                 }
                 KnowledgeBaseFile::ExerciseDescription(..) => {
                     let path =
-                        lesson_root.join(format!("{}{}", EXERCISE_DESCRIPTION_SUFFIX, short_id));
+                        lesson_root.join(format!("{}{}", short_id, EXERCISE_DESCRIPTION_SUFFIX));
                     exercise.description = Some(KnowledgeBaseFile::open(&path)?);
                 }
                 KnowledgeBaseFile::ExerciseType(..) => {
-                    let path = lesson_root.join(format!("{}{}", EXERCISE_TYPE_SUFFIX, short_id));
+                    let path = lesson_root.join(format!("{}{}", short_id, EXERCISE_TYPE_SUFFIX));
                     exercise.exercise_type = Some(KnowledgeBaseFile::open(&path)?);
                 }
                 _ => {}
@@ -377,11 +377,11 @@ impl KnowledgeBaseLesson {
                 }
                 KnowledgeBaseFile::LessonMaterial => {
                     let path = lesson_root.join(LESSON_MATERIAL_FILE);
-                    lesson.lesson_material = Some(path.to_str().unwrap().to_string())
+                    lesson.lesson_material = Some(KnowledgeBaseFile::open(&path)?)
                 }
                 KnowledgeBaseFile::LessonInstructions => {
                     let path = lesson_root.join(LESSON_INSTRUCTIONS_FILE);
-                    lesson.lesson_instructions = Some(path.to_str().unwrap().to_string())
+                    lesson.lesson_instructions = Some(KnowledgeBaseFile::open(&path)?)
                 }
                 _ => {}
             }
@@ -558,7 +558,11 @@ impl GenerateManifests for KnowledgeBaseConfig {
 #[cfg(test)]
 mod test {
     use anyhow::Result;
-    use std::{fs::Permissions, io::Write, os::unix::prelude::PermissionsExt};
+    use std::{
+        fs::{self, Permissions},
+        io::{BufWriter, Write},
+        os::unix::prelude::PermissionsExt,
+    };
 
     use super::*;
 
@@ -800,5 +804,114 @@ mod test {
         ];
         assert_eq!(exercise_map.get(&ex1_id).unwrap(), &ex1_expected);
         assert!(!exercise_map.contains_key(&ex2_id));
+    }
+
+    // Serializes the object in JSON and writes it to the given file.
+    fn write_json<T: Serialize>(obj: &T, file: &Path) -> Result<()> {
+        let file = File::create(file)?;
+        let writer = BufWriter::new(file);
+        serde_json::to_writer_pretty(writer, obj)?;
+        Ok(())
+    }
+
+    // Verifies opening a lesson directory.
+    #[test]
+    fn open_lesson_dir() -> Result<()> {
+        // Create a test course and lesson directory.
+        let course_dir = tempfile::tempdir()?;
+        let lesson_dir = course_dir.path().join("lesson1.lesson");
+        fs::create_dir(&lesson_dir)?;
+
+        // Create lesson files in the directory.
+        let name = "Name";
+        let name_path = lesson_dir.join("lesson.name.json");
+        write_json(&name, &name_path)?;
+
+        let description = "Description";
+        let description_path = lesson_dir.join("lesson.description.json");
+        write_json(&description, &description_path)?;
+
+        let dependencies: Vec<Ustr> = vec!["lesson2".into(), "lesson3".into()];
+        let dependencies_path = lesson_dir.join("lesson.dependencies.json");
+        write_json(&dependencies, &dependencies_path)?;
+
+        let metadata: BTreeMap<String, Vec<String>> =
+            BTreeMap::from([("key".into(), vec!["value".into()])]);
+        let metadata_path = lesson_dir.join("lesson.metadata.json");
+        write_json(&metadata, &metadata_path)?;
+
+        let instructions_file = "instructions.md";
+        let instructions_path = lesson_dir.join("lesson.instructions.json");
+        write_json(&instructions_file, &instructions_path)?;
+
+        let material_file = "material.md";
+        let material_path = lesson_dir.join("lesson.material.json");
+        write_json(&material_file, &material_path)?;
+
+        // Create an example exercise and all of its files.
+        let front_content = "Front content";
+        let front_path = lesson_dir.join("ex1.front.md");
+        fs::write(front_path, front_content)?;
+
+        let back_content = "Back content";
+        let back_path = lesson_dir.join("ex1.back.md");
+        fs::write(back_path, back_content)?;
+
+        let exercise_name = "Exercise name";
+        let exercise_name_path = lesson_dir.join("ex1.name.json");
+        write_json(&exercise_name, &exercise_name_path)?;
+
+        let exercise_description = "Exercise description";
+        let exercise_description_path = lesson_dir.join("ex1.description.json");
+        write_json(&exercise_description, &exercise_description_path)?;
+
+        let exercise_type = ExerciseType::Procedural;
+        let exercise_type_path = lesson_dir.join("ex1.type.json");
+        write_json(&exercise_type, &exercise_type_path)?;
+
+        // Create a test course manifest.
+        let course_manifest = CourseManifest {
+            id: "course1".into(),
+            name: "Course 1".into(),
+            dependencies: vec![],
+            description: Some("Description".into()),
+            authors: None,
+            metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
+            course_instructions: None,
+            course_material: None,
+            generator_config: None,
+        };
+
+        // Open the lesson directory.
+        let (lesson, exercises) =
+            KnowledgeBaseLesson::open_lesson(&lesson_dir, &course_manifest, "lesson1".into())?;
+
+        // Verify the lesson.
+        assert_eq!(lesson.name, Some(name.into()));
+        assert_eq!(lesson.description, Some(description.into()));
+        assert_eq!(lesson.dependencies, Some(dependencies));
+        assert_eq!(lesson.metadata, Some(metadata));
+        assert_eq!(lesson.lesson_instructions, Some(instructions_file.into()));
+        assert_eq!(lesson.lesson_material, Some(material_file.into()));
+
+        // Verify the exercise.
+        assert_eq!(exercises.len(), 1);
+        let exercise = &exercises[0];
+        assert_eq!(exercise.name, Some(exercise_name.into()));
+        assert_eq!(exercise.description, Some(exercise_description.into()));
+        assert_eq!(exercise.exercise_type, Some(exercise_type));
+        assert_eq!(
+            exercise.front_file,
+            lesson_dir
+                .join("ex1.front.md")
+                .to_str()
+                .unwrap()
+                .to_string()
+        );
+        assert_eq!(
+            exercise.back_file,
+            lesson_dir.join("ex1.back.md").to_str().unwrap().to_string()
+        );
+        Ok(())
     }
 }
