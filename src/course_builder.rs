@@ -40,7 +40,7 @@ pub struct AssetBuilder {
 
 impl AssetBuilder {
     /// Writes the asset to the given directory.
-    pub fn build(&self, asset_directory: &PathBuf) -> Result<()> {
+    pub fn build(&self, asset_directory: &Path) -> Result<()> {
         // Create the asset directory and verify there's not an existing file with the same name.
         create_dir_all(asset_directory)?;
         let asset_path = asset_directory.join(&self.file_name);

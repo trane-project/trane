@@ -17,52 +17,52 @@ use crate::data::{
 };
 
 /// The suffix used to recognize a directory as a knowledge base lesson.
-const LESSON_SUFFIX: &str = ".lesson";
+pub const LESSON_SUFFIX: &str = ".lesson";
 
 /// The name of the file containing the dependencies of a lesson.
-const LESSON_DEPENDENCIES_FILE: &str = "lesson.dependencies.json";
+pub const LESSON_DEPENDENCIES_FILE: &str = "lesson.dependencies.json";
 
 /// The name of the file containing the name of a lesson.
-const LESSON_NAME_FILE: &str = "lesson.name.json";
+pub const LESSON_NAME_FILE: &str = "lesson.name.json";
 
 /// The name of the file containing the description of a lesson.
-const LESSON_DESCRIPTION_FILE: &str = "lesson.description.json";
+pub const LESSON_DESCRIPTION_FILE: &str = "lesson.description.json";
 
 /// The name of the file containing the metadata of a lesson.
-const LESSON_METADATA_FILE: &str = "lesson.metadata.json";
+pub const LESSON_METADATA_FILE: &str = "lesson.metadata.json";
 
 /// The name of the file containing the path to the lesson material.
-const LESSON_MATERIAL_FILE: &str = "lesson.material.json";
+pub const LESSON_MATERIAL_FILE: &str = "lesson.material.json";
 
 /// The name of the file containing the path to the lesson instructions.
-const LESSON_INSTRUCTIONS_FILE: &str = "lesson.instructions.json";
+pub const LESSON_INSTRUCTIONS_FILE: &str = "lesson.instructions.json";
 
 /// The suffix of the file containing the front of the flashcard for an exercise.
-const EXERCISE_FRONT_SUFFIX: &str = ".front.md";
+pub const EXERCISE_FRONT_SUFFIX: &str = ".front.md";
 
 /// The suffix of the file containing the back of the flashcard for an exercise.
-const EXERCISE_BACK_SUFFIX: &str = ".back.md";
+pub const EXERCISE_BACK_SUFFIX: &str = ".back.md";
 
 /// The suffix of the file containing the name of an exercise.
-const EXERCISE_NAME_SUFFIX: &str = ".name.json";
+pub const EXERCISE_NAME_SUFFIX: &str = ".name.json";
 
 /// The suffix of the file containing the description of an exercise.
-const EXERCISE_DESCRIPTION_SUFFIX: &str = ".description.json";
+pub const EXERCISE_DESCRIPTION_SUFFIX: &str = ".description.json";
 
 /// The suffix of the file containing the metadata of an exercise.
-const EXERCISE_TYPE_SUFFIX: &str = ".type.json";
+pub const EXERCISE_TYPE_SUFFIX: &str = ".type.json";
 
 /// An enum representing a type of file that can be found in a knowledge base lesson directory.
 #[derive(Debug, Eq, PartialEq)]
 enum KnowledgeBaseFile {
-    /// The file containing the dependencies of the lesson.
-    LessonDependencies,
-
     /// The file containing the name of the lesson.
     LessonName,
 
     /// The file containing the description of the lesson.
     LessonDescription,
+
+    /// The file containing the dependencies of the lesson.
+    LessonDependencies,
 
     /// The file containing the metadata of the lesson.
     LessonMetadata,
@@ -308,12 +308,12 @@ pub struct KnowledgeBaseLesson {
     ///the value should be written to a file. A JSON map of strings to list of strings works.
     pub metadata: Option<BTreeMap<String, Vec<String>>>,
 
-    /// The path to a markdown file containing the material covered in the lesson.
-    pub lesson_material: Option<String>,
-
     /// The path to a markdown file containing the instructions common to all exercises in the
     /// lesson.
-    pub lesson_instructions: Option<String>,
+    pub instructions: Option<String>,
+
+    /// The path to a markdown file containing the material covered in the lesson.
+    pub material: Option<String>,
 }
 
 impl KnowledgeBaseLesson {
@@ -351,8 +351,8 @@ impl KnowledgeBaseLesson {
             name: None,
             description: None,
             metadata: None,
-            lesson_material: None,
-            lesson_instructions: None,
+            instructions: None,
+            material: None,
         };
 
         // Iterate through the lesson files found in the lesson directory and set the corresponding
@@ -375,13 +375,13 @@ impl KnowledgeBaseLesson {
                     let path = lesson_root.join(LESSON_METADATA_FILE);
                     lesson.metadata = Some(KnowledgeBaseFile::open(&path)?)
                 }
-                KnowledgeBaseFile::LessonMaterial => {
-                    let path = lesson_root.join(LESSON_MATERIAL_FILE);
-                    lesson.lesson_material = Some(KnowledgeBaseFile::open(&path)?)
-                }
                 KnowledgeBaseFile::LessonInstructions => {
                     let path = lesson_root.join(LESSON_INSTRUCTIONS_FILE);
-                    lesson.lesson_instructions = Some(KnowledgeBaseFile::open(&path)?)
+                    lesson.instructions = Some(KnowledgeBaseFile::open(&path)?)
+                }
+                KnowledgeBaseFile::LessonMaterial => {
+                    let path = lesson_root.join(LESSON_MATERIAL_FILE);
+                    lesson.material = Some(KnowledgeBaseFile::open(&path)?)
                 }
                 _ => {}
             }
@@ -457,10 +457,10 @@ impl From<KnowledgeBaseLesson> for LessonManifest {
             description: lesson.description,
             metadata: lesson.metadata,
             lesson_instructions: lesson
-                .lesson_instructions
+                .instructions
                 .map(|path| BasicAsset::MarkdownAsset { path }),
             lesson_material: lesson
-                .lesson_material
+                .material
                 .map(|path| BasicAsset::MarkdownAsset { path }),
         }
     }
@@ -676,8 +676,8 @@ mod test {
             description: Some("Description".into()),
             dependencies: Some(vec!["lesson2".into()]),
             metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
-            lesson_instructions: Some("Instructions.md".into()),
-            lesson_material: Some("Material.md".into()),
+            instructions: Some("Instructions.md".into()),
+            material: Some("Material.md".into()),
         };
         let expected_manifest = LessonManifest {
             id: "course1::lesson1".into(),
@@ -752,8 +752,8 @@ mod test {
             description: Some("Description".into()),
             dependencies: Some(vec!["lesson2".into(), "other::lesson1".into()]),
             metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
-            lesson_instructions: Some("Instructions.md".into()),
-            lesson_material: Some("Material.md".into()),
+            instructions: Some("Instructions.md".into()),
+            material: Some("Material.md".into()),
         };
         let exercise = KnowledgeBaseExercise {
             short_id: "ex1".into(),
@@ -891,8 +891,8 @@ mod test {
         assert_eq!(lesson.description, Some(description.into()));
         assert_eq!(lesson.dependencies, Some(dependencies));
         assert_eq!(lesson.metadata, Some(metadata));
-        assert_eq!(lesson.lesson_instructions, Some(instructions_file.into()));
-        assert_eq!(lesson.lesson_material, Some(material_file.into()));
+        assert_eq!(lesson.instructions, Some(instructions_file.into()));
+        assert_eq!(lesson.material, Some(material_file.into()));
 
         // Verify the exercise.
         assert_eq!(exercises.len(), 1);
