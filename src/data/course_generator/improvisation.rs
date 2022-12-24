@@ -51,7 +51,7 @@ impl ImprovisationPassage {
 }
 
 /// The configuration for creating a new improvisation course.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ImprovisationConfig {
     /// The dependencies on other improvisation courses. Specifying these dependencies here instead
     /// of the [CourseManifest](crate::data::CourseManifest) allows Trane to generate more

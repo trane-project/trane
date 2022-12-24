@@ -16,7 +16,7 @@ use crate::data::{
 };
 
 /// Represents a music asset to be practiced.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum MusicAsset {
     /// A link to a SoundSlice.
     SoundSlice(String),
@@ -59,7 +59,7 @@ impl MusicAsset {
 }
 
 /// Represents a music passage to be practiced.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum MusicPassage {
     /// A single passage with no dependencies.
     SimplePassage {
@@ -211,7 +211,7 @@ impl MusicPassage {
 }
 
 /// The config to create a course that teaches a piece of music.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct MusicPieceConfig {
     /// The asset containing the music to be practiced.
     pub music_asset: MusicAsset,
@@ -223,9 +223,9 @@ pub struct MusicPieceConfig {
 impl GenerateManifests for MusicPieceConfig {
     fn generate_manifests(
         &self,
-        _: &Path,
+        _course_root: &Path,
         course_manifest: &CourseManifest,
-        _: &UserPreferences,
+        _preferences: &UserPreferences,
     ) -> Result<GeneratedCourse> {
         Ok(GeneratedCourse {
             lessons: self

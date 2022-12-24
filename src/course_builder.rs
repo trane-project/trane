@@ -7,6 +7,7 @@
 //! development, so the format of the manifests is not stable yet. Generating the files by code
 //! makes it easier to make updates to the files as the format changes.
 
+pub mod knowledge_base_builder;
 pub mod music;
 
 use anyhow::{ensure, Result};
@@ -39,7 +40,7 @@ pub struct AssetBuilder {
 
 impl AssetBuilder {
     /// Writes the asset to the given directory.
-    pub fn build(&self, asset_directory: &PathBuf) -> Result<()> {
+    pub fn build(&self, asset_directory: &Path) -> Result<()> {
         // Create the asset directory and verify there's not an existing file with the same name.
         create_dir_all(asset_directory)?;
         let asset_path = asset_directory.join(&self.file_name);
@@ -176,7 +177,7 @@ impl LessonBuilder {
 
 /// A builder that generates the files needed to add a course.
 pub struct CourseBuilder {
-    /// Base name of the directory on which to store this lesson.
+    /// Base name of the directory on which to store this course.
     pub directory_name: String,
 
     /// The manifest for the course.

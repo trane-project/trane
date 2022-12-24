@@ -14,6 +14,7 @@ use ustr::Ustr;
 
 use self::course_generator::{
     improvisation::{ImprovisationConfig, ImprovisationPreferences},
+    knowledge_base::KnowledgeBaseConfig,
     music_piece::MusicPieceConfig,
 };
 
@@ -182,7 +183,7 @@ pub trait GetUnitType {
 
 /// An asset attached to a unit, which could be used to store instructions, or present the material
 /// introduced by a course or lesson.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum BasicAsset {
     /// An asset containing the path to a markdown file.
     MarkdownAsset {
@@ -231,10 +232,14 @@ impl VerifyPaths for BasicAsset {
 }
 
 /// A configuration used for generating special types of courses on the fly.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum CourseGenerator {
     /// The configuration for generating an improvisation course.
     Improvisation(ImprovisationConfig),
+
+    /// The configuration for generating a knowledge base course. Currently, there are no
+    /// configuration options, but the struct was added to implement the [GenerateManifests] trait.
+    KnowledgeBase(KnowledgeBaseConfig),
 
     /// The configuration for generating a music piece course.
     MusicPiece(MusicPieceConfig),
@@ -281,6 +286,9 @@ impl GenerateManifests for CourseGenerator {
             CourseGenerator::Improvisation(config) => {
                 config.generate_manifests(course_root, course_manifest, preferences)
             }
+            CourseGenerator::KnowledgeBase(config) => {
+                config.generate_manifests(course_root, course_manifest, preferences)
+            }
             CourseGenerator::MusicPiece(config) => {
                 config.generate_manifests(course_root, course_manifest, preferences)
             }
@@ -289,7 +297,7 @@ impl GenerateManifests for CourseGenerator {
 }
 
 /// A manifest describing the contents of a course.
-#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
+#[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct CourseManifest {
     /// The ID assigned to this course.
@@ -379,7 +387,7 @@ impl GetUnitType for CourseManifest {
 }
 
 /// A manifest describing the contents of a lesson.
-#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
+#[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct LessonManifest {
     /// The ID assigned to this lesson.
@@ -462,7 +470,7 @@ impl GetUnitType for LessonManifest {
 }
 
 /// The type of knowledge tested by an exercise.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum ExerciseType {
     /// Represents an exercise that tests mastery of factual knowledge. For example, an exercise
     /// asking students to name the notes in a D Major chord.
@@ -474,7 +482,7 @@ pub enum ExerciseType {
 }
 
 /// The asset storing the material of a particular exercise.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub enum ExerciseAsset {
     /// An asset which stores a link to a SoundSlice.
@@ -568,7 +576,7 @@ impl VerifyPaths for ExerciseAsset {
 }
 
 /// Manifest describing a single exercise.
-#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
+#[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ExerciseManifest {
     /// The ID assigned to this exercise.
     ///
