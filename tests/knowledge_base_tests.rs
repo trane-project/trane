@@ -25,10 +25,7 @@ use ustr::Ustr;
 /// Generates a random number of dependencies for the lesson with the given index. All dependencies
 /// will have a lower index to avoid cycles.
 fn generate_lesson_dependencies(lesson_index: usize, rng: &mut impl Rng) -> Vec<Ustr> {
-    if lesson_index == 0 {
-        return vec![];
-    }
-    let num_dependencies = rng.gen_range(0..lesson_index) as usize;
+    let num_dependencies = rng.gen_range(0..=lesson_index) as usize;
     if num_dependencies == 0 {
         return vec![];
     }

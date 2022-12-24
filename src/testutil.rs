@@ -310,9 +310,6 @@ impl RandomCourseLibrary {
     /// Generates random dependencies for the given course. All dependencies are to courses with a
     /// lower course ID to ensure the graph is acyclic.
     fn generate_course_dependencies(&self, course_id: &TestId, rng: &mut impl Rng) -> Vec<TestId> {
-        if self.course_dependencies_range.0 == self.course_dependencies_range.1 {
-            return vec![];
-        }
         let num_dependencies = rng
             .gen_range(self.course_dependencies_range.0..=self.course_dependencies_range.1)
             as usize;
