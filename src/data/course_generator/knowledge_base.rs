@@ -538,7 +538,7 @@ impl GenerateManifests for KnowledgeBaseConfig {
         KnowledgeBaseConfig::convert_to_full_dependencies(course_manifest, short_ids, &mut lessons);
 
         // Generate the manifests for all the lessons and exercises.
-        let manifests = lessons
+        let manifests: Vec<(LessonManifest, Vec<ExerciseManifest>)> = lessons
             .into_iter()
             .map(|(_, (lesson, exercises))| {
                 let lesson_manifest = LessonManifest::from(lesson);
@@ -547,6 +547,7 @@ impl GenerateManifests for KnowledgeBaseConfig {
                 (lesson_manifest, exercise_manifests)
             })
             .collect();
+
         Ok(GeneratedCourse {
             lessons: manifests,
             updated_instructions: None,

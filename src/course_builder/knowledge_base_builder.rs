@@ -4,9 +4,9 @@
 //! hand. This module contains utilities to make it easier to generate these files, specially for
 //! testing purposes.
 
-use anyhow::Result;
+use anyhow::{ensure, Result};
 use std::{
-    fs::{self, File},
+    fs::{self, create_dir_all, File},
     io::Write,
     path::Path,
 };
@@ -141,6 +141,9 @@ impl LessonBuilder {
 
 /// A builder to generate a knowledge base course and associated assets.
 pub struct CourseBuilder {
+    /// Base name of the directory on which to store this course.
+    pub directory_name: String,
+
     /// The builders for the lessons in this course.
     pub lessons: Vec<LessonBuilder>,
 
@@ -153,10 +156,19 @@ pub struct CourseBuilder {
 
 impl CourseBuilder {
     /// Writes the files needed for this course to the given directory.
-    pub fn build(&self, course_directory: &Path) -> Result<()> {
+    pub fn build(&self, parent_directory: &Path) -> Result<()> {
+        // Verify that the directory doesn't already exist and create it.
+        let course_directory = parent_directory.join(&self.directory_name);
+        ensure!(
+            !course_directory.is_dir(),
+            "course directory {} already exists",
+            course_directory.display(), // grcov-excl-line
+        );
+        create_dir_all(&course_directory)?;
+
         // Write all the assets.
         for builder in &self.assets {
-            builder.build(course_directory)?;
+            builder.build(&course_directory)?;
         }
 
         // For each lesson in the course, create a directory with the name
@@ -245,6 +257,7 @@ mod test {
     fn course_builder() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
         let course_builder = CourseBuilder {
+            directory_name: "course1".into(),
             manifest: CourseManifest {
                 id: "course1".into(),
                 name: "Course 1".into(),
@@ -272,7 +285,8 @@ mod test {
         course_builder.build(temp_dir.path())?;
 
         // Verify that the exercise was built correctly.
-        let lesson_dir = temp_dir.path().join("lesson1.lesson");
+        let course_dir = temp_dir.path().join("course1");
+        let lesson_dir = course_dir.join("lesson1.lesson");
         assert!(lesson_dir.exists());
         assert!(lesson_dir.join("ex1.front.md").exists());
         assert_eq!(
@@ -320,7 +334,8 @@ mod test {
         assert_eq!(
             KnowledgeBaseFile::open::<BTreeMap<String, Vec<String>>>(
                 &lesson_dir.join(LESSON_METADATA_FILE)
-            )?,
+            )
+            .unwrap(),
             BTreeMap::from([("key".to_string(), vec!["value".to_string()])]),
         );
         assert!(lesson_dir.join(LESSON_INSTRUCTIONS_FILE).exists());
@@ -343,21 +358,20 @@ mod test {
         );
 
         // Verify that the course was built correctly.
-        assert!(temp_dir.path().join("course_manifest.json").exists());
+        assert!(course_dir.join("course_manifest.json").exists());
         assert_eq!(
-            KnowledgeBaseFile::open::<CourseManifest>(
-                &temp_dir.path().join("course_manifest.json")
-            )?,
+            KnowledgeBaseFile::open::<CourseManifest>(&course_dir.join("course_manifest.json"))
+                .unwrap(),
             course_builder.manifest,
         );
-        assert!(temp_dir.path().join("course_instructions.md").exists());
+        assert!(course_dir.join("course_instructions.md").exists());
         assert_eq!(
-            fs::read_to_string(temp_dir.path().join("course_instructions.md"))?,
+            fs::read_to_string(course_dir.join("course_instructions.md"))?,
             "Course Instructions",
         );
-        assert!(temp_dir.path().join("course_material.md").exists());
+        assert!(course_dir.join("course_material.md").exists());
         assert_eq!(
-            fs::read_to_string(temp_dir.path().join("course_material.md"))?,
+            fs::read_to_string(course_dir.join("course_material.md"))?,
             "Course Material",
         );
 

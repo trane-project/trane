@@ -177,7 +177,7 @@ impl LessonBuilder {
 
 /// A builder that generates the files needed to add a course.
 pub struct CourseBuilder {
-    /// Base name of the directory on which to store this lesson.
+    /// Base name of the directory on which to store this course.
     pub directory_name: String,
 
     /// The manifest for the course.
