@@ -232,7 +232,7 @@ impl VerifyPaths for BasicAsset {
 }
 
 /// A configuration used for generating special types of courses on the fly.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum CourseGenerator {
     /// The configuration for generating an improvisation course.
     Improvisation(ImprovisationConfig),
@@ -297,7 +297,7 @@ impl GenerateManifests for CourseGenerator {
 }
 
 /// A manifest describing the contents of a course.
-#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
+#[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct CourseManifest {
     /// The ID assigned to this course.

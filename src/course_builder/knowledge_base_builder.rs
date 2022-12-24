@@ -176,3 +176,191 @@ impl CourseBuilder {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod test {
+    use std::collections::BTreeMap;
+
+    use anyhow::Result;
+
+    use crate::{
+        course_builder::knowledge_base_builder::*,
+        data::{course_generator::knowledge_base::KnowledgeBaseFile, ExerciseType},
+    };
+
+    /// Creates a test lesson builder.
+    fn test_lesson_builder() -> LessonBuilder {
+        let exercise_builder = ExerciseBuilder {
+            exercise: KnowledgeBaseExercise {
+                short_id: "ex1".to_string(),
+                short_lesson_id: "lesson1".into(),
+                course_id: "course1".into(),
+                front_file: "ex1.front.md".to_string(),
+                back_file: "ex1.back.md".to_string(),
+                name: Some("Exercise 1".to_string()),
+                description: Some("Exercise 1 description".to_string()),
+                exercise_type: Some(ExerciseType::Procedural),
+            },
+            asset_builders: vec![
+                AssetBuilder {
+                    file_name: "ex1.front.md".to_string(),
+                    contents: "Exercise 1 front".to_string(),
+                },
+                AssetBuilder {
+                    file_name: "ex1.back.md".to_string(),
+                    contents: "Exercise 1 back".to_string(),
+                },
+            ],
+        };
+        LessonBuilder {
+            lesson: KnowledgeBaseLesson {
+                short_id: "lesson1".into(),
+                course_id: "course1".into(),
+                name: Some("Lesson 1".to_string()),
+                description: Some("Lesson 1 description".to_string()),
+                dependencies: Some(vec!["lesson2".into()]),
+                metadata: Some(BTreeMap::from([(
+                    "key".to_string(),
+                    vec!["value".to_string()],
+                )])),
+                instructions: Some("instructions.md".to_string()),
+                material: Some("material.md".to_string()),
+            },
+            exercises: vec![exercise_builder],
+            assets: vec![
+                AssetBuilder {
+                    file_name: "instructions.md".to_string(),
+                    contents: "Instructions".to_string(),
+                },
+                AssetBuilder {
+                    file_name: "material.md".to_string(),
+                    contents: "Material".to_string(),
+                },
+            ],
+        }
+    }
+
+    /// Verifies that the course builder writes the correct files to disk.
+    #[test]
+    fn course_builder() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let course_builder = CourseBuilder {
+            manifest: CourseManifest {
+                id: "course1".into(),
+                name: "Course 1".into(),
+                dependencies: vec![],
+                description: None,
+                authors: None,
+                metadata: None,
+                course_material: None,
+                course_instructions: None,
+                generator_config: None,
+            },
+            lessons: vec![test_lesson_builder()],
+            assets: vec![
+                AssetBuilder {
+                    file_name: "course_instructions.md".to_string(),
+                    contents: "Course Instructions".to_string(),
+                },
+                AssetBuilder {
+                    file_name: "course_material.md".to_string(),
+                    contents: "Course Material".to_string(),
+                },
+            ],
+        };
+
+        course_builder.build(temp_dir.path())?;
+
+        // Verify that the exercise was built correctly.
+        let lesson_dir = temp_dir.path().join("lesson1.lesson");
+        assert!(lesson_dir.exists());
+        assert!(lesson_dir.join("ex1.front.md").exists());
+        assert_eq!(
+            fs::read_to_string(lesson_dir.join("ex1.front.md"))?,
+            "Exercise 1 front"
+        );
+        assert!(lesson_dir.join("ex1.back.md").exists());
+        assert_eq!(
+            fs::read_to_string(lesson_dir.join("ex1.back.md"))?,
+            "Exercise 1 back"
+        );
+        assert!(lesson_dir.join("ex1.name.json").exists());
+        assert_eq!(
+            KnowledgeBaseFile::open::<String>(&lesson_dir.join("ex1.name.json"))?,
+            "Exercise 1",
+        );
+        assert!(lesson_dir.join("ex1.description.json").exists());
+        assert_eq!(
+            KnowledgeBaseFile::open::<String>(&lesson_dir.join("ex1.description.json"))?,
+            "Exercise 1 description",
+        );
+        assert!(lesson_dir.join("ex1.type.json").exists());
+        assert_eq!(
+            KnowledgeBaseFile::open::<ExerciseType>(&lesson_dir.join("ex1.type.json"))?,
+            ExerciseType::Procedural,
+        );
+
+        // Verify that the lesson was built correctly.
+        assert!(lesson_dir.join(LESSON_NAME_FILE).exists());
+        assert_eq!(
+            KnowledgeBaseFile::open::<String>(&lesson_dir.join(LESSON_NAME_FILE))?,
+            "Lesson 1",
+        );
+        assert!(lesson_dir.join(LESSON_DESCRIPTION_FILE).exists());
+        assert_eq!(
+            KnowledgeBaseFile::open::<String>(&lesson_dir.join(LESSON_DESCRIPTION_FILE))?,
+            "Lesson 1 description",
+        );
+        assert!(lesson_dir.join(LESSON_DEPENDENCIES_FILE).exists());
+        assert_eq!(
+            KnowledgeBaseFile::open::<Vec<String>>(&lesson_dir.join(LESSON_DEPENDENCIES_FILE))?,
+            vec!["lesson2".to_string()],
+        );
+        assert!(lesson_dir.join(LESSON_METADATA_FILE).exists());
+        assert_eq!(
+            KnowledgeBaseFile::open::<BTreeMap<String, Vec<String>>>(
+                &lesson_dir.join(LESSON_METADATA_FILE)
+            )?,
+            BTreeMap::from([("key".to_string(), vec!["value".to_string()])]),
+        );
+        assert!(lesson_dir.join(LESSON_INSTRUCTIONS_FILE).exists());
+        assert_eq!(
+            fs::read_to_string(lesson_dir.join("instructions.md"))?,
+            "Instructions",
+        );
+        assert_eq!(
+            KnowledgeBaseFile::open::<String>(&lesson_dir.join(LESSON_INSTRUCTIONS_FILE))?,
+            "instructions.md",
+        );
+        assert!(lesson_dir.join(LESSON_MATERIAL_FILE).exists());
+        assert_eq!(
+            fs::read_to_string(lesson_dir.join("material.md"))?,
+            "Material",
+        );
+        assert_eq!(
+            KnowledgeBaseFile::open::<String>(&lesson_dir.join(LESSON_MATERIAL_FILE))?,
+            "material.md",
+        );
+
+        // Verify that the course was built correctly.
+        assert!(temp_dir.path().join("course_manifest.json").exists());
+        assert_eq!(
+            KnowledgeBaseFile::open::<CourseManifest>(
+                &temp_dir.path().join("course_manifest.json")
+            )?,
+            course_builder.manifest,
+        );
+        assert!(temp_dir.path().join("course_instructions.md").exists());
+        assert_eq!(
+            fs::read_to_string(temp_dir.path().join("course_instructions.md"))?,
+            "Course Instructions",
+        );
+        assert!(temp_dir.path().join("course_material.md").exists());
+        assert_eq!(
+            fs::read_to_string(temp_dir.path().join("course_material.md"))?,
+            "Course Material",
+        );
+
+        Ok(())
+    }
+}

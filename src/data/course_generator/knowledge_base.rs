@@ -54,7 +54,7 @@ pub const EXERCISE_TYPE_SUFFIX: &str = ".type.json";
 
 /// An enum representing a type of file that can be found in a knowledge base lesson directory.
 #[derive(Debug, Eq, PartialEq)]
-enum KnowledgeBaseFile {
+pub enum KnowledgeBaseFile {
     /// The file containing the name of the lesson.
     LessonName,
 
@@ -91,7 +91,7 @@ enum KnowledgeBaseFile {
 
 impl KnowledgeBaseFile {
     /// Opens the knowledge base file at the given path and deserializes its contents.
-    fn open<T: DeserializeOwned>(path: &Path) -> Result<T> {
+    pub fn open<T: DeserializeOwned>(path: &Path) -> Result<T> {
         let file = File::open(path)
             .with_context(|| anyhow!("cannot open knowledge base file {}", path.display()))?;
         let reader = BufReader::new(file);
@@ -469,7 +469,7 @@ impl From<KnowledgeBaseLesson> for LessonManifest {
 /// The configuration for a knowledge base course. Currently, this is an empty struct, but it is
 /// added for consistency with other course generators and to implement the
 /// [GenerateManifests](crate::data::GenerateManifests) trait.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct KnowledgeBaseConfig {}
 
 impl KnowledgeBaseConfig {
