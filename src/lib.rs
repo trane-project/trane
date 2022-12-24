@@ -129,7 +129,10 @@ impl Trane {
     pub fn new(library_root: &Path) -> Result<Trane> {
         let config_path = library_root.join(Path::new(TRANE_CONFIG_DIR_PATH));
 
+        // The course library must be created first because it makes sure to initialize all the
+        // required directories if they are missing.
         let course_library = Arc::new(RwLock::new(LocalCourseLibrary::new(library_root)?));
+
         let unit_graph = course_library.write().get_unit_graph();
         let practice_stats = Arc::new(RwLock::new(PracticeStatsDB::new_from_disk(
             config_path.join(PRACTICE_STATS_PATH).to_str().unwrap(),
