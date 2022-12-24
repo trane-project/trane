@@ -298,7 +298,6 @@ impl GenerateManifests for CourseGenerator {
 
 /// A manifest describing the contents of a course.
 #[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct CourseManifest {
     /// The ID assigned to this course.
     ///
@@ -388,7 +387,6 @@ impl GetUnitType for CourseManifest {
 
 /// A manifest describing the contents of a lesson.
 #[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct LessonManifest {
     /// The ID assigned to this lesson.
     ///
@@ -483,7 +481,6 @@ pub enum ExerciseType {
 
 /// The asset storing the material of a particular exercise.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
 pub enum ExerciseAsset {
     /// An asset which stores a link to a SoundSlice.
     SoundSliceAsset {
