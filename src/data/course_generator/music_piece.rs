@@ -5,7 +5,7 @@
 //! smallest passages and then working up until the full piece is mastered.
 
 use anyhow::Result;
-use indoc::formatdoc;
+use indoc::{formatdoc, indoc};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::Path};
 use ustr::Ustr;
@@ -14,6 +14,13 @@ use crate::data::{
     BasicAsset, CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseType, GenerateManifests,
     GeneratedCourse, LessonManifest, UserPreferences,
 };
+
+/// The common instructions for all lessons in the course.
+const INSTRUCTIONS: &str = indoc! {"
+    Given the following passage from the piece, start by listening to it repeatedly
+    until you can audiate it clearly in your head. You can also attempt to hum or
+    sing it if possible. Then, play the passage on your instrument.
+"};
 
 /// Represents a music asset to be practiced.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -31,11 +38,11 @@ impl MusicAsset {
         match self {
             MusicAsset::SoundSlice(url) => {
                 let description = formatdoc! {"
-                    Play the following passage of music in the piece.
+                    {}
 
-                        Start: {}
-                        End: {}
-                ", start, end};
+                    - Passage start: {}
+                    - Passage end: {}
+                ", INSTRUCTIONS, start, end};
                 ExerciseAsset::SoundSliceAsset {
                     link: url.clone(),
                     description: Some(description),
@@ -44,12 +51,14 @@ impl MusicAsset {
             }
             MusicAsset::LocalFile(path) => {
                 let description = formatdoc! {"
-                    Play the following passage of music in the piece.
-                    - Start: {}
-                    -End: {}
+                    {}
+
+                    - Passage start: {}
+                    - Passage end: {}
                     
-                    The file containing the music sheet is located at {}.
-                ", path, start, end};
+                    The file containing the music sheet is located at {}. Relative paths are
+                    relative to the root of the course.
+                ", INSTRUCTIONS, start, end, path};
                 ExerciseAsset::BasicAsset(BasicAsset::InlinedAsset {
                     content: description,
                 })
@@ -198,14 +207,20 @@ impl MusicPassage {
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         match &self {
             MusicPassage::SimplePassage { .. } => {
+                // Since this is a simple exercise, there's no need to generate any dependencies, so
+                // the path is empty.
                 self.generate_lesson_helper(course_manifest, vec![], None, music_asset)
             }
-            MusicPassage::ComplexPassage { dependencies, .. } => self.generate_lesson_helper(
-                course_manifest,
-                vec![0],
-                Some(dependencies),
-                music_asset,
-            ),
+            MusicPassage::ComplexPassage { dependencies, .. } => {
+                // This is a complex exercise, so generate the lesson for this passage and all its
+                // dependencies, using a starting path of [0].
+                self.generate_lesson_helper(
+                    course_manifest,
+                    vec![0],
+                    Some(dependencies),
+                    music_asset,
+                )
+            }
         }
     }
 }

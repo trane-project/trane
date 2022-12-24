@@ -41,7 +41,11 @@ impl ImprovisationPassage {
             content: formatdoc! {
                 "{}
 
-                The file containing the music sheet for this exercise is located at {}.",
+                You should perform this exercise in the key and instrument (or sight-singing)
+                stated in the lesson name, if any.
+
+                The file containing the music sheet for this exercise is located at {}.
+                Relative paths are relative to the root of the course.",
                 description,
                 self.path,
             }
