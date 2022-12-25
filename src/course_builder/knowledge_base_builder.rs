@@ -13,15 +13,7 @@ use std::{
 
 use crate::{
     course_builder::AssetBuilder,
-    data::{
-        course_generator::knowledge_base::{
-            KnowledgeBaseExercise, KnowledgeBaseLesson, EXERCISE_DESCRIPTION_SUFFIX,
-            EXERCISE_NAME_SUFFIX, EXERCISE_TYPE_SUFFIX, LESSON_DEPENDENCIES_FILE,
-            LESSON_DESCRIPTION_FILE, LESSON_INSTRUCTIONS_FILE, LESSON_MATERIAL_FILE,
-            LESSON_METADATA_FILE, LESSON_NAME_FILE, LESSON_SUFFIX,
-        },
-        CourseManifest,
-    },
+    data::{course_generator::knowledge_base::*, CourseManifest},
 };
 
 /// A builder to generate a knowledge base exercise and associated assets.
