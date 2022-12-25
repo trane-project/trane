@@ -69,7 +69,7 @@ impl From<TestPassage> for MusicPassage {
             TestPassage::ComplexPassage(passages) => MusicPassage::ComplexPassage {
                 start: "passage start".to_string(),
                 end: "passage end".to_string(),
-                dependencies: passages
+                sub_passages: passages
                     .into_iter()
                     .enumerate()
                     .map(|(index, passage)| (index, MusicPassage::from(passage)))

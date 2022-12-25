@@ -118,11 +118,18 @@ lessons for each key. Instead, you should select a random key each time you do t
 
 ## Tools
 
+### Lilypond
+
+Passages in the official improvisation courses are written using the plain-text Lilypond format. See
+the [Lilypond](./lilypond.md) section for more information.
+
 ### SoundSlice
 
-The passages in this course are declared as links to a SoundSlice page. SoundSlice is a great tool
-that lets you play, loop, and transpose a musical score. It's used in this course since it already
-provides many of the functionalities that are needed for the exercises.
+The passages in this course can also be declared as links to a SoundSlice page. SoundSlice is a
+great tool that lets you play, loop, and transpose a musical score. It's not used in the course
+since it is a proprietary tool and requires online access, but it is a great tool, and you are free
+to use it in your own courses. There is no native integration with SoundSlice, but you can easily
+add a Markdown file with the link to the SoundSlice as its content.
 
 ### Melodear
 
@@ -130,3 +137,6 @@ The Melodear app is a great tool for sight-singing. It provides a grid of the to
 chord and mode and gives you great visual feedback of where you are singing. The free version only
 lets you use a few chords, but it should be enough since you only need one chord if you are
 sight-singing with the recommended Do-La solfège system.
+
+See this [page](https://melodear-app.com/melodear-training) for additional training on how to use
+Melodear.

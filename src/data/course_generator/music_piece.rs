@@ -22,6 +22,7 @@ const INSTRUCTIONS: &str = indoc! {"
     sing it if possible. Then, play the passage on your instrument.
 "};
 
+//@<music-asset
 /// Represents a music asset to be practiced.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum MusicAsset {
@@ -31,6 +32,7 @@ pub enum MusicAsset {
     /// The path to a local file. For example, the path to a PDF of the sheet music.
     LocalFile(String),
 }
+//>@music-asset
 
 impl MusicAsset {
     /// Generates an exercise asset from this music asset.
@@ -67,6 +69,7 @@ impl MusicAsset {
     }
 }
 
+//@<music-passage
 /// Represents a music passage to be practiced.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum MusicPassage {
@@ -91,19 +94,25 @@ pub enum MusicPassage {
         /// The end of the passage.
         end: String,
 
-        /// The passages that must be mastered before this passage can be mastered. Each passage
-        /// should be given a unique index which will be used to generate the lesson ID. Those
-        /// values should not change once they are defined or progress for this lesson will be lost.
-        dependencies: HashMap<usize, MusicPassage>,
+        /// The sub-passages that must be mastered before this passage can be mastered. Each
+        /// sub-passage should be given a unique index which will be used to generate the lesson ID.
+        /// Those values should not change once they are defined or progress for this lesson will be
+        /// lost. This value is a map instead of a list because rearranging the order of the
+        /// passages in a list would also change the IDs of the generated lessons.
+        sub_passages: HashMap<usize, MusicPassage>,
     },
 }
+//>@music-passage
 
 impl MusicPassage {
     /// Retrieves the dependencies of this passage.
     fn passage_dependencies(&self) -> Option<&HashMap<usize, MusicPassage>> {
         match self {
             MusicPassage::SimplePassage { .. } => None,
-            MusicPassage::ComplexPassage { dependencies, .. } => Some(dependencies),
+            MusicPassage::ComplexPassage {
+                sub_passages: dependencies,
+                ..
+            } => Some(dependencies),
         }
     }
 
@@ -211,7 +220,10 @@ impl MusicPassage {
                 // the path is empty.
                 self.generate_lesson_helper(course_manifest, vec![], None, music_asset)
             }
-            MusicPassage::ComplexPassage { dependencies, .. } => {
+            MusicPassage::ComplexPassage {
+                sub_passages: dependencies,
+                ..
+            } => {
                 // This is a complex exercise, so generate the lesson for this passage and all its
                 // dependencies, using a starting path of [0].
                 self.generate_lesson_helper(
@@ -225,6 +237,7 @@ impl MusicPassage {
     }
 }
 
+//@<music-piece-config
 /// The config to create a course that teaches a piece of music.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct MusicPieceConfig {
@@ -234,6 +247,7 @@ pub struct MusicPieceConfig {
     /// The passages in which the music is divided for practice.
     pub passages: MusicPassage,
 }
+//>@music-piece-config
 
 impl GenerateManifests for MusicPieceConfig {
     fn generate_manifests(

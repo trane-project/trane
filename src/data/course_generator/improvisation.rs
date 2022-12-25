@@ -22,6 +22,7 @@ use crate::data::{
     LessonManifest, UserPreferences,
 };
 
+//@<improvisation-passage
 /// A single musical passage to be used in an improvisation course. A course can contain multiple
 /// passages but all of those passages are assumed to have the same key or mode.
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -33,6 +34,7 @@ pub struct ImprovisationPassage {
     /// The path to the file containing the passage.
     pub path: String,
 }
+//>@improvisation-passage
 
 impl ImprovisationPassage {
     /// Generates an exercise asset for this passage with the given description.
@@ -54,6 +56,7 @@ impl ImprovisationPassage {
     }
 }
 
+//@<improvisation-config
 /// The configuration for creating a new improvisation course.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ImprovisationConfig {
@@ -62,8 +65,8 @@ pub struct ImprovisationConfig {
     /// fine-grained dependencies.
     pub improvisation_dependencies: Vec<Ustr>,
 
-    /// If true, the course contains passages that concern only rhythm. Lessons to learn the melody
-    /// and harmony of the passages will not be generated. The mode of the course will be ignored.
+    /// If true, the course contains passages only have rhythm and contain no melodic nor harmonic
+    /// information. Lessons to learn the melody and harmony of the passages will not be generated.
     pub rhythm_only: bool,
 
     /// The directory where the passages are stored. The name of each file (minus the extension)
@@ -75,7 +78,9 @@ pub struct ImprovisationConfig {
     /// first option is recommended.
     pub passage_directory: String,
 }
+//>@improvisation-config
 
+//@<improvisation-instrument
 /// Describes an instrument that can be used to practice in an improvisation course.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Instrument {
@@ -85,7 +90,9 @@ pub struct Instrument {
     /// An ID for this instrument used to generate lesson IDs. For example, "tenor_saxophone".
     pub id: String,
 }
+//>@improvisation-instrument
 
+//@<improvisation-preferences
 /// Settings for generating a new improvisation course that are specific to a user.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct ImprovisationPreferences {
@@ -96,6 +103,7 @@ pub struct ImprovisationPreferences {
     /// show up in the rhythm lessons.
     pub rhythm_only_instruments: Vec<Instrument>,
 }
+//>@improvisation-preferences
 
 impl ImprovisationConfig {
     /// Returns the ID for a given exercise given the lesson ID and the exercise index.
