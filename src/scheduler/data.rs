@@ -273,6 +273,7 @@ mod test {
         ];
     }
 
+    /// Verifies that the scheduler data correctly knows which units exist and their types.
     #[test]
     fn unit_exists() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
@@ -297,6 +298,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that a metadata filter cannot be applied to an exercise.
     #[test]
     fn exercise_metadata_filter() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
@@ -313,6 +315,8 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that the frequency of an exercise is correctly incremented when the exercise is
+    /// scheduled.
     #[test]
     fn exercise_frequency() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;

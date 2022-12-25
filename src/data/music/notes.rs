@@ -98,6 +98,7 @@ impl ToString for Note {
 mod test {
     use super::*;
 
+    /// Verifies converting a note to a string.
     #[test]
     fn to_string() {
         assert_eq!(Note(NaturalNote::A, Accidental::Natural).to_string(), "A");
@@ -105,6 +106,7 @@ mod test {
         assert_eq!(Note(NaturalNote::A, Accidental::Sharp).to_string(), "A♯");
     }
 
+    /// Verifies converting a note to an ASCII string.
     #[test]
     fn to_ascii_string() {
         assert_eq!(
@@ -121,6 +123,8 @@ mod test {
         );
     }
 
+    /// Verifies that notes can be cloned. Done to ensure that the auto-generated trait
+    /// implementation is included in the code coverage report.
     #[test]
     fn note_clone() {
         let note = Note(NaturalNote::A, Accidental::Natural);

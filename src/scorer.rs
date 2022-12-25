@@ -138,11 +138,13 @@ mod test {
         now - num_days * SECONDS_IN_DAY
     }
 
+    /// Verifies the score for an exercise with no previous trials is 0.0.
     #[test]
     fn no_previous_trials() {
         assert_eq!(0.0, SCORER.score(&vec![]).unwrap());
     }
 
+    /// Verifies the expected score for an exercise with a single trial.
     #[test]
     fn single_trial() {
         let score1 = 4.0;
@@ -161,6 +163,8 @@ mod test {
         );
     }
 
+    /// Verifies the expected score for an exercise is adjusted based on the number of days since
+    /// the trial and the index of the trial in the list of previous trials.
     #[test]
     fn score_and_weight_adjusted_by_day_and_index() {
         // Both scores are from a few days ago. Calculate their weight and adjusted scores based on
@@ -195,6 +199,7 @@ mod test {
         );
     }
 
+    /// Verifies that the score for a trial in the future is not adjusted.
     #[test]
     fn score_after_now() {
         // The first score is from zero days ago. Its adjusted score is equal to the original score.
@@ -228,6 +233,7 @@ mod test {
         );
     }
 
+    /// Verifies that the score and weight for a trial never go below the minimum.
     #[test]
     fn score_and_weight_never_less_than_minimum() {
         // The first score is from a few days ago. Its weight and adjusted score should not be
@@ -262,6 +268,7 @@ mod test {
         );
     }
 
+    /// Verify scoring an exercise with an invalid timestamp fails.
     #[test]
     fn invalid_timestamp() {
         // The timestamp is before the Unix epoch.

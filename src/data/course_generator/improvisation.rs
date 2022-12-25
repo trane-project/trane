@@ -1065,6 +1065,7 @@ mod test {
         BasicAsset, CourseGenerator, CourseManifest, GenerateManifests, UserPreferences,
     };
 
+    /// Verifies that the instructions for the course are not replaced if they are already set.
     #[test]
     fn do_not_replace_existing_instructions() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
@@ -1095,6 +1096,8 @@ mod test {
         Ok(())
     }
 
+    /// Verifies cloning an instrument. Done so that the auto-generated trait implementation is
+    /// included in the code coverage reports.
     #[test]
     fn instrument_clone() {
         let instrument = Instrument {
@@ -1106,6 +1109,8 @@ mod test {
         assert_eq!(instrument.id, instrument_clone.id);
     }
 
+    /// Verifies cloning a passage. Done so that the auto-generated trait implementation is included
+    /// in the code coverage reports.
     #[test]
     fn passage_clone() {
         let passage = super::ImprovisationPassage {
@@ -1117,6 +1122,7 @@ mod test {
         assert_eq!(passage.path, passage_clone.path);
     }
 
+    /// Verifies extracting the passage ID from a file name.
     #[test]
     fn extract_passage_id() {
         assert_eq!(ImprovisationConfig::extract_passage_id("a"), "a");

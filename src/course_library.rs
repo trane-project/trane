@@ -677,6 +677,7 @@ mod test {
         USER_PREFERENCES_PATH,
     };
 
+    /// Verifies opening a course library with a path that is not a directory fails.
     #[test]
     fn path_is_not_dir() -> Result<()> {
         let file = tempfile::NamedTempFile::new()?;
@@ -685,6 +686,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that opening a library where the `.trane` directory exists but is a file fails.
     #[test]
     fn user_preferences_file_is_a_dir() -> Result<()> {
         // Create directory `./trane/user_preferences.json` which is not a file.
@@ -699,6 +701,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that opening a library fails if the `.trane/filters` directory cannot be created.
     #[test]
     fn cannot_create_filters_directory() -> Result<()> {
         // Create config directory.
@@ -713,6 +716,8 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that opening a library fails if the `.trane/user_preferences.json` file cannot be
+    /// created.
     #[test]
     fn cannot_create_user_preferences() -> Result<()> {
         // Create config and filters directories.

@@ -170,8 +170,7 @@ fn init_music_piece_simulation(
     Ok(trane)
 }
 
-/// A test that verifies that all music piece exercises are visited with a simple passage and a
-/// local file.
+/// Verifies that all music piece exercises are visited with a simple passage and a local file.
 #[test]
 fn all_exercises_visited_simple_local() -> Result<()> {
     // Initialize test course library.
@@ -210,8 +209,8 @@ fn all_exercises_visited_simple_local() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies that all music piece exercises are visited with a simple passage and a
-/// soundslice asset.
+/// Verifies that all music piece exercises are visited with a simple passage and a SoundSlice
+/// asset.
 #[test]
 fn all_exercises_visited_simple_soundslice() -> Result<()> {
     // Initialize test course library.
@@ -250,7 +249,7 @@ fn all_exercises_visited_simple_soundslice() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies that all music piece exercises are visited with a complex passage.
+/// Verifies that all music piece exercises are visited for a music piece with sub-passages.
 #[test]
 fn all_exercises_visited_complex() -> Result<()> {
     // Initialize test course library.
@@ -286,8 +285,7 @@ fn all_exercises_visited_complex() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies that not all the exercises are visited when no progress is made with a
-/// complex passage.
+/// Verifies that not all the exercises are visited when no progress is made with a complex passage.
 #[test]
 fn no_progress_complex() -> Result<()> {
     // Initialize test course library.
@@ -318,8 +316,8 @@ fn no_progress_complex() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies that not all the exercises are visited when no progress is made with a
-/// simple passage.
+/// Verifies that all the exercises are visited when no progress is made with a simple passage,
+/// since there is only one exercise in the course.
 #[test]
 fn no_progress_simple() -> Result<()> {
     // Initialize test course library.

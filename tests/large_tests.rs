@@ -9,8 +9,8 @@ use anyhow::{Ok, Result};
 use tempfile::TempDir;
 use trane::{data::MasteryScore, testutil::*};
 
-/// A test that verifies that all the exercises are scheduled with no blacklist or filter when the
-/// user gives a score of five to every exercise, even in a course library with a lot of exercises.
+/// Verifies that all the exercises are scheduled with no blacklist or filter when the user gives a
+/// score of five to every exercise, even in a course library with a lot of exercises.
 #[test]
 fn all_exercises_scheduled_random() -> Result<()> {
     // Initialize test course library.
@@ -47,8 +47,8 @@ fn all_exercises_scheduled_random() -> Result<()> {
     Ok(())
 }
 
-/// A test that generates and reads a very large course library. Used mostly to keep track of how
-/// long this operation takes.
+/// Generates and reads a very large course library. Used mostly to keep track of how long this
+/// operation takes.
 #[test]
 fn generate_and_read_large_library() -> Result<()> {
     // Initialize test course library.

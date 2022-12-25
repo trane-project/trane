@@ -750,6 +750,7 @@ mod test {
         assert_eq!(5.0, MasteryScore::Five.float_score());
     }
 
+    /// Verifies that each type of manifest returns the correct unit type.
     #[test]
     fn get_unit_type() {
         assert_eq!(
@@ -791,6 +792,7 @@ mod test {
         );
     }
 
+    /// Verifies that checking the paths of a manifest works if there are no paths to check.
     #[test]
     fn verify_paths_none() -> Result<()> {
         let lesson_manifest = LessonManifestBuilder::default()
@@ -812,6 +814,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies the `NormalizePaths` trait works for a SoundSlice asset.
     #[test]
     fn soundslice_normalize_paths() -> Result<()> {
         let soundslice = ExerciseAsset::SoundSliceAsset {
@@ -832,6 +835,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies the `VerifyPaths` trait works for a SoundSlice asset.
     #[test]
     fn soundslice_verify_paths() -> Result<()> {
         let soundslice = ExerciseAsset::SoundSliceAsset {
@@ -850,6 +854,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies the `NormalizePaths` trait works for an inlined asset.
     #[test]
     fn normalize_inlined_assets() -> Result<()> {
         let inlined_asset = BasicAsset::InlinedAsset {
@@ -864,6 +869,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies the `VerifyPaths` trait works for an inlined asset.
     #[test]
     fn verify_inlined_assets() -> Result<()> {
         let inlined_asset = BasicAsset::InlinedAsset {
@@ -878,6 +884,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies the `Display` trait for each unit type.
     #[test]
     fn unit_type_display() {
         assert_eq!("Course", UnitType::Course.to_string());
@@ -885,6 +892,7 @@ mod test {
         assert_eq!("Exercise", UnitType::Exercise.to_string());
     }
 
+    /// Verifies that normalizing a path works with the path to a valid file.
     #[test]
     fn normalize_good_path() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
@@ -898,6 +906,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that normalizing a path fails with the path to a missing file.
     #[test]
     fn normalize_bad_path() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
@@ -906,6 +915,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies the `VerifyPaths` trait works for a basic exercise asset.
     #[test]
     fn exercise_basic_asset_verify_paths() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
@@ -916,6 +926,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies the `NormalizePaths` trait works for a basic exercise asset.
     #[test]
     fn exercise_basic_asset_normalize_paths() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
@@ -926,12 +937,14 @@ mod test {
         Ok(())
     }
 
+    /// Verifies the default scheduler options are valid.
     #[test]
     fn valid_default_scheduler_options() {
         let options = SchedulerOptions::default();
         assert!(options.verify().is_ok());
     }
 
+    /// Verifies scheduler options with a batch size of 0 are invalid.
     #[test]
     fn scheduler_options_invalid_batch_size() {
         let mut options = SchedulerOptions::default();
@@ -939,6 +952,7 @@ mod test {
         assert!(options.verify().is_err());
     }
 
+    /// Verifies scheduler options with an invalid mastered window range are invalid.
     #[test]
     fn scheduler_options_invalid_mastered_window() {
         let mut options = SchedulerOptions::default();
@@ -946,6 +960,7 @@ mod test {
         assert!(options.verify().is_err());
     }
 
+    /// Verifies scheduler options with an invalid target window range are invalid.
     #[test]
     fn scheduler_options_invalid_target_window() {
         let mut options = SchedulerOptions::default();
@@ -953,6 +968,7 @@ mod test {
         assert!(options.verify().is_err());
     }
 
+    /// Verifies that scheduler options with a gap in the windows are invalid.
     #[test]
     fn scheduler_options_gap_in_windows() {
         let mut options = SchedulerOptions::default();
@@ -968,6 +984,7 @@ mod test {
         assert!(options.verify().is_err());
     }
 
+    /// Verifies that scheduler options with a percentage sum other than 1 are invalid.
     #[test]
     fn scheduler_options_invalid_percentage_sum() {
         let mut options = SchedulerOptions::default();

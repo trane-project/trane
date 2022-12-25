@@ -503,8 +503,8 @@ fn get_unit_ids() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies that all the exercises are scheduled with no blacklist or filter when the
-/// user gives a score of five to every exercise.
+/// Verifies that all the exercises are scheduled with no blacklist or filter when the user gives a
+/// score of five to every exercise.
 #[test]
 fn all_exercises_scheduled() -> Result<()> {
     // Initialize test course library.
@@ -529,8 +529,8 @@ fn all_exercises_scheduled() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies no exercises past the first course and lesson are scheduled when the user
-/// scores every exercise in that lesson with a mastery score of one.
+/// Verifies no exercises past the first course and lesson are scheduled when the user scores every
+/// exercise in that lesson with a mastery score of one.
 #[test]
 fn bad_score_prevents_advancing() -> Result<()> {
     let temp_dir = TempDir::new()?;
@@ -570,8 +570,8 @@ fn bad_score_prevents_advancing() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies that all the exercises are scheduled except for those belonging to the
-/// courses in the blacklist.
+/// Verifies that all the exercises are scheduled except for those belonging to the courses in the
+/// blacklist.
 #[test]
 fn avoid_scheduling_courses_in_blacklist() -> Result<()> {
     // Initialize test course library.
@@ -609,8 +609,8 @@ fn avoid_scheduling_courses_in_blacklist() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies that all the exercises are scheduled except for those belonging to the
-/// lessons in the blacklist.
+/// Verifies that all the exercises are scheduled except for those belonging to the lessons in the
+/// blacklist.
 #[test]
 fn avoid_scheduling_lessons_in_blacklist() -> Result<()> {
     // Initialize test course library.
@@ -648,7 +648,7 @@ fn avoid_scheduling_lessons_in_blacklist() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies that all the exercises are scheduled except for those in the blacklist.
+/// Verifies that all the exercises are scheduled except for those in the blacklist.
 #[test]
 fn avoid_scheduling_exercises_in_blacklist() -> Result<()> {
     // Initialize test course library.
@@ -696,7 +696,7 @@ fn avoid_scheduling_exercises_in_blacklist() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies that the score cache is invalidated when the blacklist is updated.
+/// Verifies that the score cache is invalidated when the blacklist is updated.
 #[test]
 fn invalidate_cache_on_blacklist_update() -> Result<()> {
     // Initialize test course library.
@@ -814,8 +814,7 @@ fn invalidate_cache_on_blacklist_update() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies only exercises in the given course are scheduled when a course filter is
-/// provided.
+/// Verifies only exercises in the given course are scheduled when a course filter is provided.
 #[test]
 fn scheduler_respects_course_filter() -> Result<()> {
     // Initialize test course library.
@@ -860,8 +859,7 @@ fn scheduler_respects_course_filter() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies only exercises in the given lesson are scheduled when a lesson filter is
-/// provided.
+/// Verifies only exercises in the given lesson are scheduled when a lesson filter is provided.
 #[test]
 fn scheduler_respects_lesson_filter() -> Result<()> {
     // Initialize test course library.
@@ -906,8 +904,8 @@ fn scheduler_respects_lesson_filter() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies that only exercises in units that match the metadata filter using the
-/// logical op All are scheduled.
+///  Verifies that only exercises in units that match the metadata filter using the logical op All
+/// are scheduled.
 #[test]
 fn scheduler_respects_metadata_filter_op_all() -> Result<()> {
     // Initialize test course library.
@@ -963,8 +961,8 @@ fn scheduler_respects_metadata_filter_op_all() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies that only exercises in units that match the metadata filter using the
-/// logical op Any are scheduled.
+/// Verifies that only exercises in units that match the metadata filter using the logical op Any
+/// are scheduled.
 #[test]
 fn scheduler_respects_metadata_filter_op_any() -> Result<()> {
     // Initialize test course library.
@@ -1022,8 +1020,7 @@ fn scheduler_respects_metadata_filter_op_any() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies that only exercises in units that match the lesson metadata filter are
-/// scheduled.
+/// Verifies that only exercises in units that match the lesson metadata filter are scheduled.
 #[test]
 fn scheduler_respects_lesson_metadata_filter() -> Result<()> {
     // Initialize test course library.
@@ -1075,8 +1072,7 @@ fn scheduler_respects_lesson_metadata_filter() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies that only exercises in units that match the course metadata filter are
-/// scheduled.
+/// Verifies that only exercises in units that match the course metadata filter are scheduled.
 #[test]
 fn scheduler_respects_course_metadata_filter() -> Result<()> {
     // Initialize test course library.
@@ -1124,8 +1120,8 @@ fn scheduler_respects_course_metadata_filter() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies that only exercises in units that match the metadata filter are scheduled
-/// but that they are ignored if they are in the blacklist.
+/// Verifies that only exercises in units that match the metadata filter are scheduled but that they
+/// are ignored if they are in the blacklist.
 #[test]
 fn scheduler_respects_metadata_filter_and_blacklist() -> Result<()> {
     // Initialize test course library.
@@ -1178,8 +1174,7 @@ fn scheduler_respects_metadata_filter_and_blacklist() -> Result<()> {
     Ok(())
 }
 
-/// A test to verify that exercises in the review list are scheduled when using the review list
-/// filter.
+/// Verify that exercises in the review list are scheduled when using the review list filter.
 #[test]
 fn schedule_exercises_in_review_list() -> Result<()> {
     // Initialize test course library.
@@ -1222,8 +1217,8 @@ fn schedule_exercises_in_review_list() -> Result<()> {
     Ok(())
 }
 
-/// A test to verify that exercises from the lessons in the review list are scheduled when using the
-/// review list filter.
+/// Verifies that exercises from the lessons in the review list are scheduled when using the review
+/// list filter.
 #[test]
 fn schedule_lessons_in_review_list() -> Result<()> {
     // Initialize test course library.
@@ -1266,7 +1261,7 @@ fn schedule_lessons_in_review_list() -> Result<()> {
     Ok(())
 }
 
-/// A test to verify that exercises from the courses in the review list are scheduled when using the
+/// Verifies that exercises from the courses in the review list are scheduled when using the
 /// review list filter.
 #[test]
 fn schedule_courses_in_review_list() -> Result<()> {
@@ -1310,7 +1305,7 @@ fn schedule_courses_in_review_list() -> Result<()> {
     Ok(())
 }
 
-/// A test to verify that the searching for courses in the course library works as expected.
+/// Verifies searching for courses in the course library works.
 #[test]
 fn course_library_search_courses() -> Result<()> {
     // Initialize test course library.
@@ -1340,7 +1335,7 @@ fn course_library_search_courses() -> Result<()> {
     Ok(())
 }
 
-/// A test to verify that the searching for lessons in the course library works as expected.
+/// Verifies searching for lessons in the course library.
 #[test]
 fn course_library_search_lessons() -> Result<()> {
     // Initialize test course library.
@@ -1370,7 +1365,7 @@ fn course_library_search_lessons() -> Result<()> {
     Ok(())
 }
 
-/// A test to verify that the searching for exercises in the course library works as expected.
+/// Verifies that searching for exercises in the course library.
 #[test]
 fn course_library_search_exercises() -> Result<()> {
     // Initialize test course library.

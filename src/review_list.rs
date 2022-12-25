@@ -131,6 +131,7 @@ mod test {
         Ok(Box::new(review_list))
     }
 
+    /// Verifies adding and removing units from the review list.
     #[test]
     fn add_and_remove_from_review_list() -> Result<()> {
         let mut review_list = new_test_review_list()?;

@@ -193,9 +193,9 @@ impl Trane {
     }
 }
 
-// The following implementation blocks simply expose the interfaces already implemented and tested
-// by the various submodules. Therefore, the next line excludes this section from the final report.
-// grcov-excl-start
+// grcov-excl-start: The following implementation blocks simply expose the interfaces already
+// implemented and tested by the various submodules. Therefore, the next line excludes this section
+// from the final report.
 
 impl Blacklist for Trane {
     fn add_to_blacklist(&mut self, unit_id: &Ustr) -> Result<()> {
@@ -408,6 +408,7 @@ mod test {
 
     use crate::Trane;
 
+    /// Verifies retrieving the root of a library.
     #[test]
     fn library_root() -> Result<()> {
         let dir = tempfile::tempdir()?;
@@ -416,6 +417,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that the mantra-miner starts up and has a valid count.
     #[test]
     fn mantra_count() -> Result<()> {
         let dir = tempfile::tempdir()?;
@@ -425,6 +427,8 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that opening a library if the path to the config directory exists but is not a
+    /// directory.
     #[test]
     fn config_dir_is_file() -> Result<()> {
         let dir = tempfile::tempdir()?;
@@ -434,6 +438,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that opening a library fails if the directory has bad permissions.
     #[test]
     fn bad_dir_permissions() -> Result<()> {
         let dir = tempfile::tempdir()?;
@@ -442,6 +447,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that opening a library fails if the config directory has bad permissions.
     #[test]
     fn bad_config_dir_permissions() -> Result<()> {
         let dir = tempfile::tempdir()?;
@@ -452,6 +458,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies retrieving the scheduler data from the library.
     #[test]
     fn scheduler_data() -> Result<()> {
         let dir = tempfile::tempdir()?;

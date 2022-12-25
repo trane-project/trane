@@ -240,6 +240,7 @@ mod test {
         assert!(all_sorted);
     }
 
+    /// Verifies setting and retrieving a single score for an exercise.
     #[test]
     fn basic() -> Result<()> {
         let mut stats = new_tests_stats()?;
@@ -250,6 +251,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies setting and retrieving multiple scores for an exercise.
     #[test]
     fn multiple_records() -> Result<()> {
         let mut stats = new_tests_stats()?;
@@ -269,6 +271,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies retrieving an empty list of scores for an exercise with no previous scores.
     #[test]
     fn no_records() -> Result<()> {
         let stats = new_tests_stats()?;
@@ -277,6 +280,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies trimming all but the most recent scores.
     #[test]
     fn trim_scores_some_scores_removed() -> Result<()> {
         let mut stats = new_tests_stats()?;
@@ -299,6 +303,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies trimming no scores when the number of scores is less than the limit.
     #[test]
     fn trim_scores_no_scores_removed() -> Result<()> {
         let mut stats = new_tests_stats()?;
