@@ -157,6 +157,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies creating a filter manager with valid filters.
     #[test]
     fn filter_manager() -> Result<()> {
         let temp_dir = TempDir::new()?;
@@ -182,6 +183,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that filters with repeated IDs cause the filter manager to fail.
     #[test]
     fn filters_repeated_ids() -> Result<()> {
         let filters = vec![
@@ -212,12 +214,14 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that trying to read filters from an invalid directory fails.
     #[test]
     fn read_bad_directory() -> Result<()> {
         assert!(LocalFilterManager::new("bad_directory").is_err());
         Ok(())
     }
 
+    /// Verifies that filters in an invalid format cause the filter manager to fail.
     #[test]
     fn read_bad_file_format() -> Result<()> {
         let temp_dir = TempDir::new()?;
@@ -227,6 +231,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that filters with bad permissions cause the filter manager to fail.
     #[test]
     fn read_bad_file_permissions() -> Result<()> {
         let temp_dir = TempDir::new()?;

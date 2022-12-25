@@ -113,7 +113,7 @@ fn init_improv_simulation(
     Ok(trane)
 }
 
-/// A test that verifies that the course generator fails when multiple passages have the same ID.
+/// Verifies that the course generator fails when multiple passages have the same ID.
 #[test]
 fn duplicate_passage_ids_fail() -> Result<()> {
     // Generate a bad course with multiple passages with the same ID.
@@ -160,7 +160,7 @@ fn duplicate_passage_ids_fail() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies that all improvisation exercises are visited.
+/// Verifies that all improvisation exercises are visited.
 #[test]
 fn all_exercises_visited() -> Result<()> {
     // Initialize test course library.
@@ -195,8 +195,7 @@ fn all_exercises_visited() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies that all improvisation exercises are visited when no instruments are
-/// specified.
+/// Verifies that all improvisation exercises are visited when no instruments are specified.
 #[test]
 fn all_exercises_visited_no_instruments() -> Result<()> {
     // Initialize test course library.
@@ -233,8 +232,8 @@ fn all_exercises_visited_no_instruments() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies that all improvisation exercises are visited when only rhythm lessons
-/// are specified in the configuration.
+/// Verifies that all improvisation exercises are visited when only rhythm lessons are specified in
+/// the configuration.
 #[test]
 fn all_exercises_visited_rhythm_only() -> Result<()> {
     // Initialize test course library.
@@ -269,8 +268,7 @@ fn all_exercises_visited_rhythm_only() -> Result<()> {
     Ok(())
 }
 
-/// A test that verifies that not making progress on the singing lessons blocks all further
-/// progress.
+/// Verifies that not making progress on the singing lessons blocks all further progress.
 #[test]
 fn no_progress_past_singing_lessons() -> Result<()> {
     // Initialize test course library.
@@ -313,8 +311,8 @@ fn no_progress_past_singing_lessons() -> Result<()> {
     Ok(())
 }
 
-// A test that verifies that not mastering the basic harmony lessons blocks all progress on the
-// advanced harmony and mastery lessons.
+// Verifies that not mastering the basic harmony lessons blocks all progress on the advanced harmony
+// and mastery lessons.
 #[test]
 fn basic_harmony_blocks_advanced_harmony() -> Result<()> {
     // Initialize test course library.
@@ -369,8 +367,8 @@ fn basic_harmony_blocks_advanced_harmony() -> Result<()> {
     Ok(())
 }
 
-// A test that verifies that not mastering the basic harmony lessons blocks all progress on the
-// advanced harmony and mastery lessons.
+// Verifies that not mastering the basic harmony lessons blocks all progress on the advanced harmony
+// and mastery lessons.
 #[test]
 fn advanced_harmony_blocks_mastery() -> Result<()> {
     // Initialize test course library.
@@ -426,8 +424,7 @@ fn advanced_harmony_blocks_mastery() -> Result<()> {
     Ok(())
 }
 
-// A test that verifies that not mastering the melody lessons blocks all progress on the mastery
-// lessons.
+// Verifies that not mastering the melody lessons blocks all progress on the mastery lessons.
 #[test]
 fn melody_blocks_mastery() -> Result<()> {
     // Initialize test course library.
@@ -483,8 +480,7 @@ fn melody_blocks_mastery() -> Result<()> {
     Ok(())
 }
 
-// A test that verifies that not mastering the rhythm lessons blocks all progress on the mastery
-// lessons.
+/// Verifies that not mastering the rhythm lessons blocks all progress on the mastery lessons.
 #[test]
 fn rhythm_blocks_mastery() -> Result<()> {
     // Initialize test course library.
@@ -544,8 +540,8 @@ fn rhythm_blocks_mastery() -> Result<()> {
     Ok(())
 }
 
-// A test that verifies that not mastering the sight-singing lessons blocks all progress on the
-// instrument lessons.
+// Verifies that not mastering the sight-singing lessons blocks all progress on the instrument
+// lessons.
 #[test]
 fn sight_singing_lessons_block_instruments() -> Result<()> {
     // Initialize test course library.

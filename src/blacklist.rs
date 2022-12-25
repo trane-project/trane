@@ -179,6 +179,7 @@ mod test {
         Ok(Box::new(blacklist))
     }
 
+    /// Verifies checking for an element not in the blacklist.
     #[test]
     fn not_in_blacklist() -> Result<()> {
         let blacklist = new_test_blacklist()?;
@@ -186,6 +187,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies adding and removing an element from the blacklist.
     #[test]
     fn add_and_remove_from_blacklist() -> Result<()> {
         let mut blacklist = new_test_blacklist()?;
@@ -198,6 +200,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies the blacklist cache stores the correct values.
     #[test]
     fn blacklist_cache() -> Result<()> {
         let mut blacklist = new_test_blacklist()?;
@@ -211,6 +214,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies re-adding an existing entry to the blacklist.
     #[test]
     fn readd_to_blacklist() -> Result<()> {
         let mut blacklist = new_test_blacklist()?;
@@ -224,6 +228,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies retrieving all the entries in the blacklist.
     #[test]
     fn all_entries() -> Result<()> {
         let mut blacklist = new_test_blacklist()?;
@@ -237,6 +242,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that closing and re-opening the blacklist database preserves the blacklist.
     #[test]
     fn reopen_blacklist() -> Result<()> {
         let dir = tempdir()?;

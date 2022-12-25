@@ -272,6 +272,7 @@ mod test {
         ];
     }
 
+    /// Verifies that a score of `None` is returned for a blacklisted course.
     #[test]
     fn blacklisted_course_score() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;

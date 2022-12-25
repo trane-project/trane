@@ -268,6 +268,7 @@ mod test {
         }
     }
 
+    /// Verifies that the correct courses pass the course filter.
     #[test]
     fn passes_course_filter() {
         let filter = UnitFilter::CourseFilter {
@@ -278,6 +279,7 @@ mod test {
         assert!(!filter.passes_lesson_filter(&"lesson1".into()));
     }
 
+    /// Verifies that the correct lessons pass the lesson filter.
     #[test]
     fn passes_lesson_filter() {
         let filter = UnitFilter::LessonFilter {
@@ -288,6 +290,8 @@ mod test {
         assert!(!filter.passes_course_filter(&"course1".into()));
     }
 
+    /// Verifies that a metadata filter with no course or lesson filter passes all courses and
+    /// lessons.
     #[test]
     fn passes_metadata_filter_none() {
         let filter = MetadataFilter {
@@ -295,19 +299,20 @@ mod test {
             lesson_filter: None,
             op: FilterOp::Any,
         };
-        let course_manifest = BTreeMap::new();
-        let lesson_manifest = BTreeMap::new();
+        let course_metadata = BTreeMap::new();
+        let lesson_metadata = BTreeMap::new();
         assert!(UnitFilter::course_passes_metadata_filter(
             &filter,
-            &course_manifest
+            &course_metadata
         ));
         assert!(UnitFilter::lesson_passes_metadata_filter(
             &filter,
-            &course_manifest,
-            &lesson_manifest
+            &course_metadata,
+            &lesson_metadata
         ));
     }
 
+    /// Verifies correctly applying a basic key-value filter.
     #[test]
     fn apply_simple_filter() -> Result<()> {
         let metadata = BTreeMap::from([
@@ -335,6 +340,8 @@ mod test {
         Ok(())
     }
 
+    /// Verifies applying a basic key-value filter to metadata that doesn't contain the required
+    /// keys or values.
     #[test]
     fn apply_simple_filter_no_match() -> Result<()> {
         let metadata = BTreeMap::from([
@@ -347,12 +354,16 @@ mod test {
                 vec!["value3".to_string(), "value4".to_string()],
             ),
         ]);
+
+        // The key-value pair doesn't exist in the metadata so the filter should not apply.
         let include_filter = KeyValueFilter::BasicFilter {
             key: "key10".to_string(),
             value: "value1".to_string(),
             filter_type: FilterType::Include,
         };
         assert!(!include_filter.apply(&metadata));
+
+        // The same key-value pair should apply to the exclude filter.
         let exclude_filter = KeyValueFilter::BasicFilter {
             key: "key10".to_string(),
             value: "value1".to_string(),
@@ -362,6 +373,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies applying a combined key-value filter with the ALL operator.
     #[test]
     fn apply_combined_all_filter() -> Result<()> {
         let metadata = BTreeMap::from([
@@ -393,6 +405,8 @@ mod test {
         Ok(())
     }
 
+    /// Verifies applying a combined key-value filter with the ALL operator to a key-value pair that
+    /// does not pass the filter.
     #[test]
     fn apply_combined_all_filter_no_match() -> Result<()> {
         let metadata = BTreeMap::from([
@@ -424,6 +438,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies applying a combined key-value filter with the ANY operator.
     #[test]
     fn apply_combined_any_filter() -> Result<()> {
         let metadata = BTreeMap::from([
@@ -455,6 +470,8 @@ mod test {
         Ok(())
     }
 
+    /// Verifies applying a combined key-value filter with the ANY operator to a key-value pair that
+    /// does not pass the filter.
     #[test]
     fn apply_combined_any_filter_no_match() -> Result<()> {
         let metadata = BTreeMap::from([
@@ -486,6 +503,8 @@ mod test {
         Ok(())
     }
 
+    /// Verifies cloning a unit filter. Done so that the auto-generated trait implementation is
+    /// included in the code coverage reports.
     #[test]
     fn unit_filter_clone() {
         let filter = UnitFilter::CourseFilter {

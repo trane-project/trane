@@ -515,6 +515,7 @@ mod test {
         graph::{InMemoryUnitGraph, UnitGraph},
     };
 
+    /// Verifies retrieving the correct unit type from the graph.
     #[test]
     fn get_unit_type() -> Result<()> {
         let mut graph = InMemoryUnitGraph::default();
@@ -525,6 +526,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies the basic functionality of the graph, adding course, lessons, and exercises.
     #[test]
     fn get_course_lessons_and_exercises() -> Result<()> {
         let mut graph = InMemoryUnitGraph::default();
@@ -579,6 +581,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies retrieving the correct dependencies and dependents from the graph.
     #[test]
     fn dependencies() -> Result<()> {
         let mut graph = InMemoryUnitGraph::default();
@@ -661,6 +664,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that a cycle in the dependencies is detected and causes an error.
     #[test]
     fn dependencies_cycle() -> Result<()> {
         let mut graph = InMemoryUnitGraph::default();
@@ -687,6 +691,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies generating a DOT graph.
     #[test]
     fn generate_dot_graph() -> Result<()> {
         let mut graph = InMemoryUnitGraph::default();

@@ -607,6 +607,7 @@ mod test {
         ];
     }
 
+    /// Verifies checking that a test exercise is in a test lesson.
     #[test]
     fn exercise_in_lesson() {
         let exercise_id = TestId(0, Some(0), Some(0));
@@ -617,6 +618,7 @@ mod test {
         assert!(!exercise_id.exercise_in_lesson(&other_lesson_id));
     }
 
+    /// Verifies checking that a test exercise is in a test course.
     #[test]
     fn exercise_in_course() {
         let exercise_id = TestId(0, Some(0), Some(0));
@@ -627,6 +629,7 @@ mod test {
         assert!(!exercise_id.exercise_in_course(&other_course_id));
     }
 
+    /// Verifies checking the type of test ID.
     #[test]
     fn id_type() {
         assert!(TestId(0, None, None).is_course());
@@ -634,6 +637,7 @@ mod test {
         assert!(TestId(0, Some(0), Some(0)).is_exercise());
     }
 
+    /// Verifies converting the test ID to a string.
     #[test]
     fn conversion_to_string() {
         let exercise_id = TestId(0, Some(0), Some(0));
@@ -649,6 +653,7 @@ mod test {
         assert_eq!(course_id.to_ustr(), "0");
     }
 
+    /// Verifies converting a string to a test ID.
     #[test]
     fn conversion_from_string() {
         let exercise_id = TestId(0, Some(0), Some(0));
@@ -701,6 +706,7 @@ mod test {
         }
     }
 
+    /// Verifies building a test library.
     #[test]
     fn build_test_library() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
@@ -709,6 +715,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies building a random test library.
     #[test]
     fn build_random_test_library() -> Result<()> {
         // Build a random test library.
@@ -726,6 +733,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies building a test lesson with a bad ID fails.
     #[test]
     fn bad_test_lesson() {
         // ID is a course ID.
@@ -742,6 +750,7 @@ mod test {
         assert!(lesson.lesson_builder().is_err());
     }
 
+    /// Verifies building a test course with a bad ID fails.
     #[test]
     fn bad_test_course_id() {
         // ID is a lesson ID.
@@ -758,6 +767,7 @@ mod test {
         assert!(course.course_builder().is_err());
     }
 
+    /// Verifies that building a test course with a lesson that does not belong to the course fails.
     #[test]
     fn bad_lesson_in_course() {
         // Lesson ID does not belong to the same course.
@@ -779,6 +789,7 @@ mod test {
         assert!(course.course_builder().is_err());
     }
 
+    /// Verifies running an exercise simulation.
     #[test]
     fn run_exercise_simulation() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
@@ -802,6 +813,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that running a simulation with a bad course build fails.
     #[test]
     fn bad_exercise_simulation() -> Result<()> {
         let bad_courses = vec![TestCourse {
