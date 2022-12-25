@@ -95,13 +95,6 @@ impl MusicPassage {
         course_manifest: &CourseManifest,
         passage_path: Vec<usize>,
     ) -> Ustr {
-        // An empty passage path means the course consists of only a lesson. Give this lesson a
-        // hard-coded ID.
-        if passage_path.is_empty() {
-            return Ustr::from(&format!("{}::lesson", course_manifest.id));
-        }
-
-        // Otherwise, generate the lesson ID from the passage path.
         let mut lesson_id = "".to_string();
         for index in passage_path {
             lesson_id.push_str(&format!("::{}", index));
