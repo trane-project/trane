@@ -25,7 +25,7 @@ use crate::data::{
 //@<improvisation-passage
 /// A single musical passage to be used in an improvisation course. A course can contain multiple
 /// passages but all of those passages are assumed to have the same key or mode.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ImprovisationPassage {
     /// A unique ID to identify this passage. This ID is used to generate the IDs of the exercises
     /// which use this passage.
@@ -40,16 +40,15 @@ impl ImprovisationPassage {
     /// Generates an exercise asset for this passage with the given description.
     fn generate_exercise_asset(&self, description: &str) -> ExerciseAsset {
         ExerciseAsset::BasicAsset(BasicAsset::InlinedUniqueAsset {
-            content: formatdoc! {
-                "{}
+            content: formatdoc! {"
+                {}
 
                 You should perform this exercise in the key and instrument (or sight-singing)
                 stated in the lesson name, if any.
 
                 The file containing the music sheet for this exercise is located at {}.
-                Relative paths are relative to the root of the course.",
-                description,
-                self.path,
+                Relative paths are relative to the root of the course.
+            ", description, self.path,
             }
             .into(),
         })
@@ -58,7 +57,7 @@ impl ImprovisationPassage {
 
 //@<improvisation-config
 /// The configuration for creating a new improvisation course.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct ImprovisationConfig {
     /// The dependencies on other improvisation courses. Specifying these dependencies here instead
     /// of the [CourseManifest](crate::data::CourseManifest) allows Trane to generate more
@@ -82,7 +81,7 @@ pub struct ImprovisationConfig {
 
 //@<improvisation-instrument
 /// Describes an instrument that can be used to practice in an improvisation course.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Instrument {
     /// The name of the instrument. For example, "Tenor Saxophone".
     pub name: String,
@@ -105,22 +104,15 @@ pub struct ImprovisationPreferences {
 }
 //>@improvisation-preferences
 
-impl ImprovisationConfig {
-    /// Returns the ID for a given exercise given the lesson ID and the exercise index.
-    fn exercise_id(&self, lesson_id: Ustr, passage_id: &str) -> Ustr {
-        Ustr::from(&format!("{}::exercise_{}", lesson_id, passage_id))
-    }
-
+impl ImprovisationPreferences {
     /// Returns the list of instruments the user can practice in the rhythm lessons. A value of None
     /// represents the voice lessons which must be mastered before practicing specific instruments.
-    fn rhythm_lesson_instruments(
-        user_config: &ImprovisationPreferences,
-    ) -> Vec<Option<&Instrument>> {
+    fn rhythm_lesson_instruments(&self) -> Vec<Option<&Instrument>> {
         // Combine `None` with the list of instruments and rhythm-only instruments.
-        let mut rhythm_instruments: Vec<Option<&Instrument>> = user_config
+        let mut rhythm_instruments: Vec<Option<&Instrument>> = self
             .instruments
             .iter()
-            .chain(user_config.rhythm_only_instruments.iter())
+            .chain(self.rhythm_only_instruments.iter())
             .map(Some)
             .collect();
         rhythm_instruments.push(None);
@@ -130,12 +122,19 @@ impl ImprovisationConfig {
     /// Returns the list of instruments that the user can practice during a lesson (except for the
     /// rhythm lessons as explained in `rhythm_lesson_instruments`). A value of None represents the
     /// voice lessons which must be mastered before practicing specific instruments.
-    fn lesson_instruments(user_config: &ImprovisationPreferences) -> Vec<Option<&Instrument>> {
+    fn lesson_instruments(&self) -> Vec<Option<&Instrument>> {
         // Combine `None` with the list of instruments.
         let mut lesson_instruments: Vec<Option<&Instrument>> =
-            user_config.instruments.iter().map(Some).collect();
+            self.instruments.iter().map(Some).collect();
         lesson_instruments.push(None);
         lesson_instruments
+    }
+}
+
+impl ImprovisationConfig {
+    /// Returns the ID for a given exercise given the lesson ID and the exercise index.
+    fn exercise_id(&self, lesson_id: Ustr, passage_id: &str) -> Ustr {
+        Ustr::from(&format!("{}::{}", lesson_id, passage_id))
     }
 
     /// Returns the ID of the singing lesson for the given course.
@@ -292,7 +291,7 @@ impl ImprovisationConfig {
         passages: &[ImprovisationPassage],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Generate a lesson for each instrument.
-        let lesson_instruments = Self::rhythm_lesson_instruments(user_config);
+        let lesson_instruments = user_config.rhythm_lesson_instruments();
         let lessons = lesson_instruments
             .iter()
             .map(|instrument| self.generate_rhythm_lesson(course_manifest, *instrument, passages))
@@ -444,7 +443,7 @@ impl ImprovisationConfig {
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Get a list of all keys and instruments.
         let all_keys = Note::all_keys(false);
-        let lesson_instruments = Self::lesson_instruments(user_config);
+        let lesson_instruments = user_config.lesson_instruments();
 
         // Generate a lesson for each key and instrument pair.
         all_keys
@@ -612,7 +611,7 @@ impl ImprovisationConfig {
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Get all keys and instruments.
         let all_keys = Note::all_keys(false);
-        let lesson_instruments = Self::lesson_instruments(user_config);
+        let lesson_instruments = user_config.lesson_instruments();
 
         // Generate a lesson for each key and instrument pair.
         all_keys
@@ -786,7 +785,7 @@ impl ImprovisationConfig {
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Get all keys and instruments.
         let all_keys = Note::all_keys(false);
-        let lesson_instruments = Self::lesson_instruments(user_config);
+        let lesson_instruments = user_config.lesson_instruments();
 
         // Generate a lesson for each key and instrument pair.
         all_keys
@@ -913,7 +912,7 @@ impl ImprovisationConfig {
         user_config: &ImprovisationPreferences,
         passages: &[ImprovisationPassage],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
-        let lesson_instruments = Self::lesson_instruments(user_config);
+        let lesson_instruments = user_config.lesson_instruments();
         lesson_instruments
             .iter()
             .map(|instrument| self.generate_mastery_lesson(course_manifest, *instrument, passages))
@@ -1057,13 +1056,38 @@ impl GenerateManifests for ImprovisationConfig {
 #[cfg(test)]
 mod test {
     use anyhow::Result;
-    use std::fs::create_dir;
+    use indoc::indoc;
+    use lazy_static::lazy_static;
+    use std::fs::{self, create_dir, File};
     use ustr::Ustr;
 
+    use super::*;
     use crate::data::{
-        course_generator::improvisation::{ImprovisationConfig, Instrument},
-        BasicAsset, CourseGenerator, CourseManifest, GenerateManifests, UserPreferences,
+        music::notes::Note, BasicAsset, CourseGenerator, CourseManifest, GenerateManifests,
+        UserPreferences,
     };
+
+    /// A key to use for testing.
+    const TEST_KEY: Note = Note::C;
+
+    lazy_static! {
+        /// An instrument to use for testing.
+        static ref TEST_INSTRUMENT: Instrument = Instrument{
+            name: "Test Instrument".to_string(),
+            id: "test_instrument".to_string(),
+        };
+
+        /// A rhythm-only instrument to use for testing.
+        static ref TEST_RHYTHM_ONLY_INSTRUMENT: Instrument = Instrument{
+            name: "Test Rhythm-Only Instrument".to_string(),
+            id: "test_rhythm_only_instrument".to_string(),
+        };
+
+        static ref TEST_PREFERENCES: ImprovisationPreferences = ImprovisationPreferences{
+            instruments: vec![TEST_INSTRUMENT.clone()],
+            rhythm_only_instruments: vec![TEST_RHYTHM_ONLY_INSTRUMENT.clone()],
+        };
+    }
 
     /// Verifies that the instructions for the course are not replaced if they are already set.
     #[test]
@@ -1131,5 +1155,157 @@ mod test {
         assert_eq!(ImprovisationConfig::extract_passage_id("."), "");
         assert_eq!(ImprovisationConfig::extract_passage_id("..."), "..");
         assert_eq!(ImprovisationConfig::extract_passage_id(""), "");
+    }
+
+    /// Verifies creating an exercise ID.
+    #[test]
+    fn exercise_id() {
+        let config = ImprovisationConfig::default();
+        assert_eq!(config.exercise_id("a".into(), "b"), "a::b");
+    }
+
+    /// Verifies creating the singing lesson ID.
+    #[test]
+    fn singing_lesson_id() {
+        let config = ImprovisationConfig::default();
+        assert_eq!(config.singing_lesson_id("a".into()), "a::singing");
+    }
+
+    /// Verifies creating the rhythm lesson IDs.
+    #[test]
+    fn rhythm_lesson_id() {
+        let config = ImprovisationConfig::default();
+        assert_eq!(config.rhythm_lesson_id("a".into(), None), "a::rhythm");
+        assert_eq!(
+            config.rhythm_lesson_id("a".into(), Some(&TEST_INSTRUMENT)),
+            "a::rhythm::test_instrument"
+        );
+    }
+
+    /// Verifies creating the melody lesson IDs.
+    #[test]
+    fn melody_lesson_id() {
+        let config = ImprovisationConfig::default();
+        assert_eq!(
+            config.melody_lesson_id("a".into(), TEST_KEY, None),
+            "a::melody::C"
+        );
+        assert_eq!(
+            config.melody_lesson_id("a".into(), TEST_KEY, Some(&TEST_INSTRUMENT)),
+            "a::melody::C::test_instrument"
+        );
+    }
+
+    /// Verifies creating the basic harmony lesson IDs.
+    #[test]
+    fn basic_harmony_lesson_id() {
+        let config = ImprovisationConfig::default();
+        assert_eq!(
+            config.basic_harmony_lesson_id("a".into(), TEST_KEY, None),
+            "a::basic_harmony::C"
+        );
+        assert_eq!(
+            config.basic_harmony_lesson_id("a".into(), TEST_KEY, Some(&TEST_INSTRUMENT)),
+            "a::basic_harmony::C::test_instrument"
+        );
+    }
+
+    /// Verifies creating the advanced harmony lesson IDs.
+    #[test]
+    fn advanced_harmony_lesson_id() {
+        let config = ImprovisationConfig::default();
+        assert_eq!(
+            config.advanced_harmony_lesson_id("a".into(), TEST_KEY, None),
+            "a::advanced_harmony::C"
+        );
+        assert_eq!(
+            config.advanced_harmony_lesson_id("a".into(), TEST_KEY, Some(&TEST_INSTRUMENT)),
+            "a::advanced_harmony::C::test_instrument"
+        );
+    }
+
+    /// Verifies creating the mastery lesson ID.
+    #[test]
+    fn mastery_lesson_id() {
+        let config = ImprovisationConfig::default();
+        assert_eq!(config.mastery_lesson_id("a".into(), None), "a::mastery");
+        assert_eq!(
+            config.mastery_lesson_id("a".into(), Some(&TEST_INSTRUMENT)),
+            "a::mastery::test_instrument"
+        );
+    }
+
+    /// Verifies the correct instruments are selected for the rhythm lesson.
+    #[test]
+    fn verify_rhythm_only_instruments() {
+        let instruments = TEST_PREFERENCES.rhythm_lesson_instruments();
+        let expected_instruments = vec![
+            Some(&*TEST_INSTRUMENT),
+            Some(&*TEST_RHYTHM_ONLY_INSTRUMENT),
+            None,
+        ];
+        assert_eq!(instruments, expected_instruments);
+    }
+
+    /// Verifies the correct instruments are selected for all the other lessons.
+    #[test]
+    fn verify_all_instruments() {
+        let instruments = TEST_PREFERENCES.lesson_instruments();
+        let expected_instruments = vec![Some(&*TEST_INSTRUMENT), None];
+        assert_eq!(instruments, expected_instruments);
+    }
+
+    /// Verifies generating an exercise asset from an improvisation passage.
+    #[test]
+    fn generate_exercise_asset() {
+        let passage = super::ImprovisationPassage {
+            id: "test".to_string(),
+            path: "test".to_string(),
+        };
+        let asset = passage.generate_exercise_asset("My description");
+        let expected_asset = ExerciseAsset::BasicAsset(BasicAsset::InlinedUniqueAsset {
+            content: indoc! {"
+                My description
+
+                You should perform this exercise in the key and instrument (or sight-singing)
+                stated in the lesson name, if any.
+
+                The file containing the music sheet for this exercise is located at test.
+                Relative paths are relative to the root of the course.
+            "}
+            .into(),
+        });
+        assert!(matches!(
+            asset,
+            ExerciseAsset::BasicAsset(BasicAsset::InlinedUniqueAsset { .. })
+        ));
+        assert_eq!(asset, expected_asset);
+    }
+
+    /// Verifies that the passage directory is correctly generated.
+    #[test]
+    fn read_passage_directory() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let passages_dir = temp_dir.path().join("passages");
+        fs::create_dir(&passages_dir)?;
+        let passage1 = passages_dir.join("passage1.ly");
+        let passage2 = passages_dir.join("passage2.pdf");
+        File::create(&passage1)?;
+        File::create(&passage2)?;
+
+        let mut config = ImprovisationConfig::default();
+        config.passage_directory = passages_dir.to_str().unwrap().into();
+
+        let passages = config.read_passage_directory(temp_dir.path())?;
+        assert_eq!(passages.len(), 2);
+        assert!(passages.contains(&ImprovisationPassage {
+            id: "passage1".into(),
+            path: passage1.to_str().unwrap().into(),
+        }));
+        assert!(passages.contains(&ImprovisationPassage {
+            id: "passage2".into(),
+            path: passage2.to_str().unwrap().into(),
+        }));
+        Ok(())
     }
 }

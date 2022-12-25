@@ -605,3 +605,74 @@ fn sight_singing_lessons_block_instruments() -> Result<()> {
     }
     Ok(())
 }
+
+/// Verifies that not mastering the lessons for a particular key blocks progress on all the lessons
+/// for the next keys in the circle of fifths.
+#[test]
+fn key_blocks_next_keys() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_improv_simulation(
+        &temp_dir.path(),
+        &vec![
+            improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
+            improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
+        ],
+        Some(&USER_PREFS),
+    )?;
+
+    // Run the simulation. Give all the exercises involving the key of C a score of one. Give all
+    // other exercises a score of five. This should block progress on the exercises for all the
+    // other keys.
+    let exercise_ids = trane.get_all_exercise_ids()?;
+    let mut simulation = TraneSimulation::new(
+        exercise_ids.len() * 5,
+        Box::new(|exercise_id| {
+            if exercise_id.contains("::C") {
+                Some(MasteryScore::One)
+            } else {
+                Some(MasteryScore::Five)
+            }
+        }),
+    );
+    simulation.run_simulation(&mut trane, &vec![], None)?;
+
+    // Verify that none of the exercises for the other keys are in the answer history. All the
+    // advanced harmony and mastery lessons are missing as well because they are blocked by the
+    // basic harmony lessons. The lessons for the instruments are blocked by the sight-singing
+    // lessons.
+    for exercise_id in exercise_ids {
+        if exercise_id.contains("singing") || exercise_id.contains("rhythm") {
+            assert!(
+                simulation.answer_history.contains_key(&exercise_id),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+        } else if exercise_id.contains("advanced_harmony")
+            || exercise_id.contains("mastery")
+            || exercise_id.contains("guitar")
+            || exercise_id.contains("piano")
+        {
+            assert!(
+                !simulation.answer_history.contains_key(&exercise_id),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+            assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        } else if exercise_id.contains("::C") {
+            assert!(
+                simulation.answer_history.contains_key(&exercise_id),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+        } else {
+            assert!(
+                !simulation.answer_history.contains_key(&exercise_id),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+            assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        }
+    }
+    Ok(())
+}
