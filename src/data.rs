@@ -231,6 +231,7 @@ impl VerifyPaths for BasicAsset {
     }
 }
 
+//@<course-generator
 /// A configuration used for generating special types of courses on the fly.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum CourseGenerator {
@@ -238,19 +239,23 @@ pub enum CourseGenerator {
     Improvisation(ImprovisationConfig),
 
     /// The configuration for generating a knowledge base course. Currently, there are no
-    /// configuration options, but the struct was added to implement the [GenerateManifests] trait.
+    /// configuration options, but the struct was added to implement the [GenerateManifests] trait
+    /// and for future extensibility.
     KnowledgeBase(KnowledgeBaseConfig),
 
     /// The configuration for generating a music piece course.
     MusicPiece(MusicPieceConfig),
 }
+//>@course-generator
 
+//@<user-preferences
 /// The user-specific configuration
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct UserPreferences {
     /// The preferences for generating improvisation courses.
     pub improvisation: Option<ImprovisationPreferences>,
 }
+//>@user-preferences
 
 /// A struct holding the results from running a course generator.
 pub struct GeneratedCourse {
