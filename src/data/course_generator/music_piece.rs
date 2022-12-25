@@ -72,66 +72,23 @@ impl MusicAsset {
 //@<music-passage
 /// Represents a music passage to be practiced.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub enum MusicPassage {
-    /// A single passage with no dependencies.
-    SimplePassage {
-        /// The start of the passage. For example, "Measure 1", "Measure 3, beat 2", "Start of third
-        /// movement", etc. Start and end values are stored as strings to allow for flexibility in
-        /// defining their values.
-        start: String,
+pub struct MusicPassage {
+    /// The start of the passage.
+    pub start: String,
 
-        /// The end of the passage. For example, "End of measure 3", "End of movement 2", etc. Just
-        /// like start, it's defined as a string to allow for flexibility.
-        end: String,
-    },
+    /// The end of the passage.
+    pub end: String,
 
-    /// A passage that requires mastery of other smaller passages. For example, a three-movement
-    /// piano concerto requires that the musician masters each of the individual movements.
-    ComplexPassage {
-        /// The start of the passage.
-        start: String,
-
-        /// The end of the passage.
-        end: String,
-
-        /// The sub-passages that must be mastered before this passage can be mastered. Each
-        /// sub-passage should be given a unique index which will be used to generate the lesson ID.
-        /// Those values should not change once they are defined or progress for this lesson will be
-        /// lost. This value is a map instead of a list because rearranging the order of the
-        /// passages in a list would also change the IDs of the generated lessons.
-        sub_passages: HashMap<usize, MusicPassage>,
-    },
+    /// The sub-passages that must be mastered before this passage can be mastered. Each
+    /// sub-passage should be given a unique index which will be used to generate the lesson ID.
+    /// Those values should not change once they are defined or progress for this lesson will be
+    /// lost. This value is a map instead of a list because rearranging the order of the
+    /// passages in a list would also change the IDs of the generated lessons.
+    pub sub_passages: HashMap<usize, MusicPassage>,
 }
 //>@music-passage
 
 impl MusicPassage {
-    /// Retrieves the dependencies of this passage.
-    fn passage_dependencies(&self) -> Option<&HashMap<usize, MusicPassage>> {
-        match self {
-            MusicPassage::SimplePassage { .. } => None,
-            MusicPassage::ComplexPassage {
-                sub_passages: dependencies,
-                ..
-            } => Some(dependencies),
-        }
-    }
-
-    /// Retrieve the start of the passage.
-    fn passage_start(&self) -> &str {
-        match self {
-            MusicPassage::SimplePassage { start, .. } => start,
-            MusicPassage::ComplexPassage { start, .. } => start,
-        }
-    }
-
-    /// Retrieve the end of the passage.
-    fn passage_end(&self) -> &str {
-        match self {
-            MusicPassage::SimplePassage { end, .. } => end,
-            MusicPassage::ComplexPassage { end, .. } => end,
-        }
-    }
-
     /// Generates the lesson ID for this course and passage, identified by the given path.
     pub fn generate_lesson_id(
         &self,
@@ -158,28 +115,26 @@ impl MusicPassage {
         &self,
         course_manifest: &CourseManifest,
         passage_path: Vec<usize>,
-        dependencies: Option<&HashMap<usize, MusicPassage>>,
+        sub_passages: &HashMap<usize, MusicPassage>,
         music_asset: &MusicAsset,
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Recursively generate the dependency lessons and IDs.
         let mut lessons = vec![];
         let mut dependency_ids = vec![];
-        if let Some(dependencies) = dependencies {
-            for (index, dependency) in dependencies {
-                // Create the dependency path.
-                let mut dependency_path = passage_path.clone();
-                dependency_path.push(*index);
+        for (index, sub_passage) in sub_passages {
+            // Create the dependency path.
+            let mut dependency_path = passage_path.clone();
+            dependency_path.push(*index);
 
-                // Generate the dependency ID and lessons.
-                dependency_ids
-                    .push(dependency.generate_lesson_id(course_manifest, dependency_path.clone()));
-                lessons.append(&mut dependency.generate_lesson_helper(
-                    course_manifest,
-                    dependency_path,
-                    dependency.passage_dependencies(),
-                    music_asset,
-                ));
-            }
+            // Generate the dependency ID and lessons.
+            dependency_ids
+                .push(sub_passage.generate_lesson_id(course_manifest, dependency_path.clone()));
+            lessons.append(&mut sub_passage.generate_lesson_helper(
+                course_manifest,
+                dependency_path,
+                &sub_passage.sub_passages,
+                music_asset,
+            ));
         }
 
         // Create the lesson and exercise manifests for this passage and add them to the list.
@@ -200,8 +155,7 @@ impl MusicPassage {
             name: course_manifest.name.clone(),
             description: None,
             exercise_type: ExerciseType::Procedural,
-            exercise_asset: music_asset
-                .generate_exercise_asset(self.passage_start(), self.passage_end()),
+            exercise_asset: music_asset.generate_exercise_asset(&self.start, &self.end),
         };
         lessons.push((lesson_manifest, vec![exercise_manifest]));
 
@@ -214,26 +168,8 @@ impl MusicPassage {
         course_manifest: &CourseManifest,
         music_asset: &MusicAsset,
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
-        match &self {
-            MusicPassage::SimplePassage { .. } => {
-                // Since this is a simple exercise, there's no need to generate any dependencies, so
-                // the path is empty.
-                self.generate_lesson_helper(course_manifest, vec![], None, music_asset)
-            }
-            MusicPassage::ComplexPassage {
-                sub_passages: dependencies,
-                ..
-            } => {
-                // This is a complex exercise, so generate the lesson for this passage and all its
-                // dependencies, using a starting path of [0].
-                self.generate_lesson_helper(
-                    course_manifest,
-                    vec![0],
-                    Some(dependencies),
-                    music_asset,
-                )
-            }
-        }
+        // Use a starting path of [0].
+        self.generate_lesson_helper(course_manifest, vec![0], &self.sub_passages, music_asset)
     }
 }
 

@@ -21,60 +21,96 @@ lazy_static! {
     static ref SOUNDSLICE_MUSIC_ASSET: MusicAsset =
         MusicAsset::SoundSlice("soundslice_link".to_string());
     static ref LOCAL_MUSIC_ASSET: MusicAsset = MusicAsset::LocalFile("music_sheet.pdf".to_string());
-    static ref COMPLEX_PASSAGE: TestPassage = TestPassage::ComplexPassage(vec![
-        TestPassage::ComplexPassage(vec![
-            TestPassage::ComplexPassage(vec![
-                TestPassage::SimplePassage,
-                TestPassage::SimplePassage,
-            ]),
-            TestPassage::ComplexPassage(vec![
-                TestPassage::SimplePassage,
-                TestPassage::SimplePassage,
-                TestPassage::SimplePassage,
-            ]),
-        ]),
-        TestPassage::ComplexPassage(vec![
-            TestPassage::ComplexPassage(vec![
-                TestPassage::SimplePassage,
-                TestPassage::SimplePassage,
-                TestPassage::SimplePassage,
-                TestPassage::SimplePassage,
-            ]),
-            TestPassage::ComplexPassage(vec![
-                TestPassage::SimplePassage,
-                TestPassage::SimplePassage,
-            ]),
-            TestPassage::ComplexPassage(vec![
-                TestPassage::SimplePassage,
-                TestPassage::SimplePassage,
-            ]),
-        ]),
-    ]);
+    static ref COMPLEX_PASSAGE: TestPassage = TestPassage {
+        sub_passages: vec![
+            TestPassage {
+                sub_passages: vec![
+                    TestPassage {
+                        sub_passages: vec![
+                            TestPassage {
+                                sub_passages: vec![],
+                            },
+                            TestPassage {
+                                sub_passages: vec![],
+                            },
+                        ]
+                    },
+                    TestPassage {
+                        sub_passages: vec![
+                            TestPassage {
+                                sub_passages: vec![]
+                            },
+                            TestPassage {
+                                sub_passages: vec![]
+                            },
+                            TestPassage {
+                                sub_passages: vec![]
+                            },
+                        ]
+                    },
+                ]
+            },
+            TestPassage {
+                sub_passages: vec![
+                    TestPassage {
+                        sub_passages: vec![
+                            TestPassage {
+                                sub_passages: vec![]
+                            },
+                            TestPassage {
+                                sub_passages: vec![]
+                            },
+                            TestPassage {
+                                sub_passages: vec![]
+                            },
+                            TestPassage {
+                                sub_passages: vec![]
+                            },
+                        ]
+                    },
+                    TestPassage {
+                        sub_passages: vec![
+                            TestPassage {
+                                sub_passages: vec![]
+                            },
+                            TestPassage {
+                                sub_passages: vec![]
+                            },
+                        ]
+                    },
+                    TestPassage {
+                        sub_passages: vec![
+                            TestPassage {
+                                sub_passages: vec![]
+                            },
+                            TestPassage {
+                                sub_passages: vec![]
+                            },
+                        ]
+                    },
+                ]
+            },
+        ]
+    };
 }
 
 /// A simpler representation of a music passage for testing.
 #[derive(Clone)]
-enum TestPassage {
-    SimplePassage,
-    ComplexPassage(Vec<TestPassage>),
+struct TestPassage {
+    sub_passages: Vec<TestPassage>,
 }
 
 impl From<TestPassage> for MusicPassage {
     fn from(test_passage: TestPassage) -> Self {
-        match test_passage {
-            TestPassage::SimplePassage => MusicPassage::SimplePassage {
-                start: "passage start".to_string(),
-                end: "passage end".to_string(),
-            },
-            TestPassage::ComplexPassage(passages) => MusicPassage::ComplexPassage {
-                start: "passage start".to_string(),
-                end: "passage end".to_string(),
-                sub_passages: passages
-                    .into_iter()
-                    .enumerate()
-                    .map(|(index, passage)| (index, MusicPassage::from(passage)))
-                    .collect(),
-            },
+        MusicPassage {
+            start: "passage start".to_string(),
+            end: "passage end".to_string(),
+            sub_passages: test_passage
+                .sub_passages
+                .into_iter()
+                .enumerate()
+                .map(|(index, passage)| (index, MusicPassage::from(passage)))
+                .collect(),
         }
     }
 }
@@ -140,7 +176,9 @@ fn init_music_piece_simulation(
 fn all_exercises_visited_simple_local() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let passages = TestPassage::SimplePassage;
+    let passages = TestPassage {
+        sub_passages: vec![],
+    };
     let mut trane = init_music_piece_simulation(
         &temp_dir.path(),
         &vec![music_piece_builder(
@@ -178,7 +216,9 @@ fn all_exercises_visited_simple_local() -> Result<()> {
 fn all_exercises_visited_simple_soundslice() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let passages = TestPassage::SimplePassage;
+    let passages = TestPassage {
+        sub_passages: vec![],
+    };
     let mut trane = init_music_piece_simulation(
         &temp_dir.path(),
         &vec![music_piece_builder(
@@ -284,7 +324,9 @@ fn no_progress_complex() -> Result<()> {
 fn no_progress_simple() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let passages = TestPassage::SimplePassage;
+    let passages = TestPassage {
+        sub_passages: vec![],
+    };
     let mut trane = init_music_piece_simulation(
         &temp_dir.path(),
         &vec![music_piece_builder(
