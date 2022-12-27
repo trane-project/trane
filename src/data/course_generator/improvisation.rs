@@ -47,7 +47,7 @@ impl ImprovisationPassage {
                 stated in the lesson name, if any.
 
                 The file containing the music sheet for this exercise is located at {}.
-                Relative paths are relative to the root of the course.
+                Relative paths are relative to the root of the library.
             ", description, self.path,
             }
             .into(),
@@ -76,6 +76,10 @@ pub struct ImprovisationConfig {
     /// The directory can be written relative to the root of the course or as an absolute path. The
     /// first option is recommended.
     pub passage_directory: String,
+
+    /// The list of file extensions that are allowed for the passages. For example, `["pdf", "ly"]`.
+    /// All other files will be ignored.
+    pub file_extensions: Vec<String>,
 }
 //>@improvisation-config
 
@@ -932,7 +936,7 @@ impl ImprovisationConfig {
 
     /// Reads all the files in the passage directory to generate the list of all the passages
     /// included in the course.
-    fn read_passage_directory(&self, course_root: &Path) -> Result<Vec<ImprovisationPassage>> {
+    fn open_passage_directory(&self, course_root: &Path) -> Result<Vec<ImprovisationPassage>> {
         // Create the list of passages and a set of seen passage IDs to detect duplicates.
         let mut passages = Vec::new();
         let mut seen_passage_ids = HashSet::new();
@@ -954,6 +958,15 @@ impl ImprovisationConfig {
                 .ok_or_else(|| anyhow!("Failed to get the file name"))? // grcov-excl-line
                 .to_string();
             let passage_id = Self::extract_passage_id(&file_name);
+
+            // Ignore files that don't have a valid extension.
+            let valid_extension = self
+                .file_extensions
+                .iter()
+                .any(|extension| file_name.ends_with(&format!(".{}", extension)));
+            if !valid_extension {
+                continue;
+            }
 
             // Fail if the passage ID has already been seen.
             if seen_passage_ids.contains(&passage_id) {
@@ -1025,7 +1038,7 @@ impl GenerateManifests for ImprovisationConfig {
         };
 
         // Read the passages from the passage directory.
-        let passages = self.read_passage_directory(course_root)?;
+        let passages = self.open_passage_directory(course_root)?;
 
         // Generate the lesson and exercise manifests.
         let lessons = if self.rhythm_only {
@@ -1099,6 +1112,7 @@ mod test {
             rhythm_only: false,
             improvisation_dependencies: vec![],
             passage_directory: "passages".to_string(),
+            file_extensions: vec!["ly".to_string()],
         });
         let course_manifest = CourseManifest {
             id: Ustr::from("testID"),
@@ -1271,7 +1285,7 @@ mod test {
                 stated in the lesson name, if any.
 
                 The file containing the music sheet for this exercise is located at test.
-                Relative paths are relative to the root of the course.
+                Relative paths are relative to the root of the library.
             "}
             .into(),
         });
@@ -1282,9 +1296,10 @@ mod test {
         assert_eq!(asset, expected_asset);
     }
 
-    /// Verifies that the passage directory is correctly generated.
+    /// Verifies that the passages from directory are correctly generated.
     #[test]
-    fn read_passage_directory() -> Result<()> {
+    fn open_passage_directory() -> Result<()> {
+        // Create a course with a couple of passages.
         let temp_dir = tempfile::tempdir()?;
         let passages_dir = temp_dir.path().join("passages");
         fs::create_dir(&passages_dir)?;
@@ -1293,10 +1308,15 @@ mod test {
         File::create(&passage1)?;
         File::create(&passage2)?;
 
+        // Create a passage with an invalid extension. It should be ignored.
+        let passage3 = passages_dir.join("passage1.md");
+        File::create(&passage3)?;
+
         let mut config = ImprovisationConfig::default();
         config.passage_directory = passages_dir.to_str().unwrap().into();
+        config.file_extensions = vec!["ly".into(), "pdf".into()];
+        let passages = config.open_passage_directory(temp_dir.path())?;
 
-        let passages = config.read_passage_directory(temp_dir.path())?;
         assert_eq!(passages.len(), 2);
         assert!(passages.contains(&ImprovisationPassage {
             id: "passage1".into(),
