@@ -104,7 +104,7 @@ pub struct ImprovisationPreferences {
 
     /// The list of instruments that only use rhythm. Exercises for these instruments will only
     /// show up in the rhythm lessons.
-    pub rhythm_only_instruments: Vec<Instrument>,
+    pub rhythm_instruments: Vec<Instrument>,
 }
 //>@improvisation-preferences
 
@@ -116,7 +116,7 @@ impl ImprovisationPreferences {
         let mut rhythm_instruments: Vec<Option<&Instrument>> = self
             .instruments
             .iter()
-            .chain(self.rhythm_only_instruments.iter())
+            .chain(self.rhythm_instruments.iter())
             .map(Some)
             .collect();
         rhythm_instruments.push(None);
@@ -1098,7 +1098,7 @@ mod test {
 
         static ref TEST_PREFERENCES: ImprovisationPreferences = ImprovisationPreferences{
             instruments: vec![TEST_INSTRUMENT.clone()],
-            rhythm_only_instruments: vec![TEST_RHYTHM_ONLY_INSTRUMENT.clone()],
+            rhythm_instruments: vec![TEST_RHYTHM_ONLY_INSTRUMENT.clone()],
         };
     }
 
@@ -1251,7 +1251,7 @@ mod test {
 
     /// Verifies the correct instruments are selected for the rhythm lesson.
     #[test]
-    fn verify_rhythm_only_instruments() {
+    fn rhythm_lesson_instruments() {
         let instruments = TEST_PREFERENCES.rhythm_lesson_instruments();
         let expected_instruments = vec![
             Some(&*TEST_INSTRUMENT),
@@ -1263,7 +1263,7 @@ mod test {
 
     /// Verifies the correct instruments are selected for all the other lessons.
     #[test]
-    fn verify_all_instruments() {
+    fn lesson_instruments() {
         let instruments = TEST_PREFERENCES.lesson_instruments();
         let expected_instruments = vec![Some(&*TEST_INSTRUMENT), None];
         assert_eq!(instruments, expected_instruments);

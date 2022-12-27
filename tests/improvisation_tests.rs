@@ -37,7 +37,7 @@ lazy_static! {
                     id: "piano".to_string(),
                 },
             ],
-            rhythm_only_instruments: vec![Instrument {
+            rhythm_instruments: vec![Instrument {
                 name: "Drums".to_string(),
                 id: "drums".to_string(),
             }],
