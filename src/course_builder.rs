@@ -233,3 +233,99 @@ impl CourseBuilder {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod test {
+    use anyhow::Result;
+    use std::io::Read;
+
+    use super::*;
+    use crate::data::{BasicAsset, ExerciseAsset, ExerciseType};
+
+    /// Verifies the asset builder writes the contents to the correct file.
+    #[test]
+    fn asset_builer() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let asset_builder = AssetBuilder {
+            file_name: "asset1.md".to_string(),
+            contents: "asset1 contents".to_string(),
+        };
+        asset_builder.build(temp_dir.path())?;
+        assert!(temp_dir.path().join("asset1.md").is_file());
+        let mut file = File::open(temp_dir.path().join("asset1.md"))?;
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)?;
+        assert_eq!(contents, "asset1 contents");
+        Ok(())
+    }
+
+    /// Verifies the course builder writes the correct files.
+    #[test]
+    fn course_builder() -> Result<()> {
+        let exercise_builder = ExerciseBuilder {
+            directory_name: "exercise1".to_string(),
+            manifest_closure: Box::new(|builder| {
+                builder
+                    .clone()
+                    .id("exercise1")
+                    .name("Exercise 1".into())
+                    .exercise_asset(ExerciseAsset::BasicAsset(BasicAsset::InlinedAsset {
+                        content: "".into(),
+                    }))
+                    .clone()
+            }),
+            asset_builders: vec![],
+        };
+        let lesson_builder = LessonBuilder {
+            directory_name: "lesson1".to_string(),
+            manifest_closure: Box::new(|builder| {
+                builder
+                    .clone()
+                    .id("lesson1")
+                    .name("Lesson 1".into())
+                    .dependencies(vec![])
+                    .clone()
+            }),
+            exercise_manifest_template: ExerciseManifestBuilder::default()
+                .lesson_id("lesson1")
+                .course_id("course1")
+                .exercise_type(ExerciseType::Procedural)
+                .clone(),
+            exercise_builders: vec![exercise_builder],
+            asset_builders: vec![],
+        };
+        let course_builder = CourseBuilder {
+            directory_name: "course1".to_string(),
+            course_manifest: CourseManifest {
+                id: "course1".into(),
+                name: "Course 1".into(),
+                dependencies: vec![],
+                description: None,
+                authors: None,
+                metadata: None,
+                course_material: None,
+                course_instructions: None,
+                generator_config: None,
+            },
+            lesson_manifest_template: LessonManifestBuilder::default()
+                .course_id("course1")
+                .clone(),
+            lesson_builders: vec![lesson_builder],
+            asset_builders: vec![],
+        };
+
+        let temp_dir = tempfile::tempdir()?;
+        course_builder.build(temp_dir.path())?;
+
+        let course_dir = temp_dir.path().join("course1");
+        let lesson_dir = course_dir.join("lesson1");
+        let exercise_dir = lesson_dir.join("exercise1");
+        assert!(course_dir.is_dir());
+        assert!(lesson_dir.is_dir());
+        assert!(exercise_dir.is_dir());
+        assert!(course_dir.join("course_manifest.json").is_file());
+        assert!(lesson_dir.join("lesson_manifest.json").is_file());
+        assert!(exercise_dir.join("exercise_manifest.json").is_file());
+        Ok(())
+    }
+}
