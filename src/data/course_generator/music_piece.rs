@@ -59,7 +59,7 @@ impl MusicAsset {
                     - Passage end: {}
                     
                     The file containing the music sheet is located at {}. Relative paths are
-                    relative to the root of the course.
+                    relative to the root of the library.
                 ", INSTRUCTIONS, start, end, path};
                 ExerciseAsset::BasicAsset(BasicAsset::InlinedAsset {
                     content: description,
