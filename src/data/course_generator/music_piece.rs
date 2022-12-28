@@ -99,6 +99,7 @@ impl MusicPassage {
         Ustr::from(&format!("{}::{}", course_manifest.id, lesson_id))
     }
 
+    /// Generates a clone of the given path with the given index appended.
     fn new_path(passage_path: &[usize], index: usize) -> Vec<usize> {
         let mut new_path = passage_path.to_vec();
         new_path.push(index);
