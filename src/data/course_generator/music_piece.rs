@@ -90,16 +90,19 @@ pub struct MusicPassage {
 
 impl MusicPassage {
     /// Generates the lesson ID for this course and passage, identified by the given path.
-    pub fn generate_lesson_id(
-        &self,
-        course_manifest: &CourseManifest,
-        passage_path: Vec<usize>,
-    ) -> Ustr {
-        let mut lesson_id = "".to_string();
-        for index in passage_path {
-            lesson_id.push_str(&format!("::{}", index));
-        }
+    fn generate_lesson_id(course_manifest: &CourseManifest, passage_path: Vec<usize>) -> Ustr {
+        let lesson_id = passage_path
+            .iter()
+            .map(|index| format!("{}", index))
+            .collect::<Vec<String>>()
+            .join("::");
         Ustr::from(&format!("{}::{}", course_manifest.id, lesson_id))
+    }
+
+    fn new_path(passage_path: &[usize], index: usize) -> Vec<usize> {
+        let mut new_path = passage_path.to_vec();
+        new_path.push(index);
+        new_path
     }
 
     /// Generates the lesson and exercise manifests for this passage, recursively doing so if the
@@ -108,31 +111,30 @@ impl MusicPassage {
         &self,
         course_manifest: &CourseManifest,
         passage_path: Vec<usize>,
-        sub_passages: &HashMap<usize, MusicPassage>,
         music_asset: &MusicAsset,
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Recursively generate the dependency lessons and IDs.
         let mut lessons = vec![];
         let mut dependency_ids = vec![];
-        for (index, sub_passage) in sub_passages {
+        for (index, sub_passage) in &self.sub_passages {
             // Create the dependency path.
-            let mut dependency_path = passage_path.clone();
-            dependency_path.push(*index);
+            let dependency_path = Self::new_path(&passage_path, *index);
 
             // Generate the dependency ID and lessons.
-            dependency_ids
-                .push(sub_passage.generate_lesson_id(course_manifest, dependency_path.clone()));
+            dependency_ids.push(Self::generate_lesson_id(
+                course_manifest,
+                dependency_path.clone(),
+            ));
             lessons.append(&mut sub_passage.generate_lesson_helper(
                 course_manifest,
                 dependency_path,
-                &sub_passage.sub_passages,
                 music_asset,
             ));
         }
 
         // Create the lesson and exercise manifests for this passage and add them to the list.
         let lesson_manifest = LessonManifest {
-            id: self.generate_lesson_id(course_manifest, passage_path),
+            id: Self::generate_lesson_id(course_manifest, passage_path),
             course_id: course_manifest.id,
             name: course_manifest.name.clone(),
             description: None,
@@ -162,7 +164,7 @@ impl MusicPassage {
         music_asset: &MusicAsset,
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Use a starting path of [0].
-        self.generate_lesson_helper(course_manifest, vec![0], &self.sub_passages, music_asset)
+        self.generate_lesson_helper(course_manifest, vec![0], music_asset)
     }
 }
 
@@ -192,5 +194,200 @@ impl GenerateManifests for MusicPieceConfig {
             updated_instructions: None,
             updated_metadata: None,
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    // Verifies generating a valid exercise asset from a local file.
+    #[test]
+    fn generate_local_music_asset() {
+        let music_asset = MusicAsset::LocalFile("music.pdf".to_string());
+        let passage = MusicPassage {
+            start: "start".to_string(),
+            end: "end".to_string(),
+            sub_passages: HashMap::new(),
+        };
+        let exercise_asset = music_asset.generate_exercise_asset(&passage.start, &passage.end);
+        assert_eq!(
+            exercise_asset,
+            ExerciseAsset::BasicAsset(BasicAsset::InlinedAsset {
+                content: indoc! {"
+                    Given the following passage from the piece, start by listening to it repeatedly
+                    until you can audiate it clearly in your head. You can also attempt to hum or
+                    sing it if possible. Then, play the passage on your instrument.
+
+                    - Passage start: start
+                    - Passage end: end
+                    
+                    The file containing the music sheet is located at music.pdf. Relative paths are
+                    relative to the root of the library.
+                "}
+                .to_string()
+            })
+        );
+    }
+
+    // Verifies generating a valid exercise asset from a SoundSlice.
+    #[test]
+    fn generate_sound_slice_asset() {
+        let music_asset = MusicAsset::SoundSlice("https://soundslice.com".to_string());
+        let passage = MusicPassage {
+            start: "start".to_string(),
+            end: "end".to_string(),
+            sub_passages: HashMap::new(),
+        };
+        let exercise_asset = music_asset.generate_exercise_asset(&passage.start, &passage.end);
+        assert_eq!(
+            exercise_asset,
+            ExerciseAsset::SoundSliceAsset {
+                link: "https://soundslice.com".to_string(),
+                description: Some(
+                    indoc! {"
+                    Given the following passage from the piece, start by listening to it repeatedly
+                    until you can audiate it clearly in your head. You can also attempt to hum or
+                    sing it if possible. Then, play the passage on your instrument.
+
+                    - Passage start: start
+                    - Passage end: end
+                    "}
+                    .to_string()
+                ),
+                backup: None,
+            }
+        );
+    }
+
+    // Verfies generating lesson IDs for a music piece course.
+    #[test]
+    fn generate_lesson_id() {
+        let course_manifest = CourseManifest {
+            id: "course".into(),
+            name: "Course".to_string(),
+            description: None,
+            dependencies: vec![],
+            metadata: None,
+            course_instructions: None,
+            course_material: None,
+            authors: None,
+            generator_config: None,
+        };
+        assert_eq!(
+            MusicPassage::generate_lesson_id(&course_manifest, vec![0]),
+            "course::0"
+        );
+        assert_eq!(
+            MusicPassage::generate_lesson_id(&course_manifest, vec![0, 1]),
+            "course::0::1"
+        );
+        assert_eq!(
+            MusicPassage::generate_lesson_id(&course_manifest, vec![0, 1, 2]),
+            "course::0::1::2"
+        );
+    }
+
+    // Verifies the paths for the sub-passages are created correctly.
+    #[test]
+    fn new_path() {
+        assert_eq!(MusicPassage::new_path(&vec![0], 1), vec![0, 1]);
+        assert_eq!(MusicPassage::new_path(&vec![0, 1], 2), vec![0, 1, 2]);
+        assert_eq!(MusicPassage::new_path(&vec![0, 1, 2], 3), vec![0, 1, 2, 3]);
+    }
+
+    // Verifies generating lessons for a music piece course.
+    #[test]
+    fn generate_lessons() {
+        let course_manifest = CourseManifest {
+            id: "course".into(),
+            name: "Course".to_string(),
+            description: None,
+            dependencies: vec![],
+            metadata: None,
+            course_instructions: None,
+            course_material: None,
+            authors: None,
+            generator_config: None,
+        };
+        let music_asset = MusicAsset::LocalFile("music.pdf".to_string());
+        let passage = MusicPassage {
+            start: "start 0".to_string(),
+            end: "end 0".to_string(),
+            sub_passages: HashMap::from([(
+                0,
+                MusicPassage {
+                    start: "start 0::0".to_string(),
+                    end: "end 0::0".to_string(),
+                    sub_passages: HashMap::new(),
+                },
+            )]),
+        };
+        let lessons = passage.generate_lessons(&course_manifest, &music_asset);
+        assert_eq!(lessons.len(), 2);
+
+        let (lesson_manifest, exercise_manifests) = &lessons[1];
+        assert_eq!(lesson_manifest.id, "course::0");
+        assert_eq!(lesson_manifest.name, "Course");
+        assert_eq!(lesson_manifest.description, None);
+        assert_eq!(lesson_manifest.course_id, "course");
+        assert_eq!(lesson_manifest.dependencies, vec!["course::0::0"]);
+        assert_eq!(exercise_manifests.len(), 1);
+
+        let exercise_manifest = &exercise_manifests[0];
+        assert_eq!(exercise_manifest.id, "course::0::exercise");
+        assert_eq!(exercise_manifest.name, "Course");
+        assert_eq!(exercise_manifest.description, None);
+        assert_eq!(exercise_manifest.lesson_id, "course::0");
+        assert_eq!(exercise_manifest.course_id, "course");
+        assert_eq!(
+            exercise_manifest.exercise_asset,
+            ExerciseAsset::BasicAsset(BasicAsset::InlinedAsset {
+                content: indoc! {"
+                    Given the following passage from the piece, start by listening to it repeatedly
+                    until you can audiate it clearly in your head. You can also attempt to hum or
+                    sing it if possible. Then, play the passage on your instrument.
+
+                    - Passage start: start 0
+                    - Passage end: end 0
+                    
+                    The file containing the music sheet is located at music.pdf. Relative paths are
+                    relative to the root of the library.
+                "}
+                .to_string()
+            })
+        );
+
+        let (lesson_manifest, exercise_manifests) = &lessons[0];
+        assert_eq!(lesson_manifest.id, "course::0::0");
+        assert_eq!(lesson_manifest.name, "Course");
+        assert_eq!(lesson_manifest.description, None);
+        assert_eq!(lesson_manifest.course_id, "course");
+        assert!(lesson_manifest.dependencies.is_empty());
+        assert_eq!(exercise_manifests.len(), 1);
+
+        let exercise_manifest = &exercise_manifests[0];
+        assert_eq!(exercise_manifest.id, "course::0::0::exercise");
+        assert_eq!(exercise_manifest.name, "Course");
+        assert_eq!(exercise_manifest.description, None);
+        assert_eq!(exercise_manifest.lesson_id, "course::0::0");
+        assert_eq!(exercise_manifest.course_id, "course");
+        assert_eq!(
+            exercise_manifest.exercise_asset,
+            ExerciseAsset::BasicAsset(BasicAsset::InlinedAsset {
+                content: indoc! {"
+                    Given the following passage from the piece, start by listening to it repeatedly
+                    until you can audiate it clearly in your head. You can also attempt to hum or
+                    sing it if possible. Then, play the passage on your instrument.
+
+                    - Passage start: start 0::0
+                    - Passage end: end 0::0
+                    
+                    The file containing the music sheet is located at music.pdf. Relative paths are
+                    relative to the root of the library.
+                "}
+                .to_string()
+            })
+        );
     }
 }
