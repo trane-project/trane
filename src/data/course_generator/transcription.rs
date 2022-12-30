@@ -14,7 +14,7 @@ use anyhow::{anyhow, Context, Result};
 use indoc::formatdoc;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     fs::File,
     io::BufReader,
     path::Path,
@@ -29,22 +29,33 @@ use constants::*;
 
 /// An asset used for the transcription course generator.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct TranscriptionAsset {
-    // TODO: check short ID uniqueness.
-    /// A unique short ID for the asset. This value will be used to generate the exercise IDs.
-    pub id: String,
+pub enum TranscriptionAsset {
+    /// A track of recorded music that is not included along with the course. Used to reference
+    /// commercial music for which there is no legal way to distribute the audio.
+    Track {
+        /// A unique short ID for the asset. This value will be used to generate the exercise IDs.
+        short_id: String,
 
-    /// The name of the track to use for transcription.
-    pub track_name: String,
+        /// The name of the track to use for transcription.
+        track_name: String,
 
-    /// The name of the artist(s) who performs the track.
-    pub artist_name: String,
+        /// The name of the artist(s) who performs the track.
+        artist_name: String,
 
-    /// The name of the album in which the track appears.
-    pub album_name: String,
+        /// The name of the album in which the track appears.
+        album_name: String,
 
-    /// A link to an external copy (e.g. youtube video) of the track.
-    pub external_link: Option<String>,
+        /// A link to an external copy (e.g. youtube video) of the track.
+        external_link: Option<String>,
+    },
+}
+
+impl TranscriptionAsset {
+    pub fn short_id(&self) -> &str {
+        match self {
+            TranscriptionAsset::Track { short_id, .. } => short_id,
+        }
+    }
 }
 
 /// A collection of passages from a track that can be used for a transcription course.
@@ -62,23 +73,30 @@ pub struct TranscriptionPassages {
 impl TranscriptionPassages {
     /// Generates the exercise assets for these passages with the given description.
     fn generate_exercise_asset(&self, description: &str, start: &str, end: &str) -> ExerciseAsset {
-        // TODO: ensure id is valid.
-        ExerciseAsset::BasicAsset(BasicAsset::InlinedUniqueAsset {
-            content: formatdoc! {"
-                {}
+        match &self.asset {
+            TranscriptionAsset::Track {
+                track_name,
+                artist_name,
+                album_name,
+                external_link,
+                ..
+            } => ExerciseAsset::BasicAsset(BasicAsset::InlinedUniqueAsset {
+                content: formatdoc! {"
+                    {}
 
-                The passage to transcribe is the following:
-                    - Track name: {}
-                    - Artist name: {}
-                    - Album name: {}
-                    - External link: {}
-                    - Passage interval: {} - {}
-                ",
-                description, self.asset.track_name, self.asset.artist_name, self.asset.album_name,
-                self.asset.external_link.as_deref().unwrap_or(""), start, end
-            }
-            .into(),
-        })
+                    The passage to transcribe is the following:
+                        - Track name: {}
+                        - Artist name: {}
+                        - Album name: {}
+                        - External link: {}
+                        - Passage interval: {} - {}
+                    ",
+                    description, track_name, artist_name, album_name,
+                    external_link.as_deref().unwrap_or(""), start, end
+                }
+                .into(),
+            }),
+        }
     }
 }
 
@@ -148,7 +166,7 @@ impl TranscriptionConfig {
             .intervals
             .iter()
             .map(|(passage_id, (start, end))| ExerciseManifest {
-                id: self.exercise_id(lesson_id, &passages.asset.id, *passage_id),
+                id: self.exercise_id(lesson_id, passages.asset.short_id(), *passage_id),
                 lesson_id,
                 course_id: course_manifest.id,
                 name: format!("{} - Singing", course_manifest.name),
@@ -214,7 +232,7 @@ impl TranscriptionConfig {
             .intervals
             .iter()
             .map(|(passage_id, (start, end))| ExerciseManifest {
-                id: self.exercise_id(lesson_id, &passages.asset.id, *passage_id),
+                id: self.exercise_id(lesson_id, passages.asset.short_id(), *passage_id),
                 lesson_id,
                 course_id: course_manifest.id,
                 name: format!("{} - Advanced Singing", course_manifest.name),
@@ -286,7 +304,7 @@ impl TranscriptionConfig {
             .intervals
             .iter()
             .map(|(passage_id, (start, end))| ExerciseManifest {
-                id: self.exercise_id(lesson_id, &passages.asset.id, *passage_id),
+                id: self.exercise_id(lesson_id, passages.asset.short_id(), *passage_id),
                 lesson_id,
                 course_id: course_manifest.id,
                 name: format!(
@@ -386,7 +404,7 @@ impl TranscriptionConfig {
             .intervals
             .iter()
             .map(|(passage_id, (start, end))| ExerciseManifest {
-                id: self.exercise_id(lesson_id, &passages.asset.id, *passage_id),
+                id: self.exercise_id(lesson_id, passages.asset.short_id(), *passage_id),
                 lesson_id,
                 course_id: course_manifest.id,
                 name: format!(
@@ -472,8 +490,11 @@ impl TranscriptionConfig {
     /// Reads all the files in the passage directory to generate the list of all the passages
     /// included in the course.
     fn open_passage_directory(&self, course_root: &Path) -> Result<Vec<TranscriptionPassages>> {
-        // Read all the files in the passage directory.
+        // Keep track of all the discovered passage IDs to detect duplicates.
         let mut passages = Vec::new();
+        let mut seen_ids = HashSet::new();
+
+        // Read all the files in the passage directory.
         let passage_dir = course_root.join(&self.passage_directory);
         for entry in std::fs::read_dir(passage_dir)? {
             // Only files inside the passage directory are considered.
@@ -495,8 +516,15 @@ impl TranscriptionConfig {
                 continue;
             }
 
-            // Open the file and parse it as a [TranscriptionPassages] object.
+            // Open the file and parse it as a [TranscriptionPassages] object. Check for duplicate
+            // short IDs.
             let passage = TranscriptionPassages::open(&path)?;
+            let short_id = passage.asset.short_id();
+            if seen_ids.contains(short_id) {
+                return Err(anyhow!("Duplicate passage ID: {}", short_id));
+            } else {
+                seen_ids.insert(short_id.to_string());
+            }
             passages.push(passage);
         }
         Ok(passages)
