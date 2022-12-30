@@ -147,12 +147,12 @@ pub struct TranscriptionConfig {
 
 impl TranscriptionConfig {
     /// Returns the ID for a given exercise given the lesson ID and the exercise index.
-    fn exercise_id(&self, lesson_id: Ustr, asset_id: &str, passage_id: usize) -> Ustr {
+    fn exercise_id(lesson_id: &Ustr, asset_id: &str, passage_id: usize) -> Ustr {
         Ustr::from(&format!("{}::{}::{}", lesson_id, asset_id, passage_id))
     }
 
     /// Returns the ID of the singing lesson for the given course.
-    fn singing_lesson_id(course_id: Ustr) -> Ustr {
+    fn singing_lesson_id(course_id: &Ustr) -> Ustr {
         Ustr::from(&format!("{}::singing", course_id))
     }
 
@@ -167,7 +167,7 @@ impl TranscriptionConfig {
             .intervals
             .iter()
             .map(|(passage_id, (start, end))| ExerciseManifest {
-                id: self.exercise_id(lesson_id, passages.asset.short_id(), *passage_id),
+                id: Self::exercise_id(&lesson_id, passages.asset.short_id(), *passage_id),
                 lesson_id,
                 course_id: course_manifest.id,
                 name: format!("{} - Singing", course_manifest.name),
@@ -192,7 +192,7 @@ impl TranscriptionConfig {
             .map(|id| format!("{}::singing", id).into())
             .collect();
         let lesson_manifest = LessonManifest {
-            id: Self::singing_lesson_id(course_manifest.id),
+            id: Self::singing_lesson_id(&course_manifest.id),
             course_id: course_manifest.id,
             name: format!("{} - Singing", course_manifest.name),
             description: Some(SINGING_DESCRIPTION.to_string()),
@@ -218,7 +218,7 @@ impl TranscriptionConfig {
     }
 
     /// Returns the ID of the singing lesson for the given course.
-    fn advanced_singing_lesson_id(course_id: Ustr) -> Ustr {
+    fn advanced_singing_lesson_id(course_id: &Ustr) -> Ustr {
         Ustr::from(&format!("{}::advanced_singing", course_id))
     }
 
@@ -233,7 +233,7 @@ impl TranscriptionConfig {
             .intervals
             .iter()
             .map(|(passage_id, (start, end))| ExerciseManifest {
-                id: self.exercise_id(lesson_id, passages.asset.short_id(), *passage_id),
+                id: Self::exercise_id(&lesson_id, passages.asset.short_id(), *passage_id),
                 lesson_id,
                 course_id: course_manifest.id,
                 name: format!("{} - Advanced Singing", course_manifest.name),
@@ -256,11 +256,11 @@ impl TranscriptionConfig {
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Generate the lesson manifest. The lesson depends on the singing lesson.
         let lesson_manifest = LessonManifest {
-            id: Self::advanced_singing_lesson_id(course_manifest.id),
+            id: Self::advanced_singing_lesson_id(&course_manifest.id),
             course_id: course_manifest.id,
             name: format!("{} - Advanced Singing", course_manifest.name),
             description: Some(ADVANCED_SINGING_DESCRIPTION.to_string()),
-            dependencies: vec![Self::singing_lesson_id(course_manifest.id)],
+            dependencies: vec![Self::singing_lesson_id(&course_manifest.id)],
             metadata: Some(BTreeMap::from([
                 (
                     LESSON_METADATA.to_string(),
@@ -289,7 +289,7 @@ impl TranscriptionConfig {
     }
 
     /// Returns the ID of the transcription lesson for the given course and instrument.
-    fn transcription_lesson_id(course_id: Ustr, instrument: &Instrument) -> Ustr {
+    fn transcription_lesson_id(course_id: &Ustr, instrument: &Instrument) -> Ustr {
         format!("{}::transcription::{}", course_id, instrument.id).into()
     }
 
@@ -305,7 +305,7 @@ impl TranscriptionConfig {
             .intervals
             .iter()
             .map(|(passage_id, (start, end))| ExerciseManifest {
-                id: self.exercise_id(lesson_id, passages.asset.short_id(), *passage_id),
+                id: Self::exercise_id(&lesson_id, passages.asset.short_id(), *passage_id),
                 lesson_id,
                 course_id: course_manifest.id,
                 name: format!(
@@ -333,14 +333,14 @@ impl TranscriptionConfig {
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Generate the lesson manifest. The lesson depends on the singing lesson.
         let lesson_manifest = LessonManifest {
-            id: Self::transcription_lesson_id(course_manifest.id, instrument),
+            id: Self::transcription_lesson_id(&course_manifest.id, instrument),
             course_id: course_manifest.id,
             name: format!(
                 "{} - Transcription - {}",
                 course_manifest.name, instrument.name
             ),
             description: Some(TRANSCRIPTION_DESCRIPTION.to_string()),
-            dependencies: vec![Self::singing_lesson_id(course_manifest.id)],
+            dependencies: vec![Self::singing_lesson_id(&course_manifest.id)],
             metadata: Some(BTreeMap::from([
                 (
                     LESSON_METADATA.to_string(),
@@ -389,7 +389,7 @@ impl TranscriptionConfig {
     }
 
     /// Returns the ID of the advanced transcription lesson for the given course and instrument.
-    fn advanced_transcription_lesson_id(course_id: Ustr, instrument: &Instrument) -> Ustr {
+    fn advanced_transcription_lesson_id(course_id: &Ustr, instrument: &Instrument) -> Ustr {
         format!("{}::advanced_transcription::{}", course_id, instrument.id).into()
     }
 
@@ -405,7 +405,7 @@ impl TranscriptionConfig {
             .intervals
             .iter()
             .map(|(passage_id, (start, end))| ExerciseManifest {
-                id: self.exercise_id(lesson_id, passages.asset.short_id(), *passage_id),
+                id: Self::exercise_id(&lesson_id, passages.asset.short_id(), *passage_id),
                 lesson_id,
                 course_id: course_manifest.id,
                 name: format!(
@@ -433,14 +433,14 @@ impl TranscriptionConfig {
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Generate the lesson manifest. The lesson depends on the advanced singing lesson.
         let lesson_manifest = LessonManifest {
-            id: Self::advanced_transcription_lesson_id(course_manifest.id, instrument),
+            id: Self::advanced_transcription_lesson_id(&course_manifest.id, instrument),
             course_id: course_manifest.id,
             name: format!(
                 "{} - Advanced Transcription - {}",
                 course_manifest.name, instrument.name
             ),
             description: Some(ADVANCED_TRANSCRIPTION_DESCRIPTION.to_string()),
-            dependencies: vec![Self::advanced_singing_lesson_id(course_manifest.id)],
+            dependencies: vec![Self::advanced_singing_lesson_id(&course_manifest.id)],
             metadata: Some(BTreeMap::from([
                 (
                     LESSON_METADATA.to_string(),
@@ -586,5 +586,213 @@ impl GenerateManifests for TranscriptionConfig {
             updated_metadata: Some(metadata),
             updated_instructions: instructions,
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use anyhow::Result;
+    use indoc::indoc;
+    use std::{fs, io::Write};
+
+    use super::*;
+
+    /// Verifies generating IDs for the exercises in the course.
+    #[test]
+    fn exercise_id() {
+        let lesson_id = Ustr::from("lesson_id");
+        let asset_id = "asset_id";
+        let passage_id = 2;
+        assert_eq!(
+            TranscriptionConfig::exercise_id(&lesson_id, &asset_id, passage_id),
+            Ustr::from("lesson_id::asset_id::2")
+        );
+    }
+
+    /// Verifies generating the lesson ID for the singing lesson.
+    #[test]
+    fn singing_lesson_id() {
+        let course_id = Ustr::from("course_id");
+        assert_eq!(
+            TranscriptionConfig::singing_lesson_id(&course_id),
+            Ustr::from("course_id::singing")
+        );
+    }
+
+    /// Verifies generating the lesson ID for the advanced singing lesson.
+    #[test]
+    fn advanced_singing_lesson_id() {
+        let course_id = Ustr::from("course_id");
+        assert_eq!(
+            TranscriptionConfig::advanced_singing_lesson_id(&course_id),
+            Ustr::from("course_id::advanced_singing")
+        );
+    }
+
+    /// Verifies generating the lesson ID for the transcription lesson.
+    #[test]
+    fn transcription_lesson_id() {
+        let course_id = Ustr::from("course_id");
+        let instrument = Instrument {
+            name: "Piano".into(),
+            id: "piano".into(),
+        };
+        assert_eq!(
+            TranscriptionConfig::transcription_lesson_id(&course_id, &instrument),
+            Ustr::from("course_id::transcription::piano"),
+        );
+    }
+
+    /// Verifies generating the lesson ID for the advanced transcription lesson.
+    #[test]
+    fn advanced_transcription_lesson_id() {
+        let course_id = Ustr::from("course_id");
+        let instrument = Instrument {
+            name: "Piano".into(),
+            id: "piano".into(),
+        };
+        assert_eq!(
+            TranscriptionConfig::advanced_transcription_lesson_id(&course_id, &instrument),
+            Ustr::from("course_id::advanced_transcription::piano"),
+        );
+    }
+
+    /// Verifies generating the asset for an exercise in the course.
+    #[test]
+    fn generate_exercise_asset() {
+        let passages = TranscriptionPassages {
+            asset: TranscriptionAsset::Track {
+                short_id: "track".into(),
+                track_name: "Track".into(),
+                artist_name: "Artist".into(),
+                album_name: "Album".into(),
+                external_link: Some("https://example.com".into()),
+            },
+            intervals: HashMap::from([
+                (1, ("0:00".into(), "0:01".into())),
+                (2, ("0:01".into(), "0:02".into())),
+            ]),
+        };
+
+        let exercise_asset = passages.generate_exercise_asset("My description", "0:00", "0:01");
+        let expected_asset = ExerciseAsset::BasicAsset(BasicAsset::InlinedUniqueAsset {
+            content: indoc! {"
+                My description
+
+                The passage to transcribe is the following:
+                    - Track name: Track
+                    - Artist name: Artist
+                    - Album name: Album
+                    - External link: https://example.com
+                    - Passage interval: 0:00 - 0:01
+            "}
+            .into(),
+        });
+        assert_eq!(exercise_asset, expected_asset);
+    }
+
+    /// Verifies opening the passage directory.
+    #[test]
+    fn open_passage_directory() -> Result<()> {
+        // Create the passages directory.
+        let temp_dir = tempfile::tempdir()?;
+        let passages_dir = temp_dir.path().join("passages");
+        fs::create_dir(&passages_dir)?;
+
+        // Write some test passages to the directory.
+        let passages1 = TranscriptionPassages {
+            asset: TranscriptionAsset::Track {
+                short_id: "track1".into(),
+                track_name: "Track 1".into(),
+                artist_name: "Artist 1".into(),
+                album_name: "Album 1".into(),
+                external_link: None,
+            },
+            intervals: HashMap::from([(1, ("0:00".into(), "0:01".into()))]),
+        };
+        let passages2 = TranscriptionPassages {
+            asset: TranscriptionAsset::Track {
+                short_id: "track2".into(),
+                track_name: "Track 2".into(),
+                artist_name: "Artist 2".into(),
+                album_name: "Album 2".into(),
+                external_link: None,
+            },
+            intervals: HashMap::from([(1, ("0:00".into(), "0:01".into()))]),
+        };
+        File::create(passages_dir.join("passages1.json"))?
+            .write_all(serde_json::to_string_pretty(&passages1).unwrap().as_bytes())?;
+        File::create(passages_dir.join("passages2.json"))?
+            .write_all(serde_json::to_string_pretty(&passages2).unwrap().as_bytes())?;
+
+        // Open the passages directory and verify the passages.
+        let config = TranscriptionConfig {
+            passage_directory: "passages".into(),
+            improvisation_dependencies: vec![],
+        };
+        let passages = config.open_passage_directory(&temp_dir.path())?;
+        assert_eq!(2, passages.len());
+
+        Ok(())
+    }
+
+    /// Verifies that opening the passage directory fails if there are passages with duplicate IDs.
+    #[test]
+    fn open_passage_directory_duplicate() -> Result<()> {
+        // Create the passages directory.
+        let temp_dir = tempfile::tempdir()?;
+        let passages_dir = temp_dir.path().join("passages");
+        fs::create_dir(&passages_dir)?;
+
+        // Write some test passages to the directory. The passages have duplicate IDs.
+        let passages1 = TranscriptionPassages {
+            asset: TranscriptionAsset::Track {
+                short_id: "track1".into(),
+                track_name: "Track 1".into(),
+                artist_name: "Artist 1".into(),
+                album_name: "Album 1".into(),
+                external_link: None,
+            },
+            intervals: HashMap::from([(1, ("0:00".into(), "0:01".into()))]),
+        };
+        let passages2 = TranscriptionPassages {
+            asset: TranscriptionAsset::Track {
+                short_id: "track1".into(),
+                track_name: "Track 2".into(),
+                artist_name: "Artist 2".into(),
+                album_name: "Album 2".into(),
+                external_link: None,
+            },
+            intervals: HashMap::from([(1, ("0:00".into(), "0:01".into()))]),
+        };
+        File::create(passages_dir.join("passages1.json"))?
+            .write_all(serde_json::to_string_pretty(&passages1).unwrap().as_bytes())?;
+        File::create(passages_dir.join("passages2.json"))?
+            .write_all(serde_json::to_string_pretty(&passages2).unwrap().as_bytes())?;
+
+        // Open the passages directory and verify the method fails.
+        let config = TranscriptionConfig {
+            passage_directory: "passages".into(),
+            improvisation_dependencies: vec![],
+        };
+        let result = config.open_passage_directory(&temp_dir.path());
+        assert!(result.is_err());
+        Ok(())
+    }
+
+    /// Verifies that opening the passage directory fails if the directory does not exist.
+    #[test]
+    fn open_passage_directory_bad_directory() -> Result<()> {
+        // Create the course directory but not the passages directory.
+        let temp_dir = tempfile::tempdir()?;
+
+        // Open the passages directory and verify the method fails.
+        let config = TranscriptionConfig {
+            passage_directory: "passages".into(),
+            improvisation_dependencies: vec![],
+        };
+        let result = config.open_passage_directory(&temp_dir.path());
+        assert!(result.is_err());
+        Ok(())
     }
 }
