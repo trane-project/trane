@@ -51,6 +51,7 @@ pub enum TranscriptionAsset {
 }
 
 impl TranscriptionAsset {
+    /// Returns the short ID of the asset, which wil be used to generate the exercise IDs.
     pub fn short_id(&self) -> &str {
         match self {
             TranscriptionAsset::Track { short_id, .. } => short_id,
