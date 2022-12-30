@@ -54,6 +54,7 @@ pub const KEY_METADATA: &str = "key";
 pub const INSTRUMENT_METADATA: &str = "instrument";
 
 lazy_static! {
+    /// The instructions for the improvisation course.
     pub static ref COURSE_INSTRUCTIONS: Ustr = Ustr::from(include_str!("course_instructions.md"));
 
     /// The instructions for the singing lessons.

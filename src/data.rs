@@ -259,6 +259,7 @@ pub struct UserPreferences {
     /// The preferences for generating improvisation courses.
     pub improvisation: Option<ImprovisationPreferences>,
 
+    /// The preferences for generating transcription courses.
     pub transcription: Option<TranscriptionPreferences>,
 }
 //>@user-preferences
