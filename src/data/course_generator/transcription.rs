@@ -30,6 +30,9 @@ use constants::*;
 /// An asset used for the transcription course generator.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct TranscriptionAsset {
+    /// A unique ID for the asset.
+    pub id: String,
+
     /// The name of the track to use for transcription.
     pub track_name: String,
 
@@ -43,39 +46,38 @@ pub struct TranscriptionAsset {
     pub external_link: Option<String>,
 }
 
-/// Passages from a track that can be used for a transcription course.
+/// A collection of passages from a track that can be used for a transcription course.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct TranscriptionPassages {
     /// The asset to transcribe.
     pub asset: TranscriptionAsset,
 
-    /// The ranges `[start, end]` of the passages to transcribe. Stored as a tuple of strings.
-    pub intervals: Vec<(String, String)>,
+    /// The ranges `[start, end]` of the passages to transcribe. Stored as a map maping a unique ID
+    /// to the start and end of the passage. A map is used to get the indices instead of getting
+    /// them from a vector because reordering the passages would change the resulting exercise IDs.
+    pub intervals: HashMap<usize, (String, String)>,
 }
 
 impl TranscriptionPassages {
     /// Generates the exercise assets for these passages with the given description.
-    fn generate_exercise_assets(&self, description: &str) -> Vec<ExerciseAsset> {
-        self.intervals
-            .iter()
-            .map(|(start, end)| {
-                ExerciseAsset::BasicAsset(BasicAsset::InlinedUniqueAsset {
-                    content: formatdoc! {"
-                        {}
+    fn generate_exercise_asset(&self, description: &str, start: &str, end: &str) -> ExerciseAsset {
+        // TODO: ensure id is valid.
+        ExerciseAsset::BasicAsset(BasicAsset::InlinedUniqueAsset {
+            content: formatdoc! {"
+                {}
 
-                        The passage to transcribe is the following:
-                        - Track name: {}
-                        - Artist name: {}
-                        - Album name: {}
-                        - External link: {}
-                        - Passage interval: {} - {}
-                    ", description, self.asset.track_name, self.asset.artist_name,
-                    self.asset.album_name, self.asset.external_link.as_deref().unwrap_or(""),
-                    start, end}
-                    .into(),
-                })
-            })
-            .collect()
+                The passage to transcribe is the following:
+                    - Track name: {}
+                    - Artist name: {}
+                    - Album name: {}
+                    - External link: {}
+                    - Passage interval: {} - {}
+                ",
+                description, self.asset.track_name, self.asset.artist_name, self.asset.album_name,
+                self.asset.external_link.as_deref().unwrap_or(""), start, end
+            }
+            .into(),
+        })
     }
 }
 
@@ -125,8 +127,8 @@ pub struct TranscriptionConfig {
 
 impl TranscriptionConfig {
     /// Returns the ID for a given exercise given the lesson ID and the exercise index.
-    fn exercise_id(&self, lesson_id: Ustr, passage_id: &str) -> Ustr {
-        Ustr::from(&format!("{}::{}", lesson_id, passage_id))
+    fn exercise_id(&self, lesson_id: Ustr, asset_id: &str, passage_id: usize) -> Ustr {
+        Ustr::from(&format!("{}::{}::{}", lesson_id, asset_id, passage_id))
     }
 
     /// Returns the ID of the singing lesson for the given course.
@@ -134,25 +136,24 @@ impl TranscriptionConfig {
         Ustr::from(&format!("{}::singing", course_id))
     }
 
-    /// Generates a singing exercises for the given passage.
+    /// Generates a singing exercises for the given passages.
     fn generate_singing_exercises(
         &self,
         course_manifest: &CourseManifest,
         lesson_id: Ustr,
-        passage: (&str, &TranscriptionPassages),
+        passages: &TranscriptionPassages,
     ) -> Vec<ExerciseManifest> {
-        passage
-            .1
-            .generate_exercise_assets(SINGING_DESCRIPTION)
-            .into_iter()
-            .map(|exercise_asset| ExerciseManifest {
-                id: self.exercise_id(lesson_id, passage.0),
+        passages
+            .intervals
+            .iter()
+            .map(|(passage_id, (start, end))| ExerciseManifest {
+                id: self.exercise_id(lesson_id, &passages.asset.id, *passage_id),
                 lesson_id,
                 course_id: course_manifest.id,
                 name: format!("{} - Singing", course_manifest.name),
                 description: None,
                 exercise_type: ExerciseType::Procedural,
-                exercise_asset,
+                exercise_asset: passages.generate_exercise_asset(SINGING_DESCRIPTION, start, end),
             })
             .collect()
     }
@@ -161,7 +162,7 @@ impl TranscriptionConfig {
     fn generate_singing_lesson(
         &self,
         course_manifest: &CourseManifest,
-        passages: &HashMap<String, TranscriptionPassages>,
+        passages: &[TranscriptionPassages],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Generate the lesson manifest. The lesson depends on the singing lessons of all the other
         // transcription courses listed as dependencies.
@@ -189,29 +190,66 @@ impl TranscriptionConfig {
         // Generate an exercise for each passage.
         let exercises = passages
             .iter()
-            .flat_map(|(id, passage)| {
-                self.generate_singing_exercises(
-                    course_manifest,
-                    lesson_manifest.id,
-                    (id.as_str(), passage),
-                )
+            .flat_map(|passages| {
+                self.generate_singing_exercises(course_manifest, lesson_manifest.id, passages)
             })
             .collect::<Vec<_>>();
         vec![(lesson_manifest, exercises)]
     }
 
     /// Returns the ID of the singing lesson for the given course.
-    fn _advanced_singing_lesson_id(&self, course_id: Ustr) -> Ustr {
+    fn advanced_singing_lesson_id(&self, course_id: Ustr) -> Ustr {
         Ustr::from(&format!("{}::advanced_singing", course_id))
+    }
+
+    /// Generates a advanced singing exercises for the given passages.
+    fn generate_advanced_singing_exercises(
+        &self,
+        _course_manifest: &CourseManifest,
+        _lesson_id: Ustr,
+        _passage: &TranscriptionPassages,
+    ) -> Vec<ExerciseManifest> {
+        unimplemented!()
     }
 
     /// Generates the lesson and exercise manifests for the advanced singing lesson.
     fn generate_advanced_singing_lesson(
         &self,
-        _course_manifest: &CourseManifest,
-        _passages: &HashMap<String, TranscriptionPassages>,
+        course_manifest: &CourseManifest,
+        passages: &[TranscriptionPassages],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
-        unimplemented!()
+        // Generate the lesson manifest. The lesson depends on the singing lesson.
+        let lesson_manifest = LessonManifest {
+            id: self.advanced_singing_lesson_id(course_manifest.id),
+            course_id: course_manifest.id,
+            name: format!("{} - Advanced Singing", course_manifest.name),
+            description: Some(ADVANCED_SINGING_DESCRIPTION.to_string()),
+            dependencies: vec![self.singing_lesson_id(course_manifest.id)],
+            metadata: Some(BTreeMap::from([
+                (
+                    LESSON_METADATA.to_string(),
+                    vec!["advanced_singing".to_string()],
+                ),
+                (INSTRUMENT_METADATA.to_string(), vec!["voice".to_string()]),
+            ])),
+            lesson_instructions: Some(BasicAsset::InlinedUniqueAsset {
+                content: *ADVANCED_SINGING_INSTRUCTIONS,
+            }),
+            lesson_material: None,
+        };
+
+        // Generate an exercise for each passage.
+        let exercises = passages
+            .iter()
+            .flat_map(|passages| {
+                self.generate_advanced_singing_exercises(
+                    course_manifest,
+                    lesson_manifest.id,
+                    passages,
+                )
+            })
+            .collect::<Vec<_>>();
+        vec![(lesson_manifest, exercises)]
     }
 
     /// Returns the ID of the transcription lesson for the given course and instrument.
@@ -224,7 +262,7 @@ impl TranscriptionConfig {
         &self,
         _course_manifest: &CourseManifest,
         _preferences: &TranscriptionPreferences,
-        _passages: &HashMap<String, TranscriptionPassages>,
+        _passages: &[TranscriptionPassages],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         unimplemented!()
     }
@@ -239,19 +277,16 @@ impl TranscriptionConfig {
         &self,
         _course_manifest: &CourseManifest,
         _preferences: &TranscriptionPreferences,
-        _passages: &HashMap<String, TranscriptionPassages>,
+        _passages: &[TranscriptionPassages],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         unimplemented!()
     }
 
     /// Reads all the files in the passage directory to generate the list of all the passages
     /// included in the course.
-    fn open_passage_directory(
-        &self,
-        course_root: &Path,
-    ) -> Result<HashMap<String, TranscriptionPassages>> {
+    fn open_passage_directory(&self, course_root: &Path) -> Result<Vec<TranscriptionPassages>> {
         // Read all the files in the passage directory.
-        let mut passages = HashMap::new();
+        let mut passages = Vec::new();
         let passage_dir = course_root.join(&self.passage_directory);
         for entry in std::fs::read_dir(passage_dir)? {
             // Only files inside the passage directory are considered.
@@ -273,11 +308,9 @@ impl TranscriptionConfig {
                 continue;
             }
 
-            // Use the rest of the file name as the passage ID. Then, create the transcription
-            // passage and add it to the result.
-            let passage_id = file_name.strip_suffix(".json").unwrap_or_default();
+            // Open the file and parse it as a [TranscriptionPassages] object.
             let passage = TranscriptionPassages::open(&path)?;
-            passages.insert(passage_id.into(), passage);
+            passages.push(passage);
         }
         Ok(passages)
     }
@@ -287,7 +320,7 @@ impl TranscriptionConfig {
         &self,
         course_manifest: &CourseManifest,
         preferences: &TranscriptionPreferences,
-        passages: HashMap<String, TranscriptionPassages>,
+        passages: Vec<TranscriptionPassages>,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         Ok(vec![
             self.generate_singing_lesson(course_manifest, &passages),
