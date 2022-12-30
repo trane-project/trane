@@ -42,6 +42,7 @@ lazy_static! {
                 id: "drums".to_string(),
             }],
         }),
+        transcription: None,
     };
 }
 

@@ -16,6 +16,7 @@ use self::course_generator::{
     improvisation::{ImprovisationConfig, ImprovisationPreferences},
     knowledge_base::KnowledgeBaseConfig,
     music_piece::MusicPieceConfig,
+    transcription::{TranscriptionConfig, TranscriptionPreferences},
 };
 
 /// The score used by students to evaluate their mastery of a particular exercise after a trial.
@@ -245,6 +246,9 @@ pub enum CourseGenerator {
 
     /// The configuration for generating a music piece course.
     MusicPiece(MusicPieceConfig),
+
+    /// The configuration for generating a transcription course.
+    Transcription(TranscriptionConfig),
 }
 //>@course-generator
 
@@ -254,6 +258,8 @@ pub enum CourseGenerator {
 pub struct UserPreferences {
     /// The preferences for generating improvisation courses.
     pub improvisation: Option<ImprovisationPreferences>,
+
+    pub transcription: Option<TranscriptionPreferences>,
 }
 //>@user-preferences
 
@@ -295,6 +301,9 @@ impl GenerateManifests for CourseGenerator {
                 config.generate_manifests(course_root, course_manifest, preferences)
             }
             CourseGenerator::MusicPiece(config) => {
+                config.generate_manifests(course_root, course_manifest, preferences)
+            }
+            CourseGenerator::Transcription(config) => {
                 config.generate_manifests(course_root, course_manifest, preferences)
             }
         }

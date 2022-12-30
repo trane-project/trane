@@ -8,3 +8,4 @@
 pub mod improvisation;
 pub mod knowledge_base;
 pub mod music_piece;
+pub mod transcription;

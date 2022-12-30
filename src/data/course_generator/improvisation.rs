@@ -17,10 +17,10 @@ use std::{
 use ustr::Ustr;
 
 use crate::data::{
-    course_generator::improvisation::constants::*, music::notes::Note, BasicAsset, CourseManifest,
-    ExerciseAsset, ExerciseManifest, ExerciseType, GenerateManifests, GeneratedCourse,
-    LessonManifest, UserPreferences,
+    music::notes::Note, BasicAsset, CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseType,
+    GenerateManifests, GeneratedCourse, LessonManifest, UserPreferences,
 };
+use constants::*;
 
 //@<improvisation-passage
 /// A single musical passage to be used in an improvisation course. A course can contain multiple
@@ -291,11 +291,11 @@ impl ImprovisationConfig {
     fn generate_rhythm_lessons(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &ImprovisationPreferences,
+        preferences: &ImprovisationPreferences,
         passages: &[ImprovisationPassage],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Generate a lesson for each instrument.
-        let lesson_instruments = user_config.rhythm_lesson_instruments();
+        let lesson_instruments = preferences.rhythm_lesson_instruments();
         let lessons = lesson_instruments
             .iter()
             .map(|instrument| self.generate_rhythm_lesson(course_manifest, *instrument, passages))
@@ -442,12 +442,12 @@ impl ImprovisationConfig {
     fn generate_melody_lessons(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &ImprovisationPreferences,
+        preferences: &ImprovisationPreferences,
         passages: &[ImprovisationPassage],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Get a list of all keys and instruments.
         let all_keys = Note::all_keys(false);
-        let lesson_instruments = user_config.lesson_instruments();
+        let lesson_instruments = preferences.lesson_instruments();
 
         // Generate a lesson for each key and instrument pair.
         all_keys
@@ -610,12 +610,12 @@ impl ImprovisationConfig {
     fn generate_basic_harmony_lessons(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &ImprovisationPreferences,
+        preferences: &ImprovisationPreferences,
         passages: &[ImprovisationPassage],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Get all keys and instruments.
         let all_keys = Note::all_keys(false);
-        let lesson_instruments = user_config.lesson_instruments();
+        let lesson_instruments = preferences.lesson_instruments();
 
         // Generate a lesson for each key and instrument pair.
         all_keys
@@ -784,12 +784,12 @@ impl ImprovisationConfig {
     fn generate_advanced_harmony_lessons(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &ImprovisationPreferences,
+        preferences: &ImprovisationPreferences,
         passages: &[ImprovisationPassage],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Get all keys and instruments.
         let all_keys = Note::all_keys(false);
-        let lesson_instruments = user_config.lesson_instruments();
+        let lesson_instruments = preferences.lesson_instruments();
 
         // Generate a lesson for each key and instrument pair.
         all_keys
@@ -913,10 +913,10 @@ impl ImprovisationConfig {
     fn generate_mastery_lessons(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &ImprovisationPreferences,
+        preferences: &ImprovisationPreferences,
         passages: &[ImprovisationPassage],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
-        let lesson_instruments = user_config.lesson_instruments();
+        let lesson_instruments = preferences.lesson_instruments();
         lesson_instruments
             .iter()
             .map(|instrument| self.generate_mastery_lesson(course_manifest, *instrument, passages))
@@ -989,12 +989,12 @@ impl ImprovisationConfig {
     fn generate_rhtyhm_only_manifests(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &ImprovisationPreferences,
+        preferences: &ImprovisationPreferences,
         passages: Vec<ImprovisationPassage>,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         Ok(vec![
             self.generate_singing_lesson(course_manifest, &passages),
-            self.generate_rhythm_lessons(course_manifest, user_config, &passages),
+            self.generate_rhythm_lessons(course_manifest, preferences, &passages),
         ]
         .into_iter()
         .flatten()
@@ -1005,16 +1005,16 @@ impl ImprovisationConfig {
     fn generate_all_manifests(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &ImprovisationPreferences,
+        preferences: &ImprovisationPreferences,
         passages: Vec<ImprovisationPassage>,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         Ok(vec![
             self.generate_singing_lesson(course_manifest, &passages),
-            self.generate_rhythm_lessons(course_manifest, user_config, &passages),
-            self.generate_melody_lessons(course_manifest, user_config, &passages),
-            self.generate_basic_harmony_lessons(course_manifest, user_config, &passages),
-            self.generate_advanced_harmony_lessons(course_manifest, user_config, &passages),
-            self.generate_mastery_lessons(course_manifest, user_config, &passages),
+            self.generate_rhythm_lessons(course_manifest, preferences, &passages),
+            self.generate_melody_lessons(course_manifest, preferences, &passages),
+            self.generate_basic_harmony_lessons(course_manifest, preferences, &passages),
+            self.generate_advanced_harmony_lessons(course_manifest, preferences, &passages),
+            self.generate_mastery_lessons(course_manifest, preferences, &passages),
         ]
         .into_iter()
         .flatten()
