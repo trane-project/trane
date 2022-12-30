@@ -294,9 +294,9 @@ fn no_progress_past_singing_lessons() -> Result<()> {
     );
     simulation.run_simulation(&mut trane, &vec![], None)?;
 
-    // Only exercises from the singing lessons are in the answer history.
+    // Only exercises from the singing lessons of the first are in the answer history.
     for exercise_id in exercise_ids {
-        if exercise_id.contains("singing") {
+        if exercise_id.contains("improv_course_0::singing") {
             assert!(
                 simulation.answer_history.contains_key(&exercise_id),
                 "exercise {:?} should have been scheduled",

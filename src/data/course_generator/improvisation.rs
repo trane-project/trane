@@ -170,13 +170,19 @@ impl ImprovisationConfig {
         course_manifest: &CourseManifest,
         passages: &[ImprovisationPassage],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
-        // Generate the lesson manifest.
+        // Generate the lesson manifest. The lesson depends on the singing lessons of all the other
+        // improvisation courses listed as dependencies.
+        let dependencies = self
+            .improvisation_dependencies
+            .iter()
+            .map(|id| format!("{}::singing", id).into())
+            .collect();
         let lesson_manifest = LessonManifest {
             id: self.singing_lesson_id(course_manifest.id),
             course_id: course_manifest.id,
             name: format!("{} - Singing", course_manifest.name),
             description: Some(SINGING_DESCRIPTION.to_string()),
-            dependencies: vec![],
+            dependencies,
             metadata: Some(BTreeMap::from([
                 (LESSON_METADATA.to_string(), vec!["singing".to_string()]),
                 (INSTRUMENT_METADATA.to_string(), vec!["voice".to_string()]),
