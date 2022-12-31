@@ -128,8 +128,7 @@ pub struct TranscriptionConfig {
     pub improvisation_dependencies: Vec<Ustr>,
 
     /// The directory where the passages are stored as JSON files whose contents are serialized
-    /// [TranscriptionPassages] objects. The name of each JSON file (minus the extension) will be
-    /// used to generate the ID for each exercise.
+    /// [TranscriptionPassages] objects.
     ///
     /// The directory can be written relative to the root of the course or as an absolute path. The
     /// first option is recommended.
