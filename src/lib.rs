@@ -126,12 +126,15 @@ pub struct Trane {
 impl Trane {
     /// Creates a new instance of the library given the path to the root of a course library. The
     /// user data will be stored in a directory named `.trane` inside the library root directory.
-    pub fn new(library_root: &Path) -> Result<Trane> {
+    /// The working directory will be used to resolve relative paths.
+    pub fn new(working_dir: &Path, library_root: &Path) -> Result<Trane> {
         let config_path = library_root.join(Path::new(TRANE_CONFIG_DIR_PATH));
 
         // The course library must be created first because it makes sure to initialize all the
         // required directories if they are missing.
-        let course_library = Arc::new(RwLock::new(LocalCourseLibrary::new(library_root)?));
+        let course_library = Arc::new(RwLock::new(LocalCourseLibrary::new(
+            &working_dir.join(library_root),
+        )?));
 
         let unit_graph = course_library.write().get_unit_graph();
         let practice_stats = Arc::new(RwLock::new(PracticeStatsDB::new_from_disk(
@@ -412,7 +415,7 @@ mod test {
     #[test]
     fn library_root() -> Result<()> {
         let dir = tempfile::tempdir()?;
-        let trane = Trane::new(dir.path())?;
+        let trane = Trane::new(dir.path(), dir.path())?;
         assert_eq!(trane.library_root(), dir.path().to_str().unwrap());
         Ok(())
     }
@@ -421,7 +424,7 @@ mod test {
     #[test]
     fn mantra_count() -> Result<()> {
         let dir = tempfile::tempdir()?;
-        let trane = Trane::new(dir.path())?;
+        let trane = Trane::new(dir.path(), dir.path())?;
         thread::sleep(Duration::from_millis(200));
         assert!(trane.mantra_count() > 0);
         Ok(())
@@ -434,7 +437,7 @@ mod test {
         let dir = tempfile::tempdir()?;
         let trane_path = dir.path().join(".trane");
         File::create(&trane_path)?;
-        assert!(Trane::new(dir.path()).is_err());
+        assert!(Trane::new(dir.path(), dir.path()).is_err());
         Ok(())
     }
 
@@ -443,7 +446,7 @@ mod test {
     fn bad_dir_permissions() -> Result<()> {
         let dir = tempfile::tempdir()?;
         set_permissions(&dir, Permissions::from_mode(0o000))?;
-        assert!(Trane::new(dir.path()).is_err());
+        assert!(Trane::new(dir.path(), dir.path()).is_err());
         Ok(())
     }
 
@@ -454,7 +457,7 @@ mod test {
         let config_dir_path = dir.path().join(".trane");
         create_dir(&config_dir_path)?;
         set_permissions(&config_dir_path, Permissions::from_mode(0o000))?;
-        assert!(Trane::new(dir.path()).is_err());
+        assert!(Trane::new(dir.path(), dir.path()).is_err());
         Ok(())
     }
 
@@ -462,7 +465,7 @@ mod test {
     #[test]
     fn scheduler_data() -> Result<()> {
         let dir = tempfile::tempdir()?;
-        let trane = Trane::new(dir.path())?;
+        let trane = Trane::new(dir.path(), dir.path())?;
         trane.get_scheduler_data();
         Ok(())
     }
