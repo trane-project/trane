@@ -4,8 +4,6 @@ use indoc::indoc;
 use lazy_static::lazy_static;
 use ustr::Ustr;
 
-// TODO: fill in course_instructions.md.
-
 /// The description of the singing lesson.
 pub const SINGING_DESCRIPTION: &str = indoc! {"
     Repeatedly listen to the passag until you can audiate and sing it clearly.

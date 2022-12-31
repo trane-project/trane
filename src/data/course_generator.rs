@@ -12,7 +12,7 @@ pub mod knowledge_base;
 pub mod music_piece;
 pub mod transcription;
 
-//@<improvisation-instrument
+//@<instrument
 /// Describes an instrument that can be used to practice in a generated course.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Instrument {
@@ -22,7 +22,7 @@ pub struct Instrument {
     /// An ID for this instrument used to generate lesson IDs. For example, "tenor_saxophone".
     pub id: String,
 }
-//>@improvisation-instrument
+//>@instrument
 
 #[cfg(test)]
 mod tests {
