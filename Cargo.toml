@@ -11,10 +11,10 @@ repository = "https://github.com/trane-project/trane"
 name = "trane"
 
 [dependencies]
-anyhow = "1.0.66"
+anyhow = "1.0.68"
 chrono = "0.4.23"
 derive_builder = "0.12.0"
-indoc = "1.0.7"
+indoc = "1.0.8"
 lazy_static = "1.4.0"
 mantra-miner = "0.1.1"
 parking_lot = { version = "0.12.1", features = ["hardware-lock-elision"] }
@@ -24,10 +24,10 @@ rand = "0.8.5"
 rayon = "1.6.1"
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 rusqlite_migration = "1.0.1"
-serde = { version = "1.0.149", features = ["derive"] }
-serde_json = "1.0.89"
+serde = { version = "1.0.152", features = ["derive"] }
+serde_json = "1.0.91"
 strum = { version = "0.24.1", features = ["derive"] }
-tantivy = "0.18.1"
+tantivy = "0.19.0"
 tempfile = "3.3.0"
 ustr = { version = "0.9.0", features = ["serialization"] }
 walkdir = "2.3.2"
