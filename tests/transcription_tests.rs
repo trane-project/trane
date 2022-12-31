@@ -2,25 +2,23 @@
 
 use anyhow::Result;
 use lazy_static::lazy_static;
-use std::{
-    collections::HashMap,
-    fs::{create_dir, File},
-    io::Write,
-    path::Path,
-};
+use std::collections::HashMap;
+
 use tempfile::TempDir;
 use trane::{
     course_builder::{AssetBuilder, CourseBuilder},
     course_library::CourseLibrary,
     data::{
-        course_generator::transcription::{
-            Instrument, TranscriptionAsset, TranscriptionConfig, TranscriptionPassages,
-            TranscriptionPreferences,
+        course_generator::{
+            transcription::{
+                TranscriptionAsset, TranscriptionConfig, TranscriptionPassages,
+                TranscriptionPreferences,
+            },
+            Instrument,
         },
         CourseGenerator, CourseManifest, LessonManifestBuilder, MasteryScore, UserPreferences,
     },
-    testutil::{assert_simulation_scores, TraneSimulation},
-    Trane, TRANE_CONFIG_DIR_PATH, USER_PREFERENCES_PATH,
+    testutil::{assert_simulation_scores, init_simulation, TraneSimulation},
 };
 use ustr::Ustr;
 
@@ -93,40 +91,12 @@ fn transcription_builder(
     }
 }
 
-// TODO: deduplicate this function.
-/// Creates the courses, initializes the Trane library, and returns a Trane instance.
-fn init_transcription_simulation(
-    library_root: &Path,
-    course_builders: &Vec<CourseBuilder>,
-    user_preferences: Option<&UserPreferences>,
-) -> Result<Trane> {
-    // Build the courses.
-    course_builders
-        .into_iter()
-        .map(|course_builder| course_builder.build(library_root))
-        .collect::<Result<()>>()?;
-
-    // Write the user preferences if provided.
-    if let Some(user_preferences) = user_preferences {
-        let config_dir = library_root.join(TRANE_CONFIG_DIR_PATH);
-        create_dir(config_dir.clone())?;
-        let prefs_path = config_dir.join(USER_PREFERENCES_PATH);
-        let mut file = File::create(prefs_path.clone())?;
-        let prefs_json = serde_json::to_string_pretty(user_preferences)? + "\n";
-        file.write_all(prefs_json.as_bytes())?;
-    }
-
-    // Initialize the Trane library.
-    let trane = Trane::new(library_root)?;
-    Ok(trane)
-}
-
 /// Verifies that all improvisation exercises are visited.
 #[test]
 fn all_exercises_visited() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_transcription_simulation(
+    let mut trane = init_simulation(
         &temp_dir.path(),
         &vec![
             transcription_builder(*COURSE0_ID, 0, vec![], 5),
@@ -161,7 +131,7 @@ fn all_exercises_visited() -> Result<()> {
 fn no_progress_past_singing_lessons() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_transcription_simulation(
+    let mut trane = init_simulation(
         &temp_dir.path(),
         &vec![
             transcription_builder(*COURSE0_ID, 0, vec![], 5),
@@ -205,7 +175,7 @@ fn no_progress_past_singing_lessons() -> Result<()> {
 fn advanced_singing_blocks_advanced_transcription() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_transcription_simulation(
+    let mut trane = init_simulation(
         &temp_dir.path(),
         &vec![
             transcription_builder(*COURSE0_ID, 0, vec![], 5),

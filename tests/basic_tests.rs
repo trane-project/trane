@@ -466,7 +466,7 @@ lazy_static! {
 fn get_unit_ids() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+    let trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Verify the course IDs.
     let course_ids = trane.get_course_ids();
@@ -509,7 +509,7 @@ fn get_unit_ids() -> Result<()> {
 fn all_exercises_scheduled() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -534,7 +534,7 @@ fn all_exercises_scheduled() -> Result<()> {
 #[test]
 fn bad_score_prevents_advancing() -> Result<()> {
     let temp_dir = TempDir::new()?;
-    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(100, Box::new(|_| Some(MasteryScore::One)));
@@ -576,7 +576,7 @@ fn bad_score_prevents_advancing() -> Result<()> {
 fn avoid_scheduling_courses_in_blacklist() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -615,7 +615,7 @@ fn avoid_scheduling_courses_in_blacklist() -> Result<()> {
 fn avoid_scheduling_lessons_in_blacklist() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -653,7 +653,7 @@ fn avoid_scheduling_lessons_in_blacklist() -> Result<()> {
 fn avoid_scheduling_exercises_in_blacklist() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -701,7 +701,7 @@ fn avoid_scheduling_exercises_in_blacklist() -> Result<()> {
 fn invalidate_cache_on_blacklist_update() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation with a valid blacklist and give each exercise a score of 5.
     // All exercises except for those in the blacklist should be scheduled.
@@ -819,7 +819,7 @@ fn invalidate_cache_on_blacklist_update() -> Result<()> {
 fn scheduler_respects_course_filter() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -864,7 +864,7 @@ fn scheduler_respects_course_filter() -> Result<()> {
 fn scheduler_respects_lesson_filter() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -910,7 +910,7 @@ fn scheduler_respects_lesson_filter() -> Result<()> {
 fn scheduler_respects_metadata_filter_op_all() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -967,7 +967,7 @@ fn scheduler_respects_metadata_filter_op_all() -> Result<()> {
 fn scheduler_respects_metadata_filter_op_any() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -1025,7 +1025,7 @@ fn scheduler_respects_metadata_filter_op_any() -> Result<()> {
 fn scheduler_respects_lesson_metadata_filter() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -1077,7 +1077,7 @@ fn scheduler_respects_lesson_metadata_filter() -> Result<()> {
 fn scheduler_respects_course_metadata_filter() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -1126,7 +1126,7 @@ fn scheduler_respects_course_metadata_filter() -> Result<()> {
 fn scheduler_respects_metadata_filter_and_blacklist() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -1179,7 +1179,7 @@ fn scheduler_respects_metadata_filter_and_blacklist() -> Result<()> {
 fn schedule_exercises_in_review_list() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Add some exercises to the review list.
     let review_exercises = vec![TestId(1, Some(0), Some(0)), TestId(2, Some(1), Some(7))];
@@ -1223,7 +1223,7 @@ fn schedule_exercises_in_review_list() -> Result<()> {
 fn schedule_lessons_in_review_list() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Add some lessons to the review list.
     let review_lessons = vec![TestId(1, Some(0), None), TestId(2, Some(1), None)];
@@ -1267,7 +1267,7 @@ fn schedule_lessons_in_review_list() -> Result<()> {
 fn schedule_courses_in_review_list() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Add some courses to the review list.
     let review_courses = vec![TestId(1, None, None), TestId(2, None, None)];
@@ -1310,7 +1310,7 @@ fn schedule_courses_in_review_list() -> Result<()> {
 fn course_library_search_courses() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+    let trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Search for a course's ID.
     let search_results = trane.search("\"2\"")?;
@@ -1340,7 +1340,7 @@ fn course_library_search_courses() -> Result<()> {
 fn course_library_search_lessons() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+    let trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Search for a lesson's ID.
     let search_results = trane.search("\"2::1\"")?;
@@ -1370,7 +1370,7 @@ fn course_library_search_lessons() -> Result<()> {
 fn course_library_search_exercises() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let trane = init_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+    let trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Search for an exercise ID.
     let search_results = trane.search("\"2::1::7\"")?;

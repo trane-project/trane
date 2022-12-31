@@ -5,7 +5,12 @@
 //! simulation is used by the end-to-end tests to verify that Trane works correctly in different
 //! scenarios.
 
-use std::{collections::BTreeMap, path::Path};
+use std::{
+    collections::BTreeMap,
+    fs::{self, File},
+    io::Write,
+    path::Path,
+};
 
 use anyhow::{anyhow, ensure, Result};
 use chrono::Utc;
@@ -20,10 +25,11 @@ use crate::{
     data::{
         filter::UnitFilter, BasicAsset, CourseManifest, ExerciseAsset, ExerciseManifest,
         ExerciseManifestBuilder, ExerciseType, LessonManifestBuilder, MasteryScore,
+        UserPreferences,
     },
     practice_stats::PracticeStats,
     scheduler::ExerciseScheduler,
-    Trane,
+    Trane, TRANE_CONFIG_DIR_PATH, USER_PREFERENCES_PATH,
 };
 
 /// Represents the ID of a test unit. First element is the course ID, followed by optional lesson
@@ -457,9 +463,36 @@ impl TraneSimulation {
     }
 }
 
+/// Takes the given course builders and builds them in the given directory. Returns a fully
+/// initialized instance of Trane and sets the user preferences if provided.
+pub fn init_simulation(
+    library_root: &Path,
+    course_builders: &[CourseBuilder],
+    user_preferences: Option<&UserPreferences>,
+) -> Result<Trane> {
+    // Build the courses.
+    course_builders
+        .iter()
+        .try_for_each(|course_builder| course_builder.build(library_root))?;
+
+    // Write the user preferences if provided.
+    if let Some(user_preferences) = user_preferences {
+        let config_dir = library_root.join(TRANE_CONFIG_DIR_PATH);
+        fs::create_dir(config_dir.clone())?;
+        let prefs_path = config_dir.join(USER_PREFERENCES_PATH);
+        let mut file = File::create(prefs_path)?;
+        let prefs_json = serde_json::to_string_pretty(user_preferences)? + "\n";
+        file.write_all(prefs_json.as_bytes())?;
+    }
+
+    // Initialize the Trane library.
+    let trane = Trane::new(library_root)?;
+    Ok(trane)
+}
+
 /// Takes the given test courses and builds them in the given directory. Returns a fully initialized
 /// instance of Trane with the courses loaded.
-pub fn init_simulation(library_directory: &Path, courses: &Vec<TestCourse>) -> Result<Trane> {
+pub fn init_test_simulation(library_directory: &Path, courses: &Vec<TestCourse>) -> Result<Trane> {
     // Build the courses.
     courses
         .into_par_iter()
@@ -710,7 +743,7 @@ mod test {
     #[test]
     fn build_test_library() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        init_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
         verify_test_library(&*TEST_LIBRARY, temp_dir.path());
         Ok(())
     }
@@ -728,7 +761,7 @@ mod test {
             exercises_per_lesson_range: (0, 5),
         }
         .generate_library();
-        init_simulation(&temp_dir.path(), &random_library)?;
+        init_test_simulation(&temp_dir.path(), &random_library)?;
         verify_test_library(&random_library, temp_dir.path());
         Ok(())
     }
@@ -793,7 +826,7 @@ mod test {
     #[test]
     fn run_exercise_simulation() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        let mut trane = init_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let mut trane = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
 
         // Run the simulation answering all exercises with the maximum score.
         let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -823,7 +856,7 @@ mod test {
             lessons: vec![],
         }];
         let temp_dir = tempfile::tempdir()?;
-        assert!(init_simulation(&temp_dir.path(), &bad_courses).is_err());
+        assert!(init_test_simulation(&temp_dir.path(), &bad_courses).is_err());
         Ok(())
     }
 }

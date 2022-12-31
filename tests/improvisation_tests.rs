@@ -2,23 +2,18 @@
 
 use anyhow::Result;
 use lazy_static::lazy_static;
-use std::{
-    fs::{create_dir, File},
-    io::Write,
-    path::Path,
-};
 use tempfile::TempDir;
 use trane::{
     course_builder::{AssetBuilder, CourseBuilder},
     course_library::CourseLibrary,
     data::{
-        course_generator::improvisation::{
-            ImprovisationConfig, ImprovisationPreferences, Instrument,
+        course_generator::{
+            improvisation::{ImprovisationConfig, ImprovisationPreferences},
+            Instrument,
         },
         CourseGenerator, CourseManifest, LessonManifestBuilder, MasteryScore, UserPreferences,
     },
-    testutil::{assert_simulation_scores, TraneSimulation},
-    Trane, TRANE_CONFIG_DIR_PATH, USER_PREFERENCES_PATH,
+    testutil::{assert_simulation_scores, init_simulation, TraneSimulation},
 };
 use ustr::Ustr;
 
@@ -88,33 +83,6 @@ fn improvisation_builder(
     }
 }
 
-/// Creates the courses, initializes the Trane library, and returns a Trane instance.
-fn init_improvisation_simulation(
-    library_root: &Path,
-    course_builders: &Vec<CourseBuilder>,
-    user_preferences: Option<&UserPreferences>,
-) -> Result<Trane> {
-    // Build the courses.
-    course_builders
-        .into_iter()
-        .map(|course_builder| course_builder.build(library_root))
-        .collect::<Result<()>>()?;
-
-    // Write the user preferences if provided.
-    if let Some(user_preferences) = user_preferences {
-        let config_dir = library_root.join(TRANE_CONFIG_DIR_PATH);
-        create_dir(config_dir.clone())?;
-        let prefs_path = config_dir.join(USER_PREFERENCES_PATH);
-        let mut file = File::create(prefs_path.clone())?;
-        let prefs_json = serde_json::to_string_pretty(user_preferences)? + "\n";
-        file.write_all(prefs_json.as_bytes())?;
-    }
-
-    // Initialize the Trane library.
-    let trane = Trane::new(library_root)?;
-    Ok(trane)
-}
-
 /// Verifies that the course generator fails when multiple passages have the same ID.
 #[test]
 fn duplicate_passage_ids_fail() -> Result<()> {
@@ -154,7 +122,7 @@ fn duplicate_passage_ids_fail() -> Result<()> {
 
     // Initialize test course library. It should fail due to the duplicate passage IDs.
     let temp_dir = TempDir::new()?;
-    let trane = init_improvisation_simulation(
+    let trane = init_simulation(
         &temp_dir.path(),
         &vec![bad_course_builder],
         Some(&USER_PREFS),
@@ -168,7 +136,7 @@ fn duplicate_passage_ids_fail() -> Result<()> {
 fn all_exercises_visited() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_improvisation_simulation(
+    let mut trane = init_simulation(
         &temp_dir.path(),
         &vec![
             improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
@@ -203,7 +171,7 @@ fn all_exercises_visited() -> Result<()> {
 fn all_exercises_visited_no_instruments() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_improvisation_simulation(
+    let mut trane = init_simulation(
         &temp_dir.path(),
         &vec![
             improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
@@ -239,7 +207,7 @@ fn all_exercises_visited_no_instruments() -> Result<()> {
 fn all_exercises_visited_rhythm_only() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_improvisation_simulation(
+    let mut trane = init_simulation(
         &temp_dir.path(),
         &vec![
             improvisation_builder(*COURSE0_ID, 0, vec![], 5, true),
@@ -274,7 +242,7 @@ fn all_exercises_visited_rhythm_only() -> Result<()> {
 fn no_progress_past_singing_lessons() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_improvisation_simulation(
+    let mut trane = init_simulation(
         &temp_dir.path(),
         &vec![
             improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
@@ -318,7 +286,7 @@ fn no_progress_past_singing_lessons() -> Result<()> {
 fn basic_harmony_blocks_advanced_harmony() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_improvisation_simulation(
+    let mut trane = init_simulation(
         &temp_dir.path(),
         &vec![
             improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
@@ -374,7 +342,7 @@ fn basic_harmony_blocks_advanced_harmony() -> Result<()> {
 fn advanced_harmony_blocks_mastery() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_improvisation_simulation(
+    let mut trane = init_simulation(
         &temp_dir.path(),
         &vec![
             improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
@@ -430,7 +398,7 @@ fn advanced_harmony_blocks_mastery() -> Result<()> {
 fn melody_blocks_mastery() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_improvisation_simulation(
+    let mut trane = init_simulation(
         &temp_dir.path(),
         &vec![
             improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
@@ -486,7 +454,7 @@ fn melody_blocks_mastery() -> Result<()> {
 fn rhythm_blocks_mastery() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_improvisation_simulation(
+    let mut trane = init_simulation(
         &temp_dir.path(),
         &vec![
             improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
@@ -547,7 +515,7 @@ fn rhythm_blocks_mastery() -> Result<()> {
 fn sight_singing_lessons_block_instruments() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_improvisation_simulation(
+    let mut trane = init_simulation(
         &temp_dir.path(),
         &vec![
             improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
@@ -613,7 +581,7 @@ fn sight_singing_lessons_block_instruments() -> Result<()> {
 fn key_blocks_next_keys() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_improvisation_simulation(
+    let mut trane = init_simulation(
         &temp_dir.path(),
         &vec![
             improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),

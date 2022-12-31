@@ -276,7 +276,7 @@ mod test {
     #[test]
     fn blacklisted_course_score() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        let mut library = init_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let mut library = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
         let scheduler_data = library.get_scheduler_data();
         let cache = ScoreCache::new(scheduler_data, SchedulerOptions::default());
 

@@ -16,6 +16,7 @@ use std::{
 };
 use ustr::Ustr;
 
+use super::*;
 use crate::data::{
     music::notes::Note, BasicAsset, CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseType,
     GenerateManifests, GeneratedCourse, LessonManifest, UserPreferences,
@@ -82,18 +83,6 @@ pub struct ImprovisationConfig {
     pub file_extensions: Vec<String>,
 }
 //>@improvisation-config
-
-//@<improvisation-instrument
-/// Describes an instrument that can be used to practice in an improvisation course.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct Instrument {
-    /// The name of the instrument. For example, "Tenor Saxophone".
-    pub name: String,
-
-    /// An ID for this instrument used to generate lesson IDs. For example, "tenor_saxophone".
-    pub id: String,
-}
-//>@improvisation-instrument
 
 //@<improvisation-preferences
 /// Settings for generating a new improvisation course that are specific to a user.
@@ -1077,7 +1066,7 @@ mod test {
     use anyhow::Result;
     use indoc::indoc;
     use lazy_static::lazy_static;
-    use std::fs::{self, create_dir, File};
+    use std::fs::{self, File};
     use ustr::Ustr;
 
     use super::*;
@@ -1112,7 +1101,7 @@ mod test {
     #[test]
     fn do_not_replace_existing_instructions() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        create_dir(temp_dir.path().join("passages"))?;
+        fs::create_dir(temp_dir.path().join("passages"))?;
 
         let course_generator = CourseGenerator::Improvisation(ImprovisationConfig {
             rhythm_only: false,
@@ -1138,19 +1127,6 @@ mod test {
             course_generator.generate_manifests(temp_dir.path(), &course_manifest, &preferences)?;
         assert!(generated_course.updated_instructions.is_none());
         Ok(())
-    }
-
-    /// Verifies cloning an instrument. Done so that the auto-generated trait implementation is
-    /// included in the code coverage reports.
-    #[test]
-    fn instrument_clone() {
-        let instrument = Instrument {
-            name: "Piano".to_string(),
-            id: "piano".to_string(),
-        };
-        let instrument_clone = instrument.clone();
-        assert_eq!(instrument.name, instrument_clone.name);
-        assert_eq!(instrument.id, instrument_clone.id);
     }
 
     /// Verifies cloning a passage. Done so that the auto-generated trait implementation is included

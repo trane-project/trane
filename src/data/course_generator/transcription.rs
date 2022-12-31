@@ -21,6 +21,7 @@ use std::{
 };
 use ustr::Ustr;
 
+use super::*;
 use crate::data::{
     BasicAsset, CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseType, GenerateManifests,
     GeneratedCourse, LessonManifest, UserPreferences,
@@ -109,17 +110,6 @@ impl TranscriptionPassages {
         serde_json::from_reader(reader)
             .with_context(|| anyhow!("cannot parse knowledge base file {}", path.display()))
     }
-}
-
-// TODO: deduplicate this struct.
-/// Describes an instrument that can be used to practice in a transcription course.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct Instrument {
-    /// The name of the instrument. For example, "Tenor Saxophone".
-    pub name: String,
-
-    /// An ID for this instrument used to generate lesson IDs. For example, "tenor_saxophone".
-    pub id: String,
 }
 
 /// Settings for generating a new transcription course that are specific to a user.
@@ -596,6 +586,8 @@ mod test {
     use indoc::indoc;
     use std::{fs, io::Write};
 
+    use crate::data::CourseGenerator;
+
     use super::*;
 
     /// Verifies generating IDs for the exercises in the course.
@@ -794,6 +786,69 @@ mod test {
         };
         let result = config.open_passage_directory(&temp_dir.path());
         assert!(result.is_err());
+        Ok(())
+    }
+
+    /// Verifies cloning a transcription asset. Done so that the auto-generated trait implementation
+    /// is included in the code coverage reports.
+    #[test]
+    fn asset_clone() {
+        let asset = super::TranscriptionAsset::Track {
+            short_id: "id".into(),
+            track_name: "Track".into(),
+            artist_name: "Artist".into(),
+            album_name: "Album".into(),
+            external_link: Some("https://example.com".into()),
+        };
+        let asset_clone = asset.clone();
+        assert_eq!(asset, asset_clone);
+    }
+
+    /// Verifies cloning transcription passages. Done so that the auto-generated trait
+    /// implementation is included in the code coverage reports.
+    #[test]
+    fn passages_clone() {
+        let passages = TranscriptionPassages {
+            asset: TranscriptionAsset::Track {
+                short_id: "id".into(),
+                track_name: "Track".into(),
+                artist_name: "Artist".into(),
+                album_name: "Album".into(),
+                external_link: Some("https://example.com".into()),
+            },
+            intervals: HashMap::from([(1, ("0:00".into(), "0:01".into()))]),
+        };
+        let passages_clone = passages.clone();
+        assert_eq!(passages, passages_clone);
+    }
+
+    /// Verifies that the instructions for the course are not replaced if they are already set.
+    #[test]
+    fn do_not_replace_existing_instructions() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        fs::create_dir(temp_dir.path().join("passages"))?;
+        let course_generator = CourseGenerator::Transcription(TranscriptionConfig {
+            improvisation_dependencies: vec![],
+            passage_directory: "passages".to_string(),
+        });
+
+        let course_manifest = CourseManifest {
+            id: Ustr::from("testID"),
+            name: "Test".to_string(),
+            description: None,
+            dependencies: vec![],
+            authors: None,
+            metadata: None,
+            course_instructions: Some(BasicAsset::InlinedAsset {
+                content: "test".to_string(),
+            }),
+            course_material: None,
+            generator_config: Some(course_generator.clone()),
+        };
+        let preferences = UserPreferences::default();
+        let generated_course =
+            course_generator.generate_manifests(temp_dir.path(), &course_manifest, &preferences)?;
+        assert!(generated_course.updated_instructions.is_none());
         Ok(())
     }
 }
