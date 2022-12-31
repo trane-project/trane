@@ -23,8 +23,8 @@ use trane::{
 use ustr::Ustr;
 
 lazy_static! {
-    static ref COURSE0_ID: Ustr = Ustr::from("trane::test::improv_course_0");
-    static ref COURSE1_ID: Ustr = Ustr::from("trane::test::improv_course_1");
+    static ref COURSE0_ID: Ustr = Ustr::from("improvisation_course_0");
+    static ref COURSE1_ID: Ustr = Ustr::from("improvisation_course_1");
     static ref USER_PREFS: UserPreferences = UserPreferences {
         improvisation: Some(ImprovisationPreferences {
             instruments: vec![
@@ -65,7 +65,7 @@ fn improvisation_builder(
     }
 
     CourseBuilder {
-        directory_name: format!("improv_course_{}", course_index),
+        directory_name: format!("improvisation_course_{}", course_index),
         course_manifest: CourseManifest {
             id: course_id,
             name: format!("Course {}", course_id),
@@ -89,7 +89,7 @@ fn improvisation_builder(
 }
 
 /// Creates the courses, initializes the Trane library, and returns a Trane instance.
-fn init_improv_simulation(
+fn init_improvisation_simulation(
     library_root: &Path,
     course_builders: &Vec<CourseBuilder>,
     user_preferences: Option<&UserPreferences>,
@@ -130,7 +130,7 @@ fn duplicate_passage_ids_fail() -> Result<()> {
         });
     }
     let bad_course_builder = CourseBuilder {
-        directory_name: "improv_course_0".to_string(),
+        directory_name: "improvisation_course_0".to_string(),
         course_manifest: CourseManifest {
             id: *COURSE0_ID,
             name: format!("Course {}", *COURSE0_ID),
@@ -154,7 +154,7 @@ fn duplicate_passage_ids_fail() -> Result<()> {
 
     // Initialize test course library. It should fail due to the duplicate passage IDs.
     let temp_dir = TempDir::new()?;
-    let trane = init_improv_simulation(
+    let trane = init_improvisation_simulation(
         &temp_dir.path(),
         &vec![bad_course_builder],
         Some(&USER_PREFS),
@@ -168,7 +168,7 @@ fn duplicate_passage_ids_fail() -> Result<()> {
 fn all_exercises_visited() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_improv_simulation(
+    let mut trane = init_improvisation_simulation(
         &temp_dir.path(),
         &vec![
             improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
@@ -203,13 +203,11 @@ fn all_exercises_visited() -> Result<()> {
 fn all_exercises_visited_no_instruments() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let first_course_id = Ustr::from("trane::test::improv_course_0");
-    let second_course_id = Ustr::from("trane::test::improv_course_1");
-    let mut trane = init_improv_simulation(
+    let mut trane = init_improvisation_simulation(
         &temp_dir.path(),
         &vec![
-            improvisation_builder(first_course_id, 0, vec![], 5, false),
-            improvisation_builder(second_course_id, 1, vec![first_course_id], 5, false),
+            improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
+            improvisation_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
         ],
         None,
     )?;
@@ -241,7 +239,7 @@ fn all_exercises_visited_no_instruments() -> Result<()> {
 fn all_exercises_visited_rhythm_only() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_improv_simulation(
+    let mut trane = init_improvisation_simulation(
         &temp_dir.path(),
         &vec![
             improvisation_builder(*COURSE0_ID, 0, vec![], 5, true),
@@ -276,7 +274,7 @@ fn all_exercises_visited_rhythm_only() -> Result<()> {
 fn no_progress_past_singing_lessons() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_improv_simulation(
+    let mut trane = init_improvisation_simulation(
         &temp_dir.path(),
         &vec![
             improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
@@ -294,9 +292,9 @@ fn no_progress_past_singing_lessons() -> Result<()> {
     );
     simulation.run_simulation(&mut trane, &vec![], None)?;
 
-    // Only exercises from the singing lessons of the first are in the answer history.
+    // Only exercises from the singing lessons of the course are in the answer history.
     for exercise_id in exercise_ids {
-        if exercise_id.contains("improv_course_0::singing") {
+        if exercise_id.contains("improvisation_course_0::singing") {
             assert!(
                 simulation.answer_history.contains_key(&exercise_id),
                 "exercise {:?} should have been scheduled",
@@ -320,7 +318,7 @@ fn no_progress_past_singing_lessons() -> Result<()> {
 fn basic_harmony_blocks_advanced_harmony() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_improv_simulation(
+    let mut trane = init_improvisation_simulation(
         &temp_dir.path(),
         &vec![
             improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
@@ -376,7 +374,7 @@ fn basic_harmony_blocks_advanced_harmony() -> Result<()> {
 fn advanced_harmony_blocks_mastery() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_improv_simulation(
+    let mut trane = init_improvisation_simulation(
         &temp_dir.path(),
         &vec![
             improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
@@ -432,7 +430,7 @@ fn advanced_harmony_blocks_mastery() -> Result<()> {
 fn melody_blocks_mastery() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_improv_simulation(
+    let mut trane = init_improvisation_simulation(
         &temp_dir.path(),
         &vec![
             improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
@@ -488,7 +486,7 @@ fn melody_blocks_mastery() -> Result<()> {
 fn rhythm_blocks_mastery() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_improv_simulation(
+    let mut trane = init_improvisation_simulation(
         &temp_dir.path(),
         &vec![
             improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
@@ -549,7 +547,7 @@ fn rhythm_blocks_mastery() -> Result<()> {
 fn sight_singing_lessons_block_instruments() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_improv_simulation(
+    let mut trane = init_improvisation_simulation(
         &temp_dir.path(),
         &vec![
             improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),
@@ -615,7 +613,7 @@ fn sight_singing_lessons_block_instruments() -> Result<()> {
 fn key_blocks_next_keys() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_improv_simulation(
+    let mut trane = init_improvisation_simulation(
         &temp_dir.path(),
         &vec![
             improvisation_builder(*COURSE0_ID, 0, vec![], 5, false),

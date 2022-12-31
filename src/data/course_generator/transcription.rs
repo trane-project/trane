@@ -111,6 +111,7 @@ impl TranscriptionPassages {
     }
 }
 
+// TODO: deduplicate this struct.
 /// Describes an instrument that can be used to practice in a transcription course.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Instrument {
