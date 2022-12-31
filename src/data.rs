@@ -148,16 +148,21 @@ where
     Self: Sized,
 {
     /// Converts all relative paths in the object to absolute paths.
-    fn normalize_paths(&self, dir: &Path) -> Result<Self>;
+    fn normalize_paths(&self, working_dir: &Path) -> Result<Self>;
 }
 
-/// Converts a relative to an absolute path given a path and a directory.
-fn normalize_path(dir: &Path, path: &str) -> Result<String> {
-    Ok(dir
+/// Converts a relative to an absolute path given a path and a working directory.
+fn normalize_path(working_dir: &Path, path_str: &str) -> Result<String> {
+    let path = Path::new(path_str);
+    if path.is_absolute() {
+        return Ok(path_str.to_string());
+    }
+
+    Ok(working_dir
         .join(path)
         .canonicalize()?
         .to_str()
-        .unwrap_or(path)
+        .unwrap_or(path_str)
         .to_string())
 }
 
@@ -167,7 +172,7 @@ where
     Self: Sized,
 {
     /// Checks that all the paths mentioned in the object exist in disk.
-    fn verify_paths(&self, dir: &Path) -> Result<bool>;
+    fn verify_paths(&self, working_dir: &Path) -> Result<bool>;
 }
 
 /// Trait to get the metadata from a lesson or course manifest.
@@ -207,10 +212,10 @@ pub enum BasicAsset {
 }
 
 impl NormalizePaths for BasicAsset {
-    fn normalize_paths(&self, dir: &Path) -> Result<Self> {
+    fn normalize_paths(&self, working_dir: &Path) -> Result<Self> {
         match &self {
             BasicAsset::MarkdownAsset { path } => {
-                let abs_path = normalize_path(dir, path)?;
+                let abs_path = normalize_path(working_dir, path)?;
                 Ok(BasicAsset::MarkdownAsset { path: abs_path })
             }
             BasicAsset::InlinedAsset { .. } => Ok(self.clone()),
@@ -220,10 +225,10 @@ impl NormalizePaths for BasicAsset {
 }
 
 impl VerifyPaths for BasicAsset {
-    fn verify_paths(&self, dir: &Path) -> Result<bool> {
+    fn verify_paths(&self, working_dir: &Path) -> Result<bool> {
         match &self {
             BasicAsset::MarkdownAsset { path } => {
-                let abs_path = dir.join(Path::new(path));
+                let abs_path = working_dir.join(Path::new(path));
                 Ok(abs_path.exists())
             }
             BasicAsset::InlinedAsset { .. } => Ok(true),
@@ -363,26 +368,26 @@ pub struct CourseManifest {
 }
 
 impl NormalizePaths for CourseManifest {
-    fn normalize_paths(&self, dir: &Path) -> Result<Self> {
+    fn normalize_paths(&self, working_directory: &Path) -> Result<Self> {
         let mut clone = self.clone();
         match &self.course_material {
             None => (),
-            Some(asset) => clone.course_material = Some(asset.normalize_paths(dir)?),
+            Some(asset) => clone.course_material = Some(asset.normalize_paths(working_directory)?),
         }
         Ok(clone)
     }
 }
 
 impl VerifyPaths for CourseManifest {
-    fn verify_paths(&self, dir: &Path) -> Result<bool> {
+    fn verify_paths(&self, working_dir: &Path) -> Result<bool> {
         // The paths mentioned in the instructions and material must both exist.
         let instructions_exist = match &self.course_instructions {
             None => true,
-            Some(asset) => asset.verify_paths(dir)?,
+            Some(asset) => asset.verify_paths(working_dir)?,
         };
         let material_exists = match &self.course_material {
             None => true,
-            Some(asset) => asset.verify_paths(dir)?,
+            Some(asset) => asset.verify_paths(working_dir)?,
         };
         Ok(instructions_exist && material_exists)
     }
@@ -441,30 +446,30 @@ pub struct LessonManifest {
 }
 
 impl NormalizePaths for LessonManifest {
-    fn normalize_paths(&self, dir: &Path) -> Result<Self> {
+    fn normalize_paths(&self, working_dir: &Path) -> Result<Self> {
         let mut clone = self.clone();
         match &self.lesson_instructions {
             None => (),
-            Some(asset) => clone.lesson_instructions = Some(asset.normalize_paths(dir)?),
+            Some(asset) => clone.lesson_instructions = Some(asset.normalize_paths(working_dir)?),
         }
         match &self.lesson_material {
             None => (),
-            Some(asset) => clone.lesson_material = Some(asset.normalize_paths(dir)?),
+            Some(asset) => clone.lesson_material = Some(asset.normalize_paths(working_dir)?),
         }
         Ok(clone)
     }
 }
 
 impl VerifyPaths for LessonManifest {
-    fn verify_paths(&self, dir: &Path) -> Result<bool> {
+    fn verify_paths(&self, working_dir: &Path) -> Result<bool> {
         // The paths mentioned in the instructions and material must both exist.
         let instruction_exists = match &self.lesson_instructions {
             None => true,
-            Some(asset) => asset.verify_paths(dir)?,
+            Some(asset) => asset.verify_paths(working_dir)?,
         };
         let material_exists = match &self.lesson_material {
             None => true,
-            Some(asset) => asset.verify_paths(dir)?,
+            Some(asset) => asset.verify_paths(working_dir)?,
         };
         Ok(instruction_exists && material_exists)
     }
@@ -527,14 +532,14 @@ pub enum ExerciseAsset {
 }
 
 impl NormalizePaths for ExerciseAsset {
-    fn normalize_paths(&self, dir: &Path) -> Result<Self> {
+    fn normalize_paths(&self, working_dir: &Path) -> Result<Self> {
         match &self {
             ExerciseAsset::FlashcardAsset {
                 front_path,
                 back_path,
             } => {
-                let abs_front_path = normalize_path(dir, front_path)?;
-                let abs_back_path = normalize_path(dir, back_path)?;
+                let abs_front_path = normalize_path(working_dir, front_path)?;
+                let abs_back_path = normalize_path(working_dir, back_path)?;
                 Ok(ExerciseAsset::FlashcardAsset {
                     front_path: abs_front_path,
                     back_path: abs_back_path,
@@ -547,7 +552,7 @@ impl NormalizePaths for ExerciseAsset {
             } => match backup {
                 None => Ok(self.clone()),
                 Some(path) => {
-                    let abs_path = normalize_path(dir, path)?;
+                    let abs_path = normalize_path(working_dir, path)?;
                     Ok(ExerciseAsset::SoundSliceAsset {
                         link: link.clone(),
                         description: description.clone(),
@@ -555,34 +560,34 @@ impl NormalizePaths for ExerciseAsset {
                     })
                 }
             },
-            ExerciseAsset::BasicAsset(asset) => {
-                Ok(ExerciseAsset::BasicAsset(asset.normalize_paths(dir)?))
-            }
+            ExerciseAsset::BasicAsset(asset) => Ok(ExerciseAsset::BasicAsset(
+                asset.normalize_paths(working_dir)?,
+            )),
         }
     }
 }
 
 impl VerifyPaths for ExerciseAsset {
-    fn verify_paths(&self, dir: &Path) -> Result<bool> {
+    fn verify_paths(&self, working_dir: &Path) -> Result<bool> {
         match &self {
             ExerciseAsset::FlashcardAsset {
                 front_path,
                 back_path,
             } => {
                 // The paths to the front and back of the flashcard must both exist.
-                let front_abs_path = dir.join(Path::new(front_path));
-                let back_abs_path = dir.join(Path::new(back_path));
+                let front_abs_path = working_dir.join(Path::new(front_path));
+                let back_abs_path = working_dir.join(Path::new(back_path));
                 Ok(front_abs_path.exists() && back_abs_path.exists())
             }
             ExerciseAsset::SoundSliceAsset { backup, .. } => match backup {
                 None => Ok(true),
                 Some(path) => {
                     // The backup path must exist.
-                    let abs_path = dir.join(Path::new(path));
+                    let abs_path = working_dir.join(Path::new(path));
                     Ok(abs_path.exists())
                 }
             },
-            ExerciseAsset::BasicAsset(asset) => asset.verify_paths(dir),
+            ExerciseAsset::BasicAsset(asset) => asset.verify_paths(working_dir),
         }
     }
 }
@@ -621,16 +626,16 @@ pub struct ExerciseManifest {
 }
 
 impl NormalizePaths for ExerciseManifest {
-    fn normalize_paths(&self, dir: &Path) -> Result<Self> {
+    fn normalize_paths(&self, working_dir: &Path) -> Result<Self> {
         let mut clone = self.clone();
-        clone.exercise_asset = clone.exercise_asset.normalize_paths(dir)?;
+        clone.exercise_asset = clone.exercise_asset.normalize_paths(working_dir)?;
         Ok(clone)
     }
 }
 
 impl VerifyPaths for ExerciseManifest {
-    fn verify_paths(&self, dir: &Path) -> Result<bool> {
-        self.exercise_asset.verify_paths(dir)
+    fn verify_paths(&self, working_dir: &Path) -> Result<bool> {
+        self.exercise_asset.verify_paths(working_dir)
     }
 }
 
@@ -914,6 +919,13 @@ mod test {
             normalized_path
         );
         Ok(())
+    }
+
+    /// Verifies that normalizing an absolute path returns the original path.
+    #[test]
+    fn normalize_absolute_path() {
+        let normalized_path = normalize_path(Path::new("/working/dir"), "/absolute/path").unwrap();
+        assert_eq!("/absolute/path", normalized_path,);
     }
 
     /// Verifies that normalizing a path fails with the path to a missing file.

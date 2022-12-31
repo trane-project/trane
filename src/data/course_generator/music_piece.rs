@@ -59,7 +59,7 @@ impl MusicAsset {
                     - Passage end: {}
                     
                     The file containing the music sheet is located at {}. Relative paths are
-                    relative to the root of the library.
+                    relative to the working directory.
                 ", INSTRUCTIONS, start, end, path};
                 ExerciseAsset::BasicAsset(BasicAsset::InlinedAsset {
                     content: description,
@@ -224,7 +224,7 @@ mod test {
                     - Passage end: end
                     
                     The file containing the music sheet is located at music.pdf. Relative paths are
-                    relative to the root of the library.
+                    relative to the working directory.
                 "}
                 .to_string()
             })
@@ -353,7 +353,7 @@ mod test {
                     - Passage end: end 0
                     
                     The file containing the music sheet is located at music.pdf. Relative paths are
-                    relative to the root of the library.
+                    relative to the working directory.
                 "}
                 .to_string()
             })
@@ -385,7 +385,7 @@ mod test {
                     - Passage end: end 0::0
                     
                     The file containing the music sheet is located at music.pdf. Relative paths are
-                    relative to the root of the library.
+                    relative to the working directory.
                 "}
                 .to_string()
             })

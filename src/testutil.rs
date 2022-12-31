@@ -486,21 +486,21 @@ pub fn init_simulation(
     }
 
     // Initialize the Trane library.
-    let trane = Trane::new(library_root)?;
+    let trane = Trane::new(library_root, library_root)?;
     Ok(trane)
 }
 
 /// Takes the given test courses and builds them in the given directory. Returns a fully initialized
 /// instance of Trane with the courses loaded.
-pub fn init_test_simulation(library_directory: &Path, courses: &Vec<TestCourse>) -> Result<Trane> {
+pub fn init_test_simulation(library_root: &Path, courses: &Vec<TestCourse>) -> Result<Trane> {
     // Build the courses.
     courses
         .into_par_iter()
-        .map(|course| course.course_builder()?.build(library_directory))
+        .map(|course| course.course_builder()?.build(library_root))
         .collect::<Result<()>>()?;
 
     // Initialize the Trane library.
-    let trane = Trane::new(library_directory)?;
+    let trane = Trane::new(library_root, library_root)?;
     Ok(trane)
 }
 
