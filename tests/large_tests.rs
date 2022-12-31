@@ -23,7 +23,7 @@ fn all_exercises_scheduled_random() -> Result<()> {
         exercises_per_lesson_range: (0, 20),
     }
     .generate_library();
-    let mut trane = init_simulation(&temp_dir.path().to_path_buf(), &random_library)?;
+    let mut trane = init_test_simulation(&temp_dir.path().to_path_buf(), &random_library)?;
 
     // Run the simulation.
     let exercise_ids = all_test_exercises(&random_library);
@@ -61,6 +61,6 @@ fn generate_and_read_large_library() -> Result<()> {
         exercises_per_lesson_range: (1, 20),
     }
     .generate_library();
-    init_simulation(&temp_dir.path().to_path_buf(), &random_library)?;
+    init_test_simulation(&temp_dir.path().to_path_buf(), &random_library)?;
     Ok(())
 }

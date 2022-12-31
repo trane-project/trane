@@ -277,7 +277,7 @@ mod test {
     #[test]
     fn unit_exists() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        let library = init_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let library = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
         let scheduler_data = library.get_scheduler_data();
 
         assert_eq!(
@@ -302,7 +302,7 @@ mod test {
     #[test]
     fn exercise_metadata_filter() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        let library = init_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let library = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
         let scheduler_data = library.get_scheduler_data();
         let metadata_filter = MetadataFilter {
             course_filter: None,
@@ -320,7 +320,7 @@ mod test {
     #[test]
     fn exercise_frequency() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        let library = init_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let library = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
         let scheduler_data = library.get_scheduler_data();
 
         assert_eq!(

@@ -2,7 +2,6 @@
 
 use anyhow::Result;
 use lazy_static::lazy_static;
-use std::path::Path;
 use tempfile::TempDir;
 use trane::{
     course_builder::{AssetBuilder, CourseBuilder},
@@ -11,8 +10,7 @@ use trane::{
         course_generator::music_piece::{MusicAsset, MusicPassage, MusicPieceConfig},
         CourseGenerator, CourseManifest, LessonManifestBuilder, MasteryScore,
     },
-    testutil::{assert_simulation_scores, TraneSimulation},
-    Trane,
+    testutil::{assert_simulation_scores, init_simulation, TraneSimulation},
 };
 use ustr::Ustr;
 
@@ -154,22 +152,6 @@ fn music_piece_builder(
     }
 }
 
-/// Creates the courses, initializes the Trane library, and returns a Trane instance.
-fn init_music_piece_simulation(
-    library_root: &Path,
-    course_builders: &Vec<CourseBuilder>,
-) -> Result<Trane> {
-    // Build the courses.
-    course_builders
-        .into_iter()
-        .map(|course_builder| course_builder.build(library_root))
-        .collect::<Result<()>>()?;
-
-    // Initialize the Trane library.
-    let trane = Trane::new(library_root)?;
-    Ok(trane)
-}
-
 /// Verifies that all music piece exercises are visited with a simple passage and a local file.
 #[test]
 fn all_exercises_visited_simple_local() -> Result<()> {
@@ -178,7 +160,7 @@ fn all_exercises_visited_simple_local() -> Result<()> {
     let passages = TestPassage {
         sub_passages: vec![],
     };
-    let mut trane = init_music_piece_simulation(
+    let mut trane = init_simulation(
         &temp_dir.path(),
         &vec![music_piece_builder(
             *COURSE_ID,
@@ -186,6 +168,7 @@ fn all_exercises_visited_simple_local() -> Result<()> {
             LOCAL_MUSIC_ASSET.clone(),
             MusicPassage::from(passages),
         )],
+        None,
     )?;
 
     // Run the simulation.
@@ -218,7 +201,7 @@ fn all_exercises_visited_simple_soundslice() -> Result<()> {
     let passages = TestPassage {
         sub_passages: vec![],
     };
-    let mut trane = init_music_piece_simulation(
+    let mut trane = init_simulation(
         &temp_dir.path(),
         &vec![music_piece_builder(
             *COURSE_ID,
@@ -226,6 +209,7 @@ fn all_exercises_visited_simple_soundslice() -> Result<()> {
             SOUNDSLICE_MUSIC_ASSET.clone(),
             MusicPassage::from(passages),
         )],
+        None,
     )?;
 
     // Run the simulation.
@@ -254,7 +238,7 @@ fn all_exercises_visited_simple_soundslice() -> Result<()> {
 fn all_exercises_visited_complex() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_music_piece_simulation(
+    let mut trane = init_simulation(
         &temp_dir.path(),
         &vec![music_piece_builder(
             *COURSE_ID,
@@ -262,6 +246,7 @@ fn all_exercises_visited_complex() -> Result<()> {
             SOUNDSLICE_MUSIC_ASSET.clone(),
             MusicPassage::from(COMPLEX_PASSAGE.clone()),
         )],
+        None,
     )?;
 
     // Run the simulation.
@@ -290,7 +275,7 @@ fn all_exercises_visited_complex() -> Result<()> {
 fn no_progress_complex() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_music_piece_simulation(
+    let mut trane = init_simulation(
         &temp_dir.path(),
         &vec![music_piece_builder(
             *COURSE_ID,
@@ -298,6 +283,7 @@ fn no_progress_complex() -> Result<()> {
             SOUNDSLICE_MUSIC_ASSET.clone(),
             MusicPassage::from(COMPLEX_PASSAGE.clone()),
         )],
+        None,
     )?;
 
     // Run the simulation.
@@ -325,7 +311,7 @@ fn no_progress_simple() -> Result<()> {
     let passages = TestPassage {
         sub_passages: vec![],
     };
-    let mut trane = init_music_piece_simulation(
+    let mut trane = init_simulation(
         &temp_dir.path(),
         &vec![music_piece_builder(
             *COURSE_ID,
@@ -333,6 +319,7 @@ fn no_progress_simple() -> Result<()> {
             SOUNDSLICE_MUSIC_ASSET.clone(),
             MusicPassage::from(passages),
         )],
+        None,
     )?;
 
     // Run the simulation.

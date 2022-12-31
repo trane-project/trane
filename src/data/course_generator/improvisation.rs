@@ -16,11 +16,12 @@ use std::{
 };
 use ustr::Ustr;
 
+use super::*;
 use crate::data::{
-    course_generator::improvisation::constants::*, music::notes::Note, BasicAsset, CourseManifest,
-    ExerciseAsset, ExerciseManifest, ExerciseType, GenerateManifests, GeneratedCourse,
-    LessonManifest, UserPreferences,
+    music::notes::Note, BasicAsset, CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseType,
+    GenerateManifests, GeneratedCourse, LessonManifest, UserPreferences,
 };
+use constants::*;
 
 //@<improvisation-passage
 /// A single musical passage to be used in an improvisation course. A course can contain multiple
@@ -82,18 +83,6 @@ pub struct ImprovisationConfig {
     pub file_extensions: Vec<String>,
 }
 //>@improvisation-config
-
-//@<improvisation-instrument
-/// Describes an instrument that can be used to practice in an improvisation course.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct Instrument {
-    /// The name of the instrument. For example, "Tenor Saxophone".
-    pub name: String,
-
-    /// An ID for this instrument used to generate lesson IDs. For example, "tenor_saxophone".
-    pub id: String,
-}
-//>@improvisation-instrument
 
 //@<improvisation-preferences
 /// Settings for generating a new improvisation course that are specific to a user.
@@ -170,13 +159,19 @@ impl ImprovisationConfig {
         course_manifest: &CourseManifest,
         passages: &[ImprovisationPassage],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
-        // Generate the lesson manifest.
+        // Generate the lesson manifest. The lesson depends on the singing lessons of all the other
+        // improvisation courses listed as dependencies.
+        let dependencies = self
+            .improvisation_dependencies
+            .iter()
+            .map(|id| format!("{}::singing", id).into())
+            .collect();
         let lesson_manifest = LessonManifest {
             id: self.singing_lesson_id(course_manifest.id),
             course_id: course_manifest.id,
             name: format!("{} - Singing", course_manifest.name),
             description: Some(SINGING_DESCRIPTION.to_string()),
-            dependencies: vec![],
+            dependencies,
             metadata: Some(BTreeMap::from([
                 (LESSON_METADATA.to_string(), vec!["singing".to_string()]),
                 (INSTRUMENT_METADATA.to_string(), vec!["voice".to_string()]),
@@ -291,11 +286,11 @@ impl ImprovisationConfig {
     fn generate_rhythm_lessons(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &ImprovisationPreferences,
+        preferences: &ImprovisationPreferences,
         passages: &[ImprovisationPassage],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Generate a lesson for each instrument.
-        let lesson_instruments = user_config.rhythm_lesson_instruments();
+        let lesson_instruments = preferences.rhythm_lesson_instruments();
         let lessons = lesson_instruments
             .iter()
             .map(|instrument| self.generate_rhythm_lesson(course_manifest, *instrument, passages))
@@ -442,12 +437,12 @@ impl ImprovisationConfig {
     fn generate_melody_lessons(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &ImprovisationPreferences,
+        preferences: &ImprovisationPreferences,
         passages: &[ImprovisationPassage],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Get a list of all keys and instruments.
         let all_keys = Note::all_keys(false);
-        let lesson_instruments = user_config.lesson_instruments();
+        let lesson_instruments = preferences.lesson_instruments();
 
         // Generate a lesson for each key and instrument pair.
         all_keys
@@ -610,12 +605,12 @@ impl ImprovisationConfig {
     fn generate_basic_harmony_lessons(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &ImprovisationPreferences,
+        preferences: &ImprovisationPreferences,
         passages: &[ImprovisationPassage],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Get all keys and instruments.
         let all_keys = Note::all_keys(false);
-        let lesson_instruments = user_config.lesson_instruments();
+        let lesson_instruments = preferences.lesson_instruments();
 
         // Generate a lesson for each key and instrument pair.
         all_keys
@@ -784,12 +779,12 @@ impl ImprovisationConfig {
     fn generate_advanced_harmony_lessons(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &ImprovisationPreferences,
+        preferences: &ImprovisationPreferences,
         passages: &[ImprovisationPassage],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Get all keys and instruments.
         let all_keys = Note::all_keys(false);
-        let lesson_instruments = user_config.lesson_instruments();
+        let lesson_instruments = preferences.lesson_instruments();
 
         // Generate a lesson for each key and instrument pair.
         all_keys
@@ -913,10 +908,10 @@ impl ImprovisationConfig {
     fn generate_mastery_lessons(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &ImprovisationPreferences,
+        preferences: &ImprovisationPreferences,
         passages: &[ImprovisationPassage],
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
-        let lesson_instruments = user_config.lesson_instruments();
+        let lesson_instruments = preferences.lesson_instruments();
         lesson_instruments
             .iter()
             .map(|instrument| self.generate_mastery_lesson(course_manifest, *instrument, passages))
@@ -989,12 +984,12 @@ impl ImprovisationConfig {
     fn generate_rhtyhm_only_manifests(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &ImprovisationPreferences,
+        preferences: &ImprovisationPreferences,
         passages: Vec<ImprovisationPassage>,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         Ok(vec![
             self.generate_singing_lesson(course_manifest, &passages),
-            self.generate_rhythm_lessons(course_manifest, user_config, &passages),
+            self.generate_rhythm_lessons(course_manifest, preferences, &passages),
         ]
         .into_iter()
         .flatten()
@@ -1005,16 +1000,16 @@ impl ImprovisationConfig {
     fn generate_all_manifests(
         &self,
         course_manifest: &CourseManifest,
-        user_config: &ImprovisationPreferences,
+        preferences: &ImprovisationPreferences,
         passages: Vec<ImprovisationPassage>,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         Ok(vec![
             self.generate_singing_lesson(course_manifest, &passages),
-            self.generate_rhythm_lessons(course_manifest, user_config, &passages),
-            self.generate_melody_lessons(course_manifest, user_config, &passages),
-            self.generate_basic_harmony_lessons(course_manifest, user_config, &passages),
-            self.generate_advanced_harmony_lessons(course_manifest, user_config, &passages),
-            self.generate_mastery_lessons(course_manifest, user_config, &passages),
+            self.generate_rhythm_lessons(course_manifest, preferences, &passages),
+            self.generate_melody_lessons(course_manifest, preferences, &passages),
+            self.generate_basic_harmony_lessons(course_manifest, preferences, &passages),
+            self.generate_advanced_harmony_lessons(course_manifest, preferences, &passages),
+            self.generate_mastery_lessons(course_manifest, preferences, &passages),
         ]
         .into_iter()
         .flatten()
@@ -1071,7 +1066,7 @@ mod test {
     use anyhow::Result;
     use indoc::indoc;
     use lazy_static::lazy_static;
-    use std::fs::{self, create_dir, File};
+    use std::fs::{self, File};
     use ustr::Ustr;
 
     use super::*;
@@ -1106,7 +1101,7 @@ mod test {
     #[test]
     fn do_not_replace_existing_instructions() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        create_dir(temp_dir.path().join("passages"))?;
+        fs::create_dir(temp_dir.path().join("passages"))?;
 
         let course_generator = CourseGenerator::Improvisation(ImprovisationConfig {
             rhythm_only: false,
@@ -1132,19 +1127,6 @@ mod test {
             course_generator.generate_manifests(temp_dir.path(), &course_manifest, &preferences)?;
         assert!(generated_course.updated_instructions.is_none());
         Ok(())
-    }
-
-    /// Verifies cloning an instrument. Done so that the auto-generated trait implementation is
-    /// included in the code coverage reports.
-    #[test]
-    fn instrument_clone() {
-        let instrument = Instrument {
-            name: "Piano".to_string(),
-            id: "piano".to_string(),
-        };
-        let instrument_clone = instrument.clone();
-        assert_eq!(instrument.name, instrument_clone.name);
-        assert_eq!(instrument.id, instrument_clone.id);
     }
 
     /// Verifies cloning a passage. Done so that the auto-generated trait implementation is included
