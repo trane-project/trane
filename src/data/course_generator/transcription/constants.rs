@@ -6,13 +6,13 @@ use ustr::Ustr;
 
 /// The description of the singing lesson.
 pub const SINGING_DESCRIPTION: &str = indoc! {"
-    Repeatedly listen to the passag until you can audiate and sing it clearly.
+    Repeatedly listen to the passage until you can audiate and sing it clearly.
     Refer to the lesson instructions for more details.
 "};
 
 /// The description of the advanced singing lesson.
 pub const ADVANCED_SINGING_DESCRIPTION: &str = indoc! {"
-    Repeatedly listen to the passag until you can audiate and sing it clearly.
+    Repeatedly listen to the passage until you can audiate and sing it clearly.
 
     Same as the singing exercise but transpose the passage up or down a random
     number of semitones.
