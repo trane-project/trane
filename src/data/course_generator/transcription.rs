@@ -430,7 +430,10 @@ impl TranscriptionConfig {
                 course_manifest.name, instrument.name
             ),
             description: Some(ADVANCED_TRANSCRIPTION_DESCRIPTION.to_string()),
-            dependencies: vec![Self::advanced_singing_lesson_id(&course_manifest.id)],
+            dependencies: vec![
+                Self::transcription_lesson_id(&course_manifest.id, instrument),
+                Self::advanced_singing_lesson_id(&course_manifest.id),
+            ],
             metadata: Some(BTreeMap::from([
                 (
                     LESSON_METADATA.to_string(),

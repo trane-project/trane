@@ -170,7 +170,7 @@ fn no_progress_past_singing_lessons() -> Result<()> {
 }
 
 /// Verifies that not making progress on the advanced singing lessons blocks the advanced
-/// transcription exercises.
+/// transcription lessons.
 #[test]
 fn advanced_singing_blocks_advanced_transcription() -> Result<()> {
     // Initialize test course library.
@@ -184,13 +184,63 @@ fn advanced_singing_blocks_advanced_transcription() -> Result<()> {
         Some(&USER_PREFS),
     )?;
 
-    // Run the simulation. Give every exercise a score of one, which should block all further
-    // progress past the starting lessons.
+    // Run the simulation. Give every advanced singing exercise a score of one, which should block
+    // all progress on the advanced transcription lessons.
     let exercise_ids = trane.get_all_exercise_ids()?;
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
         Box::new(|exercise_id| {
             if exercise_id.contains("advanced_singing") {
+                Some(MasteryScore::One)
+            } else {
+                Some(MasteryScore::Five)
+            }
+        }),
+    );
+    simulation.run_simulation(&mut trane, &vec![], None)?;
+
+    // Exercises from the advanced transcription lessons should not be in the answer history.
+    for exercise_id in exercise_ids {
+        if exercise_id.contains("advanced_transcription") {
+            assert!(
+                !simulation.answer_history.contains_key(&exercise_id),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+            assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        } else {
+            assert!(
+                simulation.answer_history.contains_key(&exercise_id),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Verifies that not making progress on the transcription lessons blocks the advanced transcription
+/// lessons.
+#[test]
+fn transcription_blocks_advanced_transcription() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_simulation(
+        &temp_dir.path(),
+        &vec![
+            transcription_builder(*COURSE0_ID, 0, vec![], 5),
+            transcription_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5),
+        ],
+        Some(&USER_PREFS),
+    )?;
+
+    // Run the simulation. Give every transcription exercise a score of one, which should block all
+    // progress on the advanced transcription lessons.
+    let exercise_ids = trane.get_all_exercise_ids()?;
+    let mut simulation = TraneSimulation::new(
+        exercise_ids.len() * 5,
+        Box::new(|exercise_id| {
+            if exercise_id.contains("::transcription::") {
                 Some(MasteryScore::One)
             } else {
                 Some(MasteryScore::Five)
