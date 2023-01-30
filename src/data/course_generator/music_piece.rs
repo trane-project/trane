@@ -41,7 +41,6 @@ impl MusicAsset {
             MusicAsset::SoundSlice(url) => {
                 let description = formatdoc! {"
                     {}
-
                     - Passage start: {}
                     - Passage end: {}
                 ", INSTRUCTIONS, start, end};
@@ -54,7 +53,6 @@ impl MusicAsset {
             MusicAsset::LocalFile(path) => {
                 let description = formatdoc! {"
                     {}
-
                     - Passage start: {}
                     - Passage end: {}
                     
@@ -93,7 +91,7 @@ impl MusicPassage {
     fn generate_lesson_id(course_manifest: &CourseManifest, passage_path: Vec<usize>) -> Ustr {
         let lesson_id = passage_path
             .iter()
-            .map(|index| format!("{}", index))
+            .map(|index| format!("{index}"))
             .collect::<Vec<String>>()
             .join("::");
         Ustr::from(&format!("{}::{}", course_manifest.id, lesson_id))

@@ -12,7 +12,7 @@ use std::{
     path::Path,
 };
 
-use anyhow::{anyhow, ensure, Result};
+use anyhow::{bail, ensure, Result};
 use chrono::Utc;
 use rand::Rng;
 use rayon::prelude::*;
@@ -124,14 +124,14 @@ impl TestLesson {
             .map(|i| {
                 let id_clone = self.id.clone();
                 ExerciseBuilder {
-                    directory_name: format! {"exercise_{}", i},
+                    directory_name: format!("exercise_{i}"),
                     manifest_closure: Box::new(move |m| {
                         let exercise_id = TestId(id_clone.0, id_clone.1, Some(i)).to_ustr();
                         #[allow(clippy::redundant_clone)]
                         m.clone()
                             .id(exercise_id)
-                            .name(format! {"Exercise {}", exercise_id})
-                            .description(Some(format! {"Description for exercise {}", exercise_id}))
+                            .name(format!("Exercise {exercise_id}"))
+                            .description(Some(format!("Description for exercise {exercise_id}")))
                             .clone()
                     }),
                     asset_builders: vec![
@@ -159,8 +159,8 @@ impl TestLesson {
                 #[allow(clippy::redundant_clone)]
                 m.clone()
                     .id(lesson_id)
-                    .name(format! {"Lesson {}", lesson_id})
-                    .description(Some(format! {"Description for lesson {}", lesson_id}))
+                    .name(format!("Lesson {lesson_id}"))
+                    .description(Some(format!("Description for lesson {lesson_id}")))
                     .dependencies(dependencies_clone.iter().map(|id| id.to_ustr()).collect())
                     .metadata(Some(metadata_clone.clone()))
                     .clone()
@@ -213,7 +213,7 @@ impl TestCourse {
         // Validate the lesson IDs.
         for lesson in &self.lessons {
             if lesson.id.0 != self.id.0 {
-                return Err(anyhow!("Course ID in lesson does not match course ID"));
+                bail!("Course ID in lesson does not match course ID");
             }
         }
 
@@ -230,9 +230,9 @@ impl TestCourse {
             directory_name: format!("course_{}", self.id.0),
             course_manifest: CourseManifest {
                 id: course_id,
-                name: format!("Course {}", course_id),
+                name: format!("Course {course_id}"),
                 dependencies: self.dependencies.iter().map(|id| id.to_ustr()).collect(),
-                description: Some(format!("Description for course {}", course_id)),
+                description: Some(format!("Description for course {course_id}")),
                 authors: None,
                 metadata: Some(self.metadata.clone()),
                 course_material: Some(BasicAsset::MarkdownAsset {

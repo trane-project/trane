@@ -31,7 +31,7 @@
 //! [practice_stats](crate::practice_stats)) or preferences (see [blacklist](crate::blacklist),
 //! [filter_manager](crate::filter_manager) and [review_list](crate::review_list)).
 
-use anyhow::{anyhow, ensure, Result};
+use anyhow::{anyhow, bail, ensure, Result};
 use std::fmt::Write;
 use ustr::{Ustr, UstrMap, UstrSet};
 
@@ -413,17 +413,17 @@ impl UnitGraph for InMemoryUnitGraph {
                             }
                         }
                         if missing_dependent {
-                            return Err(anyhow!(
+                            bail!(
                                 "unit {} lists unit {} as a dependency but the dependent \
                                 relationship does not exist",
                                 current_id,
                                 dependency_id
-                            ));
+                            );
                         }
 
                         // Check for repeated nodes in the path.
                         if path.contains(&dependency_id) {
-                            return Err(anyhow!("cycle in dependency graph detected"));
+                            bail!("cycle in dependency graph detected");
                         }
 
                         // Add a new path to the stack.
@@ -446,7 +446,7 @@ impl UnitGraph for InMemoryUnitGraph {
         // Add each course to the DOT graph.
         for course_id in courses {
             // Add an entry for the course node and set the color to red.
-            let _ = writeln!(output, "    \"{}\" [color=red, style=filled]", course_id);
+            let _ = writeln!(output, "    \"{course_id}\" [color=red, style=filled]");
 
             // Write the entry in the graph for all the of the dependents of this course.
             let mut dependents = self
@@ -471,7 +471,7 @@ impl UnitGraph for InMemoryUnitGraph {
             );
             dependents.sort();
             for dependent in dependents {
-                let _ = writeln!(output, "    \"{}\" -> \"{}\"", course_id, dependent);
+                let _ = writeln!(output, "    \"{course_id}\" -> \"{dependent}\"");
             }
 
             // Repeat the same process for each lesson in this course.
@@ -483,7 +483,7 @@ impl UnitGraph for InMemoryUnitGraph {
             lessons.sort();
             for lesson_id in lessons {
                 // Add an entry for the lesson node and set the color to blue.
-                let _ = writeln!(output, "    \"{}\" [color=blue, style=filled]", lesson_id);
+                let _ = writeln!(output, "    \"{lesson_id}\" [color=blue, style=filled]");
 
                 // Add an entry in the graph for all of this lesson's dependents.
                 let mut dependents = self
@@ -493,7 +493,7 @@ impl UnitGraph for InMemoryUnitGraph {
                     .collect::<Vec<_>>();
                 dependents.sort();
                 for dependent in dependents {
-                    let _ = writeln!(output, "    \"{}\" -> \"{}\"", lesson_id, dependent);
+                    let _ = writeln!(output, "    \"{lesson_id}\" -> \"{dependent}\"");
                 }
             }
         }

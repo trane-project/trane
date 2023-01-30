@@ -6,7 +6,7 @@ pub mod course_generator;
 pub mod filter;
 pub mod music;
 
-use anyhow::{anyhow, Result};
+use anyhow::{bail, Result};
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
@@ -679,9 +679,7 @@ impl SchedulerOptions {
     pub fn verify(&self) -> Result<()> {
         // The batch size must be greater than 0.
         if self.batch_size == 0 {
-            return Err(anyhow!(
-                "invalid scheduler options: batch_size must be greater than 0"
-            ));
+            bail!("invalid scheduler options: batch_size must be greater than 0");
         }
 
         // The sum of the percentages of the mastery windows must be 1.0.
@@ -691,24 +689,20 @@ impl SchedulerOptions {
             + self.target_window_opts.percentage
             != 1.0
         {
-            return Err(anyhow!(
+            bail!(
                 "invalid scheduler options: the sum of the percentages of the mastery windows \
                 must be 1.0"
-            ));
+            );
         }
 
         // The target window's range must start at 0.0.
         if self.target_window_opts.range.0 != 0.0 {
-            return Err(anyhow!(
-                "invalid scheduler options: the target window's range must start at 0.0"
-            ));
+            bail!("invalid scheduler options: the target window's range must start at 0.0");
         }
 
         // The mastered window's range must end at 5.0.
         if self.mastered_window_opts.range.1 != 5.0 {
-            return Err(anyhow!(
-                "invalid scheduler options: the mastered window's range must end at 5.0"
-            ));
+            bail!("invalid scheduler options: the mastered window's range must end at 5.0");
         }
 
         // There must be no gaps in the mastery windows.
@@ -716,9 +710,7 @@ impl SchedulerOptions {
             || self.current_window_opts.range.1 != self.easy_window_opts.range.0
             || self.easy_window_opts.range.1 != self.mastered_window_opts.range.0
         {
-            return Err(anyhow!(
-                "invalid scheduler options: there must be no gaps in the mastery windows"
-            ));
+            bail!("invalid scheduler options: there must be no gaps in the mastery windows");
         }
 
         Ok(())

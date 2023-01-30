@@ -84,7 +84,7 @@ impl ReviewList for ReviewListDB {
             .prepare_cached("INSERT OR IGNORE INTO review_list (unit_id) VALUES (?1)")
             .with_context(|| "cannot prepare statement to insert into review list DB")?; // grcov-excl-line
         stmt.execute(params![unit_id.as_str()])
-            .with_context(|| format!("cannot insert unit {} into review list DB", unit_id))?;
+            .with_context(|| format!("cannot insert unit {unit_id} into review list DB"))?;
         Ok(())
     }
 
@@ -95,7 +95,7 @@ impl ReviewList for ReviewListDB {
             .prepare_cached("DELETE FROM review_list WHERE unit_id = $1")
             .with_context(|| "cannot prepare statement to delete from review list DB")?; // grcov-excl-line
         stmt.execute(params![unit_id.as_str()])
-            .with_context(|| format!("cannot remove unit {} from review list DB", unit_id))?;
+            .with_context(|| format!("cannot remove unit {unit_id} from review list DB"))?;
         Ok(())
     }
 

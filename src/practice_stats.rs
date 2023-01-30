@@ -130,7 +130,7 @@ impl PracticeStats for PracticeStatsDB {
             })? // grcov-excl-line
             .map(|r| {
                 r.with_context(
-                    || format!("cannot query practice stats for exercise {}", exercise_id), // grcov-excl-line
+                    || format!("cannot query practice stats for exercise {exercise_id}"), // grcov-excl-line
                 )
             })
             .collect();
@@ -151,10 +151,7 @@ impl PracticeStats for PracticeStatsDB {
             .execute(params![exercise_id.as_str()])
             .with_context(|| {
                 // grcov-excl-start: This should be unreachable in normal circumstances.
-                format!(
-                    "cannot add {} to uids table in practice stats DB",
-                    exercise_id
-                )
+                format!("cannot add {exercise_id} to uids table in practice stats DB")
                 // grcov-excl-stop
             })?; // grcov-excl-line
 
@@ -170,10 +167,7 @@ impl PracticeStats for PracticeStatsDB {
         ])
         .with_context(|| {
             // grcov-excl-start: This should be unreachable in normal circumstances.
-            format!(
-                "cannot record score {:?} for exercise {} to practice stats DB",
-                score, exercise_id
-            )
+            format!("cannot record score {score:?} for exercise {exercise_id} to practice stats DB")
             // grcov-excl-stop
         })?; // grcov-excl-line
         Ok(())

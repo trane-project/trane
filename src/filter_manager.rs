@@ -4,7 +4,7 @@
 //! students want to only schedule exercises from a subset of the graph. This module allows them to
 //! re-use filters they have previously saved.
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use std::{collections::HashMap, fs::File, io::BufReader};
 
 use crate::data::filter::NamedFilter;
@@ -30,7 +30,7 @@ impl LocalFilterManager {
     fn scan_filters(filter_directory: &str) -> Result<HashMap<String, NamedFilter>> {
         let mut filters = HashMap::new();
         for entry in std::fs::read_dir(filter_directory)
-            .with_context(|| format!("Failed to read filter directory {}", filter_directory))?
+            .with_context(|| format!("Failed to read filter directory {filter_directory}"))?
         {
             // Try to read the file as a [NamedFilter].
             let entry = entry.with_context(|| "Failed to read file entry for saved filter")?;
@@ -50,10 +50,7 @@ impl LocalFilterManager {
 
             // Check for duplicate IDs before inserting the filter.
             if filters.contains_key(&filter.id) {
-                return Err(anyhow::anyhow!(
-                    "Found multiple filters with ID {}",
-                    filter.id
-                ));
+                bail!("Found multiple filters with ID {}", filter.id);
             }
             filters.insert(filter.id.clone(), filter);
         }
