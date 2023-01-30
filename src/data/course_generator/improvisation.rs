@@ -7,7 +7,7 @@
 
 mod constants;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use indoc::formatdoc;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -127,12 +127,12 @@ impl ImprovisationPreferences {
 impl ImprovisationConfig {
     /// Returns the ID for a given exercise given the lesson ID and the exercise index.
     fn exercise_id(&self, lesson_id: Ustr, passage_id: &str) -> Ustr {
-        Ustr::from(&format!("{}::{}", lesson_id, passage_id))
+        Ustr::from(&format!("{lesson_id}::{passage_id}"))
     }
 
     /// Returns the ID of the singing lesson for the given course.
     fn singing_lesson_id(&self, course_id: Ustr) -> Ustr {
-        Ustr::from(&format!("{}::singing", course_id))
+        Ustr::from(&format!("{course_id}::singing"))
     }
 
     /// Generates a singing exercises for the given passage.
@@ -164,7 +164,7 @@ impl ImprovisationConfig {
         let dependencies = self
             .improvisation_dependencies
             .iter()
-            .map(|id| format!("{}::singing", id).into())
+            .map(|id| format!("{id}::singing").into())
             .collect();
         let lesson_manifest = LessonManifest {
             id: self.singing_lesson_id(course_manifest.id),
@@ -196,7 +196,7 @@ impl ImprovisationConfig {
     fn rhythm_lesson_id(&self, course_id: Ustr, instrument: Option<&Instrument>) -> Ustr {
         match instrument {
             Some(instrument) => Ustr::from(&format!("{}::rhythm::{}", course_id, instrument.id)),
-            None => Ustr::from(&format!("{}::rhythm", course_id)),
+            None => Ustr::from(&format!("{course_id}::rhythm")),
         }
     }
 
@@ -806,7 +806,7 @@ impl ImprovisationConfig {
     fn mastery_lesson_id(&self, course_id: Ustr, instrument: Option<&Instrument>) -> Ustr {
         match instrument {
             Some(instrument) => Ustr::from(&format!("{}::mastery::{}", course_id, instrument.id)),
-            None => Ustr::from(&format!("{}::mastery", course_id)),
+            None => Ustr::from(&format!("{course_id}::mastery")),
         }
     }
 
@@ -958,14 +958,14 @@ impl ImprovisationConfig {
             let valid_extension = self
                 .file_extensions
                 .iter()
-                .any(|extension| file_name.ends_with(&format!(".{}", extension)));
+                .any(|extension| file_name.ends_with(&format!(".{extension}")));
             if !valid_extension {
                 continue;
             }
 
             // Fail if the passage ID has already been seen.
             if seen_passage_ids.contains(&passage_id) {
-                return Err(anyhow!("Duplicate passage ID: {}", passage_id));
+                bail!("Duplicate passage ID: {}", passage_id);
             }
             seen_passage_ids.insert(passage_id.clone());
 

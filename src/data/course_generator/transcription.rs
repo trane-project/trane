@@ -10,7 +10,7 @@
 
 pub mod constants;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use indoc::formatdoc;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -138,12 +138,12 @@ pub struct TranscriptionConfig {
 impl TranscriptionConfig {
     /// Returns the ID for a given exercise given the lesson ID and the exercise index.
     fn exercise_id(lesson_id: &Ustr, asset_id: &str, passage_id: usize) -> Ustr {
-        Ustr::from(&format!("{}::{}::{}", lesson_id, asset_id, passage_id))
+        Ustr::from(&format!("{lesson_id}::{asset_id}::{passage_id}"))
     }
 
     /// Returns the ID of the singing lesson for the given course.
     fn singing_lesson_id(course_id: &Ustr) -> Ustr {
-        Ustr::from(&format!("{}::singing", course_id))
+        Ustr::from(&format!("{course_id}::singing"))
     }
 
     /// Generates the singing exercises for the given passages.
@@ -179,7 +179,7 @@ impl TranscriptionConfig {
         let dependencies = self
             .improvisation_dependencies
             .iter()
-            .map(|id| format!("{}::singing", id).into())
+            .map(|id| format!("{id}::singing").into())
             .collect();
         let lesson_manifest = LessonManifest {
             id: Self::singing_lesson_id(&course_manifest.id),
@@ -209,7 +209,7 @@ impl TranscriptionConfig {
 
     /// Returns the ID of the singing lesson for the given course.
     fn advanced_singing_lesson_id(course_id: &Ustr) -> Ustr {
-        Ustr::from(&format!("{}::advanced_singing", course_id))
+        Ustr::from(&format!("{course_id}::advanced_singing"))
     }
 
     /// Generates the advanced singing exercises for the given passages.
@@ -289,7 +289,7 @@ impl TranscriptionConfig {
         course_manifest: &CourseManifest,
         lesson_id: Ustr,
         passages: &TranscriptionPassages,
-        insturment: &Instrument,
+        instrument: &Instrument,
     ) -> Vec<ExerciseManifest> {
         passages
             .intervals
@@ -300,7 +300,7 @@ impl TranscriptionConfig {
                 course_id: course_manifest.id,
                 name: format!(
                     "{} - Transcription - {}",
-                    course_manifest.name, insturment.name
+                    course_manifest.name, instrument.name
                 ),
                 description: None,
                 exercise_type: ExerciseType::Procedural,
@@ -515,7 +515,7 @@ impl TranscriptionConfig {
             let passage = TranscriptionPassages::open(&path)?;
             let short_id = passage.asset.short_id();
             if seen_ids.contains(short_id) {
-                return Err(anyhow!("Duplicate passage ID: {}", short_id));
+                bail!("Duplicate passage ID: {}", short_id);
             } else {
                 seen_ids.insert(short_id.to_string());
             }

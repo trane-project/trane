@@ -121,7 +121,7 @@ impl Blacklist for BlacklistDB {
             .prepare_cached("INSERT INTO blacklist (unit_id) VALUES (?1)")
             .with_context(|| "cannot prepare statement to insert into blacklist DB")?; // grcov-excl-line
         stmt.execute(params![unit_id.as_str()])
-            .with_context(|| format!("cannot insert unit {} into blacklist DB", unit_id))?;
+            .with_context(|| format!("cannot insert unit {unit_id} into blacklist DB"))?;
 
         // Update the cache.
         self.cache.write().insert(*unit_id, true);
@@ -135,7 +135,7 @@ impl Blacklist for BlacklistDB {
             .prepare_cached("DELETE FROM blacklist WHERE unit_id = $1")
             .with_context(|| "cannot prepare statement to delete from blacklist DB")?; // grcov-excl-line
         stmt.execute(params![unit_id.as_str()])
-            .with_context(|| format!("cannot remove unit {} from blacklist DB", unit_id))?;
+            .with_context(|| format!("cannot remove unit {unit_id} from blacklist DB"))?;
 
         // Update the cache.
         self.cache.write().insert(*unit_id, false);

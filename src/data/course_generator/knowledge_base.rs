@@ -203,12 +203,12 @@ impl KnowledgeBaseExercise {
             short_lesson_id,
             course_id: course_manifest.id,
             front_file: lesson_root
-                .join(format!("{}{}", short_id, EXERCISE_FRONT_SUFFIX))
+                .join(format!("{short_id}{EXERCISE_FRONT_SUFFIX}"))
                 .to_str()
                 .unwrap_or_default()
                 .to_string(),
             back_file: lesson_root
-                .join(format!("{}{}", short_id, EXERCISE_BACK_SUFFIX))
+                .join(format!("{short_id}{EXERCISE_BACK_SUFFIX}"))
                 .to_str()
                 .unwrap_or_default()
                 .to_string(),
@@ -223,16 +223,15 @@ impl KnowledgeBaseExercise {
         for exercise_file in files {
             match exercise_file {
                 KnowledgeBaseFile::ExerciseName(..) => {
-                    let path = lesson_root.join(format!("{}{}", short_id, EXERCISE_NAME_SUFFIX));
+                    let path = lesson_root.join(format!("{short_id}{EXERCISE_NAME_SUFFIX}"));
                     exercise.name = Some(KnowledgeBaseFile::open(&path)?);
                 }
                 KnowledgeBaseFile::ExerciseDescription(..) => {
-                    let path =
-                        lesson_root.join(format!("{}{}", short_id, EXERCISE_DESCRIPTION_SUFFIX));
+                    let path = lesson_root.join(format!("{short_id}{EXERCISE_DESCRIPTION_SUFFIX}"));
                     exercise.description = Some(KnowledgeBaseFile::open(&path)?);
                 }
                 KnowledgeBaseFile::ExerciseType(..) => {
-                    let path = lesson_root.join(format!("{}{}", short_id, EXERCISE_TYPE_SUFFIX));
+                    let path = lesson_root.join(format!("{short_id}{EXERCISE_TYPE_SUFFIX}"));
                     exercise.exercise_type = Some(KnowledgeBaseFile::open(&path)?);
                 }
                 _ => {}

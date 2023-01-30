@@ -4,7 +4,7 @@
 //! courses that the student wishes to practice together. Courses, lessons, and exercises are
 //! defined by their manifest files (see [data](crate::data)).
 
-use anyhow::{anyhow, ensure, Context, Result};
+use anyhow::{anyhow, bail, ensure, Context, Result};
 use parking_lot::RwLock;
 use serde::de::DeserializeOwned;
 use std::{
@@ -152,7 +152,7 @@ impl LocalCourseLibrary {
         let schema = Self::search_schema();
         schema
             .get_field(field_name)
-            .ok_or_else(|| anyhow!(format!("Field {} not found in search schema", field_name)))
+            .ok_or_else(|| anyhow!(format!("Field {field_name} not found in search schema")))
     }
 
     /// Adds the unit with the given field values to the search index.
@@ -180,7 +180,7 @@ impl LocalCourseLibrary {
         if let Some(metadata) = metadata {
             for (key, values) in metadata {
                 for value in values {
-                    doc.add_text(metadata_field, format!("{}:{}", key, value));
+                    doc.add_text(metadata_field, format!("{key}:{value}"));
                 }
             }
         }
@@ -451,9 +451,7 @@ impl LocalCourseLibrary {
                 )
             })?;
         } else if !trane_path.is_dir() {
-            return Err(anyhow!(
-                "config path .trane inside library must be a directory"
-            ));
+            bail!("config path .trane inside library must be a directory");
         }
 
         // Create the `filters` directory if it does not exist already.
@@ -491,10 +489,10 @@ impl LocalCourseLibrary {
             })?; // grcov-excl-line
         } else if !user_prefs_path.is_file() {
             // The user preferences file exists but is not a regular file.
-            return Err(anyhow!(
+            bail!(
                 "user preferences file must be a regular file at {}",
                 user_prefs_path.display()
-            ));
+            );
         }
 
         Ok(())
