@@ -171,7 +171,7 @@ impl TestLesson {
                 .exercise_type(ExerciseType::Procedural)
                 .exercise_asset(ExerciseAsset::FlashcardAsset {
                     front_path: "question.md".to_string(),
-                    back_path: "answer.md".to_string(),
+                    back_path: Some("answer.md".to_string()),
                 })
                 .clone(),
             exercise_builders,

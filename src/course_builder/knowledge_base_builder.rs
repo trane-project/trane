@@ -200,7 +200,7 @@ mod test {
                 short_lesson_id: "lesson1".into(),
                 course_id: "course1".into(),
                 front_file: "ex1.front.md".to_string(),
-                back_file: "ex1.back.md".to_string(),
+                back_file: Some("ex1.back.md".to_string()),
                 name: Some("Exercise 1".to_string()),
                 description: Some("Exercise 1 description".to_string()),
                 exercise_type: Some(ExerciseType::Procedural),
