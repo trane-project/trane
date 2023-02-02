@@ -903,6 +903,28 @@ mod test {
         Ok(())
     }
 
+    /// Verifies the `VerifyPaths` trait works for a flashcard asset.
+    #[test]
+    fn verify_flashcard_assets() -> Result<()> {
+        // Verify a flashcard with no back.
+        let temp_dir = tempfile::tempdir()?;
+        let front_file = tempfile::NamedTempFile::new_in(temp_dir.path())?;
+        let flashcard_asset = ExerciseAsset::FlashcardAsset {
+            front_path: front_file.path().as_os_str().to_str().unwrap().to_string(),
+            back_path: None,
+        };
+        assert!(flashcard_asset.verify_paths(temp_dir.path())?);
+
+        // Verify a flashcard with front and back.
+        let back_file = tempfile::NamedTempFile::new_in(temp_dir.path())?;
+        let flashcard_asset = ExerciseAsset::FlashcardAsset {
+            front_path: front_file.path().as_os_str().to_str().unwrap().to_string(),
+            back_path: Some(back_file.path().as_os_str().to_str().unwrap().to_string()),
+        };
+        assert!(flashcard_asset.verify_paths(temp_dir.path())?);
+        Ok(())
+    }
+
     /// Verifies the `Display` trait for each unit type.
     #[test]
     fn unit_type_display() {
