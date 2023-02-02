@@ -57,29 +57,36 @@ fn knowledge_base_builder(
             let exercises = (0..num_exercises_per_lesson)
                 .map(|exercise_index| {
                     let front_path = format!("exercise_{}.front.md", exercise_index);
-                    let back_path = format!("exercise_{}.back.md", exercise_index);
+                    // Let even exercises have a back file and odds have none.
+                    let back_path = if exercise_index % 2 == 0 {
+                        Some(format!("exercise_{}.back.md", exercise_index))
+                    } else {
+                        None
+                    };
 
+                    // Create the asset and exercise builders.
+                    let mut asset_builders = vec![AssetBuilder {
+                        file_name: front_path.clone(),
+                        contents: "Front".into(),
+                    }];
+                    if let Some(back_path) = &back_path {
+                        asset_builders.push(AssetBuilder {
+                            file_name: back_path.clone(),
+                            contents: "Back".into(),
+                        });
+                    }
                     ExerciseBuilder {
                         exercise: KnowledgeBaseExercise {
                             short_id: format!("exercise_{}", exercise_index),
                             short_lesson_id: lesson_id,
                             course_id: course_manifest.id,
-                            front_file: front_path.clone(),
-                            back_file: back_path.clone(),
+                            front_file: front_path,
+                            back_file: back_path,
                             name: None,
                             description: None,
                             exercise_type: None,
                         },
-                        asset_builders: vec![
-                            AssetBuilder {
-                                file_name: front_path,
-                                contents: "Front".into(),
-                            },
-                            AssetBuilder {
-                                file_name: back_path,
-                                contents: "Back".into(),
-                            },
-                        ],
+                        asset_builders,
                     }
                 })
                 .collect();

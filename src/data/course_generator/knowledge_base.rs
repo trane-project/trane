@@ -172,8 +172,9 @@ pub struct KnowledgeBaseExercise {
     /// The path to the file containing the front of the flashcard.
     pub front_file: String,
 
-    /// The path to the file containing the back of the flashcard.
-    pub back_file: String,
+    /// The path to the file containing the back of the flashcard. This path is optional, because a
+    /// flashcard is not required to provide an answer.
+    pub back_file: Option<String>,
 
     /// The name of the exercise to be presented to the user.
     pub name: Option<String>,
@@ -197,6 +198,23 @@ impl KnowledgeBaseExercise {
         course_manifest: &CourseManifest,
         files: &[KnowledgeBaseFile],
     ) -> Result<Self> {
+        // Check if the exercise has a back file and create it accordingly.
+        let has_back_file = files.iter().any(|file| match file {
+            KnowledgeBaseFile::ExerciseBack(id) => id == short_id,
+            _ => false,
+        });
+        let back_file = if has_back_file {
+            Some(
+                lesson_root
+                    .join(format!("{short_id}{EXERCISE_BACK_SUFFIX}"))
+                    .to_str()
+                    .unwrap_or_default()
+                    .to_string(),
+            )
+        } else {
+            None
+        };
+
         // Create the exercise with `None` values for all optimal fields.
         let mut exercise = KnowledgeBaseExercise {
             short_id: short_id.to_string(),
@@ -207,11 +225,7 @@ impl KnowledgeBaseExercise {
                 .to_str()
                 .unwrap_or_default()
                 .to_string(),
-            back_file: lesson_root
-                .join(format!("{short_id}{EXERCISE_BACK_SUFFIX}"))
-                .to_str()
-                .unwrap_or_default()
-                .to_string(),
+            back_file,
             name: None,
             description: None,
             exercise_type: None,
@@ -320,17 +334,15 @@ pub struct KnowledgeBaseLesson {
 //>@knowledge-base-lesson
 
 impl KnowledgeBaseLesson {
-    // Filters out exercises that don't have both a front and back file.
+    // Filters out exercises that don't have both a front file. Exercises without a back file are
+    // allowed, as it is not required to have one.
     fn filter_matching_exercises(exercise_files: &mut HashMap<String, Vec<KnowledgeBaseFile>>) {
         let mut to_remove = Vec::new();
         for (short_id, files) in exercise_files.iter() {
             let has_front = files
                 .iter()
                 .any(|file| matches!(file, KnowledgeBaseFile::ExerciseFront(_)));
-            let has_back = files
-                .iter()
-                .any(|file| matches!(file, KnowledgeBaseFile::ExerciseBack(_)));
-            if !has_front || !has_back {
+            if !has_front {
                 to_remove.push(short_id.clone());
             }
         }
@@ -709,7 +721,7 @@ mod test {
             short_lesson_id: "lesson1".into(),
             course_id: "course1".into(),
             front_file: "ex1.front.md".into(),
-            back_file: "ex1.back.md".into(),
+            back_file: Some("ex1.back.md".into()),
             name: Some("Name".into()),
             description: Some("Description".into()),
             exercise_type: Some(ExerciseType::Procedural),
@@ -723,7 +735,7 @@ mod test {
             exercise_type: ExerciseType::Procedural,
             exercise_asset: ExerciseAsset::FlashcardAsset {
                 front_path: "ex1.front.md".into(),
-                back_path: "ex1.back.md".into(),
+                back_path: Some("ex1.back.md".into()),
             },
         };
         let actual_manifest: ExerciseManifest = exercise.into();
@@ -764,7 +776,7 @@ mod test {
             short_lesson_id,
             course_id: "course1".into(),
             front_file: "ex1.front.md".into(),
-            back_file: "ex1.back.md".into(),
+            back_file: Some("ex1.back.md".into()),
             name: Some("Name".into()),
             description: Some("Description".into()),
             exercise_type: Some(ExerciseType::Procedural),
@@ -790,24 +802,32 @@ mod test {
     #[test]
     fn filter_matching_exercises() {
         let mut exercise_map = HashMap::default();
+        // Exercise 1 has both a front and back file.
         let ex1_id: String = "ex1".into();
         let ex1_files = vec![
             KnowledgeBaseFile::ExerciseFront("ex1".into()),
             KnowledgeBaseFile::ExerciseBack("ex1".into()),
         ];
+        // Exercise 2 only has a front file.
         let ex2_id: String = "ex2".into();
         let ex2_files = vec![KnowledgeBaseFile::ExerciseFront("ex2".into())];
+        // Exercise 3 only has a back file.
+        let ex3_id: String = "ex3".into();
+        let ex3_files = vec![KnowledgeBaseFile::ExerciseBack("ex3".into())];
         exercise_map.insert(ex1_id.clone(), ex1_files);
         exercise_map.insert(ex2_id.clone(), ex2_files);
+        exercise_map.insert(ex3_id.clone(), ex3_files);
 
+        // Verify that the correct exercises were filtered out.
         KnowledgeBaseLesson::filter_matching_exercises(&mut exercise_map);
-
         let ex1_expected = vec![
             KnowledgeBaseFile::ExerciseFront("ex1".into()),
             KnowledgeBaseFile::ExerciseBack("ex1".into()),
         ];
         assert_eq!(exercise_map.get(&ex1_id).unwrap(), &ex1_expected);
-        assert!(!exercise_map.contains_key(&ex2_id));
+        let ex2_expected = vec![KnowledgeBaseFile::ExerciseFront("ex2".into())];
+        assert_eq!(exercise_map.get(&ex2_id).unwrap(), &ex2_expected);
+        assert!(!exercise_map.contains_key(&ex3_id));
     }
 
     // Serializes the object in JSON and writes it to the given file.
@@ -913,7 +933,7 @@ mod test {
                 .to_string()
         );
         assert_eq!(
-            exercise.back_file,
+            exercise.back_file.to_owned().unwrap_or_default(),
             lesson_dir.join("ex1.back.md").to_str().unwrap().to_string()
         );
         Ok(())

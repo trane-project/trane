@@ -523,8 +523,11 @@ pub enum ExerciseAsset {
         /// The path to the file containing the front of the flashcard.
         front_path: String,
 
-        /// The path to the file containing the back of the flashcard.
-        back_path: String,
+        /// The path to the file containing the back of the flashcard. This path is optional,
+        /// because a flashcard is not required to provide an answer. For example, the exercise is
+        /// open-ended, or it is referring to an external resource which contains the exercise and
+        /// possibly the answer.
+        back_path: Option<String>,
     },
 
     /// A basic asset storing the material of the exercise.
@@ -539,7 +542,11 @@ impl NormalizePaths for ExerciseAsset {
                 back_path,
             } => {
                 let abs_front_path = normalize_path(working_dir, front_path)?;
-                let abs_back_path = normalize_path(working_dir, back_path)?;
+                let abs_back_path = if let Some(back_path) = back_path {
+                    Some(normalize_path(working_dir, back_path)?)
+                } else {
+                    None
+                };
                 Ok(ExerciseAsset::FlashcardAsset {
                     front_path: abs_front_path,
                     back_path: abs_back_path,
@@ -574,10 +581,15 @@ impl VerifyPaths for ExerciseAsset {
                 front_path,
                 back_path,
             } => {
-                // The paths to the front and back of the flashcard must both exist.
                 let front_abs_path = working_dir.join(Path::new(front_path));
-                let back_abs_path = working_dir.join(Path::new(back_path));
-                Ok(front_abs_path.exists() && back_abs_path.exists())
+                if let Some(back_path) = back_path {
+                    // The paths to the front and back of the flashcard must both exist.
+                    let back_abs_path = working_dir.join(Path::new(back_path));
+                    Ok(front_abs_path.exists() && back_abs_path.exists())
+                } else {
+                    // If the back of the flashcard is missing, then the front must exist.
+                    Ok(front_abs_path.exists())
+                }
             }
             ExerciseAsset::SoundSliceAsset { backup, .. } => match backup {
                 None => Ok(true),
@@ -791,7 +803,7 @@ mod test {
                 .exercise_type(ExerciseType::Procedural)
                 .exercise_asset(ExerciseAsset::FlashcardAsset {
                     front_path: "front.png".to_string(),
-                    back_path: "back.png".to_string(),
+                    back_path: Some("back.png".to_string()),
                 })
                 .build()
                 .unwrap()
