@@ -31,11 +31,11 @@ pub const LESSON_DESCRIPTION_FILE: &str = "lesson.description.json";
 /// The name of the file containing the metadata of a lesson.
 pub const LESSON_METADATA_FILE: &str = "lesson.metadata.json";
 
-/// The name of the file containing the path to the lesson material.
-pub const LESSON_MATERIAL_FILE: &str = "lesson.material.json";
+/// The name of the file containing the lesson instructions.
+pub const LESSON_INSTRUCTIONS_FILE: &str = "lesson.instructions.md";
 
-/// The name of the file containing the path to the lesson instructions.
-pub const LESSON_INSTRUCTIONS_FILE: &str = "lesson.instructions.json";
+/// The name of the file containing the lesson material.
+pub const LESSON_MATERIAL_FILE: &str = "lesson.material.md";
 
 /// The suffix of the file containing the front of the flashcard for an exercise.
 pub const EXERCISE_FRONT_SUFFIX: &str = ".front.md";
@@ -67,11 +67,11 @@ pub enum KnowledgeBaseFile {
     /// The file containing the metadata of the lesson.
     LessonMetadata,
 
-    /// The file containing the path to the lesson material.
-    LessonMaterial,
-
-    /// The file containing the path to the lesson instructions.
+    /// The file containing the lesson instructions.
     LessonInstructions,
+
+    /// The file containing the lesson material.
+    LessonMaterial,
 
     /// The file containing the front of the flashcard for the exercise with the given short ID.
     ExerciseFront(String),
@@ -296,6 +296,10 @@ impl From<KnowledgeBaseExercise> for ExerciseManifest {
 /// one would write a file named `lesson.dependencies.json` containing a JSON array of strings, each
 /// of them the ID of a dependency.
 ///
+/// The material and instructions of the lesson do not follow this convention. Instead, the files
+/// `lesson.instructoins.md` and `lesson.material.md` contain the instructions and material of the
+/// lesson.
+///
 /// None of the `<SHORT_LESSON_ID>.lesson` directories should contain a `lesson_manifest.json` file,
 /// as that file would indicate to Trane that this is a regular lesson and not a generated lesson.
 pub struct KnowledgeBaseLesson {
@@ -318,15 +322,15 @@ pub struct KnowledgeBaseLesson {
     /// An optional description of the lesson.
     pub description: Option<String>,
 
+    /// The path to a markdown file containing the instructions common to all exercises in the
+    /// lesson.
+    pub instructions: Option<String>,
+
     //// A mapping of String keys to a list of String values used to store arbitrary metadata about
     ///the lesson. This value is set to a `BTreeMap` to ensure that the keys are sorted in a
     ///consistent order when serialized. This is an implementation detail and does not affect how
     ///the value should be written to a file. A JSON map of strings to list of strings works.
     pub metadata: Option<BTreeMap<String, Vec<String>>>,
-
-    /// The path to a markdown file containing the instructions common to all exercises in the
-    /// lesson.
-    pub instructions: Option<String>,
 
     /// The path to a markdown file containing the material covered in the lesson.
     pub material: Option<String>,
@@ -391,12 +395,22 @@ impl KnowledgeBaseLesson {
                     lesson.metadata = Some(KnowledgeBaseFile::open(&path)?)
                 }
                 KnowledgeBaseFile::LessonInstructions => {
-                    let path = lesson_root.join(LESSON_INSTRUCTIONS_FILE);
-                    lesson.instructions = Some(KnowledgeBaseFile::open(&path)?)
+                    if let Ok(path) = lesson_root
+                        .join(LESSON_INSTRUCTIONS_FILE)
+                        .into_os_string()
+                        .into_string()
+                    {
+                        lesson.instructions = Some(path)
+                    }
                 }
                 KnowledgeBaseFile::LessonMaterial => {
-                    let path = lesson_root.join(LESSON_MATERIAL_FILE);
-                    lesson.material = Some(KnowledgeBaseFile::open(&path)?)
+                    if let Ok(path) = lesson_root
+                        .join(LESSON_MATERIAL_FILE)
+                        .into_os_string()
+                        .into_string()
+                    {
+                        lesson.material = Some(path)
+                    }
                 }
                 _ => {}
             }
@@ -848,29 +862,29 @@ mod test {
 
         // Create lesson files in the directory.
         let name = "Name";
-        let name_path = lesson_dir.join("lesson.name.json");
+        let name_path = lesson_dir.join(LESSON_NAME_FILE);
         write_json(&name, &name_path)?;
 
         let description = "Description";
-        let description_path = lesson_dir.join("lesson.description.json");
+        let description_path = lesson_dir.join(LESSON_DESCRIPTION_FILE);
         write_json(&description, &description_path)?;
 
         let dependencies: Vec<Ustr> = vec!["lesson2".into(), "lesson3".into()];
-        let dependencies_path = lesson_dir.join("lesson.dependencies.json");
+        let dependencies_path = lesson_dir.join(LESSON_DEPENDENCIES_FILE);
         write_json(&dependencies, &dependencies_path)?;
 
         let metadata: BTreeMap<String, Vec<String>> =
             BTreeMap::from([("key".into(), vec!["value".into()])]);
-        let metadata_path = lesson_dir.join("lesson.metadata.json");
+        let metadata_path = lesson_dir.join(LESSON_METADATA_FILE);
         write_json(&metadata, &metadata_path)?;
 
-        let instructions_file = "instructions.md";
-        let instructions_path = lesson_dir.join("lesson.instructions.json");
-        write_json(&instructions_file, &instructions_path)?;
+        let instructions = "instructions";
+        let instructions_path = lesson_dir.join(LESSON_INSTRUCTIONS_FILE);
+        write_json(&instructions, &instructions_path)?;
 
-        let material_file = "material.md";
-        let material_path = lesson_dir.join("lesson.material.json");
-        write_json(&material_file, &material_path)?;
+        let material = "material";
+        let material_path = lesson_dir.join(LESSON_MATERIAL_FILE);
+        write_json(&material, &material_path)?;
 
         // Create an example exercise and all of its files.
         let front_content = "Front content";
@@ -915,8 +929,14 @@ mod test {
         assert_eq!(lesson.description, Some(description.into()));
         assert_eq!(lesson.dependencies, Some(dependencies));
         assert_eq!(lesson.metadata, Some(metadata));
-        assert_eq!(lesson.instructions, Some(instructions_file.into()));
-        assert_eq!(lesson.material, Some(material_file.into()));
+        assert_eq!(
+            lesson.instructions,
+            Some(instructions_path.to_string_lossy().into())
+        );
+        assert_eq!(
+            lesson.material,
+            Some(material_path.to_string_lossy().into())
+        );
 
         // Verify the exercise.
         assert_eq!(exercises.len(), 1);
