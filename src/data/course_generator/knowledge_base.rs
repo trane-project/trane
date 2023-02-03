@@ -322,15 +322,15 @@ pub struct KnowledgeBaseLesson {
     /// An optional description of the lesson.
     pub description: Option<String>,
 
-    /// The path to a markdown file containing the instructions common to all exercises in the
-    /// lesson.
-    pub instructions: Option<String>,
-
     //// A mapping of String keys to a list of String values used to store arbitrary metadata about
     ///the lesson. This value is set to a `BTreeMap` to ensure that the keys are sorted in a
     ///consistent order when serialized. This is an implementation detail and does not affect how
     ///the value should be written to a file. A JSON map of strings to list of strings works.
     pub metadata: Option<BTreeMap<String, Vec<String>>>,
+
+    /// The path to a markdown file containing the instructions common to all exercises in the
+    /// lesson.
+    pub instructions: Option<String>,
 
     /// The path to a markdown file containing the material covered in the lesson.
     pub material: Option<String>,
