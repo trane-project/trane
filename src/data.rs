@@ -370,6 +370,12 @@ pub struct CourseManifest {
 impl NormalizePaths for CourseManifest {
     fn normalize_paths(&self, working_directory: &Path) -> Result<Self> {
         let mut clone = self.clone();
+        match &self.course_instructions {
+            None => (),
+            Some(asset) => {
+                clone.course_instructions = Some(asset.normalize_paths(working_directory)?)
+            }
+        }
         match &self.course_material {
             None => (),
             Some(asset) => clone.course_material = Some(asset.normalize_paths(working_directory)?),
