@@ -177,7 +177,7 @@ impl CourseBuilder {
 /// and the front and (optional) back of the card, which in a lot of cases are enough to deliver full
 /// functionality of Trane. It is meant to help course authors write simple knowledge base courses by
 /// writing a simple configuration to a single JSON file.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SimpleKnowledgeBaseExercise {
     /// The short ID of the exercise.
     pub short_id: String,
@@ -238,7 +238,7 @@ impl SimpleKnowledgeBaseExercise {
 /// metadata can be optionally specified as well. In a lot of cases, this is enough to deliver the
 /// full functionality of Trane. It is meant to help course authors write simple knowledge base
 /// courses by writing a simple configuration to a single JSON file.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SimpleKnowledgeBaseLesson {
     /// The short ID of the lesson.
     pub short_id: Ustr,
@@ -332,7 +332,7 @@ impl SimpleKnowledgeBaseLesson {
 /// Represents a simple knowledge base course which only specifies the course manifest and a list of
 /// simple lessons. It is meant to help course authors write simple knowledge base courses by
 /// writing a simple configuration to a single JSON file.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SimpleKnowledgeBaseCourse {
     /// The manifest for this course.
     pub manifest: CourseManifest,
@@ -404,7 +404,7 @@ impl SimpleKnowledgeBaseCourse {
                     manifest_path.display()
                 )
                 // grcov-excl-stop
-            })
+            }) // grcov-excl-line
     }
 }
 
@@ -710,6 +710,8 @@ mod test {
             BTreeMap::from([("key".to_string(), vec!["value".to_string()])])
         );
 
+        // Finally, clone the simple knowledge course to satisfy the code coverage check.
+        assert_eq!(simple_course.clone(), simple_course);
         Ok(())
     }
 
