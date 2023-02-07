@@ -107,7 +107,7 @@ fn knowledge_base_builder(
                     material: None,
                 },
                 exercises,
-                assets: vec![],
+                asset_builders: vec![],
             }
         })
         .collect();

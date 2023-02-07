@@ -4,15 +4,19 @@
 //! hand. This module contains utilities to make it easier to generate these files, specially for
 //! testing purposes.
 
-use anyhow::{ensure, Result};
+use anyhow::{ensure, Context, Result};
+use serde::{Deserialize, Serialize};
 use std::{
+    collections::{BTreeMap, HashSet},
     fs::{self, create_dir_all, File},
     io::Write,
     path::Path,
 };
+use ustr::Ustr;
 
 use crate::{
     course_builder::AssetBuilder,
+    course_library::COURSE_MANIFEST_FILENAME,
     data::{course_generator::knowledge_base::*, CourseManifest},
 };
 
@@ -74,14 +78,14 @@ pub struct LessonBuilder {
     pub exercises: Vec<ExerciseBuilder>,
 
     /// The assets associated with this lesson, which include the lesson instructions and materials.
-    pub assets: Vec<AssetBuilder>,
+    pub asset_builders: Vec<AssetBuilder>,
 }
 
 impl LessonBuilder {
     /// Writes the files needed for this lesson to the given directory.
     pub fn build(&self, lesson_directory: &Path) -> Result<()> {
         // Build all the assets.
-        for builder in &self.assets {
+        for builder in &self.asset_builders {
             builder.build(lesson_directory)?;
         }
 
@@ -114,18 +118,6 @@ impl LessonBuilder {
             let metadata_path = lesson_directory.join(LESSON_METADATA_FILE);
             let mut metadata_file = File::create(metadata_path)?;
             metadata_file.write_all(metadata_json.as_bytes())?;
-        }
-        if let Some(instructions) = &self.lesson.instructions {
-            let instructions_json = serde_json::to_string_pretty(instructions)?;
-            let instructions_path = lesson_directory.join(LESSON_INSTRUCTIONS_FILE);
-            let mut instructions_file = File::create(instructions_path)?;
-            instructions_file.write_all(instructions_json.as_bytes())?;
-        }
-        if let Some(material) = &self.lesson.material {
-            let material_json = serde_json::to_string_pretty(material)?;
-            let material_path = lesson_directory.join(LESSON_MATERIAL_FILE);
-            let mut material_file = File::create(material_path)?;
-            material_file.write_all(material_json.as_bytes())?;
         }
         Ok(())
     }
@@ -181,6 +173,241 @@ impl CourseBuilder {
     }
 }
 
+/// Represents a simple knowledge base exercise which only specifies the short ID of the exercise,
+/// and the front and (optional) back of the card, which in a lot of cases are enough to deliver full
+/// functionality of Trane. It is meant to help course authors write simple knowledge base courses by
+/// writing a simple configuration to a single JSON file.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SimpleKnowledgeBaseExercise {
+    /// The short ID of the exercise.
+    pub short_id: String,
+
+    /// The content of the front of the card.
+    pub front: String,
+
+    /// The optional content of the back of the card.
+    pub back: Option<String>,
+}
+
+impl SimpleKnowledgeBaseExercise {
+    /// Generates the exercise builder for this simple knowledge base exercise.
+    fn generate_exercise_builder(
+        &self,
+        short_lesson_id: Ustr,
+        course_id: Ustr,
+    ) -> Result<ExerciseBuilder> {
+        // Ensure that the short ID is not empty.
+        ensure!(!self.short_id.is_empty(), "short ID cannot be empty");
+
+        // Generate the asset builders for the front and back of the card.
+        let front_file = format!("{}{}", self.short_id, EXERCISE_FRONT_SUFFIX);
+        let back_file = self
+            .back
+            .as_ref()
+            .map(|_| format!("{}{}", self.short_id, EXERCISE_BACK_SUFFIX));
+        let mut asset_builders = vec![AssetBuilder {
+            file_name: front_file.clone(),
+            contents: self.front.clone(),
+        }];
+        if let Some(back) = &self.back {
+            asset_builders.push(AssetBuilder {
+                file_name: back_file.clone().unwrap(),
+                contents: back.clone(),
+            })
+        }
+
+        // Generate the exercise builder.
+        Ok(ExerciseBuilder {
+            exercise: KnowledgeBaseExercise {
+                short_id: self.short_id.to_string(),
+                short_lesson_id,
+                course_id,
+                front_file,
+                back_file,
+                name: None,
+                description: None,
+                exercise_type: None,
+            },
+            asset_builders,
+        })
+    }
+}
+
+/// Represents a simple knowledge base lesson which only specifies the short ID of the lesson, the
+/// dependencies of the lesson, and a list of simple exercises. The instructions, material, and
+/// metadata can be optionally specified as well. In a lot of cases, this is enough to deliver the
+/// full functionality of Trane. It is meant to help course authors write simple knowledge base
+/// courses by writing a simple configuration to a single JSON file.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SimpleKnowledgeBaseLesson {
+    /// The short ID of the lesson.
+    pub short_id: Ustr,
+
+    /// The dependencies of the lesson.
+    pub dependencies: Vec<Ustr>,
+
+    /// The simple exercises in the lesson.
+    pub exercises: Vec<SimpleKnowledgeBaseExercise>,
+
+    /// The optional instructions for the lesson.
+    pub instructions: Option<String>,
+
+    /// The optional material for the lesson.
+    pub material: Option<String>,
+
+    /// The optional metadata for the lesson.
+    pub metadata: Option<BTreeMap<String, Vec<String>>>,
+}
+
+impl SimpleKnowledgeBaseLesson {
+    /// Generates the lesson builder from this simple lesson.
+    fn generate_lesson_builder(&self, course_id: Ustr) -> Result<LessonBuilder> {
+        // Ensure that the lesson short ID is not empty and that the exercise short IDs are unique.
+        ensure!(
+            !self.short_id.is_empty(),
+            "short ID of lesson cannot be empty"
+        );
+        let mut short_ids = HashSet::new();
+        for exercise in &self.exercises {
+            ensure!(
+                !short_ids.contains(&exercise.short_id),
+                "short ID {} of exercise is not unique",
+                exercise.short_id
+            );
+            short_ids.insert(&exercise.short_id);
+        }
+
+        // Generate the exercise builders.
+        let exercises = self
+            .exercises
+            .iter()
+            .map(|exercise| exercise.generate_exercise_builder(self.short_id, course_id))
+            .collect::<Result<Vec<_>>>()?;
+
+        // Generate the assets for the instructions and material.
+        let mut asset_builders = vec![];
+
+        if let Some(instructions) = &self.instructions {
+            asset_builders.push(AssetBuilder {
+                file_name: LESSON_INSTRUCTIONS_FILE.into(),
+                contents: instructions.clone(),
+            })
+        }
+        if let Some(material) = &self.material {
+            asset_builders.push(AssetBuilder {
+                file_name: LESSON_MATERIAL_FILE.into(),
+                contents: material.clone(),
+            })
+        }
+
+        // Generate the lesson builder.
+        let dependencies = if self.dependencies.is_empty() {
+            None
+        } else {
+            Some(self.dependencies.clone())
+        };
+        let instructions = self
+            .instructions
+            .as_ref()
+            .map(|_| LESSON_INSTRUCTIONS_FILE.into());
+        let material = self.material.as_ref().map(|_| LESSON_MATERIAL_FILE.into());
+        let lesson_builder = LessonBuilder {
+            lesson: KnowledgeBaseLesson {
+                short_id: self.short_id,
+                course_id,
+                dependencies,
+                name: None,
+                description: None,
+                metadata: self.metadata.clone(),
+                instructions,
+                material,
+            },
+            exercises,
+            asset_builders,
+        };
+        Ok(lesson_builder)
+    }
+}
+
+/// Represents a simple knowledge base course which only specifies the course manifest and a list of
+/// simple lessons. It is meant to help course authors write simple knowledge base courses by
+/// writing a simple configuration to a single JSON file.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SimpleKnowledgeBaseCourse {
+    /// The manifest for this course.
+    pub manifest: CourseManifest,
+
+    /// The simple lessons in this course.
+    pub lessons: Vec<SimpleKnowledgeBaseLesson>,
+}
+
+impl SimpleKnowledgeBaseCourse {
+    /// Writes the course manifests and the lesson directories with the assets and exercises to the
+    /// given directory.
+    pub fn build(&self, root_directory: &Path) -> Result<()> {
+        // Ensure that the lesson short IDs are unique.
+        let mut short_ids = HashSet::new();
+        for lesson in &self.lessons {
+            ensure!(
+                !short_ids.contains(&lesson.short_id),
+                "short ID {} of lesson is not unique",
+                lesson.short_id
+            );
+            short_ids.insert(&lesson.short_id);
+        }
+
+        // Generate the lesson builders.
+        let lesson_builders = self
+            .lessons
+            .iter()
+            .map(|lesson| lesson.generate_lesson_builder(self.manifest.id))
+            .collect::<Result<Vec<_>>>()?;
+
+        // Build the lessons in the course.
+        for lesson_builder in lesson_builders {
+            let lesson_directory = root_directory.join(format!(
+                "{}{}",
+                lesson_builder.lesson.short_id, LESSON_SUFFIX
+            ));
+
+            // Remove the lesson directories if they already exist.
+            if lesson_directory.exists() {
+                fs::remove_dir_all(&lesson_directory).with_context(|| {
+                    // grcov-excl-start
+                    format!(
+                        "failed to remove existing lesson directory at {}",
+                        lesson_directory.display()
+                    )
+                    // grcov-excl-stop
+                })?; // grcov-excl-line
+            }
+
+            lesson_builder.build(&lesson_directory)?;
+        }
+
+        // Write the course manifest.
+        let manifest_path = root_directory.join(COURSE_MANIFEST_FILENAME);
+        let mut manifest_file = fs::File::create(&manifest_path).with_context(|| {
+            // grcov-excl-start
+            format!(
+                "failed to create course manifest file at {}",
+                manifest_path.display()
+            )
+            // grcov-excl-stop
+        })?; // grcov-excl-line
+        manifest_file
+            .write_all(serde_json::to_string_pretty(&self.manifest)?.as_bytes())
+            .with_context(|| {
+                // grcov-excl-start
+                format!(
+                    "failed to write course manifest file at {}",
+                    manifest_path.display()
+                )
+                // grcov-excl-stop
+            }) // grcov-excl-line
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::collections::BTreeMap;
@@ -227,17 +454,17 @@ mod test {
                     "key".to_string(),
                     vec!["value".to_string()],
                 )])),
-                instructions: Some("instructions.md".to_string()),
-                material: Some("material.md".to_string()),
+                instructions: Some(LESSON_INSTRUCTIONS_FILE.to_string()),
+                material: Some(LESSON_MATERIAL_FILE.to_string()),
             },
             exercises: vec![exercise_builder],
-            assets: vec![
+            asset_builders: vec![
                 AssetBuilder {
-                    file_name: "instructions.md".to_string(),
+                    file_name: LESSON_INSTRUCTIONS_FILE.to_string(),
                     contents: "Instructions".to_string(),
                 },
                 AssetBuilder {
-                    file_name: "material.md".to_string(),
+                    file_name: LESSON_MATERIAL_FILE.to_string(),
                     contents: "Material".to_string(),
                 },
             ],
@@ -280,74 +507,56 @@ mod test {
         let course_dir = temp_dir.path().join("course1");
         let lesson_dir = course_dir.join("lesson1.lesson");
         assert!(lesson_dir.exists());
-        assert!(lesson_dir.join("ex1.front.md").exists());
+        let front_file = lesson_dir.join("ex1.front.md");
+        assert!(front_file.exists());
+        assert_eq!(fs::read_to_string(front_file)?, "Exercise 1 front");
+        let back_file = lesson_dir.join("ex1.back.md");
+        assert!(back_file.exists());
+        assert_eq!(fs::read_to_string(back_file)?, "Exercise 1 back");
+        let name_file = lesson_dir.join("ex1.name.json");
+        assert!(name_file.exists());
+        assert_eq!(KnowledgeBaseFile::open::<String>(&name_file)?, "Exercise 1",);
+        let description_file = lesson_dir.join("ex1.description.json");
+        assert!(description_file.exists());
         assert_eq!(
-            fs::read_to_string(lesson_dir.join("ex1.front.md"))?,
-            "Exercise 1 front"
-        );
-        assert!(lesson_dir.join("ex1.back.md").exists());
-        assert_eq!(
-            fs::read_to_string(lesson_dir.join("ex1.back.md"))?,
-            "Exercise 1 back"
-        );
-        assert!(lesson_dir.join("ex1.name.json").exists());
-        assert_eq!(
-            KnowledgeBaseFile::open::<String>(&lesson_dir.join("ex1.name.json"))?,
-            "Exercise 1",
-        );
-        assert!(lesson_dir.join("ex1.description.json").exists());
-        assert_eq!(
-            KnowledgeBaseFile::open::<String>(&lesson_dir.join("ex1.description.json"))?,
+            KnowledgeBaseFile::open::<String>(&description_file)?,
             "Exercise 1 description",
         );
-        assert!(lesson_dir.join("ex1.type.json").exists());
+        let type_file = lesson_dir.join("ex1.type.json");
+        assert!(type_file.exists());
         assert_eq!(
-            KnowledgeBaseFile::open::<ExerciseType>(&lesson_dir.join("ex1.type.json"))?,
+            KnowledgeBaseFile::open::<ExerciseType>(&type_file)?,
             ExerciseType::Procedural,
         );
 
         // Verify that the lesson was built correctly.
-        assert!(lesson_dir.join(LESSON_NAME_FILE).exists());
+        let name_file = lesson_dir.join(LESSON_NAME_FILE);
+        assert!(name_file.exists());
+        assert_eq!(KnowledgeBaseFile::open::<String>(&name_file)?, "Lesson 1",);
+        let description_file = lesson_dir.join(LESSON_DESCRIPTION_FILE);
+        assert!(description_file.exists());
         assert_eq!(
-            KnowledgeBaseFile::open::<String>(&lesson_dir.join(LESSON_NAME_FILE))?,
-            "Lesson 1",
-        );
-        assert!(lesson_dir.join(LESSON_DESCRIPTION_FILE).exists());
-        assert_eq!(
-            KnowledgeBaseFile::open::<String>(&lesson_dir.join(LESSON_DESCRIPTION_FILE))?,
+            KnowledgeBaseFile::open::<String>(&description_file)?,
             "Lesson 1 description",
         );
+        let dependencies_file = lesson_dir.join(LESSON_DEPENDENCIES_FILE);
         assert!(lesson_dir.join(LESSON_DEPENDENCIES_FILE).exists());
         assert_eq!(
-            KnowledgeBaseFile::open::<Vec<String>>(&lesson_dir.join(LESSON_DEPENDENCIES_FILE))?,
+            KnowledgeBaseFile::open::<Vec<String>>(&dependencies_file)?,
             vec!["lesson2".to_string()],
         );
-        assert!(lesson_dir.join(LESSON_METADATA_FILE).exists());
+        let metadata_file = lesson_dir.join(LESSON_METADATA_FILE);
+        assert!(metadata_file.exists());
         assert_eq!(
-            KnowledgeBaseFile::open::<BTreeMap<String, Vec<String>>>(
-                &lesson_dir.join(LESSON_METADATA_FILE)
-            )
-            .unwrap(),
+            KnowledgeBaseFile::open::<BTreeMap<String, Vec<String>>>(&metadata_file)?,
             BTreeMap::from([("key".to_string(), vec!["value".to_string()])]),
         );
-        assert!(lesson_dir.join(LESSON_INSTRUCTIONS_FILE).exists());
-        assert_eq!(
-            fs::read_to_string(lesson_dir.join("instructions.md"))?,
-            "Instructions",
-        );
-        assert_eq!(
-            KnowledgeBaseFile::open::<String>(&lesson_dir.join(LESSON_INSTRUCTIONS_FILE))?,
-            "instructions.md",
-        );
-        assert!(lesson_dir.join(LESSON_MATERIAL_FILE).exists());
-        assert_eq!(
-            fs::read_to_string(lesson_dir.join("material.md"))?,
-            "Material",
-        );
-        assert_eq!(
-            KnowledgeBaseFile::open::<String>(&lesson_dir.join(LESSON_MATERIAL_FILE))?,
-            "material.md",
-        );
+        let instructions_file = lesson_dir.join(LESSON_INSTRUCTIONS_FILE);
+        assert!(instructions_file.exists());
+        assert_eq!(fs::read_to_string(instructions_file)?, "Instructions",);
+        let material_file = lesson_dir.join(LESSON_MATERIAL_FILE);
+        assert!(material_file.exists());
+        assert_eq!(fs::read_to_string(material_file)?, "Material",);
 
         // Verify that the course was built correctly.
         assert!(course_dir.join("course_manifest.json").exists());
@@ -367,6 +576,312 @@ mod test {
             "Course Material",
         );
 
+        Ok(())
+    }
+
+    /// Verifies that the simple course builder writes the correct files to disk.
+    #[test]
+    fn build_simple_course() -> Result<()> {
+        // Create a simple course. The first lesson sets up the minimum required fields for a
+        // lesson, and the second lesson sets up all optional fields.
+        let simple_course = SimpleKnowledgeBaseCourse {
+            manifest: CourseManifest {
+                id: "course1".into(),
+                name: "Course 1".into(),
+                dependencies: vec![],
+                description: None,
+                authors: None,
+                metadata: None,
+                course_material: None,
+                course_instructions: None,
+                generator_config: None,
+            },
+            lessons: vec![
+                SimpleKnowledgeBaseLesson {
+                    short_id: "1".into(),
+                    dependencies: vec![],
+                    exercises: vec![
+                        SimpleKnowledgeBaseExercise {
+                            short_id: "1".into(),
+                            front: "Lesson 1, Exercise 1 front".into(),
+                            back: None,
+                        },
+                        SimpleKnowledgeBaseExercise {
+                            short_id: "2".into(),
+                            front: "Lesson 1, Exercise 2 front".into(),
+                            back: None,
+                        },
+                    ],
+                    instructions: None,
+                    material: None,
+                    metadata: None,
+                },
+                SimpleKnowledgeBaseLesson {
+                    short_id: "2".into(),
+                    dependencies: vec!["1".into()],
+                    exercises: vec![
+                        SimpleKnowledgeBaseExercise {
+                            short_id: "1".into(),
+                            front: "Lesson 2, Exercise 1 front".into(),
+                            back: Some("Lesson 2, Exercise 1 back".into()),
+                        },
+                        SimpleKnowledgeBaseExercise {
+                            short_id: "2".into(),
+                            front: "Lesson 2, Exercise 2 front".into(),
+                            back: Some("Lesson 2, Exercise 2 back".into()),
+                        },
+                    ],
+                    instructions: Some("Lesson 2 instructions".into()),
+                    material: Some("Lesson 2 material".into()),
+                    metadata: Some(BTreeMap::from([(
+                        "key".to_string(),
+                        vec!["value".to_string()],
+                    )])),
+                },
+            ],
+        };
+
+        // Create a temp directory and one of the lesson directories with some content to ensure
+        // that is deleted. Then build the course and verify the contents of the output directory.
+        let temp_dir = tempfile::tempdir()?;
+        let dummy_dir = temp_dir.path().join("1.lesson").join("dummy");
+        fs::create_dir_all(&dummy_dir)?;
+        assert!(dummy_dir.exists());
+        simple_course.build(&temp_dir.path())?;
+        assert!(!dummy_dir.exists());
+
+        // Verify that the first lesson was built correctly.
+        let lesson_dir = temp_dir.path().join("1.lesson");
+        assert!(lesson_dir.exists());
+        let front_file = lesson_dir.join("1.front.md");
+        assert!(front_file.exists());
+        assert_eq!(
+            fs::read_to_string(&front_file)?,
+            "Lesson 1, Exercise 1 front"
+        );
+        let front_file = lesson_dir.join("2.front.md");
+        assert!(front_file.exists());
+        assert_eq!(
+            fs::read_to_string(&front_file)?,
+            "Lesson 1, Exercise 2 front"
+        );
+        let dependencies_file = lesson_dir.join(LESSON_DEPENDENCIES_FILE);
+        assert!(!dependencies_file.exists());
+        let instructions_file = lesson_dir.join(LESSON_INSTRUCTIONS_FILE);
+        assert!(!instructions_file.exists());
+        let material_file = lesson_dir.join(LESSON_MATERIAL_FILE);
+        assert!(!material_file.exists());
+
+        // Verify that the second lesson was built correctly.
+        let lesson_dir = temp_dir.path().join("2.lesson");
+        assert!(lesson_dir.exists());
+        let front_file = lesson_dir.join("1.front.md");
+        assert!(front_file.exists());
+        assert_eq!(
+            fs::read_to_string(&front_file)?,
+            "Lesson 2, Exercise 1 front"
+        );
+        let back_file = lesson_dir.join("1.back.md");
+        assert!(back_file.exists());
+        assert_eq!(fs::read_to_string(&back_file)?, "Lesson 2, Exercise 1 back");
+        let front_file = lesson_dir.join("2.front.md");
+        assert!(front_file.exists());
+        assert_eq!(
+            fs::read_to_string(&front_file)?,
+            "Lesson 2, Exercise 2 front"
+        );
+        let back_file = lesson_dir.join("2.back.md");
+        assert!(back_file.exists());
+        assert_eq!(fs::read_to_string(&back_file)?, "Lesson 2, Exercise 2 back");
+        let dependencies_file = lesson_dir.join(LESSON_DEPENDENCIES_FILE);
+        assert!(dependencies_file.exists());
+        assert_eq!(
+            KnowledgeBaseFile::open::<Vec<String>>(&dependencies_file)?,
+            vec!["1".to_string()]
+        );
+        let instructions_file = lesson_dir.join(LESSON_INSTRUCTIONS_FILE);
+        assert!(instructions_file.exists());
+        assert_eq!(
+            fs::read_to_string(&instructions_file)?,
+            "Lesson 2 instructions"
+        );
+        let material_file = lesson_dir.join(LESSON_MATERIAL_FILE);
+        assert!(material_file.exists());
+        assert_eq!(fs::read_to_string(&material_file)?, "Lesson 2 material");
+        let metadata_file = lesson_dir.join(LESSON_METADATA_FILE);
+        assert!(metadata_file.exists());
+        assert_eq!(
+            KnowledgeBaseFile::open::<BTreeMap<String, Vec<String>>>(&metadata_file)?,
+            BTreeMap::from([("key".to_string(), vec!["value".to_string()])])
+        );
+
+        // Finally, clone the simple knowledge course to satisfy the code coverage check.
+        assert_eq!(simple_course.clone(), simple_course);
+        Ok(())
+    }
+
+    // Verifies that the simple knowledge course checks for duplicate lesson IDs.
+    #[test]
+    fn duplicate_short_lesson_ids() -> Result<()> {
+        // Build a simple course with duplicate lesson IDs.
+        let simple_course = SimpleKnowledgeBaseCourse {
+            manifest: CourseManifest {
+                id: "course1".into(),
+                name: "Course 1".into(),
+                dependencies: vec![],
+                description: None,
+                authors: None,
+                metadata: None,
+                course_material: None,
+                course_instructions: None,
+                generator_config: None,
+            },
+            lessons: vec![
+                SimpleKnowledgeBaseLesson {
+                    short_id: "1".into(),
+                    dependencies: vec![],
+                    exercises: vec![SimpleKnowledgeBaseExercise {
+                        short_id: "1".into(),
+                        front: "Lesson 1, Exercise 1 front".into(),
+                        back: None,
+                    }],
+                    instructions: None,
+                    material: None,
+                    metadata: None,
+                },
+                SimpleKnowledgeBaseLesson {
+                    short_id: "1".into(),
+                    dependencies: vec![],
+                    exercises: vec![SimpleKnowledgeBaseExercise {
+                        short_id: "1".into(),
+                        front: "Lesson 2, Exercise 1 front".into(),
+                        back: None,
+                    }],
+                    instructions: None,
+                    material: None,
+                    metadata: None,
+                },
+            ],
+        };
+
+        // Verify that the course builder fails.
+        let temp_dir = tempfile::tempdir()?;
+        assert!(simple_course.build(&temp_dir.path()).is_err());
+        Ok(())
+    }
+
+    // Verifies that the simple knowledge course checks for duplicate exercise IDs.
+    #[test]
+    fn duplicate_short_exercise_ids() -> Result<()> {
+        // Build a simple course with duplicate exercise IDs.
+        let simple_course = SimpleKnowledgeBaseCourse {
+            manifest: CourseManifest {
+                id: "course1".into(),
+                name: "Course 1".into(),
+                dependencies: vec![],
+                description: None,
+                authors: None,
+                metadata: None,
+                course_material: None,
+                course_instructions: None,
+                generator_config: None,
+            },
+            lessons: vec![SimpleKnowledgeBaseLesson {
+                short_id: "1".into(),
+                dependencies: vec![],
+                exercises: vec![
+                    SimpleKnowledgeBaseExercise {
+                        short_id: "1".into(),
+                        front: "Lesson 1, Exercise 1 front".into(),
+                        back: None,
+                    },
+                    SimpleKnowledgeBaseExercise {
+                        short_id: "1".into(),
+                        front: "Lesson 1, Exercise 2 front".into(),
+                        back: None,
+                    },
+                ],
+                instructions: None,
+                material: None,
+                metadata: None,
+            }],
+        };
+
+        // Verify that the course builder fails.
+        let temp_dir = tempfile::tempdir()?;
+        assert!(simple_course.build(&temp_dir.path()).is_err());
+        Ok(())
+    }
+
+    // Verifies that the simple knowledge course checks empty lesson IDs.
+    #[test]
+    fn empty_short_lesson_ids() -> Result<()> {
+        // Build a simple course with empty lesson IDs.
+        let simple_course = SimpleKnowledgeBaseCourse {
+            manifest: CourseManifest {
+                id: "course1".into(),
+                name: "Course 1".into(),
+                dependencies: vec![],
+                description: None,
+                authors: None,
+                metadata: None,
+                course_material: None,
+                course_instructions: None,
+                generator_config: None,
+            },
+            lessons: vec![SimpleKnowledgeBaseLesson {
+                short_id: "".into(),
+                dependencies: vec![],
+                exercises: vec![SimpleKnowledgeBaseExercise {
+                    short_id: "1".into(),
+                    front: "Lesson 1, Exercise 1 front".into(),
+                    back: None,
+                }],
+                instructions: None,
+                material: None,
+                metadata: None,
+            }],
+        };
+
+        // Verify that the course builder fails.
+        let temp_dir = tempfile::tempdir()?;
+        assert!(simple_course.build(&temp_dir.path()).is_err());
+        Ok(())
+    }
+
+    // Verifies that the simple knowledge course checks empty exercise IDs.
+    #[test]
+    fn empty_short_exercise_ids() -> Result<()> {
+        // Build a simple course with empty exercise IDs.
+        let simple_course = SimpleKnowledgeBaseCourse {
+            manifest: CourseManifest {
+                id: "course1".into(),
+                name: "Course 1".into(),
+                dependencies: vec![],
+                description: None,
+                authors: None,
+                metadata: None,
+                course_material: None,
+                course_instructions: None,
+                generator_config: None,
+            },
+            lessons: vec![SimpleKnowledgeBaseLesson {
+                short_id: "1".into(),
+                dependencies: vec![],
+                exercises: vec![SimpleKnowledgeBaseExercise {
+                    short_id: "".into(),
+                    front: "Lesson 1, Exercise 1 front".into(),
+                    back: None,
+                }],
+                instructions: None,
+                material: None,
+                metadata: None,
+            }],
+        };
+
+        // Verify that the course builder fails.
+        let temp_dir = tempfile::tempdir()?;
+        assert!(simple_course.build(&temp_dir.path()).is_err());
         Ok(())
     }
 }
