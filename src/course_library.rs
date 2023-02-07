@@ -34,13 +34,13 @@ use crate::{
 };
 
 /// The file name for all course manifests.
-const COURSE_MANIFEST_FILENAME: &str = "course_manifest.json";
+pub const COURSE_MANIFEST_FILENAME: &str = "course_manifest.json";
 
 /// The file name for all lesson manifests.
-const LESSON_MANIFEST_FILENAME: &str = "lesson_manifest.json";
+pub const LESSON_MANIFEST_FILENAME: &str = "lesson_manifest.json";
 
 /// The file name for all exercise manifests.
-const EXERCISE_MANIFEST_FILENAME: &str = "exercise_manifest.json";
+pub const EXERCISE_MANIFEST_FILENAME: &str = "exercise_manifest.json";
 
 /// The name of the field for the unit ID in the search schema.
 const ID_SCHEMA_FIELD: &str = "id";
