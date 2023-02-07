@@ -328,12 +328,11 @@ pub struct KnowledgeBaseLesson {
     ///the value should be written to a file. A JSON map of strings to list of strings works.
     pub metadata: Option<BTreeMap<String, Vec<String>>>,
 
-    /// The path to a markdown file containing the instructions common to all exercises in the
-    /// lesson.
-    pub instructions: Option<String>,
+    /// Indicates whether the `lesson.instructions.md` file is present in the lesson directory.
+    pub has_instructions: bool,
 
-    /// The path to a markdown file containing the material covered in the lesson.
-    pub material: Option<String>,
+    /// Indicates whether the `lesson.material.md` file is present in the lesson directory.
+    pub has_material: bool,
 }
 //>@knowledge-base-lesson
 
@@ -362,7 +361,7 @@ impl KnowledgeBaseLesson {
         course_manifest: &CourseManifest,
         files: &[KnowledgeBaseFile],
     ) -> Result<Self> {
-        // Create the lesson with all the optional fields set to None.
+        // Create the lesson with all the optional fields set to a default value.
         let mut lesson = Self {
             short_id: short_lesson_id,
             course_id: course_manifest.id,
@@ -370,8 +369,8 @@ impl KnowledgeBaseLesson {
             name: None,
             description: None,
             metadata: None,
-            instructions: None,
-            material: None,
+            has_instructions: false,
+            has_material: false,
         };
 
         // Iterate through the lesson files found in the lesson directory and set the corresponding
@@ -394,24 +393,8 @@ impl KnowledgeBaseLesson {
                     let path = lesson_root.join(LESSON_METADATA_FILE);
                     lesson.metadata = Some(KnowledgeBaseFile::open(&path)?)
                 }
-                KnowledgeBaseFile::LessonInstructions => {
-                    if let Ok(path) = lesson_root
-                        .join(LESSON_INSTRUCTIONS_FILE)
-                        .into_os_string()
-                        .into_string()
-                    {
-                        lesson.instructions = Some(path)
-                    }
-                }
-                KnowledgeBaseFile::LessonMaterial => {
-                    if let Ok(path) = lesson_root
-                        .join(LESSON_MATERIAL_FILE)
-                        .into_os_string()
-                        .into_string()
-                    {
-                        lesson.material = Some(path)
-                    }
-                }
+                KnowledgeBaseFile::LessonInstructions => lesson.has_instructions = true,
+                KnowledgeBaseFile::LessonMaterial => lesson.has_material = true,
                 _ => {}
             }
         }
@@ -485,12 +468,20 @@ impl From<KnowledgeBaseLesson> for LessonManifest {
             name: lesson.name.unwrap_or(format!("Lesson {}", lesson.short_id)),
             description: lesson.description,
             metadata: lesson.metadata,
-            lesson_instructions: lesson
-                .instructions
-                .map(|path| BasicAsset::MarkdownAsset { path }),
-            lesson_material: lesson
-                .material
-                .map(|path| BasicAsset::MarkdownAsset { path }),
+            lesson_instructions: if lesson.has_instructions {
+                Some(BasicAsset::MarkdownAsset {
+                    path: LESSON_INSTRUCTIONS_FILE.into(),
+                })
+            } else {
+                None
+            },
+            lesson_material: if lesson.has_material {
+                Some(BasicAsset::MarkdownAsset {
+                    path: LESSON_MATERIAL_FILE.into(),
+                })
+            } else {
+                None
+            },
         }
     }
 }
@@ -706,8 +697,8 @@ mod test {
             description: Some("Description".into()),
             dependencies: Some(vec!["lesson2".into()]),
             metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
-            instructions: Some("Instructions.md".into()),
-            material: Some("Material.md".into()),
+            has_instructions: true,
+            has_material: true,
         };
         let expected_manifest = LessonManifest {
             id: "course1::lesson1".into(),
@@ -716,10 +707,10 @@ mod test {
             description: Some("Description".into()),
             dependencies: vec!["lesson2".into()],
             lesson_instructions: Some(BasicAsset::MarkdownAsset {
-                path: "Instructions.md".into(),
+                path: LESSON_INSTRUCTIONS_FILE.into(),
             }),
             lesson_material: Some(BasicAsset::MarkdownAsset {
-                path: "Material.md".into(),
+                path: LESSON_MATERIAL_FILE.into(),
             }),
             metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
         };
@@ -782,8 +773,8 @@ mod test {
             description: Some("Description".into()),
             dependencies: Some(vec!["lesson2".into(), "other::lesson1".into()]),
             metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
-            instructions: Some("Instructions.md".into()),
-            material: Some("Material.md".into()),
+            has_instructions: false,
+            has_material: false,
         };
         let exercise = KnowledgeBaseExercise {
             short_id: "ex1".into(),
@@ -929,14 +920,8 @@ mod test {
         assert_eq!(lesson.description, Some(description.into()));
         assert_eq!(lesson.dependencies, Some(dependencies));
         assert_eq!(lesson.metadata, Some(metadata));
-        assert_eq!(
-            lesson.instructions,
-            Some(instructions_path.to_string_lossy().into())
-        );
-        assert_eq!(
-            lesson.material,
-            Some(material_path.to_string_lossy().into())
-        );
+        assert!(lesson.has_instructions);
+        assert!(lesson.has_material);
 
         // Verify the exercise.
         assert_eq!(exercises.len(), 1);

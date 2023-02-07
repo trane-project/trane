@@ -306,11 +306,6 @@ impl SimpleKnowledgeBaseLesson {
         } else {
             Some(self.dependencies.clone())
         };
-        let instructions = self
-            .instructions
-            .as_ref()
-            .map(|_| LESSON_INSTRUCTIONS_FILE.into());
-        let material = self.material.as_ref().map(|_| LESSON_MATERIAL_FILE.into());
         let lesson_builder = LessonBuilder {
             lesson: KnowledgeBaseLesson {
                 short_id: self.short_id,
@@ -319,8 +314,8 @@ impl SimpleKnowledgeBaseLesson {
                 name: None,
                 description: None,
                 metadata: self.metadata.clone(),
-                instructions,
-                material,
+                has_instructions: self.instructions.is_some(),
+                has_material: self.material.is_some(),
             },
             exercises,
             asset_builders,
@@ -454,8 +449,8 @@ mod test {
                     "key".to_string(),
                     vec!["value".to_string()],
                 )])),
-                instructions: Some(LESSON_INSTRUCTIONS_FILE.to_string()),
-                material: Some(LESSON_MATERIAL_FILE.to_string()),
+                has_instructions: true,
+                has_material: true,
             },
             exercises: vec![exercise_builder],
             asset_builders: vec![
