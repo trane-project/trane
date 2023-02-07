@@ -641,9 +641,14 @@ mod test {
             ],
         };
 
-        // Build the course and verify the contents of the output directory.
+        // Create a temp directory and one of the lesson directories with some content to ensure
+        // that is deleted. Then build the course and verify the contents of the output directory.
         let temp_dir = tempfile::tempdir()?;
+        let dummy_dir = temp_dir.path().join("1.lesson").join("dummy");
+        fs::create_dir_all(&dummy_dir)?;
+        assert!(dummy_dir.exists());
         simple_course.build(&temp_dir.path())?;
+        assert!(!dummy_dir.exists());
 
         // Verify that the first lesson was built correctly.
         let lesson_dir = temp_dir.path().join("1.lesson");
