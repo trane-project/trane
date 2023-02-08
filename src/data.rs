@@ -664,7 +664,7 @@ impl GetUnitType for ExerciseManifest {
 }
 
 /// Options to compute the passing score for a unit.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum PassingScoreOptions {
     /// The score will be a fixed value.
     ConstantScore(f32),
@@ -1171,6 +1171,8 @@ mod test {
         assert_eq!(options.compute_score(0), 3.25);
         assert_eq!(options.compute_score(1), 3.25);
         assert_eq!(options.compute_score(2), 3.25);
+        // Clone the score for code coverage.
+        assert_eq!(options, options.clone());
 
         let options = PassingScoreOptions::default();
         assert_eq!(options.compute_score(0), 3.25);
@@ -1178,5 +1180,7 @@ mod test {
         assert_eq!(options.compute_score(2), 3.35);
         assert_eq!(options.compute_score(10), 3.75);
         assert_eq!(options.compute_score(11), 3.75);
+        // Clone the score for code coverage.
+        assert_eq!(options, options.clone());
     }
 }
