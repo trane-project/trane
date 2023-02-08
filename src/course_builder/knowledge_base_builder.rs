@@ -259,6 +259,9 @@ pub struct SimpleKnowledgeBaseLesson {
 
     /// The optional metadata for the lesson.
     pub metadata: Option<BTreeMap<String, Vec<String>>>,
+
+    /// A list of additional files to write in the lesson directory.
+    pub additional_files: Vec<AssetBuilder>,
 }
 
 impl SimpleKnowledgeBaseLesson {
@@ -287,7 +290,7 @@ impl SimpleKnowledgeBaseLesson {
             .collect::<Result<Vec<_>>>()?;
 
         // Generate the assets for the instructions and material.
-        let mut asset_builders = vec![];
+        let mut asset_builders = self.additional_files.clone();
 
         if let Some(instructions) = &self.instructions {
             asset_builders.push(AssetBuilder {
@@ -612,6 +615,7 @@ mod test {
                     instructions: None,
                     material: None,
                     metadata: None,
+                    additional_files: vec![],
                 },
                 SimpleKnowledgeBaseLesson {
                     short_id: "2".into(),
@@ -634,6 +638,10 @@ mod test {
                         "key".to_string(),
                         vec!["value".to_string()],
                     )])),
+                    additional_files: vec![AssetBuilder {
+                        file_name: "dummy.md".into(),
+                        contents: "I'm a dummy file".into(),
+                    }],
                 },
             ],
         };
@@ -711,6 +719,9 @@ mod test {
             KnowledgeBaseFile::open::<BTreeMap<String, Vec<String>>>(&metadata_file)?,
             BTreeMap::from([("key".to_string(), vec!["value".to_string()])])
         );
+        let dummy_file = lesson_dir.join("dummy.md");
+        assert!(dummy_file.exists());
+        assert_eq!(fs::read_to_string(&dummy_file)?, "I'm a dummy file");
 
         // Finally, clone the simple knowledge course to satisfy the code coverage check.
         assert_eq!(simple_course.clone(), simple_course);
@@ -745,6 +756,7 @@ mod test {
                     instructions: None,
                     material: None,
                     metadata: None,
+                    additional_files: vec![],
                 },
                 SimpleKnowledgeBaseLesson {
                     short_id: "1".into(),
@@ -757,6 +769,7 @@ mod test {
                     instructions: None,
                     material: None,
                     metadata: None,
+                    additional_files: vec![],
                 },
             ],
         };
@@ -801,6 +814,7 @@ mod test {
                 instructions: None,
                 material: None,
                 metadata: None,
+                additional_files: vec![],
             }],
         };
 
@@ -837,6 +851,7 @@ mod test {
                 instructions: None,
                 material: None,
                 metadata: None,
+                additional_files: vec![],
             }],
         };
 
@@ -873,6 +888,7 @@ mod test {
                 instructions: None,
                 material: None,
                 metadata: None,
+                additional_files: vec![],
             }],
         };
 
