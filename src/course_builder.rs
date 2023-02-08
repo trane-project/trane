@@ -11,6 +11,7 @@ pub mod knowledge_base_builder;
 pub mod music;
 
 use anyhow::{ensure, Result};
+use serde::{Deserialize, Serialize};
 use std::{
     fs::{create_dir_all, File},
     io::Write,
@@ -29,7 +30,7 @@ pub enum TraneMetadata {
 }
 
 /// A builder to generate plain-text asset files.
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AssetBuilder {
     /// The name of the file, which will be joined with the directory passed in the build function.
     pub file_name: String, // grcov-excl-line
