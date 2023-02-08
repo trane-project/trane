@@ -251,12 +251,6 @@ pub struct SimpleKnowledgeBaseLesson {
     /// The simple exercises in the lesson.
     pub exercises: Vec<SimpleKnowledgeBaseExercise>,
 
-    /// The optional instructions for the lesson.
-    pub instructions: Option<String>,
-
-    /// The optional material for the lesson.
-    pub material: Option<String>,
-
     /// The optional metadata for the lesson.
     pub metadata: Option<BTreeMap<String, Vec<String>>>,
 
@@ -289,28 +283,20 @@ impl SimpleKnowledgeBaseLesson {
             .map(|exercise| exercise.generate_exercise_builder(self.short_id, course_id))
             .collect::<Result<Vec<_>>>()?;
 
-        // Generate the assets for the instructions and material.
-        let mut asset_builders = self.additional_files.clone();
-
-        if let Some(instructions) = &self.instructions {
-            asset_builders.push(AssetBuilder {
-                file_name: LESSON_INSTRUCTIONS_FILE.into(),
-                contents: instructions.clone(),
-            })
-        }
-        if let Some(material) = &self.material {
-            asset_builders.push(AssetBuilder {
-                file_name: LESSON_MATERIAL_FILE.into(),
-                contents: material.clone(),
-            })
-        }
-
         // Generate the lesson builder.
         let dependencies = if self.dependencies.is_empty() {
             None
         } else {
             Some(self.dependencies.clone())
         };
+        let has_instructions = self
+            .additional_files
+            .iter()
+            .any(|asset| asset.file_name == LESSON_INSTRUCTIONS_FILE);
+        let has_material = self
+            .additional_files
+            .iter()
+            .any(|asset| asset.file_name == LESSON_MATERIAL_FILE);
         let lesson_builder = LessonBuilder {
             lesson: KnowledgeBaseLesson {
                 short_id: self.short_id,
@@ -319,11 +305,11 @@ impl SimpleKnowledgeBaseLesson {
                 name: None,
                 description: None,
                 metadata: self.metadata.clone(),
-                has_instructions: self.instructions.is_some(),
-                has_material: self.material.is_some(),
+                has_instructions,
+                has_material,
             },
             exercises,
-            asset_builders,
+            asset_builders: self.additional_files.clone(),
         };
         Ok(lesson_builder)
     }
@@ -612,8 +598,6 @@ mod test {
                             back: vec![],
                         },
                     ],
-                    instructions: None,
-                    material: None,
                     metadata: None,
                     additional_files: vec![],
                 },
@@ -632,16 +616,24 @@ mod test {
                             back: vec!["Lesson 2, Exercise 2 back".into()],
                         },
                     ],
-                    instructions: Some("Lesson 2 instructions".into()),
-                    material: Some("Lesson 2 material".into()),
                     metadata: Some(BTreeMap::from([(
                         "key".to_string(),
                         vec!["value".to_string()],
                     )])),
-                    additional_files: vec![AssetBuilder {
-                        file_name: "dummy.md".into(),
-                        contents: "I'm a dummy file".into(),
-                    }],
+                    additional_files: vec![
+                        AssetBuilder {
+                            file_name: "dummy.md".into(),
+                            contents: "I'm a dummy file".into(),
+                        },
+                        AssetBuilder {
+                            file_name: LESSON_INSTRUCTIONS_FILE.into(),
+                            contents: "Lesson 2 instructions".into(),
+                        },
+                        AssetBuilder {
+                            file_name: LESSON_MATERIAL_FILE.into(),
+                            contents: "Lesson 2 material".into(),
+                        },
+                    ],
                 },
             ],
         };
@@ -753,8 +745,6 @@ mod test {
                         front: vec!["Lesson 1, Exercise 1 front".into()],
                         back: vec![],
                     }],
-                    instructions: None,
-                    material: None,
                     metadata: None,
                     additional_files: vec![],
                 },
@@ -766,8 +756,6 @@ mod test {
                         front: vec!["Lesson 2, Exercise 1 front".into()],
                         back: vec![],
                     }],
-                    instructions: None,
-                    material: None,
                     metadata: None,
                     additional_files: vec![],
                 },
@@ -811,8 +799,6 @@ mod test {
                         back: vec![],
                     },
                 ],
-                instructions: None,
-                material: None,
                 metadata: None,
                 additional_files: vec![],
             }],
@@ -848,8 +834,6 @@ mod test {
                     front: vec!["Lesson 1, Exercise 1 front".into()],
                     back: vec![],
                 }],
-                instructions: None,
-                material: None,
                 metadata: None,
                 additional_files: vec![],
             }],
@@ -885,8 +869,6 @@ mod test {
                     front: vec!["Lesson 1, Exercise 1 front".into()],
                     back: vec![],
                 }],
-                instructions: None,
-                material: None,
                 metadata: None,
                 additional_files: vec![],
             }],
