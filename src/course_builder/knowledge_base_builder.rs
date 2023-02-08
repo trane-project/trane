@@ -183,10 +183,10 @@ pub struct SimpleKnowledgeBaseExercise {
     pub short_id: String,
 
     /// The content of the front of the card.
-    pub front: String,
+    pub front: Vec<String>,
 
-    /// The optional content of the back of the card.
-    pub back: Option<String>,
+    /// The optional content of the back of the card. If the list is empty, no file will be created.
+    pub back: Vec<String>,
 }
 
 impl SimpleKnowledgeBaseExercise {
@@ -201,18 +201,20 @@ impl SimpleKnowledgeBaseExercise {
 
         // Generate the asset builders for the front and back of the card.
         let front_file = format!("{}{}", self.short_id, EXERCISE_FRONT_SUFFIX);
-        let back_file = self
-            .back
-            .as_ref()
-            .map(|_| format!("{}{}", self.short_id, EXERCISE_BACK_SUFFIX));
+        let back_file = if !self.back.is_empty() {
+            Some(format!("{}{}", self.short_id, EXERCISE_BACK_SUFFIX))
+        } else {
+            None
+        };
+
         let mut asset_builders = vec![AssetBuilder {
             file_name: front_file.clone(),
-            contents: self.front.clone(),
+            contents: self.front.join("\n"),
         }];
-        if let Some(back) = &self.back {
+        if !self.back.is_empty() {
             asset_builders.push(AssetBuilder {
                 file_name: back_file.clone().unwrap(),
-                contents: back.clone(),
+                contents: self.back.join("\n"),
             })
         }
 
@@ -598,13 +600,13 @@ mod test {
                     exercises: vec![
                         SimpleKnowledgeBaseExercise {
                             short_id: "1".into(),
-                            front: "Lesson 1, Exercise 1 front".into(),
-                            back: None,
+                            front: vec!["Lesson 1, Exercise 1 front".into()],
+                            back: vec![],
                         },
                         SimpleKnowledgeBaseExercise {
                             short_id: "2".into(),
-                            front: "Lesson 1, Exercise 2 front".into(),
-                            back: None,
+                            front: vec!["Lesson 1, Exercise 2 front".into()],
+                            back: vec![],
                         },
                     ],
                     instructions: None,
@@ -617,13 +619,13 @@ mod test {
                     exercises: vec![
                         SimpleKnowledgeBaseExercise {
                             short_id: "1".into(),
-                            front: "Lesson 2, Exercise 1 front".into(),
-                            back: Some("Lesson 2, Exercise 1 back".into()),
+                            front: vec!["Lesson 2, Exercise 1 front".into()],
+                            back: vec!["Lesson 2, Exercise 1 back".into()],
                         },
                         SimpleKnowledgeBaseExercise {
                             short_id: "2".into(),
-                            front: "Lesson 2, Exercise 2 front".into(),
-                            back: Some("Lesson 2, Exercise 2 back".into()),
+                            front: vec!["Lesson 2, Exercise 2 front".into()],
+                            back: vec!["Lesson 2, Exercise 2 back".into()],
                         },
                     ],
                     instructions: Some("Lesson 2 instructions".into()),
@@ -737,8 +739,8 @@ mod test {
                     dependencies: vec![],
                     exercises: vec![SimpleKnowledgeBaseExercise {
                         short_id: "1".into(),
-                        front: "Lesson 1, Exercise 1 front".into(),
-                        back: None,
+                        front: vec!["Lesson 1, Exercise 1 front".into()],
+                        back: vec![],
                     }],
                     instructions: None,
                     material: None,
@@ -749,8 +751,8 @@ mod test {
                     dependencies: vec![],
                     exercises: vec![SimpleKnowledgeBaseExercise {
                         short_id: "1".into(),
-                        front: "Lesson 2, Exercise 1 front".into(),
-                        back: None,
+                        front: vec!["Lesson 2, Exercise 1 front".into()],
+                        back: vec![],
                     }],
                     instructions: None,
                     material: None,
@@ -787,13 +789,13 @@ mod test {
                 exercises: vec![
                     SimpleKnowledgeBaseExercise {
                         short_id: "1".into(),
-                        front: "Lesson 1, Exercise 1 front".into(),
-                        back: None,
+                        front: vec!["Lesson 1, Exercise 1 front".into()],
+                        back: vec![],
                     },
                     SimpleKnowledgeBaseExercise {
                         short_id: "1".into(),
-                        front: "Lesson 1, Exercise 2 front".into(),
-                        back: None,
+                        front: vec!["Lesson 1, Exercise 2 front".into()],
+                        back: vec![],
                     },
                 ],
                 instructions: None,
@@ -829,8 +831,8 @@ mod test {
                 dependencies: vec![],
                 exercises: vec![SimpleKnowledgeBaseExercise {
                     short_id: "1".into(),
-                    front: "Lesson 1, Exercise 1 front".into(),
-                    back: None,
+                    front: vec!["Lesson 1, Exercise 1 front".into()],
+                    back: vec![],
                 }],
                 instructions: None,
                 material: None,
@@ -865,8 +867,8 @@ mod test {
                 dependencies: vec![],
                 exercises: vec![SimpleKnowledgeBaseExercise {
                     short_id: "".into(),
-                    front: "Lesson 1, Exercise 1 front".into(),
-                    back: None,
+                    front: vec!["Lesson 1, Exercise 1 front".into()],
+                    back: vec![],
                 }],
                 instructions: None,
                 material: None,
