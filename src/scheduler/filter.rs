@@ -74,7 +74,7 @@ impl CandidateFilter {
                 // Increase the weight based on the candidate's score.
                 weight += (5.0 - c.score).max(0.0);
                 // Increase the weight based on the number of hops taken to reach the candidate.
-                weight += c.num_hops;
+                weight += c.depth;
                 // Increase the weight based on the frequency with which the exercise has been
                 // scheduled.
                 weight += (10.0 - c.frequency).max(0.0);

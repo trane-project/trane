@@ -663,6 +663,83 @@ impl GetUnitType for ExerciseManifest {
     }
 }
 
+/// Options to compute the passing score for a unit.
+#[derive(Clone, Debug)]
+pub enum PassingScoreOptions {
+    /// The score will be a fixed value.
+    ConstantScore(f32),
+
+    /// The score will start at a fixed value and increase by a fixed amount based on the depth of
+    /// the unit relative to the starting unit. This is useful for allowing users to make faster
+    /// progress at the beginning, so to avoid boredom. Once enough of the graph has been mastered,
+    /// the passing score will settle to a fixed value.
+    IncreasingScore {
+        /// The initial score. The units at the starting depth will use this value as their passing
+        /// score.
+        starting_score: f32,
+
+        /// The amount by which the score will increase for each additional depth. For example, if
+        /// the unit is at depth 2, then the passing score will increase by `step_size * 2`.
+        step_size: f32,
+
+        /// The maximum number of steps that increase the passing score. Units that are deeper than
+        /// this will have a passing score of `starting_score + step_size * max_steps`.
+        max_steps: usize,
+    },
+}
+
+impl Default for PassingScoreOptions {
+    fn default() -> Self {
+        PassingScoreOptions::IncreasingScore {
+            starting_score: 3.25,
+            step_size: 0.05,
+            max_steps: 10,
+        }
+    }
+}
+
+impl PassingScoreOptions {
+    /// Computes the passing score for a unit at the given depth.
+    pub fn compute_score(&self, depth: usize) -> f32 {
+        match self {
+            PassingScoreOptions::ConstantScore(score) => score.min(5.0),
+            PassingScoreOptions::IncreasingScore {
+                starting_score,
+                step_size,
+                max_steps,
+            } => {
+                let steps = depth.min(*max_steps);
+                (starting_score + step_size * steps as f32).min(5.0)
+            }
+        }
+    }
+
+    /// Verifies that the options are valid.
+    pub fn verify(&self) -> Result<()> {
+        match self {
+            PassingScoreOptions::ConstantScore(score) => {
+                if *score < 0.0 || *score > 5.0 {
+                    bail!("Invalid score: {}", score);
+                }
+                Ok(())
+            }
+            PassingScoreOptions::IncreasingScore {
+                starting_score,
+                step_size,
+                ..
+            } => {
+                if *starting_score < 0.0 || *starting_score > 5.0 {
+                    bail!("Invalid starting score: {}", starting_score);
+                }
+                if *step_size < 0.0 {
+                    bail!("Invalid step size: {}", step_size);
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
 /// Options to control how the scheduler selects exercises.
 #[derive(Clone, Debug)]
 pub struct SchedulerOptions {
@@ -686,7 +763,7 @@ pub struct SchedulerOptions {
     pub mastered_window_opts: MasteryWindow,
 
     /// The minimum average score of a unit required to move on to its dependents.
-    pub passing_score: f32,
+    pub passing_score: PassingScoreOptions,
 
     /// The number of trials to retrieve from the practice stats to compute an exercise's score.
     pub num_trials: usize,
@@ -756,7 +833,7 @@ impl Default for SchedulerOptions {
                 percentage: 0.1,
                 range: (4.7, 5.0),
             },
-            passing_score: 3.75,
+            passing_score: PassingScoreOptions::default(),
             num_trials: 20,
         }
     }
@@ -1044,5 +1121,62 @@ mod test {
         let mut options = SchedulerOptions::default();
         options.target_window_opts.percentage -= 0.1;
         assert!(options.verify().is_err());
+    }
+
+    /// Verifies that valid passing score options are recognized as such.
+    #[test]
+    fn verify_passing_score_options() {
+        let options = PassingScoreOptions::default();
+        assert!(options.verify().is_ok());
+
+        let options = PassingScoreOptions::ConstantScore(3.25);
+        assert!(options.verify().is_ok());
+    }
+
+    /// Verifies that invalid passing score options are recognized as such.
+    #[test]
+    fn verify_passing_score_options_invalid() {
+        let options = PassingScoreOptions::ConstantScore(-1.0);
+        assert!(options.verify().is_err());
+
+        let options = PassingScoreOptions::ConstantScore(6.0);
+        assert!(options.verify().is_err());
+
+        let options = PassingScoreOptions::IncreasingScore {
+            starting_score: -1.0,
+            step_size: 0.0,
+            max_steps: 0,
+        };
+        assert!(options.verify().is_err());
+
+        let options = PassingScoreOptions::IncreasingScore {
+            starting_score: 6.0,
+            step_size: 0.0,
+            max_steps: 0,
+        };
+        assert!(options.verify().is_err());
+
+        let options = PassingScoreOptions::IncreasingScore {
+            starting_score: 3.25,
+            step_size: -1.0,
+            max_steps: 0,
+        };
+        assert!(options.verify().is_err());
+    }
+
+    /// Verifies that the passing score is computed correctly.
+    #[test]
+    fn compute_passing_score() {
+        let options = PassingScoreOptions::ConstantScore(3.25);
+        assert_eq!(options.compute_score(0), 3.25);
+        assert_eq!(options.compute_score(1), 3.25);
+        assert_eq!(options.compute_score(2), 3.25);
+
+        let options = PassingScoreOptions::default();
+        assert_eq!(options.compute_score(0), 3.25);
+        assert_eq!(options.compute_score(1), 3.30);
+        assert_eq!(options.compute_score(2), 3.35);
+        assert_eq!(options.compute_score(10), 3.75);
+        assert_eq!(options.compute_score(11), 3.75);
     }
 }
