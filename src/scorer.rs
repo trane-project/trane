@@ -37,6 +37,42 @@ pub trait ExerciseScorer {
 /// adjusted based on the number of days to account for skills deteriorating over time.
 pub struct SimpleScorer {}
 
+impl SimpleScorer {
+    /// Returns the weight of the score based on the number of days since the trial and the index of
+    /// of the trial in the list.
+    fn weight(num_trials: usize, trial_index: usize, num_days: f32) -> f32 {
+        // If the difference is negative, there's been some error. Use the min weight for
+        // this trial instead of ignoring it.
+        if num_days < 0.0 {
+            return MIN_WEIGHT;
+        }
+
+        // The weight decreases with the number of days.
+        let mut weight = INITIAL_WEIGHT - WEIGHT_DAY_FACTOR * num_days;
+
+        // Give the most recent scores a higher weight. Otherwise, scores from the same day
+        // will be given the same weight, which might make initial progress more difficult.
+        weight += (num_trials - trial_index) as f32 * WEIGHT_INDEX_FACTOR;
+
+        // Make sure the weight is never less than the min weight.
+        weight.max(MIN_WEIGHT)
+    }
+
+    /// Returns the adjusted score based on the number of days since the trial. The score decreases
+    /// with each passing day to account for skills deteriorating over time.
+    fn adjusted_score(score: f32, num_days: f32) -> f32 {
+        // If there's an issue with calculating the number of days since the trial, return
+        // the score as is.
+        if num_days < 0.0 {
+            return score;
+        }
+
+        // The score decreases with the number of days but is never less than half of the
+        // original score.
+        (score - SCORE_ADJUSTMENT_FACTOR * num_days).max(score / 2.0)
+    }
+}
+
 impl ExerciseScorer for SimpleScorer {
     fn score(&self, previous_trials: &[ExerciseTrial]) -> Result<f32> {
         // An exercise with no previous trials is assigned a score of 0.0.
@@ -63,21 +99,7 @@ impl ExerciseScorer for SimpleScorer {
             .zip(days.iter())
             .enumerate()
             .map(|(index, (_, num_days))| -> f32 {
-                // If the difference is negative, there's been some error. Use the min weight for
-                // this trial instead of ignoring it.
-                if *num_days < 0.0 {
-                    return MIN_WEIGHT;
-                }
-
-                // The weight decreases with the number of days.
-                let mut weight = INITIAL_WEIGHT - WEIGHT_DAY_FACTOR * num_days;
-
-                // Give the most recent scores a higher weight. Otherwise, scores from the same day
-                // will be given the same weight, which might make initial progress more difficult.
-                weight += ((previous_trials.len() - index) as f32) * WEIGHT_INDEX_FACTOR;
-
-                // Make sure the weight is never less than the min weight.
-                weight.max(MIN_WEIGHT)
+                Self::weight(previous_trials.len(), index, *num_days)
             })
             .collect();
 
@@ -86,17 +108,7 @@ impl ExerciseScorer for SimpleScorer {
         let scores: Vec<f32> = previous_trials
             .iter()
             .zip(days.iter())
-            .map(|(t, num_days)| -> f32 {
-                // If there's an issue with calculating the number of days since the trial, return
-                // the score as is.
-                if *num_days < 0.0 {
-                    return t.score;
-                }
-
-                // The score decreases with the number of days but is never less than half of the
-                // original score.
-                (t.score - SCORE_ADJUSTMENT_FACTOR * num_days).max(t.score / 2.0)
-            })
+            .map(|(t, num_days)| -> f32 { Self::adjusted_score(t.score, *num_days) })
             .collect();
 
         // Calculate the weighted average.
