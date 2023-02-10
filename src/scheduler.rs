@@ -377,13 +377,13 @@ impl DepthFirstScheduler {
     /// of the graph while still respecting the dependency relationships.
     fn get_candidates_from_graph(
         &self,
+        initial_stack: Vec<StackItem>,
         metadata_filter: Option<&MetadataFilter>,
     ) -> Result<Vec<Candidate>> {
         // Initialize the stack with every starting lesson, which are those units with no
         // dependencies that are needed to reach all the units in the graph.
         let mut stack: Vec<StackItem> = Vec::new();
-        let starting_lessons = self.get_initial_stack(metadata_filter);
-        stack.extend(starting_lessons.into_iter());
+        stack.extend(initial_stack.into_iter());
 
         // Initialize the list of candidates and the set of visited units.
         let max_candidates = self.data.options.batch_size * MAX_CANDIDATE_FACTOR;
@@ -676,7 +676,8 @@ impl ExerciseScheduler for DepthFirstScheduler {
             None => {
                 // If the filter is empty, retrieve candidates from the entire graph. This mode is
                 // Trane's default.
-                self.get_candidates_from_graph(None)?
+                let initial_stack = self.get_initial_stack(None);
+                self.get_candidates_from_graph(initial_stack, None)?
             }
             Some(filter) => match filter {
                 UnitFilter::CourseFilter { course_ids } => {
@@ -694,10 +695,22 @@ impl ExerciseScheduler for DepthFirstScheduler {
                 UnitFilter::MetadataFilter { filter } => {
                     // Retrieve candidates from the entire graph but only if the exercises belongs
                     // to a course or lesson matching the given metadata filter.
-                    self.get_candidates_from_graph(Some(filter))?
+                    let initial_stack = self.get_initial_stack(Some(filter));
+                    self.get_candidates_from_graph(initial_stack, Some(filter))?
                 }
                 // Retrieve candidates from the units the student has marked for review.
                 UnitFilter::ReviewListFilter => self.get_candidates_from_review_list()?,
+                UnitFilter::Dependents { unit_ids } => {
+                    // Retrieve candidates from the given units and all of their dependents.
+                    let starting_stack = unit_ids
+                        .iter()
+                        .map(|unit_id| StackItem {
+                            unit_id: *unit_id,
+                            depth: 0,
+                        })
+                        .collect();
+                    self.get_candidates_from_graph(starting_stack, None)?
+                }
             },
         };
 
