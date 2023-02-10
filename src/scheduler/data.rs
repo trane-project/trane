@@ -103,12 +103,7 @@ impl SchedulerData {
 
     /// Returns all the dependencies of the unit with the given ID at the given depth.
     pub fn get_dependencies_at_depth(&self, unit_id: &Ustr, depth: usize) -> Vec<Ustr> {
-        // If the depth is zero, return the unit itself.
-        if depth == 0 {
-            return vec![*unit_id];
-        }
-
-        // Otherwise, search for the dependencies at the given depth.
+        // Search for the dependencies at the given depth.
         let mut dependencies = vec![];
         let mut stack = vec![(*unit_id, 0)];
         while !stack.is_empty() {
@@ -117,10 +112,13 @@ impl SchedulerData {
             match candidate_dependencies {
                 Some(candidate_dependencies) => {
                     if candidate_depth == depth {
+                        // Reached the end of the search.
                         dependencies.extend(candidate_dependencies);
                     } else if candidate_dependencies.is_empty() {
+                        // No more dependencies to search. Add the candidate to the final list.
                         dependencies.push(candidate_id)
                     } else {
+                        // Continue the search with the dependencies of the candidate.
                         stack.extend(
                             candidate_dependencies
                                 .into_iter()
@@ -131,6 +129,11 @@ impl SchedulerData {
                 None => dependencies.push(candidate_id),
             }
         }
+
+        // Remove any units not found in the graph. This can happen if a unit claims a dependency on
+        // a unit not found in the graph.
+        dependencies
+            .retain(|dependency| self.unit_graph.read().get_unit_type(dependency).is_some());
         dependencies
     }
 
