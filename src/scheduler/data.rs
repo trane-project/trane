@@ -101,6 +101,39 @@ impl SchedulerData {
             .collect();
     }
 
+    /// Returns all the dependencies of the unit with the given ID at the given depth.
+    pub fn get_dependencies_at_depth(&self, unit_id: &Ustr, depth: usize) -> Vec<Ustr> {
+        // If the depth is zero, return the unit itself.
+        if depth == 0 {
+            return vec![*unit_id];
+        }
+
+        // Otherwise, search for the dependencies at the given depth.
+        let mut dependencies = vec![];
+        let mut stack = vec![(*unit_id, 0)];
+        while !stack.is_empty() {
+            let (candidate_id, candidate_depth) = stack.pop().unwrap();
+            let candidate_dependencies = self.unit_graph.read().get_dependencies(&candidate_id);
+            match candidate_dependencies {
+                Some(candidate_dependencies) => {
+                    if candidate_depth == depth {
+                        dependencies.extend(candidate_dependencies);
+                    } else if candidate_dependencies.is_empty() {
+                        dependencies.push(candidate_id)
+                    } else {
+                        stack.extend(
+                            candidate_dependencies
+                                .into_iter()
+                                .map(|dependency| (dependency, candidate_depth + 1)),
+                        );
+                    }
+                }
+                None => dependencies.push(candidate_id),
+            }
+        }
+        dependencies
+    }
+
     /// Returns the value of the course_id field in the manifest of the given lesson.
     pub fn get_lesson_course_id(&self, lesson_id: &Ustr) -> Result<Ustr> {
         Ok(self.get_lesson_manifest(lesson_id)?.course_id)

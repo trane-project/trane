@@ -702,14 +702,28 @@ impl ExerciseScheduler for DepthFirstScheduler {
                 UnitFilter::ReviewListFilter => self.get_candidates_from_review_list()?,
                 UnitFilter::Dependents { unit_ids } => {
                     // Retrieve candidates from the given units and all of their dependents.
-                    let starting_stack = unit_ids
+                    let initial_stack = unit_ids
                         .iter()
                         .map(|unit_id| StackItem {
                             unit_id: *unit_id,
                             depth: 0,
                         })
                         .collect();
-                    self.get_candidates_from_graph(starting_stack, None)?
+                    self.get_candidates_from_graph(initial_stack, None)?
+                }
+                UnitFilter::Dependencies { unit_ids, depth } => {
+                    let dependencies: Vec<Ustr> = unit_ids
+                        .iter()
+                        .flat_map(|unit_id| self.data.get_dependencies_at_depth(unit_id, *depth))
+                        .collect();
+                    let initial_stack = dependencies
+                        .iter()
+                        .map(|unit_id| StackItem {
+                            unit_id: *unit_id,
+                            depth: 0,
+                        })
+                        .collect();
+                    self.get_candidates_from_graph(initial_stack, None)?
                 }
             },
         };
