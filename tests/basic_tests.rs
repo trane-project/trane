@@ -1366,8 +1366,9 @@ fn schedule_dependencies() -> Result<()> {
     let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Only schedule the exercises from the dependencies of the unit at depth 1.
-    let starting_units = vec![TestId(5, None, None)];
-    let matching_courses = vec![TestId(4, None, None), TestId(5, None, None)];
+    let starting_units = vec![TestId(5, Some(1), None)];
+    let depth = 1;
+    let matching_lessons = vec![TestId(5, Some(0), None), TestId(5, Some(1), None)];
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -1379,7 +1380,7 @@ fn schedule_dependencies() -> Result<()> {
                 .iter()
                 .map(|unit_id| unit_id.to_ustr())
                 .collect(),
-            depth: 30,
+            depth,
         }),
     )?;
 
@@ -1388,9 +1389,9 @@ fn schedule_dependencies() -> Result<()> {
     let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
-        if matching_courses
+        if matching_lessons
             .iter()
-            .any(|course_id| exercise_id.exercise_in_course(course_id))
+            .any(|course_id| exercise_id.exercise_in_lesson(course_id))
         {
             assert!(
                 simulation.answer_history.contains_key(&exercise_ustr),
