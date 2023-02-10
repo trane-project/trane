@@ -156,6 +156,15 @@ pub enum UnitFilter {
         /// The IDs of the units from which to start the search.
         unit_ids: Vec<Ustr>,
     },
+
+    /// A filter that schedules exercies from the dependencies of the given units.
+    Dependencies {
+        /// The IDs from which to look up the dependencies.
+        unit_ids: Vec<Ustr>,
+
+        /// The depth of the dependency tree to search.
+        depth: usize,
+    },
 }
 // grcov-excl-stop
 

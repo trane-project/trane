@@ -1333,7 +1333,7 @@ fn schedule_units_and_dependents() -> Result<()> {
         }),
     )?;
 
-    // Only the exercises from the courses in the review list should have been scheduled.
+    // Only the exercises from the starting units and their dependents should have been scheduled.
     let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
@@ -1354,6 +1354,158 @@ fn schedule_units_and_dependents() -> Result<()> {
                 exercise_id
             );
         }
+    }
+    Ok(())
+}
+
+/// Verifies scheduling exercises from the dependencies of a unit at a given depth.
+#[test]
+fn schedule_dependencies() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+
+    // Only schedule the exercises from the dependencies of the unit at depth 1.
+    let starting_units = vec![TestId(5, Some(1), None)];
+    let depth = 1;
+    let matching_lessons = vec![TestId(5, Some(0), None), TestId(5, Some(1), None)];
+
+    // Run the simulation.
+    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    simulation.run_simulation(
+        &mut trane,
+        &vec![],
+        Some(&UnitFilter::Dependencies {
+            unit_ids: starting_units
+                .iter()
+                .map(|unit_id| unit_id.to_ustr())
+                .collect(),
+            depth,
+        }),
+    )?;
+
+    // Only exercises that are dependencies of the starting units at the given depth or any of their
+    // dependents should have been scheduled.
+    let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
+    for exercise_id in exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
+        if matching_lessons
+            .iter()
+            .any(|course_id| exercise_id.exercise_in_lesson(course_id))
+        {
+            assert!(
+                simulation.answer_history.contains_key(&exercise_ustr),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+        } else {
+            assert!(
+                !simulation.answer_history.contains_key(&exercise_ustr),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Verifies scheduling exercises from the dependencies of a unit at a depth that is larger than the
+/// depth of the graph.
+#[test]
+fn schedule_dependencies_large_depth() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+
+    // Only schedule the exercises from the dependencies of the unit at depth 5. The search should
+    // stop earlier because the graph is not as deep.
+    let starting_units = vec![TestId(2, None, None)];
+    let depth = 5;
+    let matching_courses = vec![
+        TestId(0, None, None),
+        TestId(1, None, None),
+        TestId(2, None, None),
+        TestId(7, None, None),
+        TestId(8, None, None),
+    ];
+
+    // Run the simulation.
+    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    simulation.run_simulation(
+        &mut trane,
+        &vec![],
+        Some(&UnitFilter::Dependencies {
+            unit_ids: starting_units
+                .iter()
+                .map(|unit_id| unit_id.to_ustr())
+                .collect(),
+            depth,
+        }),
+    )?;
+
+    // Only exercises that are dependencies of the starting units at the given depth or any of their
+    // dependents should have been scheduled.
+    let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
+    for exercise_id in exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
+        if matching_courses
+            .iter()
+            .any(|course_id| exercise_id.exercise_in_course(course_id))
+        {
+            assert!(
+                simulation.answer_history.contains_key(&exercise_ustr),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+        } else {
+            assert!(
+                !simulation.answer_history.contains_key(&exercise_ustr),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Verifies scheduling exercises from the dependencies of some unknown unit does not schedule any
+/// exercises.
+#[test]
+fn schedule_dependencies_unknown_unit() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+
+    // Only schedule the exercises from the dependencies of the unit at depth 5. Since the unit does
+    // not exist, no exercises should be scheduled.
+    let starting_units = vec![TestId(20, None, None)];
+    let depth = 5;
+
+    // Run the simulation.
+    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    simulation.run_simulation(
+        &mut trane,
+        &vec![],
+        Some(&UnitFilter::Dependencies {
+            unit_ids: starting_units
+                .iter()
+                .map(|unit_id| unit_id.to_ustr())
+                .collect(),
+            depth,
+        }),
+    )?;
+
+    // Verify no exercises were scheduled.
+    let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
+    for exercise_id in exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
+        assert!(
+            !simulation.answer_history.contains_key(&exercise_ustr),
+            "exercise {:?} should not have been scheduled",
+            exercise_id
+        );
     }
     Ok(())
 }
