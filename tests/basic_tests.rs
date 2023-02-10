@@ -1305,6 +1305,59 @@ fn schedule_courses_in_review_list() -> Result<()> {
     Ok(())
 }
 
+/// Verifies scheduling exercises from the given units and their dependents.
+#[test]
+fn schedule_units_and_dependents() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+
+    // Only schedule the exercises from the given units and their dependents.
+    let starting_units = vec![TestId(5, Some(0), None)];
+    let unit_and_dependents = vec![
+        TestId(5, Some(0), None),
+        TestId(5, Some(1), None),
+        TestId(5, Some(2), None),
+    ];
+
+    // Run the simulation with the dependents filter.
+    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    simulation.run_simulation(
+        &mut trane,
+        &vec![],
+        Some(&UnitFilter::Dependents {
+            unit_ids: starting_units
+                .iter()
+                .map(|unit_id| unit_id.to_ustr())
+                .collect(),
+        }),
+    )?;
+
+    // Only the exercises from the courses in the review list should have been scheduled.
+    let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
+    for exercise_id in exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
+        if unit_and_dependents
+            .iter()
+            .any(|course_id| exercise_id.exercise_in_lesson(course_id))
+        {
+            assert!(
+                simulation.answer_history.contains_key(&exercise_ustr),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+        } else {
+            assert!(
+                !simulation.answer_history.contains_key(&exercise_ustr),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        }
+    }
+    Ok(())
+}
+
 /// Verifies searching for courses in the course library works.
 #[test]
 fn course_library_search_courses() -> Result<()> {

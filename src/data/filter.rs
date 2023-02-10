@@ -150,6 +150,12 @@ pub enum UnitFilter {
 
     /// A filter that indicates only exercises from the review list should be scheduled.
     ReviewListFilter,
+
+    /// A filter that schedules exercises from all the given units and its dependents.
+    Dependents {
+        /// The IDs of the units from which to start the search.
+        unit_ids: Vec<Ustr>,
+    },
 }
 // grcov-excl-stop
 
