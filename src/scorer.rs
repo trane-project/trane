@@ -20,8 +20,14 @@ const INITIAL_WEIGHT: f32 = 10.0;
 /// the number of days since the trial (e.g., the score's timestamp is after the current timestamp).
 const MIN_WEIGHT: f32 = 1.0;
 
-/// The score of a trial diminishes by the number of days multiplied by this factor.
-const SCORE_ADJUSTMENT_FACTOR: f32 = 0.01;
+/// The score of a trial diminishes at a faster rate during this number of days.
+const SHORT_TERM_LENGTH: f32 = 10.0;
+
+/// The score of a trial diminishes by this factor during the first [SHORT_TERM_LENGTH] days.
+const SHORT_TERM_ADJUSTMENT_FACTOR: f32 = 0.025;
+
+/// The score of a trial diminishes by this factor after [SHORT_TERM_LENGTH] days.
+const LONG_TERM_ADJUSTMENT_FACTOR: f32 = 0.01;
 
 /// A trait exposing a function to score an exercise based on the results of previous trials.
 pub trait ExerciseScorer {
@@ -67,9 +73,25 @@ impl SimpleScorer {
             return score;
         }
 
-        // The score decreases with the number of days but is never less than half of the
-        // original score.
-        (score - SCORE_ADJUSTMENT_FACTOR * num_days).max(score / 2.0)
+        // The score decreases with the number of days but is never less than half of the original
+        // score. The score decreases faster during the first few days, but then decreases slower.
+        // This is to simulate the fact that skills deteriorate faster during the first few days
+        // after a trial but then settle into long-term memory.
+        if num_days <= SHORT_TERM_LENGTH {
+            (score - SHORT_TERM_ADJUSTMENT_FACTOR * num_days).max(score / 2.0)
+        } else {
+            let long_term_days = num_days - SHORT_TERM_LENGTH.max(0.0);
+            let adjusted_score = score - SHORT_TERM_ADJUSTMENT_FACTOR * SHORT_TERM_LENGTH;
+            (adjusted_score - LONG_TERM_ADJUSTMENT_FACTOR * long_term_days).max(score / 2.0)
+        }
+    }
+
+    /// Returns the weighted average of the scores.
+    fn weighted_average(scores: &[f32], weights: &[f32]) -> f32 {
+        // weighted average = (cross product of scores and their weights) / (sum of weights)
+        let cross_product: f32 = scores.iter().zip(weights.iter()).map(|(s, w)| s * *w).sum();
+        let weight_sum = weights.iter().sum::<f32>();
+        cross_product / weight_sum
     }
 }
 
@@ -111,11 +133,8 @@ impl ExerciseScorer for SimpleScorer {
             .map(|(t, num_days)| -> f32 { Self::adjusted_score(t.score, *num_days) })
             .collect();
 
-        // Calculate the weighted average.
-        // weighted average = (cross product of scores and their weights) / (sum of weights)
-        let cross_product: f32 = scores.iter().zip(weights.iter()).map(|(s, w)| s * *w).sum();
-        let weight_sum = weights.iter().sum::<f32>();
-        Ok(cross_product / weight_sum)
+        // Return the weighted average of the scores.
+        Ok(Self::weighted_average(&scores, &weights))
     }
 }
 
@@ -131,15 +150,7 @@ unsafe impl Sync for SimpleScorer {}
 mod test {
     use chrono::Utc;
 
-    use crate::{
-        data::ExerciseTrial,
-        scorer::{
-            ExerciseScorer, SimpleScorer, INITIAL_WEIGHT, MIN_WEIGHT, WEIGHT_DAY_FACTOR,
-            WEIGHT_INDEX_FACTOR,
-        },
-    };
-
-    use super::SCORE_ADJUSTMENT_FACTOR;
+    use crate::{data::ExerciseTrial, scorer::*};
 
     const SECONDS_IN_DAY: i64 = 60 * 60 * 24;
     const SCORER: SimpleScorer = SimpleScorer {};
@@ -156,112 +167,111 @@ mod test {
         assert_eq!(0.0, SCORER.score(&vec![]).unwrap());
     }
 
+    /// Verifies that the score is not changed if the number of days since the trial is negative.
+    #[test]
+    fn negative_days() {
+        let score = 4.0;
+        assert_eq!(score, SimpleScorer::adjusted_score(score, -1.0));
+    }
+
+    /// Verifies that recent scores decrease faster.
+    #[test]
+    fn recent_scores_decrease_faster() {
+        let score = 4.0;
+        let days = 2.0;
+        let adjusted_score = SimpleScorer::adjusted_score(score, days);
+        assert_eq!(adjusted_score, score - days * SHORT_TERM_ADJUSTMENT_FACTOR);
+    }
+
+    /// Verifies that older scores decrease slower.
+    #[test]
+    fn older_scores_decrease_slower() {
+        let score = 4.0;
+        let days = 20.0;
+        let adjusted_score = SimpleScorer::adjusted_score(score, days);
+        assert_eq!(
+            adjusted_score,
+            score
+                - SHORT_TERM_ADJUSTMENT_FACTOR * SHORT_TERM_LENGTH
+                - (days - SHORT_TERM_LENGTH) * LONG_TERM_ADJUSTMENT_FACTOR
+        );
+    }
+
+    /// Verifies that the adjusted score is never less than half of the original.
+    #[test]
+    fn score_capped_at_half() {
+        let score = 4.0;
+        let days = 1000.0;
+        let adjusted_score = SimpleScorer::adjusted_score(score, days);
+        assert_eq!(adjusted_score, score / 2.0);
+    }
+
+    /// Verifies that the minimum weight is returned if the number of days is negative.
+    #[test]
+    fn negative_days_weight() {
+        let num_scores = 2;
+        let index = 0;
+        let days = -1.0;
+        assert_eq!(SimpleScorer::weight(num_scores, index, days), MIN_WEIGHT,);
+    }
+
+    /// Verifiest that the weight is adjusted based on the index of the score and the number of days
+    /// since the trial.
+    #[test]
+    fn weight_adjusted_by_day_and_index() {
+        let num_scores = 2;
+        let index = 2;
+        let num_trials = 2;
+        let days = 4.0;
+        assert_eq!(
+            SimpleScorer::weight(num_scores, index, days),
+            INITIAL_WEIGHT - days * WEIGHT_DAY_FACTOR
+                + (num_trials - index) as f32 * WEIGHT_INDEX_FACTOR
+        );
+    }
+
+    /// Verifies that the weight is never less than the minimum weight.
+    #[test]
+    fn weight_capped_at_min() {
+        let num_scores = 2;
+        let index = 0;
+        let days = 1000.0;
+        assert_eq!(SimpleScorer::weight(num_scores, index, days), MIN_WEIGHT,);
+    }
+
     /// Verifies the expected score for an exercise with a single trial.
     #[test]
     fn single_trial() {
-        let score1 = 4.0;
-        let days1 = 1.0;
-        let weight1 = INITIAL_WEIGHT - days1 * WEIGHT_DAY_FACTOR + WEIGHT_INDEX_FACTOR;
-        let adjusted_score1 = score1 - days1 * SCORE_ADJUSTMENT_FACTOR;
+        let score = 4.0;
+        let days = 1.0;
+        let adjusted_score = SimpleScorer::adjusted_score(score, days);
 
         assert_eq!(
-            adjusted_score1 * weight1 / weight1,
+            adjusted_score,
             SCORER
                 .score(&vec![ExerciseTrial {
-                    score: score1,
-                    timestamp: generate_timestamp(days1 as i64)
+                    score: score,
+                    timestamp: generate_timestamp(days as i64)
                 }])
                 .unwrap()
         );
     }
 
-    /// Verifies the expected score for an exercise is adjusted based on the number of days since
-    /// the trial and the index of the trial in the list of previous trials.
+    /// Verifies the expected score for an exercise with multiple trials.
     #[test]
-    fn score_and_weight_adjusted_by_day_and_index() {
+    fn multiple_trials() {
         // Both scores are from a few days ago. Calculate their weight and adjusted scores based on
         // the formula.
-        let num_scores = 2.0;
+        let num_scores = 2;
         let score1 = 2.0;
         let days1 = 5.0;
-        let weight1 =
-            INITIAL_WEIGHT - days1 * WEIGHT_DAY_FACTOR + (num_scores) * WEIGHT_INDEX_FACTOR;
-        let adjusted_score1 = score1 - days1 * SCORE_ADJUSTMENT_FACTOR;
+        let weight1 = SimpleScorer::weight(num_scores, 0, days1);
+        let adjusted_score1 = SimpleScorer::adjusted_score(score1, days1);
 
         let score2 = 5.0;
         let days2 = 10.0;
-        let weight2 =
-            INITIAL_WEIGHT - days2 * WEIGHT_DAY_FACTOR + (num_scores - 1.0) * WEIGHT_INDEX_FACTOR;
-        let adjusted_score2 = score2 - days2 * SCORE_ADJUSTMENT_FACTOR;
-
-        assert_eq!(
-            (weight1 * adjusted_score1 + weight2 * adjusted_score2) / (weight1 + weight2),
-            SCORER
-                .score(&vec![
-                    ExerciseTrial {
-                        score: score1,
-                        timestamp: generate_timestamp(days1 as i64)
-                    },
-                    ExerciseTrial {
-                        score: score2,
-                        timestamp: generate_timestamp(days2 as i64)
-                    },
-                ])
-                .unwrap()
-        );
-    }
-
-    /// Verifies that the score for a trial in the future is not adjusted.
-    #[test]
-    fn score_after_now() {
-        // The first score is from zero days ago. Its adjusted score is equal to the original score.
-        let num_scores = 2.0;
-        let score1 = 2.0;
-        let days1 = 0.0;
-        let weight1 = INITIAL_WEIGHT + (num_scores) * WEIGHT_INDEX_FACTOR;
-        let adjusted_score1 = score1;
-
-        // Give the second score a timestamp in the future. The weight will be set at the minimum
-        // and the score will not be adjusted.
-        let score2 = 5.0;
-        let days2 = -2.0;
-        let weight2 = MIN_WEIGHT;
-        let adjusted_score2 = score2;
-
-        assert_eq!(
-            (weight1 * adjusted_score1 + weight2 * adjusted_score2) / (weight1 + weight2),
-            SCORER
-                .score(&vec![
-                    ExerciseTrial {
-                        score: score1,
-                        timestamp: generate_timestamp(days1 as i64)
-                    },
-                    ExerciseTrial {
-                        score: score2,
-                        timestamp: generate_timestamp(days2 as i64)
-                    },
-                ])
-                .unwrap()
-        );
-    }
-
-    /// Verifies that the score and weight for a trial never go below the minimum.
-    #[test]
-    fn score_and_weight_never_less_than_minimum() {
-        // The first score is from a few days ago. Its weight and adjusted score should not be
-        // capped to a minimum.
-        let num_scores = 2.0;
-        let score1 = 2.0;
-        let days1 = 4.0;
-        let weight1 =
-            INITIAL_WEIGHT - days1 * WEIGHT_DAY_FACTOR + (num_scores) * WEIGHT_INDEX_FACTOR;
-        let adjusted_score1 = score1 - days1 * SCORE_ADJUSTMENT_FACTOR;
-
-        // The second score is very old. Both its score and weight should be set to the minimum.
-        let score2 = 5.0;
-        let days2 = 1000.0;
-        let weight2 = MIN_WEIGHT;
-        let adjusted_score2 = score2 / 2.0;
+        let weight2 = SimpleScorer::weight(num_scores, 1, days2);
+        let adjusted_score2 = SimpleScorer::adjusted_score(score2, days2);
 
         assert_eq!(
             (weight1 * adjusted_score1 + weight2 * adjusted_score2) / (weight1 + weight2),
