@@ -691,9 +691,9 @@ pub enum PassingScoreOptions {
 impl Default for PassingScoreOptions {
     fn default() -> Self {
         PassingScoreOptions::IncreasingScore {
-            starting_score: 3.25,
+            starting_score: 3.50,
             step_size: 0.05,
-            max_steps: 10,
+            max_steps: 5,
         }
     }
 }
@@ -1129,7 +1129,7 @@ mod test {
         let options = PassingScoreOptions::default();
         assert!(options.verify().is_ok());
 
-        let options = PassingScoreOptions::ConstantScore(3.25);
+        let options = PassingScoreOptions::ConstantScore(3.50);
         assert!(options.verify().is_ok());
     }
 
@@ -1157,7 +1157,7 @@ mod test {
         assert!(options.verify().is_err());
 
         let options = PassingScoreOptions::IncreasingScore {
-            starting_score: 3.25,
+            starting_score: 3.50,
             step_size: -1.0,
             max_steps: 0,
         };
@@ -1167,19 +1167,19 @@ mod test {
     /// Verifies that the passing score is computed correctly.
     #[test]
     fn compute_passing_score() {
-        let options = PassingScoreOptions::ConstantScore(3.25);
-        assert_eq!(options.compute_score(0), 3.25);
-        assert_eq!(options.compute_score(1), 3.25);
-        assert_eq!(options.compute_score(2), 3.25);
+        let options = PassingScoreOptions::ConstantScore(3.50);
+        assert_eq!(options.compute_score(0), 3.50);
+        assert_eq!(options.compute_score(1), 3.50);
+        assert_eq!(options.compute_score(2), 3.50);
         // Clone the score for code coverage.
         assert_eq!(options, options.clone());
 
         let options = PassingScoreOptions::default();
-        assert_eq!(options.compute_score(0), 3.25);
-        assert_eq!(options.compute_score(1), 3.30);
-        assert_eq!(options.compute_score(2), 3.35);
+        assert_eq!(options.compute_score(0), 3.50);
+        assert_eq!(options.compute_score(1), 3.55);
+        assert_eq!(options.compute_score(2), 3.60);
+        assert_eq!(options.compute_score(5), 3.75);
         assert_eq!(options.compute_score(10), 3.75);
-        assert_eq!(options.compute_score(11), 3.75);
         // Clone the score for code coverage.
         assert_eq!(options, options.clone());
     }
