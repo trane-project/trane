@@ -112,20 +112,6 @@ impl CandidateFilter {
         let (remainder_candidates, _) = Self::select_candidates(remainder, num_remainder)?;
         final_candidates.extend(remainder_candidates);
         Ok(())
-
-        // // Shuffle the remainder candidates before adding some of them to the final list.
-        // let mut rng = thread_rng();
-        // remainder.shuffle(&mut rng);
-
-        // // If there's space left in the batch, fill it with the remainder candidates.
-        // if final_candidates.len() < batch_size {
-        //     let remainder = batch_size - final_candidates.len();
-        //     final_candidates.extend(
-        //         remainder[..remainder.min(remainder.len())]
-        //             .iter()
-        //             .cloned(),
-        //     );
-        // }
     }
 
     /// Takes a list of candidates and returns a vector of tuples of exercises IDs and manifests.
