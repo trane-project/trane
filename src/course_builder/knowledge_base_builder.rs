@@ -84,6 +84,9 @@ pub struct LessonBuilder {
 impl LessonBuilder {
     /// Writes the files needed for this lesson to the given directory.
     pub fn build(&self, lesson_directory: &Path) -> Result<()> {
+        // Create the lesson directory.
+        create_dir_all(lesson_directory)?;
+
         // Build all the assets.
         for builder in &self.asset_builders {
             builder.build(lesson_directory)?;
