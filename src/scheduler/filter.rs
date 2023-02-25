@@ -4,6 +4,7 @@
 //! Once the search part of the scheduling algorithm selects an initial set of candidate, Trane must
 //! find a good mix of exercises from different levels of difficulty. The aim is to have a batch of
 //! exercises that is not too challenging, but also not too easy. The algorithm has two main parts:
+//!
 //! 1. Bucket all the candidates into the mastery windows defined in the scheduler options.
 //! 2. Select a random subset of exercises from each bucket. The random selection is weighted by a
 //!    number of factors, including the number of hops that were needed to reach a candidate, the
@@ -17,6 +18,23 @@ use crate::{
     data::{ExerciseManifest, MasteryWindow},
     scheduler::{Candidate, SchedulerData},
 };
+
+/// The initial weight of each candidate.
+const INITIAL_WEIGHT: f32 = 1.0;
+
+/// The part of the weight that depends on the score will be multiplied by this factor.
+const SCORE_WEIGHT_FACTOR: f32 = 20.0;
+
+/// The part of the weight that depends on the depth of the candidate will be multiplied by this
+/// factor.
+const DEPTH_WEIGHT_FACTOR: f32 = 5.0;
+
+/// The part of the weight that depends on the weight of the candidate will be capped at this value.
+const MAX_DEPTH_WEIGHT: f32 = 100.0;
+
+/// The part of the weight that depends on the frequency of the candidate will be capped at this
+/// value. Each time an exercise is scheduled, this portion of the weight is halved.
+const MAX_FREQUENCY_WEIGHT: f32 = 200.0;
 
 /// The filter used to reduce the candidates found during the search to a final batch of exercises.
 pub(super) struct CandidateFilter {
@@ -71,16 +89,21 @@ impl CandidateFilter {
         let mut rng = thread_rng();
         let selected: Vec<Candidate> = candidates
             .choose_multiple_weighted(&mut rng, num_to_select, |c| {
-                // Always assign an initial weight of 1.0 to avoid assigning a zero weight.
-                let mut weight = 1.0;
-                // Increase the weight based on the candidate's score.
-                weight += (5.0 - c.score).max(0.0);
-                // Increase the weight based on the number of hops taken to reach the candidate.
-                weight += c.depth;
+                // Always assign an initial weight of to avoid assigning a zero weight.
+                let mut weight = INITIAL_WEIGHT;
+
+                // A portion of the score will depend on the score of the candidate. Lower scores
+                // are given more weight.
+                weight += SCORE_WEIGHT_FACTOR * (5.0 - c.score).max(0.0);
+
+                // A part of the score will depend on the number of hops that were needed to reach
+                // the candidate. It will be capped at a maximum.
+                weight += (DEPTH_WEIGHT_FACTOR * c.depth).max(MAX_DEPTH_WEIGHT);
+
                 // Increase the weight based on the frequency with which the exercise has been
                 // scheduled. Exercises that have been scheduled more often are assigned less
                 // weight.
-                weight += (10.0 - c.frequency).max(0.0);
+                weight += MAX_FREQUENCY_WEIGHT / 2.0_f32.powf(c.frequency);
                 weight
             })
             .unwrap()
