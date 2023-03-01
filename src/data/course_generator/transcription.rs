@@ -74,7 +74,20 @@ pub struct TranscriptionPassages {
 
 impl TranscriptionPassages {
     /// Generates the exercise assets for these passages with the given description.
-    fn generate_exercise_asset(&self, description: &str, start: &str, end: &str) -> ExerciseAsset {
+    fn generate_exercise_asset(
+        &self,
+        description: &str,
+        start: &str,
+        end: &str,
+        instrument: Option<&Instrument>,
+    ) -> ExerciseAsset {
+        let instrument_instruction = match instrument {
+            Some(instrument) => format!(
+                "\nTranscribe the passage using the instrument: {}.\n",
+                instrument.name
+            ),
+            None => "".into(),
+        };
         match &self.asset {
             TranscriptionAsset::Track {
                 track_name,
@@ -92,9 +105,9 @@ impl TranscriptionPassages {
                         - Album name: {}
                         - External link: {}
                         - Passage interval: {} - {}
-                    ",
+                    {}",
                     description, track_name, artist_name, album_name,
-                    external_link.as_deref().unwrap_or(""), start, end
+                    external_link.as_deref().unwrap_or(""), start, end, instrument_instruction
                 }
                 .into(),
             }),
@@ -163,7 +176,12 @@ impl TranscriptionConfig {
                 name: format!("{} - Singing", course_manifest.name),
                 description: None,
                 exercise_type: ExerciseType::Procedural,
-                exercise_asset: passages.generate_exercise_asset(SINGING_DESCRIPTION, start, end),
+                exercise_asset: passages.generate_exercise_asset(
+                    SINGING_DESCRIPTION,
+                    start,
+                    end,
+                    None,
+                ),
             })
             .collect()
     }
@@ -233,6 +251,7 @@ impl TranscriptionConfig {
                     ADVANCED_SINGING_DESCRIPTION,
                     start,
                     end,
+                    None,
                 ),
             })
             .collect()
@@ -308,6 +327,7 @@ impl TranscriptionConfig {
                     TRANSCRIPTION_DESCRIPTION,
                     start,
                     end,
+                    Some(instrument),
                 ),
             })
             .collect()
@@ -408,6 +428,7 @@ impl TranscriptionConfig {
                     ADVANCED_TRANSCRIPTION_DESCRIPTION,
                     start,
                     end,
+                    Some(insturment),
                 ),
             })
             .collect()
@@ -669,7 +690,33 @@ mod test {
             ]),
         };
 
-        let exercise_asset = passages.generate_exercise_asset("My description", "0:00", "0:01");
+        // Generate the asset when an instrument is specified.
+        let instrument = Instrument {
+            name: "Piano".into(),
+            id: "piano".into(),
+        };
+        let exercise_asset =
+            passages.generate_exercise_asset("My description", "0:00", "0:01", Some(&instrument));
+        let expected_asset = ExerciseAsset::BasicAsset(BasicAsset::InlinedUniqueAsset {
+            content: indoc! {"
+                My description
+
+                The passage to transcribe is the following:
+                    - Track name: Track
+                    - Artist name: Artist
+                    - Album name: Album
+                    - External link: https://example.com
+                    - Passage interval: 0:00 - 0:01
+
+                Transcribe the passage using the instrument: Piano.
+            "}
+            .into(),
+        });
+        assert_eq!(exercise_asset, expected_asset);
+
+        // Generate the asset when an instrument is not specified.
+        let exercise_asset =
+            passages.generate_exercise_asset("My description", "0:00", "0:01", None);
         let expected_asset = ExerciseAsset::BasicAsset(BasicAsset::InlinedUniqueAsset {
             content: indoc! {"
                 My description
