@@ -48,6 +48,7 @@ fn transcription_builder(
     course_index: usize,
     dependencies: Vec<Ustr>,
     num_passages: usize,
+    skip_advanced_lessons: bool,
 ) -> CourseBuilder {
     let mut asset_builders = Vec::new();
     for i in 0..num_passages {
@@ -83,6 +84,7 @@ fn transcription_builder(
             generator_config: Some(CourseGenerator::Transcription(TranscriptionConfig {
                 improvisation_dependencies: dependencies,
                 passage_directory: "passages".to_string(),
+                skip_advanced_lessons,
             })),
         },
         lesson_manifest_template: LessonManifestBuilder::default().clone(),
@@ -99,8 +101,8 @@ fn all_exercises_visited() -> Result<()> {
     let mut trane = init_simulation(
         &temp_dir.path(),
         &vec![
-            transcription_builder(*COURSE0_ID, 0, vec![], 5),
-            transcription_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5),
+            transcription_builder(*COURSE0_ID, 0, vec![], 5, false),
+            transcription_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
         ],
         Some(&USER_PREFS),
     )?;
@@ -134,8 +136,8 @@ fn no_progress_past_singing_lessons() -> Result<()> {
     let mut trane = init_simulation(
         &temp_dir.path(),
         &vec![
-            transcription_builder(*COURSE0_ID, 0, vec![], 5),
-            transcription_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5),
+            transcription_builder(*COURSE0_ID, 0, vec![], 5, false),
+            transcription_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
         ],
         Some(&USER_PREFS),
     )?;
@@ -178,8 +180,8 @@ fn advanced_singing_blocks_advanced_transcription() -> Result<()> {
     let mut trane = init_simulation(
         &temp_dir.path(),
         &vec![
-            transcription_builder(*COURSE0_ID, 0, vec![], 5),
-            transcription_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5),
+            transcription_builder(*COURSE0_ID, 0, vec![], 5, false),
+            transcription_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
         ],
         Some(&USER_PREFS),
     )?;
@@ -228,8 +230,8 @@ fn transcription_blocks_advanced_transcription() -> Result<()> {
     let mut trane = init_simulation(
         &temp_dir.path(),
         &vec![
-            transcription_builder(*COURSE0_ID, 0, vec![], 5),
-            transcription_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5),
+            transcription_builder(*COURSE0_ID, 0, vec![], 5, false),
+            transcription_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false),
         ],
         Some(&USER_PREFS),
     )?;
@@ -265,6 +267,50 @@ fn transcription_blocks_advanced_transcription() -> Result<()> {
                 exercise_id
             );
         }
+    }
+    Ok(())
+}
+
+/// Verifies that all improvisation exercises are visited when the advanced lessons are skipped.
+#[test]
+fn skip_advanced_lessons() -> Result<()> {
+    // Initialize test course library. Skip the advanced lessons.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_simulation(
+        &temp_dir.path(),
+        &vec![
+            transcription_builder(*COURSE0_ID, 0, vec![], 5, true),
+            transcription_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, true),
+        ],
+        Some(&USER_PREFS),
+    )?;
+
+    // Run the simulation.
+    let exercise_ids = trane.get_all_exercise_ids()?;
+    assert!(exercise_ids.len() > 0);
+    let mut simulation = TraneSimulation::new(
+        exercise_ids.len() * 5,
+        Box::new(|_| Some(MasteryScore::Five)),
+    );
+    simulation.run_simulation(&mut trane, &vec![], None)?;
+
+    // Every exercise ID should be in `simulation.answer_history`.
+    for exercise_id in &exercise_ids {
+        assert!(
+            simulation.answer_history.contains_key(&exercise_id),
+            "exercise {:?} should have been scheduled",
+            exercise_id
+        );
+        assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+    }
+
+    // No exercises from the advanced lessons should be in the answer history.
+    for exercise_id in exercise_ids {
+        assert!(
+            !exercise_id.contains("advanced_"),
+            "exercise {:?} should not have been generated",
+            exercise_id
+        );
     }
     Ok(())
 }

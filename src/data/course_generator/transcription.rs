@@ -23,8 +23,8 @@ use ustr::Ustr;
 
 use super::*;
 use crate::data::{
-    BasicAsset, CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseType, GenerateManifests,
-    GeneratedCourse, LessonManifest, UserPreferences,
+    BasicAsset, CourseGenerator, CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseType,
+    GenerateManifests, GeneratedCourse, LessonManifest, UserPreferences,
 };
 use constants::*;
 
@@ -146,6 +146,12 @@ pub struct TranscriptionConfig {
     /// The directory can be written relative to the root of the course or as an absolute path. The
     /// first option is recommended.
     pub passage_directory: String,
+
+    /// If true, the course will skip the advanced singing and transcription lessons. This is useful
+    /// when there are copies of the same recording for every key, which makes the need for the
+    /// advanced lessons obsolete.
+    #[serde(default)]
+    pub skip_advanced_lessons: bool,
 }
 
 impl TranscriptionConfig {
@@ -552,15 +558,37 @@ impl TranscriptionConfig {
         preferences: &TranscriptionPreferences,
         passages: Vec<TranscriptionPassages>,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
-        Ok(vec![
-            vec![self.generate_singing_lesson(course_manifest, &passages)],
-            vec![self.generate_advanced_singing_lesson(course_manifest, &passages)],
-            self.generate_transcription_lessons(course_manifest, preferences, &passages),
-            self.generate_advanced_transcription_lessons(course_manifest, preferences, &passages),
-        ]
-        .into_iter()
-        .flatten()
-        .collect())
+        let skip_advanced_lessons = if let Some(CourseGenerator::Transcription(config)) =
+            &course_manifest.generator_config
+        {
+            config.skip_advanced_lessons
+        } else {
+            false // grcov-excl-line: This line should be unreachable.
+        };
+
+        if skip_advanced_lessons {
+            Ok(vec![
+                vec![self.generate_singing_lesson(course_manifest, &passages)],
+                self.generate_transcription_lessons(course_manifest, preferences, &passages),
+            ]
+            .into_iter()
+            .flatten()
+            .collect())
+        } else {
+            Ok(vec![
+                vec![self.generate_singing_lesson(course_manifest, &passages)],
+                vec![self.generate_advanced_singing_lesson(course_manifest, &passages)],
+                self.generate_transcription_lessons(course_manifest, preferences, &passages),
+                self.generate_advanced_transcription_lessons(
+                    course_manifest,
+                    preferences,
+                    &passages,
+                ),
+            ]
+            .into_iter()
+            .flatten()
+            .collect())
+        }
     }
 }
 
@@ -771,6 +799,7 @@ mod test {
         let config = TranscriptionConfig {
             passage_directory: "passages".into(),
             improvisation_dependencies: vec![],
+            skip_advanced_lessons: false,
         };
         let passages = config.open_passage_directory(&temp_dir.path())?;
         assert_eq!(2, passages.len());
@@ -816,6 +845,7 @@ mod test {
         let config = TranscriptionConfig {
             passage_directory: "passages".into(),
             improvisation_dependencies: vec![],
+            skip_advanced_lessons: false,
         };
         let result = config.open_passage_directory(&temp_dir.path());
         assert!(result.is_err());
@@ -832,6 +862,7 @@ mod test {
         let config = TranscriptionConfig {
             passage_directory: "passages".into(),
             improvisation_dependencies: vec![],
+            skip_advanced_lessons: false,
         };
         let result = config.open_passage_directory(&temp_dir.path());
         assert!(result.is_err());
@@ -879,6 +910,7 @@ mod test {
         let course_generator = CourseGenerator::Transcription(TranscriptionConfig {
             improvisation_dependencies: vec![],
             passage_directory: "passages".to_string(),
+            skip_advanced_lessons: false,
         });
 
         let course_manifest = CourseManifest {
