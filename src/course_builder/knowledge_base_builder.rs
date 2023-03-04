@@ -189,6 +189,7 @@ pub struct SimpleKnowledgeBaseExercise {
     pub front: Vec<String>,
 
     /// The optional content of the back of the card. If the list is empty, no file will be created.
+    #[serde(default)]
     pub back: Vec<String>,
 }
 
@@ -249,15 +250,19 @@ pub struct SimpleKnowledgeBaseLesson {
     pub short_id: Ustr,
 
     /// The dependencies of the lesson.
+    #[serde(default)]
     pub dependencies: Vec<Ustr>,
 
     /// The simple exercises in the lesson.
+    #[serde(default)]
     pub exercises: Vec<SimpleKnowledgeBaseExercise>,
 
     /// The optional metadata for the lesson.
+    #[serde(default)]
     pub metadata: Option<BTreeMap<String, Vec<String>>>,
 
     /// A list of additional files to write in the lesson directory.
+    #[serde(default)]
     pub additional_files: Vec<AssetBuilder>,
 }
 
@@ -327,6 +332,7 @@ pub struct SimpleKnowledgeBaseCourse {
     pub manifest: CourseManifest,
 
     /// The simple lessons in this course.
+    #[serde(default)]
     pub lessons: Vec<SimpleKnowledgeBaseLesson>,
 }
 

@@ -344,7 +344,6 @@ impl LocalCourseLibrary {
         mut course_manifest: CourseManifest,
         index_writer: &mut IndexWriter,
     ) -> Result<()> {
-        // Verify that the exercise ID is valid.
         ensure!(!course_manifest.id.is_empty(), "ID in manifest is empty",);
 
         // Add the course and the dependencies explicitly listed in the manifest.
