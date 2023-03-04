@@ -1210,4 +1210,11 @@ mod test {
         // Clone the score for code coverage.
         assert_eq!(options, options.clone());
     }
+
+    /// Verifies that the default exercise type is Procedural. Written to satisfy code coverage.
+    #[test]
+    fn default_exercise_type() {
+        let exercise_type = ExerciseType::default();
+        assert_eq!(exercise_type, ExerciseType::Procedural);
+    }
 }
