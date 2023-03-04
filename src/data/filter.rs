@@ -117,9 +117,11 @@ impl KeyValueFilter {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MetadataFilter {
     /// The filter to apply on course metadata.
+    #[serde(default)]
     pub course_filter: Option<KeyValueFilter>,
 
     /// The filter to apply on lesson metadata.
+    #[serde(default)]
     pub lesson_filter: Option<KeyValueFilter>,
 
     /// The logical operation used to combine the course and lesson filters.

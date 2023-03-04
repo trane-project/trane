@@ -82,7 +82,7 @@ fn transcription_builder(
             course_material: None,
             course_instructions: None,
             generator_config: Some(CourseGenerator::Transcription(TranscriptionConfig {
-                improvisation_dependencies: dependencies,
+                transcription_dependencies: dependencies,
                 passage_directory: "passages".to_string(),
                 skip_advanced_lessons,
             })),

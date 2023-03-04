@@ -47,6 +47,7 @@ pub enum TranscriptionAsset {
         album_name: String,
 
         /// A link to an external copy (e.g. youtube video) of the track.
+        #[serde(default)]
         external_link: Option<String>,
     },
 }
@@ -129,6 +130,7 @@ impl TranscriptionPassages {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct TranscriptionPreferences {
     /// The list of instruments the user wants to practice.
+    #[serde(default)]
     pub instruments: Vec<Instrument>,
 }
 
@@ -138,7 +140,8 @@ pub struct TranscriptionConfig {
     /// The dependencies on other transcription courses. Specifying these dependencies here instead
     /// of the [CourseManifest](crate::data::CourseManifest) allows Trane to generate more
     /// fine-grained dependencies.
-    pub improvisation_dependencies: Vec<Ustr>,
+    #[serde(default)]
+    pub transcription_dependencies: Vec<Ustr>,
 
     /// The directory where the passages are stored as JSON files whose contents are serialized
     /// [TranscriptionPassages] objects.
@@ -201,7 +204,7 @@ impl TranscriptionConfig {
         // Generate the lesson manifest. The lesson depends on the singing lessons of all the other
         // transcription courses listed as dependencies.
         let dependencies = self
-            .improvisation_dependencies
+            .transcription_dependencies
             .iter()
             .map(|id| format!("{id}::singing").into())
             .collect();
@@ -798,7 +801,7 @@ mod test {
         // Open the passages directory and verify the passages.
         let config = TranscriptionConfig {
             passage_directory: "passages".into(),
-            improvisation_dependencies: vec![],
+            transcription_dependencies: vec![],
             skip_advanced_lessons: false,
         };
         let passages = config.open_passage_directory(&temp_dir.path())?;
@@ -844,7 +847,7 @@ mod test {
         // Open the passages directory and verify the method fails.
         let config = TranscriptionConfig {
             passage_directory: "passages".into(),
-            improvisation_dependencies: vec![],
+            transcription_dependencies: vec![],
             skip_advanced_lessons: false,
         };
         let result = config.open_passage_directory(&temp_dir.path());
@@ -861,7 +864,7 @@ mod test {
         // Open the passages directory and verify the method fails.
         let config = TranscriptionConfig {
             passage_directory: "passages".into(),
-            improvisation_dependencies: vec![],
+            transcription_dependencies: vec![],
             skip_advanced_lessons: false,
         };
         let result = config.open_passage_directory(&temp_dir.path());
@@ -908,7 +911,7 @@ mod test {
         let temp_dir = tempfile::tempdir()?;
         fs::create_dir(temp_dir.path().join("passages"))?;
         let course_generator = CourseGenerator::Transcription(TranscriptionConfig {
-            improvisation_dependencies: vec![],
+            transcription_dependencies: vec![],
             passage_directory: "passages".to_string(),
             skip_advanced_lessons: false,
         });

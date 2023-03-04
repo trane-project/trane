@@ -63,10 +63,12 @@ pub struct ImprovisationConfig {
     /// The dependencies on other improvisation courses. Specifying these dependencies here instead
     /// of the [CourseManifest](crate::data::CourseManifest) allows Trane to generate more
     /// fine-grained dependencies.
+    #[serde(default)]
     pub improvisation_dependencies: Vec<Ustr>,
 
     /// If true, the course contains passages only have rhythm and contain no melodic nor harmonic
     /// information. Lessons to learn the melody and harmony of the passages will not be generated.
+    #[serde(default)]
     pub rhythm_only: bool,
 
     /// The directory where the passages are stored. The name of each file (minus the extension)
@@ -89,10 +91,12 @@ pub struct ImprovisationConfig {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct ImprovisationPreferences {
     /// The list of instruments the user wants to practice.
+    #[serde(default)]
     pub instruments: Vec<Instrument>,
 
     /// The list of instruments that only use rhythm. Exercises for these instruments will only
     /// show up in the rhythm lessons.
+    #[serde(default)]
     pub rhythm_instruments: Vec<Instrument>,
 }
 //>@improvisation-preferences

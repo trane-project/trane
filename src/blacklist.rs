@@ -33,7 +33,10 @@ pub trait Blacklist {
 
 /// An implementation of [Blacklist] backed by SQLite.
 pub(crate) struct BlacklistDB {
+    /// A cache of the blacklist entries used to avoid unnecessary queries to the database.
     cache: RwLock<UstrMap<bool>>,
+
+    /// A pool of connections to the database.
     pool: Pool<SqliteConnectionManager>,
 }
 
