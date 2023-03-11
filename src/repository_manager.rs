@@ -65,8 +65,11 @@ impl LocalRepositoryManager {
 
     /// Reads the repository metadata from the given path.
     fn read_metadata(path: &Path) -> Result<RepositoryMetadata> {
-        let repo = serde_json::from_str::<RepositoryMetadata>(&fs::read_to_string(path)?)
-            .map_err(|_| RepositoryError::InvalidRepository(path.to_owned()))?;
+        let repo = serde_json::from_str::<RepositoryMetadata>(
+            &fs::read_to_string(path)
+                .map_err(|_| RepositoryError::InvalidRepositoryMetadata(path.to_owned()))?, // grcov-excl-line
+        )
+        .map_err(|_| RepositoryError::InvalidRepository(path.to_owned()))?; // grcov-excl-line
         Ok(repo)
     }
 
@@ -76,7 +79,7 @@ impl LocalRepositoryManager {
             .metadata_directory
             .join(format!("{}.json", metadata.id));
         fs::write(&path, serde_json::to_string_pretty(metadata)?)
-            .map_err(|_| RepositoryError::InvalidRepositoryMetadata(path))?;
+            .map_err(|_| RepositoryError::InvalidRepositoryMetadata(path))?; // grcov-excl-line
         Ok(())
     }
 
