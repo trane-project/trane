@@ -22,6 +22,9 @@ pub enum RepositoryError {
     #[error("the repository at {0} is invalid")]
     InvalidRepository(PathBuf),
 
+    #[error("the repository metadata at {0} is invalid")]
+    InvalidRepositoryMetadata(PathBuf),
+
     #[error("repository with URL {0} has an invalid URL")]
     InvalidRepositoryURL(String),
 

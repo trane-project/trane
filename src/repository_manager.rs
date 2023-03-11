@@ -24,7 +24,7 @@ pub trait RepositoryManager {
     /// Downloads the courses from the given git repository into the given directory. The ID will
     /// also be used to identify the repository in the future and as the name of the directory. If
     /// ommitted, the name of the repository will be used to generate an ID.
-    fn add(&mut self, url: &str, id: Option<&str>) -> Result<()>;
+    fn add(&mut self, url: &str, id: Option<String>) -> Result<()>;
 
     /// Removes the repository with the given ID.
     fn remove(&mut self, id: &str) -> Result<()>;
@@ -34,24 +34,37 @@ pub trait RepositoryManager {
 
     /// Attempts to pull the latest version of all repositories.
     fn update_all(&self) -> Result<()>;
+
+    /// Returns a list of all the repositories that are currently being managed.
+    fn list(&self) -> Result<Vec<RepositoryMetadata>>;
 }
 
 /// An implementation of [RepositoryManager] backed by the local file system. All repositories will
 /// be downloaded to the `managed_courses` directory in the root of the Trane library.
 struct LocalRepositoryManager {
-    /// A map of repository IDs to the path of the repository.
-    repositories: HashMap<String, PathBuf>,
+    /// A map of repository IDs to its metadata.
+    repositories: HashMap<String, RepositoryMetadata>,
 
     /// The path to the directory where repositories will be downloaded.
     download_directory: PathBuf,
 
     /// The path to the directory where repository metadata will be stored.
-    repository_directory: PathBuf,
+    metadata_directory: PathBuf,
 }
 
 impl LocalRepositoryManager {
+    /// Returns the default ID for the repository based on the URL.
+    fn id_from_url(url: Url) -> Result<String> {
+        Ok(url
+            .path_segments()
+            .and_then(|segments| segments.last())
+            .ok_or_else(|| RepositoryError::InvalidRepositoryURL(url.to_string()))?
+            .trim_end_matches(".git")
+            .to_owned())
+    }
+
     /// Reads the repository metadata from the given path.
-    fn read_managed_repo(path: &Path) -> Result<RepositoryMetadata> {
+    fn read_repo_metadata(path: &Path) -> Result<RepositoryMetadata> {
         let repo = serde_json::from_str::<RepositoryMetadata>(&fs::read_to_string(path)?)
             .map_err(|_| RepositoryError::InvalidRepository(path.to_owned()))?;
         Ok(repo)
@@ -94,7 +107,7 @@ impl LocalRepositoryManager {
         let mut manager = LocalRepositoryManager {
             repositories: HashMap::new(),
             download_directory: library_root.join(DOWNLOAD_DIRECTORY),
-            repository_directory: repo_dir.clone(),
+            metadata_directory: repo_dir.clone(),
         };
 
         // Read the repository directory and add all the repositories to the map.
@@ -106,42 +119,37 @@ impl LocalRepositoryManager {
                 continue;
             }
             let entry = entry.unwrap();
-            if entry.path().is_dir() {
-                continue;
-            }
-            if entry.path().extension().unwrap_or_default() != "json" {
+            if !entry.path().is_file() || entry.path().extension().unwrap_or_default() != "json" {
                 continue;
             }
 
             // Read the repository metadata and add it to the map.
-            let managed_repo =
-                serde_json::from_str::<RepositoryMetadata>(&fs::read_to_string(entry.path())?)
-                    .map_err(|_| RepositoryError::InvalidRepository(entry.path()))?;
-
-            let download_directory = library_root.join(DOWNLOAD_DIRECTORY).join(&managed_repo.id);
+            let repo_metadata = Self::read_repo_metadata(&entry.path())?;
             manager
                 .repositories
-                .insert(managed_repo.id, download_directory.clone());
+                .insert(repo_metadata.id.clone(), repo_metadata.clone());
 
             // Verify that the repository exists and is a valid git repository.
+            let download_directory = library_root
+                .join(DOWNLOAD_DIRECTORY)
+                .join(&repo_metadata.id);
             if !download_directory.exists() {
                 bail!(RepositoryError::InvalidDownloadDirectory(
                     download_directory
                 ));
             }
             if git2::Repository::open(&download_directory).is_err() {
-                bail!(RepositoryError::InvalidDownloadDirectory(
+                bail!(RepositoryError::InvalidRepository(
                     download_directory.clone()
                 ));
             }
         }
-
         Ok(manager)
     }
 }
 
 impl RepositoryManager for LocalRepositoryManager {
-    fn add(&mut self, url: &str, repo_id: Option<&str>) -> Result<()> {
+    fn add(&mut self, url: &str, repo_id: Option<String>) -> Result<()> {
         // Check that the repository URL is not an SSH URL.
         if url.starts_with(SSH_PREFIX) {
             bail!(RepositoryError::SshRepository(url.to_string()));
@@ -151,39 +159,35 @@ impl RepositoryManager for LocalRepositoryManager {
         let parsed_url = url
             .parse::<Url>()
             .map_err(|_| RepositoryError::InvalidRepositoryURL(url.to_string()))?;
-        let valid_repo_id = if let Some(repo_id) = repo_id {
+        let repo_id = if let Some(repo_id) = repo_id {
             repo_id
         } else {
-            parsed_url
-                .path_segments()
-                .and_then(|segments| segments.last())
-                .ok_or_else(|| RepositoryError::InvalidRepositoryURL(url.to_string()))?
+            Self::id_from_url(parsed_url)?
         };
 
         // Check that no other repository has the same ID.
-        if self.repositories.contains_key(valid_repo_id) {
-            bail!(RepositoryError::DuplicateRepository(
-                valid_repo_id.to_string()
-            ));
+        if self.repositories.contains_key(&repo_id) {
+            bail!(RepositoryError::DuplicateRepository(repo_id.to_string()));
         }
 
         // Clone the repository into the download directory.
-        // add it to the map, and save the repository information to the repository directory.
-        let repo_download_dir = self.download_directory.join(valid_repo_id);
-        git2::Repository::clone(url, &repo_download_dir)
-            .map_err(|_| RepositoryError::CloneRepository(url.to_string()))?;
-        self.repositories
-            .insert(valid_repo_id.to_string(), repo_download_dir);
-        let managed_repo = RepositoryMetadata {
-            id: valid_repo_id.to_string(),
+        let download_dir = self.download_directory.join(&repo_id);
+        Self::clone_repo(url, &download_dir)?;
+
+        // Add the metadata to the repository directory and the map.
+        let repo_metadata = RepositoryMetadata {
+            id: repo_id.clone(),
             url: url.to_string(),
         };
-        let repo_dir = self
-            .repository_directory
-            .join(format!("{}.json", valid_repo_id));
-        fs::write(&repo_dir, serde_json::to_string_pretty(&managed_repo)?)
-            .map_err(|_| RepositoryError::InvalidRepositoryDirectory)?;
+        let metadata_file = self.metadata_directory.join(format!("{}.json", repo_id));
+        fs::write(
+            &metadata_file,
+            serde_json::to_string_pretty(&repo_metadata)?,
+        )
+        .map_err(|_| RepositoryError::InvalidRepositoryDirectory)?;
 
+        self.repositories
+            .insert(repo_id.to_string(), repo_metadata.clone());
         Ok(())
     }
 
@@ -193,25 +197,38 @@ impl RepositoryManager for LocalRepositoryManager {
             return Ok(());
         }
 
-        // Remove the repository from the map and delete the directory.
+        // Remove the repository from the map and delete the cloned repository and metadata.
         self.repositories.remove(repo_id);
-        fs::remove_dir_all(PathBuf::from(DOWNLOAD_DIRECTORY).join(repo_id))?;
+        let clone_dir = self.download_directory.join(repo_id);
+        fs::remove_dir_all(&clone_dir)
+            .map_err(|_| RepositoryError::InvalidDownloadDirectory(clone_dir))?;
+        let repo_metadata_path = self.metadata_directory.join(format!("{}.json", repo_id));
+        fs::remove_file(&repo_metadata_path)
+            .map_err(|_| RepositoryError::InvalidRepositoryMetadata(repo_metadata_path))?;
         todo!()
     }
 
     fn update(&self, repo_id: &str) -> Result<()> {
-        // Check that the repository exists and is a valid git repository.
-        let repo_path = self
-            .repositories
-            .get(repo_id)
-            .ok_or_else(|| RepositoryError::UnknownRepository(repo_id.to_string()))?;
-        let repo = git2::Repository::open(repo_path)
-            .map_err(|_| RepositoryError::InvalidRepository(repo_path.clone()))?;
+        let repo_metadata = self.repositories.get(repo_id);
+        if repo_metadata.is_none() {
+            bail!(RepositoryError::UnknownRepository(repo_id.to_string()));
+        }
 
-        Ok(())
+        // Re-clone the repository to make the logic easier. Otherwise, it would be harder to handle
+        // corner cases. Users should not directly modify the cloned repositories.
+        let repo_metadata = repo_metadata.unwrap();
+        let clone_dir = self.download_directory.join(repo_id);
+        Self::clone_repo(&repo_metadata.url, &clone_dir)
     }
 
     fn update_all(&self) -> Result<()> {
-        todo!()
+        for repo_id in self.repositories.keys() {
+            self.update(repo_id)?;
+        }
+        Ok(())
+    }
+
+    fn list(&self) -> Result<Vec<RepositoryMetadata>> {
+        Ok(self.repositories.values().cloned().collect())
     }
 }
