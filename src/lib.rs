@@ -38,10 +38,12 @@ pub mod blacklist;
 pub mod course_builder;
 pub mod course_library;
 pub mod data;
+pub mod error;
 pub mod filter_manager;
 pub mod graph;
 pub mod mantra_miner;
 pub mod practice_stats;
+pub mod repository_manager;
 pub mod review_list;
 pub mod scheduler;
 pub mod scorer;
@@ -83,6 +85,17 @@ pub const FILTERS_DIR: &str = "filters";
 
 /// The path to the file containing user preferences.
 pub const USER_PREFERENCES_PATH: &str = "user_preferences.json";
+
+/// The name of the directory where repositories will be downloaded.
+const DOWNLOAD_DIRECTORY: &str = "managed_courses";
+
+/// The name of the directory where the details on all repositories will be stored. This directory
+/// will be created under the `.trane` directory at the root of the Trane library.
+const REPOSITORY_DIRECTORY: &str = "repositories";
+
+/// The paths to the repositories file, which contains a list of all repositories that have been
+/// downloaded.
+const REPO_MANIFEST_PATH: &str = "repositories.json";
 
 /// Trane is a library for the acquisition of highly hierarchical knowledge and skills based on the
 /// principles of mastery learning and spaced repetition. Given a list of courses, its lessons and

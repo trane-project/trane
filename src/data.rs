@@ -866,6 +866,16 @@ impl Default for SchedulerOptions {
     }
 }
 
+/// Represents a repository containing Trane courses.
+#[derive(Clone, Deserialize, Serialize)]
+pub struct RepositoryMetadata {
+    /// The ID of the repository, which is also used to name the directory.
+    pub id: String,
+
+    /// The URL of the repository.
+    pub url: String,
+}
+
 #[cfg(test)]
 mod test {
     use crate::data::*;
