@@ -867,7 +867,7 @@ impl Default for SchedulerOptions {
 }
 
 /// Represents a repository containing Trane courses.
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct RepositoryMetadata {
     /// The ID of the repository, which is also used to name the directory.
     pub id: String,
@@ -1226,5 +1226,16 @@ mod test {
     fn default_exercise_type() {
         let exercise_type = ExerciseType::default();
         assert_eq!(exercise_type, ExerciseType::Procedural);
+    }
+
+    /// Verifies the clone method for the `RepositoryMetadata` struct. Written to satisfy code
+    /// coverage.
+    #[test]
+    fn repository_metadata_clone() {
+        let metadata = RepositoryMetadata {
+            id: "id".to_string(),
+            url: "url".to_string(),
+        };
+        assert_eq!(metadata, metadata.clone());
     }
 }

@@ -6,12 +6,13 @@ use thiserror::Error;
 
 /// An error returned by Trane when dealing with a repository contianing courses.
 #[derive(Debug, Error)]
+#[allow(missing_docs)]
 pub enum RepositoryError {
     #[error("failed to clone repository with URL {0}")]
     CloneRepository(String),
 
-    #[error("failed to create repository directory under .trane/repositories")]
-    InvalidRepositoryDirectory,
+    #[error("failed to create repository metadata directory .trane/repositories")]
+    InvalidMetadataDirectory,
 
     #[error("another repository with ID {0} already exists")]
     DuplicateRepository(String),
@@ -27,9 +28,6 @@ pub enum RepositoryError {
 
     #[error("repository with URL {0} has an invalid URL")]
     InvalidRepositoryURL(String),
-
-    #[error("repository with SSH URL {0} is not supported, use an HTTPS URL instead")]
-    SshRepository(String),
 
     #[error("cannot find repository with ID {0}")]
     UnknownRepository(String),
