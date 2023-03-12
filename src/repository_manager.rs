@@ -325,12 +325,26 @@ mod test {
         Ok(())
     }
 
+    /// Verifies adding a repository with an existing ID.
     #[test]
     fn add_duplicate() -> Result<()> {
         let library_root = tempfile::tempdir()?;
         setup_directories(library_root.path())?;
         let mut manager = LocalRepositoryManager::new(library_root.path())?;
         manager.add_repo(REPO_URL, None)?;
+        assert!(manager.add_repo(REPO_URL, None).is_err());
+        Ok(())
+    }
+
+    /// Verifies adding a repository where the clone directory already exists and is not a
+    /// directory.
+    #[test]
+    fn add_existing_file() -> Result<()> {
+        let library_root = tempfile::tempdir()?;
+        setup_directories(library_root.path())?;
+        let mut manager = LocalRepositoryManager::new(library_root.path())?;
+        let repo_dir = library_root.path().join(DOWNLOAD_DIRECTORY).join(REPO_ID);
+        fs::File::create(&repo_dir)?;
         assert!(manager.add_repo(REPO_URL, None).is_err());
         Ok(())
     }
