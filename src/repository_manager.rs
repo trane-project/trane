@@ -103,7 +103,7 @@ impl LocalRepositoryManager {
             fs::remove_dir_all(&clone_dir)
                 .map_err(|_| RepositoryError::InvalidDownloadDirectory(clone_dir.to_owned()))?;
         }
-        fs::create_dir(&clone_dir)
+        fs::create_dir_all(&clone_dir)
             .map_err(|_| RepositoryError::InvalidDownloadDirectory(clone_dir.to_owned()))?;
         fs_extra::copy_items(
             &[temp_clone_path.to_str().unwrap()],
@@ -258,8 +258,6 @@ mod test {
             .join(TRANE_CONFIG_DIR_PATH)
             .join(REPOSITORY_DIRECTORY);
         fs::create_dir_all(&metadata_dir)?;
-        let download_dir = library_root.join(DOWNLOAD_DIRECTORY);
-        fs::create_dir_all(&download_dir)?;
         Ok(())
     }
 
@@ -343,6 +341,8 @@ mod test {
         let library_root = tempfile::tempdir()?;
         setup_directories(library_root.path())?;
         let mut manager = LocalRepositoryManager::new(library_root.path())?;
+        let download_dir = library_root.path().join(DOWNLOAD_DIRECTORY);
+        fs::create_dir_all(&download_dir)?;
         let repo_dir = library_root.path().join(DOWNLOAD_DIRECTORY).join(REPO_ID);
         fs::File::create(&repo_dir)?;
         assert!(manager.add_repo(REPO_URL, None).is_err());
