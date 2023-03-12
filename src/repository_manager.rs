@@ -156,9 +156,12 @@ impl LocalRepositoryManager {
                 .join(DOWNLOAD_DIRECTORY)
                 .join(&repo_metadata.id);
             if !download_directory.exists() {
-                bail!(RepositoryError::InvalidDownloadDirectory(
-                    download_directory
-                ));
+                // Try to clone the repository if it doesn't exist.
+                manager
+                    .clone_repo(&repo_metadata.url, &repo_metadata.id)
+                    .map_err(|_| {
+                        RepositoryError::InvalidDownloadDirectory(download_directory.to_owned())
+                    })?;
             }
             if git2::Repository::open(&download_directory).is_err() {
                 bail!(RepositoryError::InvalidRepository(download_directory));
@@ -448,7 +451,7 @@ mod test {
         manager.add_repo(REPO_URL, None)?;
         let repo_dir = library_root.path().join(DOWNLOAD_DIRECTORY).join(REPO_ID);
         fs::remove_dir_all(&repo_dir)?;
-        assert!(LocalRepositoryManager::new(library_root.path()).is_err());
+        let _ = LocalRepositoryManager::new(library_root.path())?;
         Ok(())
     }
 
