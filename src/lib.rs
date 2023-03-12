@@ -462,7 +462,7 @@ mod test {
     fn mantra_count() -> Result<()> {
         let dir = tempfile::tempdir()?;
         let trane = Trane::new(dir.path(), dir.path())?;
-        thread::sleep(Duration::from_millis(200));
+        thread::sleep(Duration::from_millis(1000));
         assert!(trane.mantra_count() > 0);
         Ok(())
     }
