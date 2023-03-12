@@ -69,7 +69,7 @@ impl LocalRepositoryManager {
             &fs::read_to_string(path)
                 .map_err(|_| RepositoryError::InvalidRepositoryMetadata(path.to_owned()))?, // grcov-excl-line
         )
-        .map_err(|_| RepositoryError::InvalidRepository(path.to_owned()))?; // grcov-excl-line
+        .map_err(|_| RepositoryError::InvalidRepositoryMetadata(path.to_owned()))?; // grcov-excl-line
         Ok(repo)
     }
 
@@ -85,28 +85,30 @@ impl LocalRepositoryManager {
 
     /// Clones the repository at the given URL into the given directory. If the directory already
     /// exists, it will be deleted and replaced with the new repository.
-    fn clone_repo(url: &str, clone_dir: &Path) -> Result<()> {
-        // The path must be a directory if it exists.
+    fn clone_repo(&self, url: &str, repo_id: &str) -> Result<()> {
+        // The clone path must be a directory if it exists.
+        let clone_dir = self.download_directory.join(repo_id);
         if clone_dir.exists() && !clone_dir.is_dir() {
-            bail!(RepositoryError::InvalidDownloadDirectory(
-                clone_dir.to_owned()
-            ));
+            bail!(RepositoryError::InvalidDownloadDirectory(clone_dir));
         }
 
-        // Clone the repo into a temp directory and then move it to the download directory.
+        // Clone the repo into a temp directory.
         let temp_dir = tempfile::tempdir()?;
-        git2::Repository::clone(url, temp_dir.path())
+        let temp_clone_path = temp_dir.path().join(repo_id);
+        git2::Repository::clone(url, &temp_clone_path)
             .map_err(|_| RepositoryError::CloneRepository(url.to_string()))?;
+
+        // Copy the repo into the download directory.
         if clone_dir.exists() {
-            fs::remove_dir_all(clone_dir)
+            fs::remove_dir_all(&clone_dir)
                 .map_err(|_| RepositoryError::InvalidDownloadDirectory(clone_dir.to_owned()))?;
         }
-        fs::create_dir(clone_dir)
+        fs::create_dir(&clone_dir)
             .map_err(|_| RepositoryError::InvalidDownloadDirectory(clone_dir.to_owned()))?;
-        fs_extra::move_items(
-            &[temp_dir.path().to_str().unwrap()],
-            clone_dir,
-            &fs_extra::dir::CopyOptions::new(),
+        fs_extra::copy_items(
+            &[temp_clone_path.to_str().unwrap()],
+            &self.download_directory,
+            &fs_extra::dir::CopyOptions::new().copy_inside(true),
         )
         .map_err(|_| RepositoryError::InvalidDownloadDirectory(clone_dir.to_owned()))?;
         Ok(())
@@ -132,6 +134,8 @@ impl LocalRepositoryManager {
             fs::read_dir(&repo_dir).map_err(|_| RepositoryError::InvalidMetadataDirectory)?;
         for entry in read_repo_dir {
             // Ignore any directories, invalid files, or files that are not JSON.
+            // grcov-excl-start: These error conditions are not possible if the directory is
+            // properly managed by Trane.
             if entry.is_err() {
                 continue;
             }
@@ -139,6 +143,7 @@ impl LocalRepositoryManager {
             if !entry.path().is_file() || entry.path().extension().unwrap_or_default() != "json" {
                 continue;
             }
+            // grcov-excl-end
 
             // Read the repository metadata and add it to the map.
             let repo_metadata = Self::read_metadata(&entry.path())?;
@@ -186,8 +191,7 @@ impl RepositoryManager for LocalRepositoryManager {
         }
 
         // Clone the repository into the download directory.
-        let download_dir = self.download_directory.join(&repo_id);
-        Self::clone_repo(url, &download_dir)?;
+        self.clone_repo(url, &repo_id)?;
 
         // Add the metadata to the repository directory and the map.
         let repo_metadata = RepositoryMetadata {
@@ -225,8 +229,7 @@ impl RepositoryManager for LocalRepositoryManager {
         // Re-clone the repository to make the logic easier. Otherwise, it would be harder to handle
         // corner cases. Users should not directly modify the cloned repositories.
         let repo_metadata = repo_metadata.unwrap();
-        let clone_dir = self.download_directory.join(repo_id);
-        Self::clone_repo(&repo_metadata.url, &clone_dir)
+        self.clone_repo(&repo_metadata.url, &repo_metadata.id)
     }
 
     fn update_all_repos(&self) -> Result<()> {
@@ -277,11 +280,8 @@ mod test {
         let mut manager = LocalRepositoryManager::new(library_root.path())?;
         manager.add_repo(REPO_URL, None)?;
         assert!(manager.repositories.contains_key(REPO_ID));
-        assert!(library_root
-            .path()
-            .join(DOWNLOAD_DIRECTORY)
-            .join(REPO_ID)
-            .exists());
+        let repo_dir = library_root.path().join(DOWNLOAD_DIRECTORY).join(REPO_ID);
+        assert!(repo_dir.exists());
         assert!(library_root
             .path()
             .join(TRANE_CONFIG_DIR_PATH)
@@ -411,6 +411,47 @@ mod test {
         assert_eq!(repos.len(), 1);
         assert_eq!(repos[0].id, REPO_ID);
         assert_eq!(repos[0].url, REPO_URL);
+        Ok(())
+    }
+
+    /// Verifies opening an existing repository manager.
+    #[test]
+    fn new_existing() -> Result<()> {
+        let library_root = tempfile::tempdir()?;
+        setup_directories(library_root.path())?;
+        let mut manager = LocalRepositoryManager::new(library_root.path())?;
+        manager.add_repo(REPO_URL, None)?;
+        let _ = LocalRepositoryManager::new(library_root.path())?;
+        Ok(())
+    }
+
+    /// Verifies opening a repository manager with a missing repo.
+    #[test]
+    fn new_missing_repo() -> Result<()> {
+        let library_root = tempfile::tempdir()?;
+        setup_directories(library_root.path())?;
+        let mut manager = LocalRepositoryManager::new(library_root.path())?;
+        manager.add_repo(REPO_URL, None)?;
+        let repo_dir = library_root.path().join(DOWNLOAD_DIRECTORY).join(REPO_ID);
+        fs::remove_dir_all(&repo_dir)?;
+        assert!(LocalRepositoryManager::new(library_root.path()).is_err());
+        Ok(())
+    }
+
+    /// Verifies opening a repository manager with a bad repo.
+    #[test]
+    fn new_bad_repo() -> Result<()> {
+        let library_root = tempfile::tempdir()?;
+        setup_directories(library_root.path())?;
+        let mut manager = LocalRepositoryManager::new(library_root.path())?;
+        manager.add_repo(REPO_URL, None)?;
+        let git_dir = library_root
+            .path()
+            .join(DOWNLOAD_DIRECTORY)
+            .join(REPO_ID)
+            .join(".git");
+        fs::remove_dir_all(&git_dir)?;
+        assert!(LocalRepositoryManager::new(library_root.path()).is_err());
         Ok(())
     }
 }

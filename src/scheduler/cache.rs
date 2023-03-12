@@ -204,7 +204,7 @@ impl ScoreCache {
             UnitType::Exercise => match self.get_exercise_score(unit_id) {
                 Err(e) => Err(e), // grcov-excl-line
                 Ok(score) => Ok(Some(score)),
-            },
+            }, // grcov-excl-line
         }
     }
 }
