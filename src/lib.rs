@@ -38,10 +38,12 @@ pub mod blacklist;
 pub mod course_builder;
 pub mod course_library;
 pub mod data;
+pub mod error;
 pub mod filter_manager;
 pub mod graph;
 pub mod mantra_miner;
 pub mod practice_stats;
+pub mod repository_manager;
 pub mod review_list;
 pub mod scheduler;
 pub mod scorer;
@@ -64,6 +66,7 @@ use data::{
 use filter_manager::{FilterManager, LocalFilterManager};
 use graph::UnitGraph;
 use practice_stats::{PracticeStats, PracticeStatsDB};
+use repository_manager::{LocalRepositoryManager, RepositoryManager};
 use scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseScheduler};
 
 /// The path to the folder inside each course library containing the user data.
@@ -83,6 +86,13 @@ pub const FILTERS_DIR: &str = "filters";
 
 /// The path to the file containing user preferences.
 pub const USER_PREFERENCES_PATH: &str = "user_preferences.json";
+
+/// The name of the directory where repositories will be downloaded.
+const DOWNLOAD_DIRECTORY: &str = "managed_courses";
+
+/// The name of the directory where the details on all repositories will be stored. This directory
+/// will be created under the `.trane` directory at the root of the Trane library.
+const REPOSITORY_DIRECTORY: &str = "repositories";
 
 /// Trane is a library for the acquisition of highly hierarchical knowledge and skills based on the
 /// principles of mastery learning and spaced repetition. Given a list of courses, its lessons and
@@ -104,6 +114,9 @@ pub struct Trane {
 
     /// The object containing the information on previous exercise trials.
     practice_stats: Arc<RwLock<dyn PracticeStats + Send + Sync>>,
+
+    /// The object managing git repositories containing courses.
+    repo_manager: Arc<RwLock<dyn RepositoryManager + Send + Sync>>,
 
     /// The object containing the list of units to review.
     review_list: Arc<RwLock<dyn ReviewList + Send + Sync>>,
@@ -149,6 +162,7 @@ impl Trane {
         let filter_manager = Arc::new(RwLock::new(LocalFilterManager::new(
             config_path.join(FILTERS_DIR).to_str().unwrap(),
         )?));
+        let repo_manager = Arc::new(RwLock::new(LocalRepositoryManager::new(library_root)?));
         let mut mantra_miner = TraneMantraMiner::default();
         mantra_miner.mantra_miner.start()?;
 
@@ -170,6 +184,7 @@ impl Trane {
             filter_manager,
             library_root: library_root.to_str().unwrap().to_string(),
             practice_stats,
+            repo_manager,
             review_list,
             scheduler_data: scheduler_data.clone(),
             scheduler: DepthFirstScheduler::new(scheduler_data, SchedulerOptions::default()),
@@ -288,6 +303,28 @@ impl PracticeStats for Trane {
 
     fn trim_scores(&mut self, num_scores: usize) -> Result<()> {
         self.practice_stats.write().trim_scores(num_scores)
+    }
+}
+
+impl RepositoryManager for Trane {
+    fn add_repo(&mut self, url: &str, repo_id: Option<String>) -> Result<()> {
+        self.repo_manager.write().add_repo(url, repo_id)
+    }
+
+    fn remove_repo(&mut self, repo_id: &str) -> Result<()> {
+        self.repo_manager.write().remove_repo(repo_id)
+    }
+
+    fn update_repo(&self, repo_id: &str) -> Result<()> {
+        self.repo_manager.read().update_repo(repo_id)
+    }
+
+    fn update_all_repos(&self) -> Result<()> {
+        self.repo_manager.read().update_all_repos()
+    }
+
+    fn list_repos(&self) -> Result<Vec<data::RepositoryMetadata>> {
+        self.repo_manager.read().list_repos()
     }
 }
 
