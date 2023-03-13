@@ -10,6 +10,7 @@ use anyhow::{bail, Result};
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
+use typeshare::typeshare;
 use ustr::Ustr;
 
 use self::course_generator::{
@@ -23,6 +24,7 @@ use self::course_generator::{
 /// More detailed descriptions of the levels are provided using the example of an exercise that
 /// requires the student to learn a musical passage.
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[typeshare]
 pub enum MasteryScore {
     /// One signifies the student has barely any mastery of the exercise. For a musical passage,
     /// this level of mastery represents the initial attempts at hearing and reading the music, and
@@ -115,6 +117,7 @@ impl MasteryWindow {
 
 /// The type of the units stored in the dependency graph.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[typeshare]
 pub enum UnitType {
     /// A single task, which the student is meant to perform and assess.
     Exercise,
@@ -190,6 +193,8 @@ pub trait GetUnitType {
 /// An asset attached to a unit, which could be used to store instructions, or present the material
 /// introduced by a course or lesson.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(tag = "type", content = "content")]
+#[typeshare]
 pub enum BasicAsset {
     /// An asset containing the path to a markdown file.
     MarkdownAsset {
@@ -207,6 +212,7 @@ pub enum BasicAsset {
     /// replicated across many units.
     InlinedUniqueAsset {
         /// The content of the asset.
+        #[typeshare(serialized_as = "String")]
         content: Ustr,
     },
 }
@@ -240,6 +246,8 @@ impl VerifyPaths for BasicAsset {
 //@<course-generator
 /// A configuration used for generating special types of courses on the fly.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(tag = "type", content = "content")]
+#[typeshare]
 pub enum CourseGenerator {
     /// The configuration for generating an improvisation course.
     Improvisation(ImprovisationConfig),
@@ -260,6 +268,7 @@ pub enum CourseGenerator {
 //@<user-preferences
 /// The user-specific configuration
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[typeshare]
 pub struct UserPreferences {
     /// The preferences for generating improvisation courses.
     pub improvisation: Option<ImprovisationPreferences>,
@@ -318,11 +327,13 @@ impl GenerateManifests for CourseGenerator {
 
 /// A manifest describing the contents of a course.
 #[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[typeshare]
 pub struct CourseManifest {
     /// The ID assigned to this course.
     ///
     /// For example, `music::instrument::guitar::basic_jazz_chords`.
     #[builder(setter(into))]
+    #[typeshare(serialized_as = "String")]
     pub id: Ustr,
 
     /// The name of the course to be presented to the user.
@@ -335,6 +346,7 @@ pub struct CourseManifest {
     /// The IDs of all dependencies of this course.
     #[builder(default)]
     #[serde(default)]
+    #[typeshare(serialized_as = "Vec<String>")]
     pub dependencies: Vec<Ustr>,
 
     /// An optional description of the course.
@@ -356,6 +368,7 @@ pub struct CourseManifest {
     /// might want to only focus on guitar scales or ear training.
     #[builder(default)]
     #[serde(default)]
+    #[typeshare(serialized_as = "Option<HashMap<String, Vec<String>>>")]
     pub metadata: Option<BTreeMap<String, Vec<String>>>,
 
     //>@lp-example-5
@@ -423,20 +436,24 @@ impl GetUnitType for CourseManifest {
 
 /// A manifest describing the contents of a lesson.
 #[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[typeshare]
 pub struct LessonManifest {
     /// The ID assigned to this lesson.
     ///
     /// For example, `music::instrument::guitar::basic_jazz_chords::major_chords`.
     #[builder(setter(into))]
+    #[typeshare(serialized_as = "String")]
     pub id: Ustr,
 
     /// The IDs of all dependencies of this lesson.
     #[builder(default)]
     #[serde(default)]
+    #[typeshare(serialized_as = "Vec<String>")]
     pub dependencies: Vec<Ustr>,
 
     /// The ID of the course to which the lesson belongs.
     #[builder(setter(into))]
+    #[typeshare(serialized_as = "String")]
     pub course_id: Ustr,
 
     /// The name of the lesson to be presented to the user.
@@ -451,11 +468,12 @@ pub struct LessonManifest {
     #[serde(default)]
     pub description: Option<String>,
 
-    //// A mapping of String keys to a list of String values. For example, ("key", ["C"]) could
-    /// be attached to a lesson named "C Major Scale". The purpose is the same as the metadata
-    /// stored in the course manifest but allows finer control over which lessons are selected.
+    //// A mapping of String keys to a list of String values. For example, ("key", ["C"]) could be
+    /// attached to a lesson named "C Major Scale". The purpose is the same as the metadata stored
+    /// in the course manifest but allows finer control over which lessons are selected.
     #[builder(default)]
     #[serde(default)]
+    #[typeshare(serialized_as = "Option<HashMap<String, Vec<String>>>")]
     pub metadata: Option<BTreeMap<String, Vec<String>>>,
 
     /// An optional asset, which presents the material covered in the lesson.
@@ -513,6 +531,7 @@ impl GetUnitType for LessonManifest {
 
 /// The type of knowledge tested by an exercise.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[typeshare]
 pub enum ExerciseType {
     /// Represents an exercise that tests mastery of factual knowledge. For example, an exercise
     /// asking students to name the notes in a D Major chord.
@@ -526,6 +545,8 @@ pub enum ExerciseType {
 
 /// The asset storing the material of a particular exercise.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[typeshare]
+#[serde(tag = "type", content = "content")]
 pub enum ExerciseAsset {
     /// An asset which stores a link to a SoundSlice.
     SoundSliceAsset {
@@ -634,19 +655,23 @@ impl VerifyPaths for ExerciseAsset {
 
 /// Manifest describing a single exercise.
 #[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[typeshare]
 pub struct ExerciseManifest {
     /// The ID assigned to this exercise.
     ///
     /// For example, `music::instrument::guitar::basic_jazz_chords::major_chords::exercise_1`.
     #[builder(setter(into))]
+    #[typeshare(serialized_as = "String")]
     pub id: Ustr,
 
     /// The ID of the lesson to which this exercise belongs.
     #[builder(setter(into))]
+    #[typeshare(serialized_as = "String")]
     pub lesson_id: Ustr,
 
     /// The ID of the course to which this exercise belongs.
     #[builder(setter(into))]
+    #[typeshare(serialized_as = "String")]
     pub course_id: Ustr,
 
     /// The name of the exercise to be presented to the user.
@@ -868,6 +893,7 @@ impl Default for SchedulerOptions {
 
 /// Represents a repository containing Trane courses.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[typeshare]
 pub struct RepositoryMetadata {
     /// The ID of the repository, which is also used to name the directory.
     pub id: String,
