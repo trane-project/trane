@@ -7,13 +7,13 @@
 use anyhow::{bail, Context, Result};
 use std::{collections::HashMap, fs::File, io::BufReader};
 
-use crate::data::filter::NamedFilter;
+use crate::data::filter::SavedFilter;
 
 /// A trait with functions to manage saved filters. Each filter is given a unique name to use as an
 /// identifier and contains a `UnitFilter`.
 pub trait FilterManager {
     /// Gets the filter with the given ID.
-    fn get_filter(&self, id: &str) -> Option<NamedFilter>;
+    fn get_filter(&self, id: &str) -> Option<SavedFilter>;
 
     /// Returns a list of filter IDs and descriptions.
     fn list_filters(&self) -> Vec<(String, String)>;
@@ -22,12 +22,12 @@ pub trait FilterManager {
 /// An implementation of [FilterManager] backed by the local file system.
 pub(crate) struct LocalFilterManager {
     /// A map of filter IDs to filters.
-    filters: HashMap<String, NamedFilter>,
+    filters: HashMap<String, SavedFilter>,
 }
 
 impl LocalFilterManager {
     /// Scans all `NamedFilters` in the given directory and returns a map of filters.
-    fn scan_filters(filter_directory: &str) -> Result<HashMap<String, NamedFilter>> {
+    fn scan_filters(filter_directory: &str) -> Result<HashMap<String, SavedFilter>> {
         let mut filters = HashMap::new();
         for entry in std::fs::read_dir(filter_directory)
             .with_context(|| format!("Failed to read filter directory {filter_directory}"))?
@@ -41,7 +41,7 @@ impl LocalFilterManager {
                 )
             })?;
             let reader = BufReader::new(file);
-            let filter: NamedFilter = serde_json::from_reader(reader).with_context(|| {
+            let filter: SavedFilter = serde_json::from_reader(reader).with_context(|| {
                 format!(
                     "Failed to parse named filter from {}",
                     entry.path().display()
@@ -66,7 +66,7 @@ impl LocalFilterManager {
 }
 
 impl FilterManager for LocalFilterManager {
-    fn get_filter(&self, id: &str) -> Option<NamedFilter> {
+    fn get_filter(&self, id: &str) -> Option<SavedFilter> {
         self.filters.get(id).cloned()
     }
 
@@ -93,7 +93,7 @@ mod test {
 
     use crate::{
         data::filter::{
-            FilterOp, FilterType, KeyValueFilter, MetadataFilter, NamedFilter, UnitFilter,
+            FilterOp, FilterType, KeyValueFilter, MetadataFilter, SavedFilter, UnitFilter,
         },
         filter_manager::FilterManager,
     };
@@ -101,16 +101,16 @@ mod test {
     use super::LocalFilterManager;
 
     /// Creates some unit filters for testing.
-    fn test_filters() -> Vec<NamedFilter> {
+    fn test_filters() -> Vec<SavedFilter> {
         vec![
-            NamedFilter {
+            SavedFilter {
                 id: "filter1".to_string(),
                 description: "Filter 1".to_string(),
                 filter: UnitFilter::CourseFilter {
                     course_ids: vec![Ustr::from("course1")],
                 },
             },
-            NamedFilter {
+            SavedFilter {
                 id: "filter2".to_string(),
                 description: "Filter 2".to_string(),
                 filter: UnitFilter::MetadataFilter {
@@ -143,7 +143,7 @@ mod test {
     }
 
     /// Writes the filters to the given directory.
-    fn write_filters(filters: Vec<NamedFilter>, dir: &Path) -> Result<()> {
+    fn write_filters(filters: Vec<SavedFilter>, dir: &Path) -> Result<()> {
         for filter in filters {
             // Give each file a unique name.
             let timestamp_ns = chrono::Utc::now().timestamp_nanos();
@@ -184,21 +184,21 @@ mod test {
     #[test]
     fn filters_repeated_ids() -> Result<()> {
         let filters = vec![
-            NamedFilter {
+            SavedFilter {
                 id: "filter1".to_string(),
                 description: "Filter 1".to_string(),
                 filter: UnitFilter::CourseFilter {
                     course_ids: vec![Ustr::from("course1")],
                 },
             },
-            NamedFilter {
+            SavedFilter {
                 id: "filter1".to_string(),
                 description: "Filter 1".to_string(),
                 filter: UnitFilter::LessonFilter {
                     lesson_ids: vec![Ustr::from("lesson1")],
                 },
             },
-            NamedFilter {
+            SavedFilter {
                 id: "filter1".to_string(),
                 description: "Filter 1".to_string(),
                 filter: UnitFilter::ReviewListFilter,

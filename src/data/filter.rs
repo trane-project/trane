@@ -268,10 +268,10 @@ impl UnitFilter {
     }
 }
 
-/// A named filter for easy reference.
+/// A saved filter for easy reference.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[typeshare]
-pub struct NamedFilter {
+pub struct SavedFilter {
     /// A unique ID for the filter.
     pub id: String,
 
