@@ -19,6 +19,7 @@ use std::{
     io::BufReader,
     path::Path,
 };
+use typeshare::typeshare;
 use ustr::Ustr;
 
 use super::*;
@@ -128,6 +129,7 @@ impl TranscriptionPassages {
 
 /// Settings for generating a new transcription course that are specific to a user.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[typeshare]
 pub struct TranscriptionPreferences {
     /// The list of instruments the user wants to practice.
     #[serde(default)]
@@ -136,11 +138,13 @@ pub struct TranscriptionPreferences {
 
 /// The configuration used to generate a transcription course.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[typeshare]
 pub struct TranscriptionConfig {
     /// The dependencies on other transcription courses. Specifying these dependencies here instead
     /// of the [CourseManifest](crate::data::CourseManifest) allows Trane to generate more
     /// fine-grained dependencies.
     #[serde(default)]
+    #[typeshare(serialized_as = "Vec<String>")]
     pub transcription_dependencies: Vec<Ustr>,
 
     /// The directory where the passages are stored as JSON files whose contents are serialized
