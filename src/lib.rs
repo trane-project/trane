@@ -59,7 +59,7 @@ use crate::mantra_miner::TraneMantraMiner;
 use blacklist::{Blacklist, BlacklistDB};
 use course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary};
 use data::{
-    filter::{NamedFilter, UnitFilter},
+    filter::{SavedFilter, UnitFilter},
     CourseManifest, ExerciseManifest, ExerciseTrial, LessonManifest, MasteryScore,
     SchedulerOptions, UnitType,
 };
@@ -274,7 +274,7 @@ impl CourseLibrary for Trane {
 }
 
 impl FilterManager for Trane {
-    fn get_filter(&self, id: &str) -> Option<NamedFilter> {
+    fn get_filter(&self, id: &str) -> Option<SavedFilter> {
         self.filter_manager.read().get_filter(id)
     }
 
