@@ -180,36 +180,42 @@ impl CandidateFilter {
         // Initialize the final list. For each window in descending order of mastery, add the
         // appropriate number of candidates to the final list.
         let mut final_candidates = Vec::with_capacity(options.batch_size);
-        let num_mastered = (batch_size_float * options.mastered_window_opts.percentage) as usize;
+        let num_mastered =
+            (batch_size_float * options.mastered_window_opts.percentage).max(1.0) as usize;
         let (mastered_selected, mastered_remainder) =
             Self::select_candidates(mastered_candidates, num_mastered);
         final_candidates.extend(mastered_selected);
 
         // Add elements from the easy window.
-        let num_easy = (batch_size_float * options.easy_window_opts.percentage) as usize;
+        let num_easy = (batch_size_float * options.easy_window_opts.percentage).max(1.0) as usize;
         let (easy_selected, easy_remainder) = Self::select_candidates(easy_candidates, num_easy);
         final_candidates.extend(easy_selected);
 
         // Add elements from the current window.
-        let num_current = (batch_size_float * options.current_window_opts.percentage) as usize;
+        let num_current =
+            (batch_size_float * options.current_window_opts.percentage).max(1.0) as usize;
         let (current_selected, current_remainder) =
             Self::select_candidates(current_candidates, num_current);
         final_candidates.extend(current_selected);
 
-        // For the target window, add as many candidates as possible to fill the batch.
-        let remainder = options.batch_size - final_candidates.len();
-        let (target_selected, _) = Self::select_candidates(target_candidates, remainder);
+        // Add elements from the target window.
+        let num_target =
+            (batch_size_float * options.target_window_opts.percentage).max(1.0) as usize;
+        let (target_selected, target_remainder) =
+            Self::select_candidates(target_candidates, num_target);
         final_candidates.extend(target_selected);
 
-        // Go through the remainders in ascending order of difficulty and add them to the list of
-        // final candidates if there's still space left in the batch.
+        // Go through the remainders and add them to the list of final candidates if there's still
+        // space left in the batch. Add the remainder from the current window first, then the
+        // easy window, and finally the target and mastered windows.
+        Self::add_remainder(options.batch_size, &mut final_candidates, current_remainder);
+        Self::add_remainder(options.batch_size, &mut final_candidates, easy_remainder);
+        Self::add_remainder(options.batch_size, &mut final_candidates, target_remainder);
         Self::add_remainder(
             options.batch_size,
             &mut final_candidates,
             mastered_remainder,
         );
-        Self::add_remainder(options.batch_size, &mut final_candidates, easy_remainder);
-        Self::add_remainder(options.batch_size, &mut final_candidates, current_remainder);
 
         // Convert the list of candidates into a list of tuples of exercise IDs and manifests.
         self.candidates_to_exercises(final_candidates)
