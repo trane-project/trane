@@ -6,7 +6,6 @@
 //! manifests always match the current version of Trane.
 
 use serde::{Deserialize, Serialize};
-use typeshare::typeshare;
 
 pub mod improvisation;
 pub mod knowledge_base;
@@ -16,7 +15,6 @@ pub mod transcription;
 //@<instrument
 /// Describes an instrument that can be used to practice in a generated course.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[typeshare]
 pub struct Instrument {
     /// The name of the instrument. For example, "Tenor Saxophone".
     pub name: String,

@@ -9,7 +9,6 @@ use std::{
     io::BufReader,
     path::Path,
 };
-use typeshare::typeshare;
 use ustr::{Ustr, UstrMap};
 
 use crate::data::{
@@ -491,7 +490,6 @@ impl From<KnowledgeBaseLesson> for LessonManifest {
 /// added for consistency with other course generators and to implement the
 /// [GenerateManifests](crate::data::GenerateManifests) trait.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[typeshare]
 pub struct KnowledgeBaseConfig {}
 
 impl KnowledgeBaseConfig {
