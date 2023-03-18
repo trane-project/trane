@@ -74,6 +74,15 @@ pub trait ExerciseScheduler {
     /// object in lib.rs takes care of clearing the cache when exposing the interface that modifies
     /// the blacklist.
     fn invalidate_cached_score(&self, unit_id: &Ustr);
+
+    /// Returns the options used to control the behavior of the scheduler.
+    fn get_scheduler_options(&self) -> SchedulerOptions;
+
+    /// Sets the options used to control the behavior of the scheduler.
+    fn set_scheduler_options(&mut self, options: SchedulerOptions);
+
+    /// Resets the options used to control the behavior of the scheduler to their default values.
+    fn reset_scheduler_options(&mut self);
 }
 
 /// An item in the stack of units that are scheduled for traversal during the process of scheduling
@@ -762,5 +771,17 @@ impl ExerciseScheduler for DepthFirstScheduler {
 
     fn invalidate_cached_score(&self, unit_id: &Ustr) {
         self.score_cache.invalidate_cached_score(unit_id);
+    }
+
+    fn get_scheduler_options(&self) -> SchedulerOptions {
+        self.data.options.clone()
+    }
+
+    fn set_scheduler_options(&mut self, options: SchedulerOptions) {
+        self.data.options = options;
+    }
+
+    fn reset_scheduler_options(&mut self) {
+        self.data.options = SchedulerOptions::default();
     }
 }

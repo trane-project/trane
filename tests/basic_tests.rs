@@ -37,9 +37,10 @@ use trane::{
     course_library::CourseLibrary,
     data::{
         filter::{FilterOp, FilterType, KeyValueFilter, MetadataFilter, UnitFilter},
-        MasteryScore,
+        MasteryScore, SchedulerOptions,
     },
     review_list::ReviewList,
+    scheduler::ExerciseScheduler,
     testutil::*,
 };
 use ustr::Ustr;
@@ -1591,5 +1592,45 @@ fn course_library_search_exercises() -> Result<()> {
     let search_results = trane.search("\"Description for exercise 2::1::7\"")?;
     let expected_id = TestId(2, Some(1), Some(7)).to_ustr();
     assert!(search_results.contains(&expected_id));
+    Ok(())
+}
+
+/// Verifies setting the scheduler options.
+#[test]
+fn set_scheduler_options() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+
+    // Set the scheduler options to have a batch size of ten.
+    let mut scheduler_options = SchedulerOptions::default();
+    scheduler_options.batch_size = 10;
+    trane.set_scheduler_options(scheduler_options);
+
+    // Verify the scheduler options were set.
+    let scheduler_options = trane.get_scheduler_options();
+    assert_eq!(scheduler_options.batch_size, 10);
+    Ok(())
+}
+
+// Verifies resetting the scheduler options.
+#[test]
+fn reset_scheduler_options() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+
+    // Set the scheduler options to have a batch size of ten.
+    let mut scheduler_options = SchedulerOptions::default();
+    scheduler_options.batch_size = 10;
+    trane.set_scheduler_options(scheduler_options);
+
+    // Reset the scheduler options and verify the scheduler options were reset.
+    trane.reset_scheduler_options();
+    let scheduler_options = trane.get_scheduler_options();
+    assert_eq!(
+        scheduler_options.batch_size,
+        SchedulerOptions::default().batch_size
+    );
     Ok(())
 }
