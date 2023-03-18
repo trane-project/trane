@@ -362,6 +362,18 @@ impl ExerciseScheduler for Trane {
     fn invalidate_cached_score(&self, unit_id: &Ustr) {
         self.scheduler.invalidate_cached_score(unit_id)
     }
+
+    fn get_scheduler_options(&self) -> SchedulerOptions {
+        self.scheduler.get_scheduler_options()
+    }
+
+    fn set_scheduler_options(&mut self, options: SchedulerOptions) {
+        self.scheduler.set_scheduler_options(options)
+    }
+
+    fn reset_scheduler_options(&mut self) {
+        self.scheduler.reset_scheduler_options()
+    }
 }
 
 impl UnitGraph for Trane {
