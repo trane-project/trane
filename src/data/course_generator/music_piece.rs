@@ -8,7 +8,6 @@ use anyhow::Result;
 use indoc::{formatdoc, indoc};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::Path};
-use typeshare::typeshare;
 use ustr::Ustr;
 
 use crate::data::{
@@ -26,8 +25,6 @@ const INSTRUCTIONS: &str = indoc! {"
 //@<music-asset
 /// Represents a music asset to be practiced.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(tag = "type", content = "content")]
-#[typeshare]
 pub enum MusicAsset {
     /// A link to a SoundSlice.
     SoundSlice(String),
@@ -73,7 +70,6 @@ impl MusicAsset {
 //@<music-passage
 /// Represents a music passage to be practiced.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[typeshare]
 pub struct MusicPassage {
     /// The start of the passage.
     pub start: String,
@@ -86,7 +82,6 @@ pub struct MusicPassage {
     /// Those values should not change once they are defined or progress for this lesson will be
     /// lost. This value is a map instead of a list because rearranging the order of the
     /// passages in a list would also change the IDs of the generated lessons.
-    #[typeshare(serialized_as = "HashMap<u32, MusicPassage>")]
     pub sub_passages: HashMap<usize, MusicPassage>,
 }
 //>@music-passage
@@ -175,7 +170,6 @@ impl MusicPassage {
 //@<music-piece-config
 /// The config to create a course that teaches a piece of music.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[typeshare]
 pub struct MusicPieceConfig {
     /// The asset containing the music to be practiced.
     pub music_asset: MusicAsset,

@@ -11,14 +11,12 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use typeshare::typeshare;
 use ustr::Ustr;
 
 use crate::data::GetMetadata;
 
 /// The logical operation used to combine multiple filters.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[typeshare]
 pub enum FilterOp {
     /// A filter returns true if all its sub-filters pass.
     All,
@@ -29,7 +27,6 @@ pub enum FilterOp {
 
 /// The type of filter according to whether the units which match are included or excluded.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[typeshare]
 pub enum FilterType {
     /// A filter which includes the units that match it.
     Include,
@@ -40,8 +37,6 @@ pub enum FilterType {
 
 /// A filter on course or lesson metadata.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(tag = "type", content = "content")]
-#[typeshare]
 pub enum KeyValueFilter {
     /// A basic filter that matches a key value pair.
     BasicFilter {
@@ -120,7 +115,6 @@ impl KeyValueFilter {
 
 /// A filter on course and/or lesson metadata.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[typeshare]
 pub struct MetadataFilter {
     /// The filter to apply on course metadata.
     #[serde(default)]
@@ -137,20 +131,16 @@ pub struct MetadataFilter {
 // grcov-excl-start: Code coverage for this struct is flaky for some unknown reason.
 /// A filter on a course or lesson manifest.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(tag = "type", content = "content")]
-#[typeshare]
 pub enum UnitFilter {
     /// A filter to show exercises belonging to the given courses.
     CourseFilter {
         /// The IDs of the courses to filter.
-        #[typeshare(serialized_as = "Vec<String>")]
         course_ids: Vec<Ustr>,
     },
 
     /// A filter to show exercises belonging to the given lessons.
     LessonFilter {
         /// The IDs of the lessons to filter.
-        #[typeshare(serialized_as = "Vec<String>")]
         lesson_ids: Vec<Ustr>,
     },
 
@@ -166,18 +156,15 @@ pub enum UnitFilter {
     /// A filter that schedules exercises from all the given units and its dependents.
     Dependents {
         /// The IDs of the units from which to start the search.
-        #[typeshare(serialized_as = "Vec<String>")]
         unit_ids: Vec<Ustr>,
     },
 
     /// A filter that schedules exercies from the dependencies of the given units.
     Dependencies {
         /// The IDs from which to look up the dependencies.
-        #[typeshare(serialized_as = "Vec<String>")]
         unit_ids: Vec<Ustr>,
 
         /// The depth of the dependency tree to search.
-        #[typeshare(serialized_as = "u32")]
         depth: usize,
     },
 }
@@ -271,7 +258,6 @@ impl UnitFilter {
 //@<saved-filter
 /// A saved filter for easy reference.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[typeshare]
 pub struct SavedFilter {
     /// A unique ID for the filter.
     pub id: String,
