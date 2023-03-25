@@ -14,6 +14,7 @@ use std::{
     collections::{BTreeMap, HashSet},
     path::Path,
 };
+use typeshare::typeshare;
 use ustr::Ustr;
 
 use super::*;
@@ -59,11 +60,13 @@ impl ImprovisationPassage {
 //@<improvisation-config
 /// The configuration for creating a new improvisation course.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[typeshare]
 pub struct ImprovisationConfig {
     /// The dependencies on other improvisation courses. Specifying these dependencies here instead
     /// of the [CourseManifest](crate::data::CourseManifest) allows Trane to generate more
     /// fine-grained dependencies.
     #[serde(default)]
+    #[typeshare(serialized_as = "Vec<String>")]
     pub improvisation_dependencies: Vec<Ustr>,
 
     /// If true, the course contains passages only have rhythm and contain no melodic nor harmonic
@@ -89,6 +92,7 @@ pub struct ImprovisationConfig {
 //@<improvisation-preferences
 /// Settings for generating a new improvisation course that are specific to a user.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[typeshare]
 pub struct ImprovisationPreferences {
     /// The list of instruments the user wants to practice.
     #[serde(default)]

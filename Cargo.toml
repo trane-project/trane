@@ -32,6 +32,7 @@ strum = { version = "0.24.1", features = ["derive"] }
 tantivy = "0.19.2"
 tempfile = "3.4.0"
 thiserror = "1.0.40"
+typeshare = "1.0.1"
 url = "2.3.1"
 ustr = { version = "0.9.0", features = ["serialization"] }
 walkdir = "2.3.3"
