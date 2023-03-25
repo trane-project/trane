@@ -268,6 +268,7 @@ impl UnitFilter {
     }
 }
 
+//@<saved-filter
 /// A saved filter for easy reference.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[typeshare]
@@ -281,6 +282,7 @@ pub struct SavedFilter {
     /// The filter to apply.
     pub filter: UnitFilter,
 }
+//>@saved-filter
 
 #[cfg(test)]
 mod test {
