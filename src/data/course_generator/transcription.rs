@@ -127,7 +127,7 @@ impl TranscriptionPassages {
 }
 
 /// Settings for generating a new transcription course that are specific to a user.
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct TranscriptionPreferences {
     /// The list of instruments the user wants to practice.
     #[serde(default)]

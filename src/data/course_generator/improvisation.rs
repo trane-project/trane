@@ -88,7 +88,7 @@ pub struct ImprovisationConfig {
 
 //@<improvisation-preferences
 /// Settings for generating a new improvisation course that are specific to a user.
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct ImprovisationPreferences {
     /// The list of instruments the user wants to practice.
     #[serde(default)]

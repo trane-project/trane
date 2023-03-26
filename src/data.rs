@@ -855,7 +855,7 @@ impl Default for SchedulerOptions {
 }
 
 /// Represents the scheduler's options that can be customized by the user.
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct SchedulerPreferences {
     /// The maximum number of candidates to return each time the scheduler is called.
     #[serde(default)]
@@ -874,7 +874,7 @@ pub struct RepositoryMetadata {
 
 //@<user-preferences
 /// The user-specific configuration
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct UserPreferences {
     /// The preferences for generating improvisation courses.
     pub improvisation: Option<ImprovisationPreferences>,
@@ -1248,5 +1248,24 @@ mod test {
             url: "url".to_string(),
         };
         assert_eq!(metadata, metadata.clone());
+    }
+
+    /// Verifies the clone method for the `UserPreferences` struct. Written to satisfy code
+    /// coverage.
+    #[test]
+    fn user_preferences_clone() {
+        let preferences = UserPreferences {
+            improvisation: Some(ImprovisationPreferences {
+                instruments: vec![],
+                rhythm_instruments: vec![],
+            }),
+            transcription: Some(TranscriptionPreferences {
+                instruments: vec![],
+            }),
+            scheduler: Some(SchedulerPreferences {
+                batch_size: Some(10),
+            }),
+        };
+        assert_eq!(preferences, preferences.clone());
     }
 }
