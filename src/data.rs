@@ -887,6 +887,12 @@ pub struct UserPreferences {
     /// The preferences for customizing the behavior of the scheduler.
     #[serde(default)]
     pub scheduler: Option<SchedulerPreferences>,
+
+    /// The paths to ignore when opening the course library. The paths are relative to the
+    /// repository root. All child paths are also ignored. For example, adding the directory
+    /// "foo/bar" will ignore any courses in "foo/bar" or any of its subdirectories.
+    #[serde(default)]
+    pub ignored_paths: Vec<String>,
 }
 //>@user-preferences
 
@@ -1268,6 +1274,7 @@ mod test {
             scheduler: Some(SchedulerPreferences {
                 batch_size: Some(10),
             }),
+            ignored_paths: vec!["courses/".to_owned()],
         };
         assert_eq!(preferences, preferences.clone());
     }

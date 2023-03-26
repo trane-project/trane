@@ -37,6 +37,7 @@ lazy_static! {
                 id: "drums".to_string(),
             }],
         }),
+        ignored_paths: vec![],
         scheduler: None,
         transcription: None,
     };
