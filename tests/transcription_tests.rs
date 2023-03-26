@@ -38,6 +38,7 @@ lazy_static! {
                 },
             ],
         }),
+        ignored_paths: vec![],
         improvisation: None,
         scheduler: None,
     };

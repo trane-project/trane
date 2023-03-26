@@ -549,6 +549,7 @@ mod test {
             scheduler: None,
             improvisation: None,
             transcription: None,
+            ignored_paths: vec![],
         };
         let options = Trane::create_scheduler_options(&user_preferences.scheduler);
         assert_eq!(options.batch_size, SchedulerOptions::default().batch_size);
@@ -560,6 +561,7 @@ mod test {
             }),
             improvisation: None,
             transcription: None,
+            ignored_paths: vec![],
         };
         let options = Trane::create_scheduler_options(&user_preferences.scheduler);
         assert_eq!(options.batch_size, 10);

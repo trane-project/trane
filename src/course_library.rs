@@ -532,6 +532,19 @@ impl LocalCourseLibrary {
         // Initialize the search index writer with an initial arena size of 50 MB.
         let mut index_writer = library.index.writer(50_000_000)?;
 
+        // Convert the list of paths to ignore into absolute paths.
+        let absolute_root = library_root.canonicalize()?;
+        let ignored_paths = library
+            .user_preferences
+            .ignored_paths
+            .iter()
+            .map(|path| {
+                let mut absolute_path = absolute_root.to_path_buf();
+                absolute_path.push(path);
+                absolute_path
+            })
+            .collect::<Vec<_>>();
+
         // Start a search from the library root. Courses can be located at any level within the
         // library root. However, the course manifests, assets, and its lessons and exercises follow
         // a fixed structure.
@@ -547,6 +560,14 @@ impl LocalCourseLibrary {
                     // Ignore any files which are not named `course_manifest.json`.
                     let file_name = Self::get_file_name(dir_entry.path())?;
                     if file_name != COURSE_MANIFEST_FILENAME {
+                        continue;
+                    }
+
+                    // Ignore any directory that matches the list of paths to ignore.
+                    if ignored_paths
+                        .iter()
+                        .any(|ignored_path| dir_entry.path().starts_with(ignored_path))
+                    {
                         continue;
                     }
 

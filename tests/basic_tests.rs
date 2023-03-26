@@ -37,7 +37,7 @@ use trane::{
     course_library::CourseLibrary,
     data::{
         filter::{FilterOp, FilterType, KeyValueFilter, MetadataFilter, UnitFilter},
-        MasteryScore, SchedulerOptions,
+        MasteryScore, SchedulerOptions, UserPreferences,
     },
     review_list::ReviewList,
     scheduler::ExerciseScheduler,
@@ -1632,5 +1632,31 @@ fn reset_scheduler_options() -> Result<()> {
         scheduler_options.batch_size,
         SchedulerOptions::default().batch_size
     );
+    Ok(())
+}
+
+/// Verifies ignoring courses specified in the user preferences.
+#[test]
+fn ignored_paths() -> Result<()> {
+    // Set the user preferences to ignore some courses.
+    let user_preferences = UserPreferences {
+        ignored_paths: vec!["course_0/".to_owned(), "course_5/".to_owned()],
+        ..Default::default()
+    };
+
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let course_builders = BASIC_LIBRARY
+        .iter()
+        .map(|c| c.course_builder())
+        .collect::<Result<Vec<_>>>()?;
+    let trane = init_simulation(&temp_dir.path(), &course_builders, Some(&user_preferences))?;
+
+    // Verify the courses in the list are ignored.
+    let exercise_ids = trane.get_all_exercise_ids()?;
+    println!("{:?}", exercise_ids);
+    assert!(!exercise_ids.is_empty());
+    assert!(exercise_ids.iter().all(|id| !id.starts_with("0::")));
+    assert!(exercise_ids.iter().all(|id| !id.starts_with("5::")));
     Ok(())
 }
