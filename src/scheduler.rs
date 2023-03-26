@@ -135,10 +135,10 @@ pub(crate) struct DepthFirstScheduler {
 
 impl DepthFirstScheduler {
     /// Creates a new scheduler.
-    pub fn new(data: SchedulerData, options: SchedulerOptions) -> Self {
+    pub fn new(data: SchedulerData) -> Self {
         Self {
             data: data.clone(),
-            score_cache: ScoreCache::new(data.clone(), options),
+            score_cache: ScoreCache::new(data.clone(), data.options.clone()),
             filter: CandidateFilter::new(data),
         }
     }

@@ -37,6 +37,7 @@ lazy_static! {
                 id: "drums".to_string(),
             }],
         }),
+        scheduler: None,
         transcription: None,
     };
 }
