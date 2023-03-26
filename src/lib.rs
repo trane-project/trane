@@ -184,7 +184,7 @@ impl Trane {
         let options = Self::create_scheduler_options(&user_preferences.scheduler);
         options.verify()?;
         let scheduler_data = SchedulerData {
-            options: options.clone(),
+            options,
             course_library: course_library.clone(),
             unit_graph: unit_graph.clone(),
             practice_stats: practice_stats.clone(),
