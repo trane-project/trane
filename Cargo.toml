@@ -1,6 +1,6 @@
 [package]
 name = "trane"
-version = "0.13.5"
+version = "0.13.6"
 edition = "2021"
 description = "An automated system for learning complex skills"
 license = "AGPL-3.0"
