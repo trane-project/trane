@@ -23,7 +23,7 @@ const HTTPS_PREFIX: &str = "https://";
 pub trait RepositoryManager {
     /// Downloads the courses from the given git repository into the given directory. The ID will
     /// also be used to identify the repository in the future and as the name of the directory. If
-    /// ommitted, the name of the repository will be used to generate an ID.
+    /// omitted, the name of the repository will be used to generate an ID.
     fn add_repo(&mut self, url: &str, repo_id: Option<String>) -> Result<()>;
 
     /// Removes the repository with the given ID.
@@ -116,7 +116,7 @@ impl LocalRepositoryManager {
 
     /// Opens the download directory and tracks all the existing repositories.
     pub fn new(library_root: &Path) -> Result<LocalRepositoryManager> {
-        // Craete the repository manager and the repository directory if it doesn't exist.
+        // Create the repository manager and the repository directory if it doesn't exist.
         let repo_dir = library_root
             .join(TRANE_CONFIG_DIR_PATH)
             .join(REPOSITORY_DIRECTORY);
