@@ -61,7 +61,7 @@ use course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary};
 use data::{
     filter::{SavedFilter, UnitFilter},
     CourseManifest, ExerciseManifest, ExerciseTrial, LessonManifest, MasteryScore,
-    SchedulerOptions, UnitType,
+    SchedulerOptions, SchedulerPreferences, UnitType, UserPreferences,
 };
 use filter_manager::{FilterManager, LocalFilterManager};
 use graph::UnitGraph;
@@ -137,6 +137,18 @@ pub struct Trane {
 }
 
 impl Trane {
+    /// Creates the scheduler options, overriding any values with those specified in the user
+    /// preferences.
+    fn create_scheduler_options(preferences: &Option<SchedulerPreferences>) -> SchedulerOptions {
+        let mut options = SchedulerOptions::default();
+        if let Some(preferences) = preferences {
+            if let Some(batch_size) = preferences.batch_size {
+                options.batch_size = batch_size;
+            }
+        }
+        options
+    }
+
     /// Creates a new instance of the library given the path to the root of a course library. The
     /// user data will be stored in a directory named `.trane` inside the library root directory.
     /// The working directory will be used to resolve relative paths.
@@ -149,6 +161,7 @@ impl Trane {
             &working_dir.join(library_root),
         )?));
 
+        // Build all the components needed to create a Trane instance.
         let unit_graph = course_library.write().get_unit_graph();
         let practice_stats = Arc::new(RwLock::new(PracticeStatsDB::new_from_disk(
             config_path.join(PRACTICE_STATS_PATH).to_str().unwrap(),
@@ -166,7 +179,9 @@ impl Trane {
         let mut mantra_miner = TraneMantraMiner::default();
         mantra_miner.mantra_miner.start()?;
 
-        let options = SchedulerOptions::default();
+        // Build the scheduler options and data.
+        let user_preferences = course_library.read().get_user_preferences();
+        let options = Self::create_scheduler_options(&user_preferences.scheduler);
         options.verify()?;
         let scheduler_data = SchedulerData {
             options,
@@ -187,7 +202,7 @@ impl Trane {
             repo_manager,
             review_list,
             scheduler_data: scheduler_data.clone(),
-            scheduler: DepthFirstScheduler::new(scheduler_data, SchedulerOptions::default()),
+            scheduler: DepthFirstScheduler::new(scheduler_data),
             unit_graph,
             mantra_miner,
         })
@@ -270,6 +285,10 @@ impl CourseLibrary for Trane {
 
     fn search(&self, query: &str) -> Result<Vec<Ustr>> {
         self.course_library.read().search(query)
+    }
+
+    fn get_user_preferences(&self) -> UserPreferences {
+        self.course_library.read().get_user_preferences()
     }
 }
 
@@ -458,7 +477,10 @@ mod test {
     use anyhow::Result;
     use std::{fs::*, os::unix::prelude::PermissionsExt, thread, time::Duration};
 
-    use crate::Trane;
+    use crate::{
+        data::{SchedulerOptions, SchedulerPreferences, UserPreferences},
+        Trane,
+    };
 
     /// Verifies retrieving the root of a library.
     #[test]
@@ -516,6 +538,31 @@ mod test {
         let dir = tempfile::tempdir()?;
         let trane = Trane::new(dir.path(), dir.path())?;
         trane.get_scheduler_data();
+        Ok(())
+    }
+
+    /// Verifies building the scheduler options from the user preferences.
+    #[test]
+    fn scheduler_options() -> Result<()> {
+        // Test with no preferences.
+        let user_preferences = UserPreferences {
+            scheduler: None,
+            improvisation: None,
+            transcription: None,
+        };
+        let options = Trane::create_scheduler_options(&user_preferences.scheduler);
+        assert_eq!(options.batch_size, SchedulerOptions::default().batch_size);
+
+        // Test with preferences.
+        let user_preferences = UserPreferences {
+            scheduler: Some(SchedulerPreferences {
+                batch_size: Some(10),
+            }),
+            improvisation: None,
+            transcription: None,
+        };
+        let options = Trane::create_scheduler_options(&user_preferences.scheduler);
+        assert_eq!(options.batch_size, 10);
         Ok(())
     }
 }

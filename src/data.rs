@@ -257,18 +257,6 @@ pub enum CourseGenerator {
 }
 //>@course-generator
 
-//@<user-preferences
-/// The user-specific configuration
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct UserPreferences {
-    /// The preferences for generating improvisation courses.
-    pub improvisation: Option<ImprovisationPreferences>,
-
-    /// The preferences for generating transcription courses.
-    pub transcription: Option<TranscriptionPreferences>,
-}
-//>@user-preferences
-
 /// A struct holding the results from running a course generator.
 pub struct GeneratedCourse {
     /// The lessons and exercise manifests generated for the course.
@@ -770,7 +758,7 @@ impl PassingScoreOptions {
 /// Options to control how the scheduler selects exercises.
 #[derive(Clone, Debug)]
 pub struct SchedulerOptions {
-    /// The maximum number of candidates to return each time the scheduler is worked.
+    /// The maximum number of candidates to return each time the scheduler is called.
     pub batch_size: usize,
 
     /// The options of the target mastery window. That is, the window of exercises that lie outside
@@ -866,6 +854,14 @@ impl Default for SchedulerOptions {
     }
 }
 
+/// Represents the scheduler's options that can be customized by the user.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub struct SchedulerPreferences {
+    /// The maximum number of candidates to return each time the scheduler is called.
+    #[serde(default)]
+    pub batch_size: Option<usize>,
+}
+
 /// Represents a repository containing Trane courses.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct RepositoryMetadata {
@@ -875,6 +871,21 @@ pub struct RepositoryMetadata {
     /// The URL of the repository.
     pub url: String,
 }
+
+//@<user-preferences
+/// The user-specific configuration
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub struct UserPreferences {
+    /// The preferences for generating improvisation courses.
+    pub improvisation: Option<ImprovisationPreferences>,
+
+    /// The preferences for generating transcription courses.
+    pub transcription: Option<TranscriptionPreferences>,
+
+    /// The preferences for customizing the behavior of the scheduler.
+    pub scheduler: Option<SchedulerPreferences>,
+}
+//>@user-preferences
 
 #[cfg(test)]
 mod test {
@@ -1237,5 +1248,24 @@ mod test {
             url: "url".to_string(),
         };
         assert_eq!(metadata, metadata.clone());
+    }
+
+    /// Verifies the clone method for the `UserPreferences` struct. Written to satisfy code
+    /// coverage.
+    #[test]
+    fn user_preferences_clone() {
+        let preferences = UserPreferences {
+            improvisation: Some(ImprovisationPreferences {
+                instruments: vec![],
+                rhythm_instruments: vec![],
+            }),
+            transcription: Some(TranscriptionPreferences {
+                instruments: vec![],
+            }),
+            scheduler: Some(SchedulerPreferences {
+                batch_size: Some(10),
+            }),
+        };
+        assert_eq!(preferences, preferences.clone());
     }
 }

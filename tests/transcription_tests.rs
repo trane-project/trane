@@ -39,6 +39,7 @@ lazy_static! {
             ],
         }),
         improvisation: None,
+        scheduler: None,
     };
 }
 
