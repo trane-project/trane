@@ -842,11 +842,11 @@ impl Default for SchedulerOptions {
             },
             easy_window_opts: MasteryWindow {
                 percentage: 0.2,
-                range: (3.75, 4.7),
+                range: (3.75, 4.5),
             },
             mastered_window_opts: MasteryWindow {
                 percentage: 0.1,
-                range: (4.7, 5.0),
+                range: (4.5, 5.0),
             },
             passing_score: PassingScoreOptions::default(),
             num_trials: 20,
