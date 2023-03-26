@@ -877,12 +877,15 @@ pub struct RepositoryMetadata {
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct UserPreferences {
     /// The preferences for generating improvisation courses.
+    #[serde(default)]
     pub improvisation: Option<ImprovisationPreferences>,
 
     /// The preferences for generating transcription courses.
+    #[serde(default)]
     pub transcription: Option<TranscriptionPreferences>,
 
     /// The preferences for customizing the behavior of the scheduler.
+    #[serde(default)]
     pub scheduler: Option<SchedulerPreferences>,
 }
 //>@user-preferences
