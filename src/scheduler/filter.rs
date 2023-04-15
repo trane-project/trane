@@ -36,6 +36,11 @@ const MAX_DEPTH_WEIGHT: f32 = 100.0;
 /// value. Each time an exercise is scheduled, this portion of the weight is halved.
 const MAX_FREQUENCY_WEIGHT: f32 = 200.0;
 
+/// The size of the batch that will be used if there are not enough candidates to create a batch of
+/// the size specified in the scheduler options. Meant to avoid scheduling every or most exercises
+/// in each batch when there are only a few candidates.
+const SMALL_BATCH_SIZE: usize = 10;
+
 /// The filter used to reduce the candidates found during the search to a final batch of exercises.
 pub(super) struct CandidateFilter {
     /// The data needed to run the candidate filter.
@@ -159,6 +164,18 @@ impl CandidateFilter {
         Ok(exercises)
     }
 
+    /// Computes the batch size to use based on the number of candidates and the batch size defined
+    /// in the scheduler options.
+    fn dynamic_batch_size(batch_size: usize, num_candidates: usize) -> usize {
+        if batch_size < SMALL_BATCH_SIZE {
+            return batch_size;
+        }
+        if num_candidates < batch_size * 2 {
+            return SMALL_BATCH_SIZE;
+        }
+        batch_size
+    }
+
     /// Takes a list of exercises and filters them so that the end result is a list of exercise
     /// manifests which fit the mastery windows defined in the scheduler options.
     pub fn filter_candidates(
@@ -166,7 +183,8 @@ impl CandidateFilter {
         candidates: Vec<Candidate>,
     ) -> Result<Vec<(Ustr, ExerciseManifest)>> {
         let options = &self.data.options;
-        let batch_size_float = options.batch_size as f32;
+        let batch_size = Self::dynamic_batch_size(options.batch_size, candidates.len());
+        let batch_size_float = batch_size as f32;
 
         // Find the candidates that fit in each window.
         let mastered_candidates =
@@ -179,7 +197,7 @@ impl CandidateFilter {
 
         // Initialize the final list. For each window in descending order of mastery, add the
         // appropriate number of candidates to the final list.
-        let mut final_candidates = Vec::with_capacity(options.batch_size);
+        let mut final_candidates = Vec::with_capacity(batch_size);
         let num_mastered =
             (batch_size_float * options.mastered_window_opts.percentage).max(1.0) as usize;
         let (mastered_selected, mastered_remainder) =
@@ -208,16 +226,41 @@ impl CandidateFilter {
         // Go through the remainders and add them to the list of final candidates if there's still
         // space left in the batch. Add the remainder from the current window first, then the
         // easy window, and finally the target and mastered windows.
-        Self::add_remainder(options.batch_size, &mut final_candidates, current_remainder);
-        Self::add_remainder(options.batch_size, &mut final_candidates, easy_remainder);
-        Self::add_remainder(options.batch_size, &mut final_candidates, target_remainder);
-        Self::add_remainder(
-            options.batch_size,
-            &mut final_candidates,
-            mastered_remainder,
-        );
+        Self::add_remainder(batch_size, &mut final_candidates, current_remainder);
+        Self::add_remainder(batch_size, &mut final_candidates, easy_remainder);
+        Self::add_remainder(batch_size, &mut final_candidates, target_remainder);
+        Self::add_remainder(batch_size, &mut final_candidates, mastered_remainder);
 
         // Convert the list of candidates into a list of tuples of exercise IDs and manifests.
         self.candidates_to_exercises(final_candidates)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use anyhow::Result;
+
+    use crate::scheduler::filter::{CandidateFilter, SMALL_BATCH_SIZE};
+
+    /// Verifies that the batch size is adjusted based on the number of candidates.
+    #[test]
+    fn dynamic_batch_size() -> Result<()> {
+        // Small batch sizes are unaffected.
+        assert_eq!(CandidateFilter::dynamic_batch_size(5, 10), 5);
+
+        // The small batch size is used if there are not enough candidates.
+        assert_eq!(
+            CandidateFilter::dynamic_batch_size(50, 10),
+            SMALL_BATCH_SIZE
+        );
+        assert_eq!(
+            CandidateFilter::dynamic_batch_size(50, 70),
+            SMALL_BATCH_SIZE
+        );
+
+        // The batch size from the options is used if there are enough candidates.
+        assert_eq!(CandidateFilter::dynamic_batch_size(50, 100), 50);
+        assert_eq!(CandidateFilter::dynamic_batch_size(50, 200), 50);
+        Ok(())
     }
 }
