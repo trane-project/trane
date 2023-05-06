@@ -23,12 +23,11 @@ use crate::{
     blacklist::Blacklist,
     course_builder::{AssetBuilder, CourseBuilder, ExerciseBuilder, LessonBuilder},
     data::{
-        filter::UnitFilter, BasicAsset, CourseManifest, ExerciseAsset, ExerciseManifest,
-        ExerciseManifestBuilder, ExerciseType, LessonManifestBuilder, MasteryScore,
-        UserPreferences,
+        BasicAsset, CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseManifestBuilder,
+        ExerciseType, LessonManifestBuilder, MasteryScore, UserPreferences,
     },
     practice_stats::PracticeStats,
-    scheduler::ExerciseScheduler,
+    scheduler::{ExerciseFilter, ExerciseScheduler},
     Trane, TRANE_CONFIG_DIR_PATH, USER_PREFERENCES_PATH,
 };
 
@@ -422,7 +421,7 @@ impl TraneSimulation {
         &mut self,
         trane: &mut Trane,
         blacklist: &Vec<TestId>,
-        filter: Option<&UnitFilter>,
+        filter: Option<ExerciseFilter>,
     ) -> Result<()> {
         // Update the blacklist.
         for unit_id in blacklist {
@@ -441,7 +440,7 @@ impl TraneSimulation {
             // If the batch is empty, try to get another batch. If this batch is also empty, break
             // early to avoid falling into an infinite loop.
             if batch.is_empty() {
-                batch = trane.get_exercise_batch(filter)?;
+                batch = trane.get_exercise_batch(filter.clone())?;
                 if batch.is_empty() {
                     break;
                 }
