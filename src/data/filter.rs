@@ -315,14 +315,14 @@ impl SessionPart {
 /// A study session is a list of parts, each of which define the exercises to study and for how
 /// long. For example, a student learning to play piano and guitar could define a session that
 /// spends 30 minutes on exercises for piano, and 30 minutes on exercises for guitar.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct StudySession {
     /// A unique identifier for the study session.
     pub id: String,
 
-    /// A human-readable name for the study session.
+    /// A human-readable description for the study session.
     #[serde(default)]
-    pub name: String,
+    pub description: String,
 
     /// The parts of the study session.
     #[serde(default)]
@@ -661,7 +661,7 @@ mod test {
         let session_data = StudySessionData {
             definition: StudySession {
                 id: "session".into(),
-                name: "session".into(),
+                description: "session".into(),
                 parts: vec![],
             },
             start_time: Utc::now(),
@@ -676,7 +676,7 @@ mod test {
         let session_data = StudySessionData {
             definition: StudySession {
                 id: "session".into(),
-                name: "session".into(),
+                description: "session".into(),
                 parts: vec![
                     SessionPart::SavedFilter {
                         filter_id: "1".into(),
@@ -707,7 +707,7 @@ mod test {
         let session_data = StudySessionData {
             definition: StudySession {
                 id: "session".into(),
-                name: "session".into(),
+                description: "session".into(),
                 parts: vec![
                     SessionPart::SavedFilter {
                         filter_id: "1".into(),

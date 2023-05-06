@@ -439,7 +439,7 @@ mod test {
             start_time,
             definition: StudySession {
                 id: "session".to_string(),
-                name: "Session".to_string(),
+                description: "Session".to_string(),
                 parts: vec![
                     SessionPart::UnitFilter {
                         filter: UnitFilter::ReviewListFilter,
@@ -475,7 +475,7 @@ mod test {
                     start_time,
                     definition: StudySession {
                         id: "session".to_string(),
-                        name: "Session".to_string(),
+                        description: "Session".to_string(),
                         parts: vec![SessionPart::SavedFilter {
                             filter_id: "unknown_filter".into(),
                             duration: 1,
