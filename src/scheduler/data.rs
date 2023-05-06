@@ -1,6 +1,7 @@
 //! Defines the data used by the scheduler and several convenience functions.
 
 use anyhow::{anyhow, Result};
+use chrono::{DateTime, Utc};
 use parking_lot::RwLock;
 use std::sync::Arc;
 use ustr::{Ustr, UstrMap, UstrSet};
@@ -9,9 +10,10 @@ use crate::{
     blacklist::{Blacklist, BlacklistDB},
     course_library::{CourseLibrary, LocalCourseLibrary},
     data::{
-        filter::{MetadataFilter, UnitFilter},
+        filter::{MetadataFilter, SavedFilter, SessionPart, StudySessionData, UnitFilter},
         CourseManifest, ExerciseManifest, LessonManifest, SchedulerOptions, UnitType,
     },
+    filter_manager::{FilterManager, LocalFilterManager},
     graph::{InMemoryUnitGraph, UnitGraph},
     practice_stats::PracticeStatsDB,
     review_list::ReviewListDB,
@@ -37,6 +39,9 @@ pub(crate) struct SchedulerData {
 
     /// The list of units which should be reviewed by the student.
     pub review_list: Arc<RwLock<ReviewListDB>>,
+
+    /// The manager used to access unit filters saved by the user.
+    pub filter_manager: Arc<RwLock<LocalFilterManager>>,
 
     /// A map storing the number of times an exercise has been scheduled during the lifetime of this
     /// scheduler. The value is used to give more weight in the scorer to exercises that have been
@@ -242,20 +247,54 @@ impl SchedulerData {
             .copied()
             .unwrap_or(0.0)
     }
+
+    /// Returns the unit filter for the saved filter with the given ID. Returns an error if no
+    /// filter exists with that ID exists.
+    pub fn get_saved_filter(&self, filter_id: &str) -> Result<SavedFilter> {
+        match self.filter_manager.read().get_filter(filter_id) {
+            Some(filter) => Ok(filter),
+            None => Err(anyhow!("no saved filter with ID {} exists", filter_id)),
+        }
+    }
+
+    /// Returns the unit filter that should be used for the given study session.
+    pub fn get_session_filter(
+        &self,
+        session_data: &StudySessionData,
+        time: DateTime<Utc>,
+    ) -> Result<Option<UnitFilter>> {
+        match session_data.get_part(time) {
+            SessionPart::NoFilter { .. } => Ok(None),
+            SessionPart::UnitFilter { filter, .. } => Ok(Some(filter)),
+            SessionPart::SavedFilter { filter_id, .. } => {
+                let saved_filter = self.get_saved_filter(&filter_id)?;
+                Ok(Some(saved_filter.filter))
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod test {
     use anyhow::Result;
+    use chrono::Duration;
     use lazy_static::lazy_static;
-    use std::collections::BTreeMap;
+    use parking_lot::RwLock;
+    use std::{
+        collections::{BTreeMap, HashMap},
+        sync::Arc,
+    };
     use ustr::Ustr;
 
     use crate::{
         data::{
-            filter::{FilterOp, MetadataFilter},
+            filter::{
+                FilterOp, MetadataFilter, SavedFilter, SessionPart, StudySession, StudySessionData,
+                UnitFilter,
+            },
             UnitType,
         },
+        filter_manager::LocalFilterManager,
         testutil::*,
     };
 
@@ -372,6 +411,81 @@ mod test {
             scheduler_data.get_exercise_frequency(&Ustr::from("0::0::0")),
             1.0
         );
+        Ok(())
+    }
+
+    /// Verifies retrieving the filter for a session part.
+    #[test]
+    fn get_session_filter() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let library = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+
+        // Add a saved filter to the filter manager.
+        let mut scheduler_data = library.get_scheduler_data();
+        scheduler_data.filter_manager = Arc::new(RwLock::new(LocalFilterManager {
+            filters: HashMap::from([(
+                "saved_filter".to_string(),
+                SavedFilter {
+                    id: "saved_filter".to_string(),
+                    description: "Saved filter".to_string(),
+                    filter: UnitFilter::ReviewListFilter,
+                },
+            )]),
+        }));
+
+        // Define the study session data
+        let start_time = chrono::Utc::now();
+        let session_data = StudySessionData {
+            start_time,
+            definition: StudySession {
+                id: "session".to_string(),
+                name: "Session".to_string(),
+                parts: vec![
+                    SessionPart::UnitFilter {
+                        filter: UnitFilter::ReviewListFilter,
+                        duration: 1,
+                    },
+                    SessionPart::NoFilter { duration: 1 },
+                    SessionPart::SavedFilter {
+                        filter_id: "saved_filter".into(),
+                        duration: 1,
+                    },
+                ],
+            },
+        };
+
+        // Verify that the filter for each session part is correct.
+        assert_eq!(
+            scheduler_data.get_session_filter(&session_data, start_time)?,
+            Some(UnitFilter::ReviewListFilter)
+        );
+        assert_eq!(
+            scheduler_data.get_session_filter(&session_data, start_time + Duration::minutes(1))?,
+            None
+        );
+        assert_eq!(
+            scheduler_data.get_session_filter(&session_data, start_time + Duration::minutes(2))?,
+            Some(UnitFilter::ReviewListFilter)
+        );
+
+        // Verify that trying to retrieve an unknown saved filter returns an error.
+        assert!(scheduler_data
+            .get_session_filter(
+                &StudySessionData {
+                    start_time,
+                    definition: StudySession {
+                        id: "session".to_string(),
+                        name: "Session".to_string(),
+                        parts: vec![SessionPart::SavedFilter {
+                            filter_id: "unknown_filter".into(),
+                            duration: 1,
+                        }],
+                    },
+                },
+                start_time
+            )
+            .is_err());
+
         Ok(())
     }
 }

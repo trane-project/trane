@@ -59,15 +59,14 @@ use crate::mantra_miner::TraneMantraMiner;
 use blacklist::{Blacklist, BlacklistDB};
 use course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary};
 use data::{
-    filter::{SavedFilter, UnitFilter},
-    CourseManifest, ExerciseManifest, ExerciseTrial, LessonManifest, MasteryScore,
-    SchedulerOptions, SchedulerPreferences, UnitType, UserPreferences,
+    filter::SavedFilter, CourseManifest, ExerciseManifest, ExerciseTrial, LessonManifest,
+    MasteryScore, SchedulerOptions, SchedulerPreferences, UnitType, UserPreferences,
 };
 use filter_manager::{FilterManager, LocalFilterManager};
 use graph::UnitGraph;
 use practice_stats::{PracticeStats, PracticeStatsDB};
 use repository_manager::{LocalRepositoryManager, RepositoryManager};
-use scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseScheduler};
+use scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseFilter, ExerciseScheduler};
 
 /// The path to the folder inside each course library containing the user data.
 pub const TRANE_CONFIG_DIR_PATH: &str = ".trane";
@@ -190,6 +189,7 @@ impl Trane {
             practice_stats: practice_stats.clone(),
             blacklist: blacklist.clone(),
             review_list: review_list.clone(),
+            filter_manager: filter_manager.clone(),
             frequency_map: Arc::new(RwLock::new(UstrMap::default())),
         };
 
@@ -364,7 +364,7 @@ impl ReviewList for Trane {
 impl ExerciseScheduler for Trane {
     fn get_exercise_batch(
         &self,
-        filter: Option<&UnitFilter>,
+        filter: Option<ExerciseFilter>,
     ) -> Result<Vec<(Ustr, ExerciseManifest)>> {
         self.scheduler.get_exercise_batch(filter)
     }

@@ -22,7 +22,7 @@ pub trait FilterManager {
 /// An implementation of [FilterManager] backed by the local file system.
 pub(crate) struct LocalFilterManager {
     /// A map of filter IDs to filters.
-    filters: HashMap<String, SavedFilter>,
+    pub filters: HashMap<String, SavedFilter>,
 }
 
 impl LocalFilterManager {

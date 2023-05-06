@@ -30,17 +30,21 @@
 use std::collections::BTreeMap;
 
 use anyhow::{Ok, Result};
+use chrono::{Duration, Utc};
 use lazy_static::lazy_static;
 use tempfile::TempDir;
 use trane::{
     blacklist::Blacklist,
     course_library::CourseLibrary,
     data::{
-        filter::{FilterOp, FilterType, KeyValueFilter, MetadataFilter, UnitFilter},
+        filter::{
+            FilterOp, FilterType, KeyValueFilter, MetadataFilter, SessionPart, StudySession,
+            StudySessionData, UnitFilter,
+        },
         MasteryScore, SchedulerOptions, UserPreferences,
     },
     review_list::ReviewList,
-    scheduler::ExerciseScheduler,
+    scheduler::{ExerciseFilter, ExerciseScheduler},
     testutil::*,
 };
 use ustr::Ustr;
@@ -833,7 +837,11 @@ fn scheduler_respects_course_filter() -> Result<()> {
     let course_filter = UnitFilter::CourseFilter {
         course_ids: selected_courses.iter().map(|id| id.to_ustr()).collect(),
     };
-    simulation.run_simulation(&mut trane, &vec![], Some(&course_filter))?;
+    simulation.run_simulation(
+        &mut trane,
+        &vec![],
+        Some(ExerciseFilter::UnitFilter(course_filter)),
+    )?;
 
     // Every exercise ID should be in `simulation.answer_history`.
     let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
@@ -878,7 +886,11 @@ fn scheduler_respects_lesson_filter() -> Result<()> {
     let lesson_filter = UnitFilter::LessonFilter {
         lesson_ids: selected_lessons.iter().map(|id| id.to_ustr()).collect(),
     };
-    simulation.run_simulation(&mut trane, &vec![], Some(&lesson_filter))?;
+    simulation.run_simulation(
+        &mut trane,
+        &vec![],
+        Some(ExerciseFilter::UnitFilter(lesson_filter)),
+    )?;
 
     // Every exercise ID should be in `simulation.answer_history`.
     let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
@@ -930,7 +942,11 @@ fn scheduler_respects_metadata_filter_op_all() -> Result<()> {
             }),
         },
     };
-    simulation.run_simulation(&mut trane, &vec![], Some(&filter))?;
+    simulation.run_simulation(
+        &mut trane,
+        &vec![],
+        Some(ExerciseFilter::UnitFilter(filter)),
+    )?;
 
     // Only exercises in the lessons that match the metadata filters should be scheduled.
     let matching_lessons = vec![
@@ -987,7 +1003,11 @@ fn scheduler_respects_metadata_filter_op_any() -> Result<()> {
             }),
         },
     };
-    simulation.run_simulation(&mut trane, &vec![], Some(&filter))?;
+    simulation.run_simulation(
+        &mut trane,
+        &vec![],
+        Some(ExerciseFilter::UnitFilter(filter)),
+    )?;
 
     // Only exercises in the lessons that match the metadata filters should be scheduled.
     let matching_lessons = vec![
@@ -1041,7 +1061,11 @@ fn scheduler_respects_lesson_metadata_filter() -> Result<()> {
             }),
         },
     };
-    simulation.run_simulation(&mut trane, &vec![], Some(&filter))?;
+    simulation.run_simulation(
+        &mut trane,
+        &vec![],
+        Some(ExerciseFilter::UnitFilter(filter)),
+    )?;
 
     // Only exercises in the lessons that match the metadata filters should be scheduled.
     let matching_lessons = vec![
@@ -1093,7 +1117,11 @@ fn scheduler_respects_course_metadata_filter() -> Result<()> {
             lesson_filter: None,
         },
     };
-    simulation.run_simulation(&mut trane, &vec![], Some(&filter))?;
+    simulation.run_simulation(
+        &mut trane,
+        &vec![],
+        Some(ExerciseFilter::UnitFilter(filter)),
+    )?;
 
     // Only exercises in the lessons that match the metadata filters should be scheduled.
     let matching_courses = vec![TestId(2, None, None), TestId(5, None, None)];
@@ -1147,7 +1175,11 @@ fn scheduler_respects_metadata_filter_and_blacklist() -> Result<()> {
         },
     };
     let blacklist = vec![TestId(2, None, None)];
-    simulation.run_simulation(&mut trane, &blacklist, Some(&filter))?;
+    simulation.run_simulation(
+        &mut trane,
+        &blacklist,
+        Some(ExerciseFilter::UnitFilter(filter)),
+    )?;
 
     // Only exercises in the lessons that match the metadata filters should be scheduled.
     let matching_lessons = vec![TestId(5, Some(0), None)];
@@ -1191,7 +1223,11 @@ fn schedule_exercises_in_review_list() -> Result<()> {
 
     // Run the simulation with the review list filter.
     let mut simulation = TraneSimulation::new(100, Box::new(|_| Some(MasteryScore::Five)));
-    simulation.run_simulation(&mut trane, &vec![], Some(&UnitFilter::ReviewListFilter))?;
+    simulation.run_simulation(
+        &mut trane,
+        &vec![],
+        Some(ExerciseFilter::UnitFilter(UnitFilter::ReviewListFilter)),
+    )?;
 
     // Only the exercises in the review list should have been scheduled.
     let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
@@ -1235,7 +1271,11 @@ fn schedule_lessons_in_review_list() -> Result<()> {
 
     // Run the simulation with the review list filter.
     let mut simulation = TraneSimulation::new(100, Box::new(|_| Some(MasteryScore::Five)));
-    simulation.run_simulation(&mut trane, &vec![], Some(&UnitFilter::ReviewListFilter))?;
+    simulation.run_simulation(
+        &mut trane,
+        &vec![],
+        Some(ExerciseFilter::UnitFilter(UnitFilter::ReviewListFilter)),
+    )?;
 
     // Only the exercises from the lessons in the review list should have been scheduled.
     let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
@@ -1279,7 +1319,11 @@ fn schedule_courses_in_review_list() -> Result<()> {
 
     // Run the simulation with the review list filter.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
-    simulation.run_simulation(&mut trane, &vec![], Some(&UnitFilter::ReviewListFilter))?;
+    simulation.run_simulation(
+        &mut trane,
+        &vec![],
+        Some(ExerciseFilter::UnitFilter(UnitFilter::ReviewListFilter)),
+    )?;
 
     // Only the exercises from the courses in the review list should have been scheduled.
     let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
@@ -1326,12 +1370,12 @@ fn schedule_units_and_dependents() -> Result<()> {
     simulation.run_simulation(
         &mut trane,
         &vec![],
-        Some(&UnitFilter::Dependents {
+        Some(ExerciseFilter::UnitFilter(UnitFilter::Dependents {
             unit_ids: starting_units
                 .iter()
                 .map(|unit_id| unit_id.to_ustr())
                 .collect(),
-        }),
+        })),
     )?;
 
     // Only the exercises from the starting units and their dependents should have been scheduled.
@@ -1376,13 +1420,13 @@ fn schedule_dependencies() -> Result<()> {
     simulation.run_simulation(
         &mut trane,
         &vec![],
-        Some(&UnitFilter::Dependencies {
+        Some(ExerciseFilter::UnitFilter(UnitFilter::Dependencies {
             unit_ids: starting_units
                 .iter()
                 .map(|unit_id| unit_id.to_ustr())
                 .collect(),
             depth,
-        }),
+        })),
     )?;
 
     // Only exercises that are dependencies of the starting units at the given depth or any of their
@@ -1436,13 +1480,13 @@ fn schedule_dependencies_large_depth() -> Result<()> {
     simulation.run_simulation(
         &mut trane,
         &vec![],
-        Some(&UnitFilter::Dependencies {
+        Some(ExerciseFilter::UnitFilter(UnitFilter::Dependencies {
             unit_ids: starting_units
                 .iter()
                 .map(|unit_id| unit_id.to_ustr())
                 .collect(),
             depth,
-        }),
+        })),
     )?;
 
     // Only exercises that are dependencies of the starting units at the given depth or any of their
@@ -1489,13 +1533,13 @@ fn schedule_dependencies_unknown_unit() -> Result<()> {
     simulation.run_simulation(
         &mut trane,
         &vec![],
-        Some(&UnitFilter::Dependencies {
+        Some(ExerciseFilter::UnitFilter(UnitFilter::Dependencies {
             unit_ids: starting_units
                 .iter()
                 .map(|unit_id| unit_id.to_ustr())
                 .collect(),
             depth,
-        }),
+        })),
     )?;
 
     // Verify no exercises were scheduled.
@@ -1508,6 +1552,72 @@ fn schedule_dependencies_unknown_unit() -> Result<()> {
             exercise_id
         );
     }
+    Ok(())
+}
+
+/// Verifies scheduling exercises from a study session.
+#[test]
+fn schedule_study_session() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+
+    // Create a study session with a couple of parts.
+    let session_data = StudySessionData {
+        start_time: Utc::now() - Duration::minutes(30),
+        definition: StudySession {
+            id: "session".into(),
+            name: "session".into(),
+            parts: vec![
+                SessionPart::UnitFilter {
+                    filter: UnitFilter::CourseFilter {
+                        course_ids: vec!["0".into()],
+                    },
+                    duration: 15,
+                },
+                SessionPart::UnitFilter {
+                    filter: UnitFilter::CourseFilter {
+                        course_ids: vec!["1".into()],
+                    },
+                    duration: 30,
+                },
+            ],
+        },
+    };
+
+    // Run the simulation.
+    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    simulation.run_simulation(
+        &mut trane,
+        &vec![],
+        Some(ExerciseFilter::StudySession(session_data)),
+    )?;
+
+    // The second part of the session is active, so only exercises from course 1 should have been
+    // scheduled.
+    let matching_courses = vec![TestId(1, None, None)];
+    let exercise_ids = all_test_exercises(&BASIC_LIBRARY);
+    for exercise_id in exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
+        if matching_courses
+            .iter()
+            .any(|course| exercise_id.exercise_in_course(course))
+        {
+            assert!(
+                simulation.answer_history.contains_key(&exercise_ustr),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+        } else {
+            assert!(
+                !simulation.answer_history.contains_key(&exercise_ustr),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        }
+    }
+
     Ok(())
 }
 

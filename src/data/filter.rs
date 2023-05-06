@@ -9,6 +9,7 @@
 //!    course and lesson metadata.
 //! 4. Selecting exercises from the units in the review list.
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use ustr::Ustr;
@@ -270,16 +271,120 @@ pub struct SavedFilter {
 }
 //>@saved-filter
 
+/// A part of a study session. Contains the criteria used to filter the exercises during a section
+/// of the study session along with the duration in minutes. The filter can either be a
+/// [UnitFilter](crate::data::filter::UnitFilter) defined inline or a reference to a
+/// [SavedFilter](crate::data::filter::SavedFilter).
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub enum SessionPart {
+    /// A part of the study session that uses a filter defined inline.
+    UnitFilter {
+        /// The filter to use.
+        filter: UnitFilter,
+
+        /// The duration of this section of the study session, in minutes.
+        duration: u32,
+    },
+    /// A part of the study session that references a saved filter.
+    SavedFilter {
+        /// The ID of the saved filter to use.
+        filter_id: String,
+
+        /// The duration of this section of the study session, in minutes.
+        duration: u32,
+    },
+    /// A part of the study session that does not have a filter. The scheduler will use exercises
+    /// from the entire unit graph.
+    NoFilter {
+        /// The duration of this section of the study session, in minutes.
+        duration: u32,
+    },
+}
+
+impl SessionPart {
+    /// Returns the duration of the study part.
+    pub fn duration(&self) -> u32 {
+        match self {
+            SessionPart::UnitFilter { duration, .. } => *duration,
+            SessionPart::SavedFilter { duration, .. } => *duration,
+            SessionPart::NoFilter { duration, .. } => *duration,
+        }
+    }
+}
+
+/// A study session is a list of parts, each of which define the exercises to study and for how
+/// long. For example, a student learning to play piano and guitar could define a session that
+/// spends 30 minutes on exercises for piano, and 30 minutes on exercises for guitar.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct StudySession {
+    /// A unique identifier for the study session.
+    pub id: String,
+
+    /// A human-readable name for the study session.
+    #[serde(default)]
+    pub name: String,
+
+    /// The parts of the study session.
+    #[serde(default)]
+    pub parts: Vec<SessionPart>,
+}
+
+/// A specific instace of a study session. It contains the start time of the session and its
+/// definition so that the scheduler knows the progress of the session.
+#[derive(Clone, Debug)]
+pub struct StudySessionData {
+    /// The start time of the session.
+    pub start_time: DateTime<Utc>,
+
+    /// The definition of the session.
+    pub definition: StudySession,
+}
+
+impl StudySessionData {
+    /// Returns the study session part that should be practiced at the given time.
+    pub fn get_part(&self, time: DateTime<Utc>) -> SessionPart {
+        // Return a dummy part with no filter if the session has no parts.
+        if self.definition.parts.is_empty() {
+            return SessionPart::NoFilter { duration: 0 };
+        }
+
+        // Get the number of minutes since the start of the session. Return the first part if the
+        // value is negative.
+        let minutes_since_start = (time - self.start_time).num_minutes();
+        if minutes_since_start < 0 {
+            return self.definition.parts[0].clone();
+        }
+        let minutes_since_start = minutes_since_start as u32;
+
+        // Find the first part that has not been completed yet. If all parts have been completed,
+        // return the last part.
+        let mut session_length = 0;
+        for part in &self.definition.parts {
+            session_length += part.duration();
+            if minutes_since_start < session_length {
+                return part.clone();
+            }
+        }
+        self.definition.parts.last().unwrap().clone()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use anyhow::Result;
+    use chrono::{Duration, Utc};
     use std::collections::BTreeMap;
     use ustr::Ustr;
 
     use crate::data::{
-        filter::{FilterOp, FilterType, KeyValueFilter, MetadataFilter, UnitFilter},
+        filter::{
+            FilterOp, FilterType, KeyValueFilter, MetadataFilter, SessionPart, StudySessionData,
+            UnitFilter,
+        },
         GetMetadata,
     };
+
+    use super::StudySession;
 
     impl GetMetadata for BTreeMap<String, Vec<String>> {
         fn get_metadata(&self) -> Option<&BTreeMap<String, Vec<String>>> {
@@ -547,5 +652,108 @@ mod test {
 
         let filter = UnitFilter::ReviewListFilter;
         assert_eq!(filter.clone(), filter);
+    }
+
+    /// Verifies selecting the right session part based on the time.
+    #[test]
+    fn get_session_part() {
+        // Get the part from an empty study session.
+        let session_data = StudySessionData {
+            definition: StudySession {
+                id: "session".into(),
+                name: "session".into(),
+                parts: vec![],
+            },
+            start_time: Utc::now(),
+        };
+        assert_eq!(
+            session_data.get_part(Utc::now()),
+            SessionPart::NoFilter { duration: 0 }
+        );
+
+        // Get the first part if the number of minutes since the start time is negative.
+        let start_time = Utc::now();
+        let session_data = StudySessionData {
+            definition: StudySession {
+                id: "session".into(),
+                name: "session".into(),
+                parts: vec![
+                    SessionPart::SavedFilter {
+                        filter_id: "1".into(),
+                        duration: 1,
+                    },
+                    SessionPart::SavedFilter {
+                        filter_id: "2".into(),
+                        duration: 1,
+                    },
+                    SessionPart::SavedFilter {
+                        filter_id: "3".into(),
+                        duration: 1,
+                    },
+                ],
+            },
+            start_time,
+        };
+        assert_eq!(
+            session_data.get_part(start_time - Duration::minutes(1)),
+            SessionPart::SavedFilter {
+                filter_id: "1".into(),
+                duration: 1
+            }
+        );
+
+        // Get each of the parts of the study session.
+        let start_time = Utc::now();
+        let session_data = StudySessionData {
+            definition: StudySession {
+                id: "session".into(),
+                name: "session".into(),
+                parts: vec![
+                    SessionPart::SavedFilter {
+                        filter_id: "1".into(),
+                        duration: 1,
+                    },
+                    SessionPart::SavedFilter {
+                        filter_id: "2".into(),
+                        duration: 1,
+                    },
+                    SessionPart::SavedFilter {
+                        filter_id: "3".into(),
+                        duration: 1,
+                    },
+                ],
+            },
+            start_time,
+        };
+        assert_eq!(
+            session_data.get_part(start_time),
+            SessionPart::SavedFilter {
+                filter_id: "1".into(),
+                duration: 1
+            }
+        );
+        assert_eq!(
+            session_data.get_part(start_time + Duration::minutes(1)),
+            SessionPart::SavedFilter {
+                filter_id: "2".into(),
+                duration: 1
+            }
+        );
+        assert_eq!(
+            session_data.get_part(start_time + Duration::minutes(2)),
+            SessionPart::SavedFilter {
+                filter_id: "3".into(),
+                duration: 1
+            }
+        );
+
+        // Get the last part when the time is past the end of the session.
+        assert_eq!(
+            session_data.get_part(start_time + Duration::minutes(30)),
+            SessionPart::SavedFilter {
+                filter_id: "3".into(),
+                duration: 1
+            }
+        );
     }
 }

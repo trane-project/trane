@@ -25,12 +25,13 @@ pub mod data;
 mod filter;
 
 use anyhow::Result;
+use chrono::Utc;
 use rand::{seq::SliceRandom, thread_rng};
 use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
     data::{
-        filter::{MetadataFilter, UnitFilter},
+        filter::{MetadataFilter, StudySessionData, UnitFilter},
         ExerciseManifest, MasteryScore, SchedulerOptions, UnitType,
     },
     graph::UnitGraph,
@@ -44,6 +45,17 @@ use crate::{
 /// search the entire graph if the search already found a decently sized pool of candidates.
 const MAX_CANDIDATE_FACTOR: usize = 10;
 
+/// A set of options to control which exercises should be considered to be included in the final
+/// batch.
+#[derive(Clone, Debug)]
+pub enum ExerciseFilter {
+    /// Selects exercises based on a unit filter.
+    UnitFilter(UnitFilter),
+
+    /// Selects exercises based on a study session.
+    StudySession(StudySessionData),
+}
+
 /// The trait that defines the interface for the scheduler. Contains functions to request a new
 /// batch of exercises and to provide Trane the self-reported scores for said exercises.
 pub trait ExerciseScheduler {
@@ -53,7 +65,7 @@ pub trait ExerciseScheduler {
     /// entire graph.
     fn get_exercise_batch(
         &self,
-        filter: Option<&UnitFilter>,
+        filter: Option<ExerciseFilter>,
     ) -> Result<Vec<(Ustr, ExerciseManifest)>>;
 
     /// Records the score of the given exercise's trial. The scores are used by the scheduler to
@@ -673,13 +685,8 @@ impl DepthFirstScheduler {
 
         Ok(candidates)
     }
-}
 
-impl ExerciseScheduler for DepthFirstScheduler {
-    fn get_exercise_batch(
-        &self,
-        filter: Option<&UnitFilter>,
-    ) -> Result<Vec<(Ustr, ExerciseManifest)>> {
+    fn get_initial_candidates(&self, filter: Option<ExerciseFilter>) -> Result<Vec<Candidate>> {
         // Retrieve an initial batch of candidates based on the type of the filter.
         let candidates = match filter {
             None => {
@@ -689,57 +696,78 @@ impl ExerciseScheduler for DepthFirstScheduler {
                 self.get_candidates_from_graph(initial_stack, None)?
             }
             Some(filter) => match filter {
-                UnitFilter::CourseFilter { course_ids } => {
-                    // Retrieve candidates from the given courses.
-                    self.get_candidates_from_course(&course_ids[..])?
-                }
-                UnitFilter::LessonFilter { lesson_ids } => {
-                    // Retrieve candidate from the given lessons.
-                    let mut candidates = Vec::new();
-                    for lesson_id in lesson_ids {
-                        candidates.extend(self.get_candidates_from_lesson(lesson_id)?.into_iter());
+                ExerciseFilter::UnitFilter(filter) => match filter {
+                    UnitFilter::CourseFilter { course_ids } => {
+                        // Retrieve candidates from the given courses.
+                        self.get_candidates_from_course(&course_ids[..])?
                     }
-                    candidates
-                }
-                UnitFilter::MetadataFilter { filter } => {
-                    // Retrieve candidates from the entire graph but only if the exercises belongs
-                    // to a course or lesson matching the given metadata filter.
-                    let initial_stack = self.get_initial_stack(Some(filter));
-                    self.get_candidates_from_graph(initial_stack, Some(filter))?
-                }
-                // Retrieve candidates from the units the student has marked for review.
-                UnitFilter::ReviewListFilter => self.get_candidates_from_review_list()?,
-                UnitFilter::Dependents { unit_ids } => {
-                    // Retrieve candidates from the given units and all of their dependents.
-                    let initial_stack = unit_ids
-                        .iter()
-                        .map(|unit_id| StackItem {
-                            unit_id: *unit_id,
-                            depth: 0,
-                        })
-                        .collect();
-                    self.get_candidates_from_graph(initial_stack, None)?
-                }
-                UnitFilter::Dependencies { unit_ids, depth } => {
-                    let dependencies: Vec<Ustr> = unit_ids
-                        .iter()
-                        .flat_map(|unit_id| self.data.get_dependencies_at_depth(unit_id, *depth))
-                        .collect();
-                    let initial_stack = dependencies
-                        .iter()
-                        .map(|unit_id| StackItem {
-                            unit_id: *unit_id,
-                            depth: 0,
-                        })
-                        .collect();
-                    self.get_candidates_from_graph(initial_stack, None)?
+                    UnitFilter::LessonFilter { lesson_ids } => {
+                        // Retrieve candidate from the given lessons.
+                        let mut candidates = Vec::new();
+                        for lesson_id in lesson_ids {
+                            candidates
+                                .extend(self.get_candidates_from_lesson(&lesson_id)?.into_iter());
+                        }
+                        candidates
+                    }
+                    UnitFilter::MetadataFilter { filter } => {
+                        // Retrieve candidates from the entire graph but only if the exercises
+                        // belongs to a course or lesson matching the given metadata filter.
+                        let initial_stack = self.get_initial_stack(Some(&filter));
+                        self.get_candidates_from_graph(initial_stack, Some(&filter))?
+                    }
+                    // Retrieve candidates from the units the student has marked for review.
+                    UnitFilter::ReviewListFilter => self.get_candidates_from_review_list()?,
+                    UnitFilter::Dependents { unit_ids } => {
+                        // Retrieve candidates from the given units and all of their dependents.
+                        let initial_stack = unit_ids
+                            .iter()
+                            .map(|unit_id| StackItem {
+                                unit_id: *unit_id,
+                                depth: 0,
+                            })
+                            .collect();
+                        self.get_candidates_from_graph(initial_stack, None)?
+                    }
+                    UnitFilter::Dependencies { unit_ids, depth } => {
+                        let dependencies: Vec<Ustr> = unit_ids
+                            .iter()
+                            .flat_map(|unit_id| self.data.get_dependencies_at_depth(unit_id, depth))
+                            .collect();
+                        let initial_stack = dependencies
+                            .iter()
+                            .map(|unit_id| StackItem {
+                                unit_id: *unit_id,
+                                depth: 0,
+                            })
+                            .collect();
+                        self.get_candidates_from_graph(initial_stack, None)?
+                    }
+                },
+                ExerciseFilter::StudySession(session_data) => {
+                    let unit_filter = self
+                        .data
+                        .get_session_filter(&session_data, Utc::now())?
+                        .map(ExerciseFilter::UnitFilter);
+                    self.get_initial_candidates(unit_filter)?
                 }
             },
         };
+        Ok(candidates)
+    }
+}
+
+impl ExerciseScheduler for DepthFirstScheduler {
+    fn get_exercise_batch(
+        &self,
+        filter: Option<ExerciseFilter>,
+    ) -> Result<Vec<(Ustr, ExerciseManifest)>> {
+        // Retrieve an initial batch of candidates based on the type of the filter.
+        let initial_candidates = self.get_initial_candidates(filter)?;
 
         // Sort the candidates into buckets, select the right number from each, and convert them
         // into a final batch of exercises.
-        let final_candidates = self.filter.filter_candidates(candidates)?;
+        let final_candidates = self.filter.filter_candidates(initial_candidates)?;
 
         // Increment the frequency of the exercises in the batch. These exercises will have a lower
         // chance of being selected in the future so that exercises that have not been selected as
