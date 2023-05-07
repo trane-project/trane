@@ -52,10 +52,12 @@ fn transcription_builder(
     num_passages: usize,
     skip_advanced_lessons: bool,
 ) -> CourseBuilder {
+    // Create the passages for the course. Half of the passages will be stored in the passages
+    // directory, and the other half will be inlined in the course manifest.
     let mut asset_builders = Vec::new();
+    let mut inlined_passages = Vec::new();
     for i in 0..num_passages {
-        // Create the desired number of passages.
-        let passage_path = format!("passages/passages_{}.json", i);
+        // Create the passages.
         let passages = TranscriptionPassages {
             asset: TranscriptionAsset::Track {
                 short_id: format!("passages_{}", i),
@@ -66,6 +68,15 @@ fn transcription_builder(
             },
             intervals: HashMap::from([(0, ("0:00".to_string(), "0:01".to_string()))]),
         };
+
+        // In odd iterations, add the passage to the inlined passages.
+        if i % 2 == 1 {
+            inlined_passages.push(passages);
+            continue;
+        }
+
+        // In even iterations, write the passage to the passages directory.
+        let passage_path = format!("passages/passages_{}.json", i);
         asset_builders.push(AssetBuilder {
             file_name: passage_path.clone(),
             contents: serde_json::to_string_pretty(&passages).unwrap(),
@@ -86,6 +97,7 @@ fn transcription_builder(
             generator_config: Some(CourseGenerator::Transcription(TranscriptionConfig {
                 transcription_dependencies: dependencies,
                 passage_directory: "passages".to_string(),
+                inlined_passages,
                 skip_advanced_lessons,
             })),
         },
