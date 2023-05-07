@@ -41,9 +41,11 @@ pub enum TranscriptionAsset {
         track_name: String,
 
         /// The name of the artist(s) who performs the track.
+        #[serde(default)]
         artist_name: String,
 
         /// The name of the album in which the track appears.
+        #[serde(default)]
         album_name: String,
 
         /// A link to an external copy (e.g. youtube video) of the track.
