@@ -13,7 +13,7 @@ use crate::data::filter::StudySession;
 /// as an identifier.
 pub trait StudySessionManager {
     /// Gets the study session with the given ID.
-    fn get_session(&self, id: &str) -> Option<StudySession>;
+    fn get_study_session(&self, id: &str) -> Option<StudySession>;
 
     /// Returns a list of study session IDs and descriptions.
     fn list_study_sessions(&self) -> Vec<(String, String)>;
@@ -67,7 +67,7 @@ impl LocalStudySessionManager {
 }
 
 impl StudySessionManager for LocalStudySessionManager {
-    fn get_session(&self, id: &str) -> Option<StudySession> {
+    fn get_study_session(&self, id: &str) -> Option<StudySession> {
         self.sessions.get(id).cloned()
     }
 
@@ -142,7 +142,7 @@ mod test {
         );
 
         for (index, (id, _)) in session_list.iter().enumerate() {
-            let session = manager.get_session(&id);
+            let session = manager.get_study_session(&id);
             assert!(session.is_some());
             let session = session.unwrap();
             assert_eq!(sessions[index], session);
