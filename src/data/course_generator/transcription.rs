@@ -823,6 +823,25 @@ mod test {
         Ok(())
     }
 
+    /// Verifies creating the course based on an empty passage directory.
+    #[test]
+    fn open_passage_directory_empty() -> Result<()> {
+        // Create the passages directory.
+        let temp_dir = tempfile::tempdir()?;
+
+        // Open the empty passages directory and verify there are no passages.
+        let config = TranscriptionConfig {
+            passage_directory: "".into(),
+            inlined_passages: vec![],
+            transcription_dependencies: vec![],
+            skip_advanced_lessons: false,
+        };
+        let passages = config.open_passage_directory(&temp_dir.path())?;
+        assert!(passages.is_empty());
+
+        Ok(())
+    }
+
     /// Verifies that opening the passage directory fails if there are passages with duplicate IDs.
     #[test]
     fn open_passage_directory_duplicate() -> Result<()> {
