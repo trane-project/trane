@@ -69,7 +69,7 @@ fn transcription_builder(
             intervals: HashMap::from([(0, ("0:00".to_string(), "0:01".to_string()))]),
         };
 
-        // In odd iterations, add the passage to the inlined passages. 
+        // In odd iterations, add the passage to the inlined passages.
         if i % 2 == 1 {
             inlined_passages.push(passages);
             continue;
