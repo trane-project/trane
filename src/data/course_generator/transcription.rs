@@ -147,8 +147,14 @@ pub struct TranscriptionConfig {
     /// [TranscriptionPassages] objects.
     ///
     /// The directory can be written relative to the root of the course or as an absolute path. The
-    /// first option is recommended.
+    /// first option is recommended. An empty value will safely default to not reading any files.
+    #[serde(default)]
     pub passage_directory: String,
+
+    /// A list of passages to include in the course in addition to the ones in the passage
+    /// directory. Useful for adding passages directly in the course manifest.
+    #[serde(default)]
+    pub inlined_passages: Vec<TranscriptionPassages>,
 
     /// If true, the course will skip the advanced singing and transcription lessons. This is useful
     /// when there are copies of the same recording for every key, which makes the need for the
@@ -514,6 +520,11 @@ impl TranscriptionConfig {
     /// Reads all the files in the passage directory to generate the list of all the passages
     /// included in the course.
     fn open_passage_directory(&self, course_root: &Path) -> Result<Vec<TranscriptionPassages>> {
+        // Do not attempt to open the passage directory if the value is empty.
+        if self.passage_directory.is_empty() {
+            return Ok(Vec::new());
+        }
+
         // Keep track of all the discovered passage IDs to detect duplicates.
         let mut passages = Vec::new();
         let mut seen_ids = HashSet::new();
@@ -610,9 +621,10 @@ impl GenerateManifests for TranscriptionConfig {
             None => &default_preferences,
         };
 
-        // Read the passages from the passage directory and generate the lesson and exercise
-        // manifests.
-        let passages = self.open_passage_directory(course_root)?;
+        // Read the passages from the passage directory and add the inlined passages. Then generate
+        // the lesson and exercise manifests.
+        let mut passages = self.open_passage_directory(course_root)?;
+        passages.extend(self.inlined_passages.clone());
         let lessons = self.generate_lesson_manifests(course_manifest, preferences, passages)?;
 
         // Update the course's metadata and instructions.
@@ -764,7 +776,7 @@ mod test {
         assert_eq!(exercise_asset, expected_asset);
     }
 
-    /// Verifies opening the passage directory.
+    /// Verifies creating the course based on the passages in the passage directory.
     #[test]
     fn open_passage_directory() -> Result<()> {
         // Create the passages directory.
@@ -801,6 +813,7 @@ mod test {
         // Open the passages directory and verify the passages.
         let config = TranscriptionConfig {
             passage_directory: "passages".into(),
+            inlined_passages: vec![],
             transcription_dependencies: vec![],
             skip_advanced_lessons: false,
         };
@@ -847,6 +860,7 @@ mod test {
         // Open the passages directory and verify the method fails.
         let config = TranscriptionConfig {
             passage_directory: "passages".into(),
+            inlined_passages: vec![],
             transcription_dependencies: vec![],
             skip_advanced_lessons: false,
         };
@@ -864,6 +878,7 @@ mod test {
         // Open the passages directory and verify the method fails.
         let config = TranscriptionConfig {
             passage_directory: "passages".into(),
+            inlined_passages: vec![],
             transcription_dependencies: vec![],
             skip_advanced_lessons: false,
         };
@@ -913,6 +928,7 @@ mod test {
         let course_generator = CourseGenerator::Transcription(TranscriptionConfig {
             transcription_dependencies: vec![],
             passage_directory: "passages".to_string(),
+            inlined_passages: vec![],
             skip_advanced_lessons: false,
         });
 
