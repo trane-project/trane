@@ -408,8 +408,8 @@ impl ExerciseScheduler for Trane {
 }
 
 impl StudySessionManager for Trane {
-    fn get_session(&self, id: &str) -> Option<data::filter::StudySession> {
-        self.study_session_manager.read().get_session(id)
+    fn get_study_session(&self, id: &str) -> Option<data::filter::StudySession> {
+        self.study_session_manager.read().get_study_session(id)
     }
 
     fn list_study_sessions(&self) -> Vec<(String, String)> {
