@@ -47,12 +47,14 @@ pub mod repository_manager;
 pub mod review_list;
 pub mod scheduler;
 pub mod scorer;
+pub mod study_session_manager;
 pub mod testutil;
 
 use anyhow::Result;
 use parking_lot::RwLock;
 use review_list::{ReviewList, ReviewListDB};
 use std::{path::Path, sync::Arc};
+use study_session_manager::{LocalStudySessionManager, StudySessionManager};
 use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::mantra_miner::TraneMantraMiner;
@@ -83,6 +85,9 @@ pub const REVIEW_LIST_PATH: &str = "review_list.db";
 /// The path to the directory containing unit filters saved by the user.
 pub const FILTERS_DIR: &str = "filters";
 
+/// The path to the directory containing study sessions saved by the user.
+pub const STUDY_SESSIONS_DIR: &str = "study_sessions";
+
 /// The path to the file containing user preferences.
 pub const USER_PREFERENCES_PATH: &str = "user_preferences.json";
 
@@ -102,31 +107,34 @@ pub struct Trane {
     /// The path to the root of the course library.
     library_root: String,
 
-    /// The object containing the list of courses, lessons, and exercises to be skipped.
+    /// The object managing the list of courses, lessons, and exercises to be skipped.
     blacklist: Arc<RwLock<dyn Blacklist + Send + Sync>>,
 
-    /// The object containing all the course, lesson, and exercise info.
+    /// The object managing all the course, lesson, and exercise info.
     course_library: Arc<RwLock<dyn CourseLibrary + Send + Sync>>,
 
-    /// The object containing unit filters saved by the user.
+    /// The object managing unit filters saved by the user.
     filter_manager: Arc<RwLock<dyn FilterManager + Send + Sync>>,
 
-    /// The object containing the information on previous exercise trials.
+    /// The object managing the information on previous exercise trials.
     practice_stats: Arc<RwLock<dyn PracticeStats + Send + Sync>>,
 
     /// The object managing git repositories containing courses.
     repo_manager: Arc<RwLock<dyn RepositoryManager + Send + Sync>>,
 
-    /// The object containing the list of units to review.
+    /// The object managing the list of units to review.
     review_list: Arc<RwLock<dyn ReviewList + Send + Sync>>,
 
-    /// The object containing access to all the data needed by the scheduler. It's saved separately
+    /// The object managing access to all the data needed by the scheduler. It's saved separately
     /// from the scheduler so that tests can have access to it.
     #[allow(dead_code)]
     scheduler_data: SchedulerData,
 
-    /// The object containing the scheduling algorithm.
+    /// The object managing the scheduling algorithm.
     scheduler: DepthFirstScheduler,
+
+    /// The object managing the study sessions saved by the user.
+    study_session_manager: Arc<RwLock<dyn StudySessionManager + Send + Sync>>,
 
     /// The dependency graph of courses and lessons in the course library.
     unit_graph: Arc<RwLock<dyn UnitGraph + Send + Sync>>,
@@ -174,6 +182,9 @@ impl Trane {
         let filter_manager = Arc::new(RwLock::new(LocalFilterManager::new(
             config_path.join(FILTERS_DIR).to_str().unwrap(),
         )?));
+        let study_sessions_manager = Arc::new(RwLock::new(LocalStudySessionManager::new(
+            config_path.join(STUDY_SESSIONS_DIR).to_str().unwrap(),
+        )?));
         let repo_manager = Arc::new(RwLock::new(LocalRepositoryManager::new(library_root)?));
         let mut mantra_miner = TraneMantraMiner::default();
         mantra_miner.mantra_miner.start()?;
@@ -203,6 +214,7 @@ impl Trane {
             review_list,
             scheduler_data: scheduler_data.clone(),
             scheduler: DepthFirstScheduler::new(scheduler_data),
+            study_session_manager: study_sessions_manager,
             unit_graph,
             mantra_miner,
         })
@@ -392,6 +404,16 @@ impl ExerciseScheduler for Trane {
 
     fn reset_scheduler_options(&mut self) {
         self.scheduler.reset_scheduler_options()
+    }
+}
+
+impl StudySessionManager for Trane {
+    fn get_session(&self, id: &str) -> Option<data::filter::StudySession> {
+        self.study_session_manager.read().get_session(id)
+    }
+
+    fn list_study_sessions(&self) -> Vec<(String, String)> {
+        self.study_session_manager.read().list_study_sessions()
     }
 }
 

@@ -542,7 +542,7 @@ fn bad_score_prevents_advancing() -> Result<()> {
     let mut trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
 
     // Run the simulation.
-    let mut simulation = TraneSimulation::new(100, Box::new(|_| Some(MasteryScore::One)));
+    let mut simulation = TraneSimulation::new(200, Box::new(|_| Some(MasteryScore::One)));
     simulation.run_simulation(&mut trane, &vec![], None)?;
 
     // Only the exercises in the first lessons should be in `simulation.answer_history`.
@@ -1567,7 +1567,7 @@ fn schedule_study_session() -> Result<()> {
         start_time: Utc::now() - Duration::minutes(30),
         definition: StudySession {
             id: "session".into(),
-            name: "session".into(),
+            description: "session".into(),
             parts: vec![
                 SessionPart::UnitFilter {
                     filter: UnitFilter::CourseFilter {
