@@ -686,8 +686,8 @@ impl DepthFirstScheduler {
         Ok(candidates)
     }
 
+    /// Retrieves an initial batch of candidates based on the given filter.
     fn get_initial_candidates(&self, filter: Option<ExerciseFilter>) -> Result<Vec<Candidate>> {
-        // Retrieve an initial batch of candidates based on the type of the filter.
         let candidates = match filter {
             None => {
                 // If the filter is empty, retrieve candidates from the entire graph. This mode is
