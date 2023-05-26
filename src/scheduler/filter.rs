@@ -36,10 +36,10 @@ const MAX_DEPTH_WEIGHT: f32 = 100.0;
 /// value. Each time an exercise is scheduled, this portion of the weight is halved.
 const MAX_FREQUENCY_WEIGHT: f32 = 200.0;
 
-/// The size of the batch that will be used if there are not enough candidates to create a batch of
-/// the size specified in the scheduler options. Meant to avoid scheduling every or most exercises
-/// in each batch when there are only a few candidates.
-const SMALL_BATCH_SIZE: usize = 10;
+/// The batch size will be adjusted if there are not enough candidates (at least three times the
+/// batch size) to create a batch of the size specified in the scheduler options. This value is the
+/// minimum value for such an adjustment.
+const MIN_DYNAMIC_BATCH_SIZE: usize = 10;
 
 /// The filter used to reduce the candidates found during the search to a final batch of exercises.
 pub(super) struct CandidateFilter {
@@ -167,11 +167,16 @@ impl CandidateFilter {
     /// Computes the batch size to use based on the number of candidates and the batch size defined
     /// in the scheduler options.
     fn dynamic_batch_size(batch_size: usize, num_candidates: usize) -> usize {
-        if batch_size < SMALL_BATCH_SIZE {
+        // Do not adjust the batch size if it's already small.
+        if batch_size < MIN_DYNAMIC_BATCH_SIZE {
             return batch_size;
         }
-        if num_candidates < batch_size * 2 {
-            return SMALL_BATCH_SIZE;
+
+        // If there are fewer candidates than three times the batch size, using the full batch size
+        // would result in suboptimal filtering. Reduce the batch size to one third of the number
+        // of candidates. Otherwise, keep the batch size as is.
+        if num_candidates < batch_size * 3 {
+            return (num_candidates / 3).max(MIN_DYNAMIC_BATCH_SIZE);
         }
         batch_size
     }
@@ -240,7 +245,7 @@ impl CandidateFilter {
 mod test {
     use anyhow::Result;
 
-    use crate::scheduler::filter::{CandidateFilter, SMALL_BATCH_SIZE};
+    use crate::scheduler::filter::{CandidateFilter, MIN_DYNAMIC_BATCH_SIZE};
 
     /// Verifies that the batch size is adjusted based on the number of candidates.
     #[test]
@@ -248,18 +253,15 @@ mod test {
         // Small batch sizes are unaffected.
         assert_eq!(CandidateFilter::dynamic_batch_size(5, 10), 5);
 
-        // The small batch size is used if there are not enough candidates.
+        // The batch size is adjusted if there are not enough candidates.
+        assert_eq!(CandidateFilter::dynamic_batch_size(50, 70), 70 / 3);
         assert_eq!(
             CandidateFilter::dynamic_batch_size(50, 10),
-            SMALL_BATCH_SIZE
-        );
-        assert_eq!(
-            CandidateFilter::dynamic_batch_size(50, 70),
-            SMALL_BATCH_SIZE
+            MIN_DYNAMIC_BATCH_SIZE
         );
 
         // The batch size from the options is used if there are enough candidates.
-        assert_eq!(CandidateFilter::dynamic_batch_size(50, 100), 50);
+        assert_eq!(CandidateFilter::dynamic_batch_size(50, 150), 50);
         assert_eq!(CandidateFilter::dynamic_batch_size(50, 200), 50);
         Ok(())
     }
