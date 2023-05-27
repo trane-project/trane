@@ -132,15 +132,21 @@ impl CandidateFilter {
         batch_size: usize,
         final_candidates: &mut Vec<Candidate>,
         remainder: Vec<Candidate>,
+        max_added: Option<usize>,
     ) {
         // The batch is already full, so there's nothing to do.
         if final_candidates.len() >= batch_size {
             return;
         }
 
-        // Otherwise, select as many candidates as possible from the remainder.
+        // If a maximum number of exercises to add has been specified, use that value. Otherwise,
+        // fill up the remaining space in the batch.
         let num_remainder = batch_size - final_candidates.len();
-        let (remainder_candidates, _) = Self::select_candidates(remainder, num_remainder);
+        let num_added = match max_added {
+            None => num_remainder,
+            Some(max) => num_remainder.min(max),
+        };
+        let (remainder_candidates, _) = Self::select_candidates(remainder, num_added);
         final_candidates.extend(remainder_candidates);
     }
 
@@ -229,12 +235,23 @@ impl CandidateFilter {
         final_candidates.extend(target_selected);
 
         // Go through the remainders and add them to the list of final candidates if there's still
-        // space left in the batch. Add the remainder from the current window first, then the
-        // easy window, and finally the target and mastered windows.
-        Self::add_remainder(batch_size, &mut final_candidates, current_remainder);
-        Self::add_remainder(batch_size, &mut final_candidates, easy_remainder);
-        Self::add_remainder(batch_size, &mut final_candidates, target_remainder);
-        Self::add_remainder(batch_size, &mut final_candidates, mastered_remainder);
+        // space left in the batch. Add the remainder from the current, target, easy, and mastered
+        // windows, in that order. Limit the number of too easy or too hard exercises to avoid
+        // creating unbalanced batches.
+        Self::add_remainder(batch_size, &mut final_candidates, current_remainder, None);
+        Self::add_remainder(
+            batch_size,
+            &mut final_candidates,
+            target_remainder,
+            Some(20),
+        );
+        Self::add_remainder(batch_size, &mut final_candidates, easy_remainder, Some(10));
+        Self::add_remainder(
+            batch_size,
+            &mut final_candidates,
+            mastered_remainder,
+            Some(5),
+        );
 
         // Convert the list of candidates into a list of tuples of exercise IDs and manifests.
         self.candidates_to_exercises(final_candidates)
