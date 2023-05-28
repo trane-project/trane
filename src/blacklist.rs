@@ -24,6 +24,9 @@ pub trait Blacklist {
     /// list.
     fn remove_from_blacklist(&mut self, unit_id: &Ustr) -> Result<()>;
 
+    /// Remvoves all the units that match the given prefix from the blacklist.
+    fn remove_prefix_from_blacklist(&mut self, prefix: &str) -> Result<()>;
+
     /// Returns whether the given unit is in the blacklist and should be skipped during scheduling.
     fn blacklisted(&self, unit_id: &Ustr) -> Result<bool>;
 
@@ -145,6 +148,33 @@ impl Blacklist for BlacklistDB {
         Ok(())
     }
 
+    fn remove_prefix_from_blacklist(&mut self, prefix: &str) -> Result<()> {
+        // Search for all the entries with the given prefix.
+        let connection = self.pool.get()?;
+        let mut stmt = connection
+            .prepare_cached("SELECT unit_id from blacklist WHERE unit_id LIKE $1;")
+            .with_context(|| {
+                // grcov-excl-start: This should never happen.
+                "cannot prepare statement to get entries with prefix from blacklist DB"
+                // grcov-excl-stop
+            })?; // grcov-excl-line
+        let mut rows = stmt.query(params![format!("{}%", prefix)])?;
+
+        // Remove all the entries with the given prefix.
+        let mut stmt = connection
+            .prepare_cached("DELETE FROM blacklist WHERE unit_id = $1")
+            .with_context(|| "cannot prepare statement to delete from blacklist DB")?; // grcov-excl-line
+        while let Some(row) = rows.next()? {
+            let unit_id: String = row.get(0)?;
+            println!("Removing {} from blacklist", unit_id);
+            stmt.execute(params![unit_id])?;
+
+            // Update the cache.
+            self.cache.write().insert(unit_id.into(), false);
+        }
+        Ok(())
+    }
+
     fn blacklisted(&self, unit_id: &Ustr) -> Result<bool> {
         self.has_entry(unit_id)
     }
@@ -200,6 +230,36 @@ mod test {
         assert!(blacklist.blacklisted(&unit_id)?);
         blacklist.remove_from_blacklist(&unit_id)?;
         assert!(!blacklist.blacklisted(&unit_id)?);
+        Ok(())
+    }
+
+    /// Verifies removing units that match a prefix from the blacklist.
+    #[test]
+    fn remove_prefix_from_blacklist() -> Result<()> {
+        let mut blacklist = new_test_blacklist()?;
+
+        // Add some units to the blacklist.
+        let units = vec![
+            Ustr::from("a"),
+            Ustr::from("a::a"),
+            Ustr::from("b"),
+            Ustr::from("b::a"),
+            Ustr::from("c"),
+            Ustr::from("c::a"),
+        ];
+        for unit in &units {
+            blacklist.add_to_blacklist(unit).unwrap();
+        }
+
+        // Remove the units with the prefix "a" and verify only those are removed.
+        blacklist.remove_prefix_from_blacklist("a").unwrap();
+        for unit in &units {
+            if unit.as_str().starts_with("a") {
+                assert!(!blacklist.blacklisted(unit).unwrap());
+            } else {
+                assert!(blacklist.blacklisted(unit).unwrap());
+            }
+        }
         Ok(())
     }
 

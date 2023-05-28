@@ -255,6 +255,12 @@ impl Blacklist for Trane {
         self.blacklist.write().remove_from_blacklist(unit_id)
     }
 
+    fn remove_prefix_from_blacklist(&mut self, prefix: &str) -> Result<()> {
+        // Make sure to invalidate any cached scores of units with the given prefix.
+        self.scheduler.invalidate_cached_scores_with_prefix(prefix);
+        self.blacklist.write().remove_prefix_from_blacklist(prefix)
+    }
+
     fn blacklisted(&self, unit_id: &Ustr) -> Result<bool> {
         self.blacklist.read().blacklisted(unit_id)
     }
@@ -392,6 +398,10 @@ impl ExerciseScheduler for Trane {
 
     fn invalidate_cached_score(&self, unit_id: &Ustr) {
         self.scheduler.invalidate_cached_score(unit_id)
+    }
+
+    fn invalidate_cached_scores_with_prefix(&self, prefix: &str) {
+        self.scheduler.invalidate_cached_scores_with_prefix(prefix)
     }
 
     fn get_scheduler_options(&self) -> SchedulerOptions {
