@@ -801,6 +801,8 @@ impl ExerciseScheduler for DepthFirstScheduler {
         Ok(())
     }
 
+    // grcov-excl-start: These methods simply call similar methods on the cache, which are already
+    // tested.
     fn invalidate_cached_score(&self, unit_id: &Ustr) {
         self.score_cache.invalidate_cached_score(unit_id);
     }
@@ -809,6 +811,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
         self.score_cache
             .invalidate_cached_scores_with_prefix(prefix);
     }
+    // grcov-excl-stop
 
     fn get_scheduler_options(&self) -> SchedulerOptions {
         self.data.options.clone()
