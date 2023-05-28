@@ -12,7 +12,7 @@
 
 use anyhow::Result;
 use rand::{prelude::SliceRandom, thread_rng};
-use ustr::{Ustr, UstrSet};
+use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
     data::{ExerciseManifest, MasteryWindow},
@@ -29,12 +29,17 @@ const SCORE_WEIGHT_FACTOR: f32 = 20.0;
 /// factor.
 const DEPTH_WEIGHT_FACTOR: f32 = 5.0;
 
-/// The part of the weight that depends on the weight of the candidate will be capped at this value.
+/// The part of the weight that depends on the depth of the path taken to reach the candidate will
+/// be capped at this value.
 const MAX_DEPTH_WEIGHT: f32 = 100.0;
 
 /// The part of the weight that depends on the frequency of the candidate will be capped at this
 /// value. Each time an exercise is scheduled, this portion of the weight is halved.
 const MAX_FREQUENCY_WEIGHT: f32 = 200.0;
+
+/// The maximum weight that depends on the frequency of the lesson. The weight will be divided
+/// equally among all of the exercises from the same lesson.
+const MAX_LESSON_FREQUENCY_WEIGHT: f32 = 100.0;
 
 /// The batch size will be adjusted if there are not enough candidates (at least three times the
 /// batch size) to create a batch of the size specified in the scheduler options. This value is the
@@ -65,6 +70,15 @@ impl CandidateFilter {
             .collect()
     }
 
+    /// Counts the number of candidates in each lesson.
+    fn count_lesson_frequency(candidates: &[Candidate]) -> UstrMap<usize> {
+        let mut lesson_frequency = UstrMap::default();
+        for candidate in candidates {
+            *lesson_frequency.entry(candidate.lesson_id).or_default() += 1;
+        }
+        lesson_frequency
+    }
+
     /// Takes a list of candidates and randomly selects `num_selected` candidates among them. The
     /// probabilities of selecting a candidate are weighted based on the following:
     /// 1. The candidate's score. A higher score is assigned less weight to present scores with
@@ -75,6 +89,9 @@ impl CandidateFilter {
     /// 3. The frequency with which the candidate has been scheduled during the run of the
     ///    scheduler. A higher frequency is assigned less weight to avoid selecting the same
     ///    exercises too often.
+    /// 4. The number of candidates in the same lesson. The more candidates there are in the same
+    ///   lesson, the less weight each candidate is assigned to avoid selecting too many exercises
+    ///   from it.
     ///
     /// The function returns a tuple of the selected candidates and the remainder exercises. The
     /// remainder will be used to fill the batch in case there is space left after the first round
@@ -87,6 +104,9 @@ impl CandidateFilter {
         if candidates.len() <= num_to_select {
             return (candidates, vec![]);
         }
+
+        // Count the number of candidates in each lesson.
+        let lesson_frequency = Self::count_lesson_frequency(&candidates);
 
         // Otherwise, assign a weight to each candidate and perform a weighted random selection.
         // Safe to unwrap the result, as this function panics if `num_to_select` is greater than the
@@ -109,6 +129,12 @@ impl CandidateFilter {
                 // scheduled. Exercises that have been scheduled more often are assigned less
                 // weight.
                 weight += MAX_FREQUENCY_WEIGHT / 2.0_f32.powf(c.frequency);
+
+                // Increase the weight based on the number of candidates in the same lesson. The
+                // more candidates there are in the same lesson, the less weight each candidate is
+                // assigned.
+                weight += MAX_LESSON_FREQUENCY_WEIGHT / lesson_frequency[&c.lesson_id] as f32;
+
                 weight
             })
             .unwrap()
@@ -261,8 +287,12 @@ impl CandidateFilter {
 #[cfg(test)]
 mod test {
     use anyhow::Result;
+    use ustr::Ustr;
 
-    use crate::scheduler::filter::{CandidateFilter, MIN_DYNAMIC_BATCH_SIZE};
+    use crate::scheduler::{
+        filter::{CandidateFilter, MIN_DYNAMIC_BATCH_SIZE},
+        Candidate,
+    };
 
     /// Verifies that the batch size is adjusted based on the number of candidates.
     #[test]
@@ -280,6 +310,51 @@ mod test {
         // The batch size from the options is used if there are enough candidates.
         assert_eq!(CandidateFilter::dynamic_batch_size(50, 150), 50);
         assert_eq!(CandidateFilter::dynamic_batch_size(50, 200), 50);
+        Ok(())
+    }
+
+    /// Verifies that the candidates per lesson are counted correctly.
+    #[test]
+    fn count_lesson_frequency() -> Result<()> {
+        // Create a list of candidates with different lessons.
+        let candidates = vec![
+            Candidate {
+                exercise_id: Ustr::from("exercise1"),
+                lesson_id: Ustr::from("lesson1"),
+                depth: 0.0,
+                score: 0.0,
+                frequency: 0.0,
+            },
+            Candidate {
+                exercise_id: Ustr::from("exercise2"),
+                lesson_id: Ustr::from("lesson1"),
+                depth: 0.0,
+                score: 0.0,
+                frequency: 0.0,
+            },
+            Candidate {
+                exercise_id: Ustr::from("exercise3"),
+                lesson_id: Ustr::from("lesson2"),
+                depth: 0.0,
+                score: 0.0,
+                frequency: 0.0,
+            },
+            Candidate {
+                exercise_id: Ustr::from("exercise4"),
+                lesson_id: Ustr::from(""),
+                depth: 0.0,
+                score: 0.0,
+                frequency: 0.0,
+            },
+        ];
+
+        // Count the number of candidates per lesson.
+        let lesson_frequency = CandidateFilter::count_lesson_frequency(&candidates);
+        assert_eq!(lesson_frequency.len(), 3);
+        assert_eq!(lesson_frequency.get(&Ustr::from("lesson1")), Some(&2));
+        assert_eq!(lesson_frequency.get(&Ustr::from("lesson2")), Some(&1));
+        assert_eq!(lesson_frequency.get(&Ustr::from("")), Some(&1));
+
         Ok(())
     }
 }
