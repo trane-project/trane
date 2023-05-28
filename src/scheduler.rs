@@ -120,6 +120,9 @@ struct Candidate {
     /// The ID of the exercise.
     exercise_id: Ustr,
 
+    // The ID of the exercise's lesson.
+    lesson_id: Ustr,
+
     /// The depth of this unit from the starting unit. That is, the number of hops the graph search
     /// needed to reach this exercise.
     depth: f32,
@@ -305,6 +308,7 @@ impl DepthFirstScheduler {
             .filter(|(exercise_id, _)| !self.data.blacklisted(exercise_id).unwrap_or(false))
             .map(|(exercise_id, score)| Candidate {
                 exercise_id,
+                lesson_id: item.unit_id, // It's assumed that the item is a lesson.
                 depth: (item.depth + 1) as f32,
                 score: *score,
                 frequency: self.data.get_exercise_frequency(&exercise_id),
@@ -673,9 +677,18 @@ impl DepthFirstScheduler {
                     candidates.extend(self.get_candidates_from_lesson(unit_id)?);
                 }
                 UnitType::Exercise => {
+                    // Retrieve the exercise's lesson.
+                    let lesson_id = self
+                        .data
+                        .unit_graph
+                        .read()
+                        .get_exercise_lesson(unit_id)
+                        .unwrap_or_default();
+
                     // If the unit is an exercise, directly add it to the list of candidates.
                     candidates.push(Candidate {
                         exercise_id: *unit_id,
+                        lesson_id,
                         depth: 0.0,
                         score: self
                             .score_cache
