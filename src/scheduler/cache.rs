@@ -65,6 +65,18 @@ impl ScoreCache {
         }
     }
 
+    /// Removes the cached score for any unit with the given prefix.
+    pub(super) fn invalidate_cached_scores_with_prefix(&self, prefix: &str) {
+        // Remove the unit from the exercise and lesson caches. This is safe to do even though the
+        // unit is at most in one cache because the caches are disjoint.
+        self.exercise_cache
+            .write()
+            .retain(|unit_id, _| !unit_id.starts_with(prefix));
+        self.lesson_cache
+            .write()
+            .retain(|unit_id, _| !unit_id.starts_with(prefix));
+    }
+
     /// Returns the score for the given exercise.
     fn get_exercise_score(&self, exercise_id: &Ustr) -> Result<f32> {
         // Return the cached score if it exists.
@@ -283,6 +295,47 @@ mod test {
         let course_id = Ustr::from("0");
         library.add_to_blacklist(&course_id)?;
         assert_eq!(cache.get_course_score(&course_id)?, None);
+        Ok(())
+    }
+
+    /// Verifies that scores are correctly invalidated.
+    #[test]
+    fn invalidate_cached_scores() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let library = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let scheduler_data = library.get_scheduler_data();
+        let cache = ScoreCache::new(scheduler_data, SchedulerOptions::default());
+
+        // Insert some scores into the exercise and lesson caches.
+        cache.exercise_cache.write().insert(Ustr::from("a"), 5.0);
+        cache.exercise_cache.write().insert(Ustr::from("b::a"), 5.0);
+        cache
+            .lesson_cache
+            .write()
+            .insert(Ustr::from("a::a"), Some(5.0));
+        cache
+            .lesson_cache
+            .write()
+            .insert(Ustr::from("c::a"), Some(5.0));
+
+        // Verify that the scores are present.
+        assert_eq!(cache.get_exercise_score(&Ustr::from("a"))?, 5.0);
+        assert_eq!(cache.get_exercise_score(&Ustr::from("b::a"))?, 5.0);
+        assert_eq!(cache.get_lesson_score(&Ustr::from("a::a"))?, Some(5.0));
+        assert_eq!(cache.get_lesson_score(&Ustr::from("c::a"))?, Some(5.0));
+
+        // Invalidate prefix `a` and verify that the cached scores are removed.
+        cache.invalidate_cached_scores_with_prefix("a");
+        assert_eq!(cache.get_exercise_score(&Ustr::from("a"))?, 0.0);
+        assert_eq!(cache.get_exercise_score(&Ustr::from("b::a"))?, 5.0);
+        assert_eq!(cache.get_lesson_score(&Ustr::from("a::a"))?, None);
+        assert_eq!(cache.get_lesson_score(&Ustr::from("c::a"))?, Some(5.0));
+
+        // Invalidate units `b::a  and `c::a` and verify that the score is removed.
+        cache.invalidate_cached_score(&Ustr::from("b::a"));
+        cache.invalidate_cached_score(&Ustr::from("c::a"));
+        assert_eq!(cache.get_exercise_score(&Ustr::from("b::a"))?, 0.0);
+        assert_eq!(cache.get_lesson_score(&Ustr::from("c::a"))?, None);
         Ok(())
     }
 }

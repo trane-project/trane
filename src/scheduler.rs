@@ -87,6 +87,10 @@ pub trait ExerciseScheduler {
     /// the blacklist.
     fn invalidate_cached_score(&self, unit_id: &Ustr);
 
+    /// Removes any cached scores from units with the given prefix. The same considerations as
+    /// `invalidate_cached_score` apply.
+    fn invalidate_cached_scores_with_prefix(&self, prefix: &str);
+
     /// Returns the options used to control the behavior of the scheduler.
     fn get_scheduler_options(&self) -> SchedulerOptions;
 
@@ -799,6 +803,11 @@ impl ExerciseScheduler for DepthFirstScheduler {
 
     fn invalidate_cached_score(&self, unit_id: &Ustr) {
         self.score_cache.invalidate_cached_score(unit_id);
+    }
+
+    fn invalidate_cached_scores_with_prefix(&self, prefix: &str) {
+        self.score_cache
+            .invalidate_cached_scores_with_prefix(prefix);
     }
 
     fn get_scheduler_options(&self) -> SchedulerOptions {
