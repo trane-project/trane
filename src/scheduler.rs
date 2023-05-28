@@ -700,13 +700,12 @@ impl DepthFirstScheduler {
                 self.get_candidates_from_graph(initial_stack, None)?
             }
             Some(filter) => match filter {
+                // Otherwise, use the given filter to select how candidates are retrieved.
                 ExerciseFilter::UnitFilter(filter) => match filter {
                     UnitFilter::CourseFilter { course_ids } => {
-                        // Retrieve candidates from the given courses.
                         self.get_candidates_from_course(&course_ids[..])?
                     }
                     UnitFilter::LessonFilter { lesson_ids } => {
-                        // Retrieve candidate from the given lessons.
                         let mut candidates = Vec::new();
                         for lesson_id in lesson_ids {
                             candidates
@@ -715,15 +714,11 @@ impl DepthFirstScheduler {
                         candidates
                     }
                     UnitFilter::MetadataFilter { filter } => {
-                        // Retrieve candidates from the entire graph but only if the exercises
-                        // belongs to a course or lesson matching the given metadata filter.
                         let initial_stack = self.get_initial_stack(Some(&filter));
                         self.get_candidates_from_graph(initial_stack, Some(&filter))?
                     }
-                    // Retrieve candidates from the units the student has marked for review.
                     UnitFilter::ReviewListFilter => self.get_candidates_from_review_list()?,
                     UnitFilter::Dependents { unit_ids } => {
-                        // Retrieve candidates from the given units and all of their dependents.
                         let initial_stack = unit_ids
                             .iter()
                             .map(|unit_id| StackItem {
