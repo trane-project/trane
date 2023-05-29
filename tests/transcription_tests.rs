@@ -64,6 +64,7 @@ fn transcription_builder(
                 track_name: format!("Track {}", i),
                 artist_name: format!("Artist {}", i),
                 album_name: format!("Album {}", i),
+                duration: None,
                 external_link: None,
             },
             intervals: HashMap::from([(0, ("0:00".to_string(), "0:01".to_string()))]),

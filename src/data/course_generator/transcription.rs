@@ -48,6 +48,10 @@ pub enum TranscriptionAsset {
         #[serde(default)]
         album_name: String,
 
+        /// The duration of the track.
+        #[serde(default)]
+        duration: Option<String>,
+
         /// A link to an external copy (e.g. youtube video) of the track.
         #[serde(default)]
         external_link: Option<String>,
@@ -97,6 +101,7 @@ impl TranscriptionPassages {
                 artist_name,
                 album_name,
                 external_link,
+                duration,
                 ..
             } => ExerciseAsset::BasicAsset(BasicAsset::InlinedUniqueAsset {
                 content: formatdoc! {"
@@ -106,10 +111,12 @@ impl TranscriptionPassages {
                         - Track name: {}
                         - Artist name: {}
                         - Album name: {}
+                        - Track duration: {}
                         - External link: {}
                         - Passage interval: {} - {}
                     {}",
                     description, track_name, artist_name, album_name,
+                    duration.as_deref().unwrap_or(""),
                     external_link.as_deref().unwrap_or(""), start, end, instrument_instruction
                 }
                 .into(),
@@ -727,6 +734,7 @@ mod test {
                 track_name: "Track".into(),
                 artist_name: "Artist".into(),
                 album_name: "Album".into(),
+                duration: Some("1:30".into()),
                 external_link: Some("https://example.com".into()),
             },
             intervals: HashMap::from([
@@ -750,6 +758,7 @@ mod test {
                     - Track name: Track
                     - Artist name: Artist
                     - Album name: Album
+                    - Track duration: 1:30
                     - External link: https://example.com
                     - Passage interval: 0:00 - 0:01
 
@@ -770,6 +779,7 @@ mod test {
                     - Track name: Track
                     - Artist name: Artist
                     - Album name: Album
+                    - Track duration: 1:30
                     - External link: https://example.com
                     - Passage interval: 0:00 - 0:01
             "}
@@ -793,6 +803,7 @@ mod test {
                 track_name: "Track 1".into(),
                 artist_name: "Artist 1".into(),
                 album_name: "Album 1".into(),
+                duration: Some("1:30".into()),
                 external_link: None,
             },
             intervals: HashMap::from([(1, ("0:00".into(), "0:01".into()))]),
@@ -803,6 +814,7 @@ mod test {
                 track_name: "Track 2".into(),
                 artist_name: "Artist 2".into(),
                 album_name: "Album 2".into(),
+                duration: Some("1:30".into()),
                 external_link: None,
             },
             intervals: HashMap::from([(1, ("0:00".into(), "0:01".into()))]),
@@ -859,6 +871,7 @@ mod test {
                 track_name: "Track 1".into(),
                 artist_name: "Artist 1".into(),
                 album_name: "Album 1".into(),
+                duration: Some("1:30".into()),
                 external_link: None,
             },
             intervals: HashMap::from([(1, ("0:00".into(), "0:01".into()))]),
@@ -869,6 +882,7 @@ mod test {
                 track_name: "Track 2".into(),
                 artist_name: "Artist 2".into(),
                 album_name: "Album 2".into(),
+                duration: Some("1:30".into()),
                 external_link: None,
             },
             intervals: HashMap::from([(1, ("0:00".into(), "0:01".into()))]),
@@ -917,6 +931,7 @@ mod test {
             track_name: "Track".into(),
             artist_name: "Artist".into(),
             album_name: "Album".into(),
+            duration: Some("1:30".into()),
             external_link: Some("https://example.com".into()),
         };
         let asset_clone = asset.clone();
@@ -933,6 +948,7 @@ mod test {
                 track_name: "Track".into(),
                 artist_name: "Artist".into(),
                 album_name: "Album".into(),
+                duration: Some("1:30".into()),
                 external_link: Some("https://example.com".into()),
             },
             intervals: HashMap::from([(1, ("0:00".into(), "0:01".into()))]),
