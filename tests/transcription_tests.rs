@@ -237,9 +237,9 @@ fn advanced_singing_blocks_advanced_transcription() -> Result<()> {
 }
 
 /// Verifies that not making progress on the transcription lessons blocks the advanced transcription
-/// lessons.
+/// lessons from the same course and the transcription lessons from the next course.
 #[test]
-fn transcription_blocks_advanced_transcription() -> Result<()> {
+fn transcription_blocks_advanced_transcription_and_dependents() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
     let mut trane = init_simulation(
@@ -251,13 +251,14 @@ fn transcription_blocks_advanced_transcription() -> Result<()> {
         Some(&USER_PREFS),
     )?;
 
-    // Run the simulation. Give every transcription exercise a score of one, which should block all
-    // progress on the advanced transcription lessons.
+    // Run the simulation. Give every transcription exercise from the first course a score of one,
+    // which should block all progress on the advanced transcription lessons. It also blocks the
+    // transcription lessons from the second course.
     let exercise_ids = trane.get_all_exercise_ids()?;
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
         Box::new(|exercise_id| {
-            if exercise_id.contains("::transcription::") {
+            if exercise_id.contains("trane::test::transcription_course_0::transcription::") {
                 Some(MasteryScore::One)
             } else {
                 Some(MasteryScore::Five)
@@ -268,7 +269,9 @@ fn transcription_blocks_advanced_transcription() -> Result<()> {
 
     // Exercises from the advanced transcription lessons should not be in the answer history.
     for exercise_id in exercise_ids {
-        if exercise_id.contains("advanced_transcription") {
+        if exercise_id.contains("advanced_transcription")
+            || exercise_id.contains("transcription_course_1::transcription")
+        {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_id),
                 "exercise {:?} should not have been scheduled",

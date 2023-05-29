@@ -365,7 +365,15 @@ impl TranscriptionConfig {
         passages: &[TranscriptionPassages],
         instrument: &Instrument,
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
-        // Generate the lesson manifest. The lesson depends on the singing lesson.
+        // Generate the lesson manifest. The lesson depends on the singing lesson and the
+        // transcription lessons of the courses listed in the transcription dependencies.
+        let mut dependencies: Vec<Ustr> = self
+            .transcription_dependencies
+            .iter()
+            .map(|id| format!("{id}::transcription::{}", instrument.id).into())
+            .collect();
+        dependencies.push(Self::singing_lesson_id(&course_manifest.id));
+        // let dependencies = vec![Self::singing_lesson_id(&course_manifest.id)];
         let lesson_manifest = LessonManifest {
             id: Self::transcription_lesson_id(&course_manifest.id, instrument),
             course_id: course_manifest.id,
@@ -374,7 +382,7 @@ impl TranscriptionConfig {
                 course_manifest.name, instrument.name
             ),
             description: Some(TRANSCRIPTION_DESCRIPTION.to_string()),
-            dependencies: vec![Self::singing_lesson_id(&course_manifest.id)],
+            dependencies,
             metadata: Some(BTreeMap::from([
                 (
                     LESSON_METADATA.to_string(),
