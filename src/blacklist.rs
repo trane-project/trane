@@ -7,13 +7,15 @@
 //! addition, the scheduler will continue the search past its dependents as if the unit was already
 //! mastered. Courses, lessons, and exercises can be added to the blacklist.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use parking_lot::RwLock;
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{params, Connection};
 use rusqlite_migration::{Migrations, M};
 use ustr::{Ustr, UstrMap};
+
+use crate::error::BlacklistError;
 
 /// An interface to store and read the list of units which should be skipped during scheduling.
 pub trait Blacklist {
@@ -63,7 +65,8 @@ impl BlacklistDB {
         let migrations = Self::migrations();
         migrations
             .to_latest(&mut connection)
-            .with_context(|| "failed to initialize blacklist DB") // grcov-excl-line
+            .map_err(BlacklistError::Migration)?; // grcov-excl-line
+        Ok(())
     }
 
     /// A constructor taking a connection manager.
@@ -125,9 +128,9 @@ impl Blacklist for BlacklistDB {
         let connection = self.pool.get()?;
         let mut stmt = connection
             .prepare_cached("INSERT INTO blacklist (unit_id) VALUES (?1)")
-            .with_context(|| "cannot prepare statement to insert into blacklist DB")?; // grcov-excl-line
+            .map_err(BlacklistError::PrepareSqlStatement)?; // grcov-excl-line
         stmt.execute(params![unit_id.as_str()])
-            .with_context(|| format!("cannot insert unit {unit_id} into blacklist DB"))?;
+            .map_err(|e| BlacklistError::AddEntry(*unit_id, e))?;
 
         // Update the cache.
         self.cache.write().insert(*unit_id, true);
@@ -139,9 +142,9 @@ impl Blacklist for BlacklistDB {
         let connection = self.pool.get()?;
         let mut stmt = connection
             .prepare_cached("DELETE FROM blacklist WHERE unit_id = $1")
-            .with_context(|| "cannot prepare statement to delete from blacklist DB")?; // grcov-excl-line
+            .map_err(BlacklistError::PrepareSqlStatement)?; // grcov-excl-line
         stmt.execute(params![unit_id.as_str()])
-            .with_context(|| format!("cannot remove unit {unit_id} from blacklist DB"))?;
+            .map_err(|e| BlacklistError::RemoveEntry(*unit_id, e))?;
 
         // Update the cache.
         self.cache.write().insert(*unit_id, false);
@@ -153,21 +156,20 @@ impl Blacklist for BlacklistDB {
         let connection = self.pool.get()?;
         let mut stmt = connection
             .prepare_cached("SELECT unit_id from blacklist WHERE unit_id LIKE $1;")
-            .with_context(|| {
-                // grcov-excl-start: This should never happen.
-                "cannot prepare statement to get entries with prefix from blacklist DB"
-                // grcov-excl-stop
-            })?; // grcov-excl-line
-        let mut rows = stmt.query(params![format!("{}%", prefix)])?;
+            .map_err(BlacklistError::PrepareSqlStatement)?; // grcov-excl-line
+        let mut rows = stmt
+            .query(params![format!("{}%", prefix)])
+            .map_err(BlacklistError::QueryEntries)?;
 
         // Remove all the entries with the given prefix.
         let mut stmt = connection
             .prepare_cached("DELETE FROM blacklist WHERE unit_id = $1")
-            .with_context(|| "cannot prepare statement to delete from blacklist DB")?; // grcov-excl-line
+            .map_err(BlacklistError::PrepareSqlStatement)?; // grcov-excl-line
         while let Some(row) = rows.next()? {
             let unit_id: String = row.get(0)?;
             println!("Removing {} from blacklist", unit_id);
-            stmt.execute(params![unit_id])?;
+            stmt.execute(params![unit_id])
+                .map_err(|e| BlacklistError::RemoveEntry(Ustr::from(&unit_id), e))?;
 
             // Update the cache.
             self.cache.write().insert(unit_id.into(), false);
@@ -184,8 +186,10 @@ impl Blacklist for BlacklistDB {
         let connection = self.pool.get()?;
         let mut stmt = connection
             .prepare_cached("SELECT unit_id from blacklist;")
-            .with_context(|| "cannot prepare statement to get all entries in blacklist DB")?; // grcov-excl-line
-        let mut rows = stmt.query(params![])?;
+            .map_err(BlacklistError::PrepareSqlStatement)?; // grcov-excl-line
+        let mut rows = stmt
+            .query(params![])
+            .map_err(BlacklistError::QueryEntries)?;
 
         // Convert the rows into a vector of `Ustr` values.
         let mut entries = Vec::new();
