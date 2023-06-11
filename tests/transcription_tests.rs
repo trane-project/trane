@@ -62,8 +62,8 @@ fn transcription_builder(
             asset: TranscriptionAsset::Track {
                 short_id: format!("passages_{}", i),
                 track_name: format!("Track {}", i),
-                artist_name: format!("Artist {}", i),
-                album_name: format!("Album {}", i),
+                artist_name: None,
+                album_name: None,
                 duration: None,
                 external_link: None,
             },
