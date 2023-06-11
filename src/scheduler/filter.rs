@@ -231,6 +231,7 @@ impl CandidateFilter {
             Self::candidates_in_window(&candidates, &options.current_window_opts);
         let target_candidates =
             Self::candidates_in_window(&candidates, &options.target_window_opts);
+        let new_candidates = Self::candidates_in_window(&candidates, &options.new_window_opts);
 
         // Initialize the final list. For each window in descending order of mastery, add the
         // appropriate number of candidates to the final list.
@@ -260,11 +261,17 @@ impl CandidateFilter {
             Self::select_candidates(target_candidates, num_target);
         final_candidates.extend(target_selected);
 
+        // Add elementes from the new window.
+        let num_new = (batch_size_float * options.new_window_opts.percentage).max(1.0) as usize;
+        let (new_selected, new_remainder) = Self::select_candidates(new_candidates, num_new);
+        final_candidates.extend(new_selected);
+
         // Go through the remainders and add them to the list of final candidates if there's still
-        // space left in the batch. Add the remainder from the current, target, easy, and mastered
-        // windows, in that order. Limit the number of too easy or too hard exercises to avoid
-        // creating unbalanced batches.
+        // space left in the batch. Add the remainder from the current, new, target, easy, and
+        // mastered windows, in that order. Limit the number of too easy or too hard exercises to
+        // avoid creating unbalanced batches.
         Self::add_remainder(batch_size, &mut final_candidates, current_remainder, None);
+        Self::add_remainder(batch_size, &mut final_candidates, new_remainder, None);
         Self::add_remainder(
             batch_size,
             &mut final_candidates,

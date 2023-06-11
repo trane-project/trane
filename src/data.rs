@@ -761,6 +761,10 @@ pub struct SchedulerOptions {
     /// The maximum number of candidates to return each time the scheduler is called.
     pub batch_size: usize,
 
+    /// The options of the new mastery window. That is, the window of exercises that have not
+    /// received a score so far.
+    pub new_window_opts: MasteryWindow,
+
     /// The options of the target mastery window. That is, the window of exercises that lie outside
     /// the user's current abilities.
     pub target_window_opts: MasteryWindow,
@@ -797,6 +801,7 @@ impl SchedulerOptions {
             + self.easy_window_opts.percentage
             + self.current_window_opts.percentage
             + self.target_window_opts.percentage
+            + self.new_window_opts.percentage
             != 1.0
         {
             bail!(
@@ -805,9 +810,9 @@ impl SchedulerOptions {
             );
         }
 
-        // The target window's range must start at 0.0.
-        if self.target_window_opts.range.0 != 0.0 {
-            bail!("invalid scheduler options: the target window's range must start at 0.0");
+        // The new window's range must start at 0.0.
+        if self.new_window_opts.range.0 != 0.0 {
+            bail!("invalid scheduler options: the new window's range must start at 0.0");
         }
 
         // The mastered window's range must end at 5.0.
@@ -816,7 +821,8 @@ impl SchedulerOptions {
         }
 
         // There must be no gaps in the mastery windows.
-        if self.target_window_opts.range.1 != self.current_window_opts.range.0
+        if self.new_window_opts.range.1 != self.target_window_opts.range.0
+            || self.target_window_opts.range.1 != self.current_window_opts.range.0
             || self.current_window_opts.range.1 != self.easy_window_opts.range.0
             || self.easy_window_opts.range.1 != self.mastered_window_opts.range.0
         {
@@ -830,14 +836,21 @@ impl SchedulerOptions {
 impl Default for SchedulerOptions {
     /// Returns the default scheduler options.
     fn default() -> Self {
+        // Consider an exercise to be new if it's score is less than 0.1. In reality, all such
+        // exercises will have a score of 0.0, but we add a small margin to make this window act
+        // like all the others.
         SchedulerOptions {
             batch_size: 50,
+            new_window_opts: MasteryWindow {
+                percentage: 0.2,
+                range: (0.0, 0.1),
+            },
             target_window_opts: MasteryWindow {
                 percentage: 0.2,
-                range: (0.0, 2.5),
+                range: (0.1, 2.5),
             },
             current_window_opts: MasteryWindow {
-                percentage: 0.5,
+                percentage: 0.3,
                 range: (2.5, 3.75),
             },
             easy_window_opts: MasteryWindow {
@@ -1148,17 +1161,21 @@ mod test {
         assert!(options.verify().is_err());
     }
 
-    /// Verifies scheduler options with an invalid target window range are invalid.
+    /// Verifies scheduler options with an invalid new window range are invalid.
     #[test]
-    fn scheduler_options_invalid_target_window() {
+    fn scheduler_options_invalid_new_window() {
         let mut options = SchedulerOptions::default();
-        options.target_window_opts.range.0 = 0.1;
+        options.new_window_opts.range.0 = 0.1;
         assert!(options.verify().is_err());
     }
 
     /// Verifies that scheduler options with a gap in the windows are invalid.
     #[test]
     fn scheduler_options_gap_in_windows() {
+        let mut options = SchedulerOptions::default();
+        options.new_window_opts.range.1 -= 0.1;
+        assert!(options.verify().is_err());
+
         let mut options = SchedulerOptions::default();
         options.target_window_opts.range.1 -= 0.1;
         assert!(options.verify().is_err());
