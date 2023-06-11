@@ -67,9 +67,9 @@ impl LocalRepositoryManager {
     fn read_metadata(path: &Path) -> Result<RepositoryMetadata> {
         let repo = serde_json::from_str::<RepositoryMetadata>(
             &fs::read_to_string(path)
-                .map_err(|_| RepositoryError::InvalidRepositoryMetadata(path.to_owned()))?, // grcov-excl-line
+                .map_err(|e| RepositoryError::InvalidMetadataFile(path.to_owned(), e))?, // grcov-excl-line
         )
-        .map_err(|_| RepositoryError::InvalidRepositoryMetadata(path.to_owned()))?; // grcov-excl-line
+        .map_err(|e| RepositoryError::InvalidRepositoryMetadata(path.to_owned(), e))?; // grcov-excl-line
         Ok(repo)
     }
 
@@ -79,38 +79,33 @@ impl LocalRepositoryManager {
             .metadata_directory
             .join(format!("{}.json", metadata.id));
         fs::write(&path, serde_json::to_string_pretty(metadata)?)
-            .map_err(|_| RepositoryError::InvalidRepositoryMetadata(path))?; // grcov-excl-line
+            .map_err(|e| RepositoryError::InvalidMetadataFile(path, e))?; // grcov-excl-line
         Ok(())
     }
 
     /// Clones the repository at the given URL into the given directory. If the directory already
     /// exists, it will be deleted and replaced with the new repository.
     fn clone_repo(&self, url: &str, repo_id: &str) -> Result<()> {
-        // The clone path must be a directory if it exists.
-        let clone_dir = self.download_directory.join(repo_id);
-        if clone_dir.exists() && !clone_dir.is_dir() {
-            bail!(RepositoryError::InvalidDownloadDirectory(clone_dir));
-        }
-
         // Clone the repo into a temp directory.
         let temp_dir = tempfile::tempdir()?;
         let temp_clone_path = temp_dir.path().join(repo_id);
         git2::Repository::clone(url, &temp_clone_path)
-            .map_err(|_| RepositoryError::CloneRepository(url.to_string()))?;
+            .map_err(|e| RepositoryError::CloneRepository(url.to_string(), e))?;
 
         // Copy the repo into the download directory.
+        let clone_dir = self.download_directory.join(repo_id);
         if clone_dir.exists() {
             fs::remove_dir_all(&clone_dir)
-                .map_err(|_| RepositoryError::InvalidDownloadDirectory(clone_dir.to_owned()))?;
+                .map_err(|e| RepositoryError::InvalidDownloadDirectory(clone_dir.to_owned(), e))?;
         }
         fs::create_dir_all(&clone_dir)
-            .map_err(|_| RepositoryError::InvalidDownloadDirectory(clone_dir.to_owned()))?;
+            .map_err(|e| RepositoryError::InvalidDownloadDirectory(clone_dir.to_owned(), e))?;
         fs_extra::copy_items(
             &[temp_clone_path.to_str().unwrap()],
             &self.download_directory,
             &fs_extra::dir::CopyOptions::new().copy_inside(true),
         )
-        .map_err(|_| RepositoryError::InvalidDownloadDirectory(clone_dir.to_owned()))?;
+        .map_err(|e| RepositoryError::CopyRepository(clone_dir.to_owned(), e))?;
         Ok(())
     }
 
@@ -121,7 +116,7 @@ impl LocalRepositoryManager {
             .join(TRANE_CONFIG_DIR_PATH)
             .join(REPOSITORY_DIRECTORY);
         if !repo_dir.exists() {
-            fs::create_dir(&repo_dir).map_err(|_| RepositoryError::InvalidMetadataDirectory)?;
+            fs::create_dir(&repo_dir).map_err(RepositoryError::InvalidMetadataDirectory)?;
         }
         let mut manager = LocalRepositoryManager {
             repositories: HashMap::new(),
@@ -131,7 +126,7 @@ impl LocalRepositoryManager {
 
         // Read the repository directory and add all the repositories to the map.
         let read_repo_dir =
-            fs::read_dir(&repo_dir).map_err(|_| RepositoryError::InvalidMetadataDirectory)?;
+            fs::read_dir(&repo_dir).map_err(RepositoryError::InvalidMetadataDirectory)?;
         for entry in read_repo_dir {
             // Ignore any directories, invalid files, or files that are not JSON.
             // grcov-excl-start: These error conditions are not possible if the directory is
@@ -157,15 +152,10 @@ impl LocalRepositoryManager {
                 .join(&repo_metadata.id);
             if !download_directory.exists() {
                 // Try to clone the repository if it doesn't exist.
-                manager
-                    .clone_repo(&repo_metadata.url, &repo_metadata.id)
-                    .map_err(|_| {
-                        RepositoryError::InvalidDownloadDirectory(download_directory.to_owned())
-                    })?;
+                manager.clone_repo(&repo_metadata.url, &repo_metadata.id)?;
             }
-            if git2::Repository::open(&download_directory).is_err() {
-                bail!(RepositoryError::InvalidRepository(download_directory));
-            }
+            git2::Repository::open(&download_directory)
+                .map_err(|e| RepositoryError::InvalidRepository(download_directory, e))?;
         }
         Ok(manager)
     }
@@ -216,10 +206,10 @@ impl RepositoryManager for LocalRepositoryManager {
         self.repositories.remove(repo_id);
         let clone_dir = self.download_directory.join(repo_id);
         fs::remove_dir_all(&clone_dir)
-            .map_err(|_| RepositoryError::InvalidDownloadDirectory(clone_dir))?;
+            .map_err(|e| RepositoryError::InvalidDownloadDirectory(clone_dir, e))?;
         let repo_metadata_path = self.metadata_directory.join(format!("{}.json", repo_id));
         fs::remove_file(&repo_metadata_path)
-            .map_err(|_| RepositoryError::InvalidRepositoryMetadata(repo_metadata_path))?;
+            .map_err(|e| RepositoryError::InvalidMetadataFile(repo_metadata_path, e))?;
         Ok(())
     }
 
