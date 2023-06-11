@@ -42,11 +42,11 @@ pub enum TranscriptionAsset {
 
         /// The name of the artist(s) who performs the track.
         #[serde(default)]
-        artist_name: String,
+        artist_name: Option<String>,
 
         /// The name of the album in which the track appears.
         #[serde(default)]
-        album_name: String,
+        album_name: Option<String>,
 
         /// The duration of the track.
         #[serde(default)]
@@ -115,8 +115,8 @@ impl TranscriptionPassages {
                         - External link: {}
                         - Passage interval: {} - {}
                     {}",
-                    description, track_name, artist_name, album_name,
-                    duration.as_deref().unwrap_or(""),
+                    description, track_name, artist_name.as_deref().unwrap_or(""),
+                    album_name.as_deref().unwrap_or(""), duration.as_deref().unwrap_or(""),
                     external_link.as_deref().unwrap_or(""), start, end, instrument_instruction
                 }
                 .into(),
@@ -740,8 +740,8 @@ mod test {
             asset: TranscriptionAsset::Track {
                 short_id: "track".into(),
                 track_name: "Track".into(),
-                artist_name: "Artist".into(),
-                album_name: "Album".into(),
+                artist_name: Some("Artist".into()),
+                album_name: Some("Album".into()),
                 duration: Some("1:30".into()),
                 external_link: Some("https://example.com".into()),
             },
@@ -809,8 +809,8 @@ mod test {
             asset: TranscriptionAsset::Track {
                 short_id: "track1".into(),
                 track_name: "Track 1".into(),
-                artist_name: "Artist 1".into(),
-                album_name: "Album 1".into(),
+                artist_name: Some("Artist 1".into()),
+                album_name: Some("Album 1".into()),
                 duration: Some("1:30".into()),
                 external_link: None,
             },
@@ -820,8 +820,8 @@ mod test {
             asset: TranscriptionAsset::Track {
                 short_id: "track2".into(),
                 track_name: "Track 2".into(),
-                artist_name: "Artist 2".into(),
-                album_name: "Album 2".into(),
+                artist_name: Some("Artist 2".into()),
+                album_name: Some("Album 2".into()),
                 duration: Some("1:30".into()),
                 external_link: None,
             },
@@ -877,8 +877,8 @@ mod test {
             asset: TranscriptionAsset::Track {
                 short_id: "track1".into(),
                 track_name: "Track 1".into(),
-                artist_name: "Artist 1".into(),
-                album_name: "Album 1".into(),
+                artist_name: Some("Artist 1".into()),
+                album_name: Some("Album 1".into()),
                 duration: Some("1:30".into()),
                 external_link: None,
             },
@@ -888,8 +888,8 @@ mod test {
             asset: TranscriptionAsset::Track {
                 short_id: "track1".into(),
                 track_name: "Track 2".into(),
-                artist_name: "Artist 2".into(),
-                album_name: "Album 2".into(),
+                artist_name: Some("Artist 2".into()),
+                album_name: Some("Album 2".into()),
                 duration: Some("1:30".into()),
                 external_link: None,
             },
@@ -937,8 +937,8 @@ mod test {
         let asset = super::TranscriptionAsset::Track {
             short_id: "id".into(),
             track_name: "Track".into(),
-            artist_name: "Artist".into(),
-            album_name: "Album".into(),
+            artist_name: Some("Artist".into()),
+            album_name: Some("Album".into()),
             duration: Some("1:30".into()),
             external_link: Some("https://example.com".into()),
         };
@@ -954,8 +954,8 @@ mod test {
             asset: TranscriptionAsset::Track {
                 short_id: "id".into(),
                 track_name: "Track".into(),
-                artist_name: "Artist".into(),
-                album_name: "Album".into(),
+                artist_name: Some("Artist".into()),
+                album_name: Some("Album".into()),
                 duration: Some("1:30".into()),
                 external_link: Some("https://example.com".into()),
             },
