@@ -16,7 +16,7 @@ pub enum BlacklistError {
     RemoveEntry(Ustr, #[source] rusqlite::Error),
 
     #[error("cannot query entries from the blacklist: {0}")]
-    QueryEntries(#[from] rusqlite::Error),
+    QueryEntries(#[source] rusqlite::Error),
 
     #[error("the migrations for the blacklist DB cannot be applied: {0}")]
     Migration(#[source] rusqlite_migration::Error),
