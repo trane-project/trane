@@ -459,10 +459,8 @@ impl UnitGraph for Trane {
         self.unit_graph.read().get_course_lessons(course_id)
     }
 
-    fn get_course_starting_lessons(&self, course_id: &Ustr) -> Option<UstrSet> {
-        self.unit_graph
-            .read()
-            .get_course_starting_lessons(course_id)
+    fn get_starting_lessons(&self, course_id: &Ustr) -> Option<UstrSet> {
+        self.unit_graph.read().get_starting_lessons(course_id)
     }
 
     fn update_starting_lessons(&mut self) {

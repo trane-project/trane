@@ -222,7 +222,7 @@ impl DepthFirstScheduler {
             .data
             .unit_graph
             .read()
-            .get_course_starting_lessons(course_id)
+            .get_starting_lessons(course_id)
             .unwrap_or_default()
             .into_iter()
             .filter(|id| {
@@ -568,7 +568,7 @@ impl DepthFirstScheduler {
                 .data
                 .unit_graph
                 .read()
-                .get_course_starting_lessons(course_id)
+                .get_starting_lessons(course_id)
                 .unwrap_or_default()
                 .into_iter()
                 .map(|id| StackItem {

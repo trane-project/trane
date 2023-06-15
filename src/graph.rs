@@ -4,7 +4,7 @@
 //! The dependency graph is perhaps the most important part of the design of Trane so its nature and
 //! purpose should be well documented. At its core, the goal of Trane is to guide students through
 //! the graph of units of knowledge composed of exercises, by having each successive unit teach a
-//! skill that can be acquired once the source unit is sufficiently mastered. This process of
+//! skill that can be acquired once the previous units are sufficiently mastered. This process of
 //! repetition of mastered exercises and introduction of new ones should lead to the complete
 //! mastery of complex meta-skills such as jazz improvisation, chess, piano, etc. that are in fact
 //! the mastered integration of many smaller and interlinked skills.
@@ -26,7 +26,7 @@
 //! The graph also provides a number of operations to manipulate the graph, which are only used when
 //! reading the Trane library (see [course_library](crate::course_library)), and another few to
 //! derive information from the graph ("which are the lessons in a course?" for example). The graph
-//! is not in any way responsible on how the exercises are scheduled (see
+//! is not in any way responsible for how the exercises are scheduled (see
 //! [scheduler](crate::scheduler)) nor it stores any information about a student's practice (see
 //! [practice_stats](crate::practice_stats)) or preferences (see [blacklist](crate::blacklist),
 //! [filter_manager](crate::filter_manager) and [review_list](crate::review_list)).
@@ -37,30 +37,29 @@ use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::data::UnitType;
 
-/// Stores the units and their dependency relationships (for lessons and courses only). It provides
-/// basic functions to update the graph and retrieve information about it for use during scheduling
-/// and student's requests.
+/// Stores the units and their dependency relationships (for lessons and courses only, since
+/// exercises do not define any dependencies). It provides basic functions to update the graph and
+/// retrieve information about it for use during scheduling and student's requests.
 ///
-/// The write operations are only used right now when reading the Trane library for the first time.
-/// A user that copies new courses to an existing and currently opened library will need to restart
-/// the interface for Trane. That limitation might change in the future, but it's not a high
-/// priority as the process takes only a few seconds.
+/// The write operations are only used when reading the Trane library during startup. A user that
+/// copies new courses to an existing and currently opened library will need to restart the
+/// interface for Trane. That limitation might change in the future, but it's not a high priority as
+/// the process takes only a couple of seconds.
 pub trait UnitGraph {
     /// Adds a new course to the unit graph.
     fn add_course(&mut self, course_id: &Ustr) -> Result<()>;
 
-    /// Adds a new lesson to the unit graph. This function is the equivalent of `add_course` for
-    /// lessons. It also requires the ID of the course to which this lesson belongs.
+    /// Adds a new lesson to the unit graph. It also takes the ID of the course to which this lesson
+    /// belongs.
     fn add_lesson(&mut self, lesson_id: &Ustr, course_id: &Ustr) -> Result<()>;
 
-    /// Adds a new exercise to the unit graph. This function is the equivalent of `add_course` and
-    /// `add_lesson` for exercises. It also requires the ID of the lesson to which this exercise
-    /// belongs.
+    /// Adds a new exercise to the unit graph. It also takes the ID of the lesson to which this
+    /// exercise belongs.
     fn add_exercise(&mut self, exercise_id: &Ustr, lesson_id: &Ustr) -> Result<()>;
 
     /// Takes a unit and its dependencies and updates the graph accordingly. Returns an error if
     /// `unit_type` is `UnitType::Exercise` as only courses and lessons are allowed to have
-    /// dependencies. An error is also returned if the unit is not explicitly added by calling one
+    /// dependencies. An error is also returned if the unit was not previously added by calling one
     /// of `add_course` or `add_lesson`.
     fn add_dependencies(
         &mut self,
@@ -78,11 +77,12 @@ pub trait UnitGraph {
     /// Updates the starting lessons for all courses. The starting lessons of the course are those
     /// of its lessons that should be practiced first when the course is introduced to the student.
     /// The scheduler uses them to traverse through the other lessons in the course in the correct
-    /// order.
+    /// order. This function should be called once after all the courses and lessons have been added
+    /// to the graph.
     fn update_starting_lessons(&mut self);
 
     /// Returns the starting lessons for the given course.
-    fn get_course_starting_lessons(&self, course_id: &Ustr) -> Option<UstrSet>;
+    fn get_starting_lessons(&self, course_id: &Ustr) -> Option<UstrSet>;
 
     /// Returns the course to which the given lesson belongs.
     fn get_lesson_course(&self, lesson_id: &Ustr) -> Option<Ustr>;
@@ -99,9 +99,9 @@ pub trait UnitGraph {
     /// Returns all the units which depend on the given unit.
     fn get_dependents(&self, unit_id: &Ustr) -> Option<UstrSet>;
 
-    /// Returns the dependency sinks of the graph. A dependency sink is a unit from which a
-    /// walk of the entire unit graph needs to start. Because the lessons in a course implicitly
-    /// depend on their course, properly initialized lessons do not belong to this set.
+    /// Returns the dependency sinks of the graph. A dependency sink is a unit with no dependencies
+    /// from which a walk of the entire unit graph needs to start. Because the lessons in a course
+    /// implicitly depend on their course, properly initialized lessons do not belong to this set.
     ///
     /// This set also includes the units that are mentioned as dependencies of other units but are
     /// never added to the graph because they are missing from the course library. Those units are
@@ -128,7 +128,7 @@ pub trait UnitGraph {
 }
 
 /// An implementation of [UnitGraph] describing the units and relationships as an adjacency list
-/// stored in hash maps. All of it is stored in memory, as the memory benchmarks say that less than
+/// stored in hash maps. All of it is stored in memory, as the memory benchmarks show that less than
 /// 20 MB of memory are used even when opening a large Trane library.
 #[derive(Default)]
 pub(crate) struct InMemoryUnitGraph {
@@ -323,7 +323,7 @@ impl UnitGraph for InMemoryUnitGraph {
         self.course_lesson_map.get(course_id).cloned()
     }
 
-    fn get_course_starting_lessons(&self, course_id: &Ustr) -> Option<UstrSet> {
+    fn get_starting_lessons(&self, course_id: &Ustr) -> Option<UstrSet> {
         self.starting_lessons_map.get(course_id).cloned()
     }
 
@@ -337,7 +337,7 @@ impl UnitGraph for InMemoryUnitGraph {
                 .copied()
                 .filter(|lesson_id| {
                     // The lesson is a starting lesson if the set of lessons in the course and the
-                    // dependencies of the lesson are disjoint.
+                    // dependencies of this lesson are disjoint.
                     let dependencies = self.get_dependencies(lesson_id);
                     match dependencies {
                         None => true,
@@ -389,7 +389,7 @@ impl UnitGraph for InMemoryUnitGraph {
             let mut stack: Vec<Vec<Ustr>> = Vec::new();
             stack.push(vec![*unit_id]);
 
-            // Run depth-first search and stop if a cycle is found or the graph is exhausted.
+            // Run a depth-first search and stop if a cycle is found or the graph is exhausted.
             while let Some(path) = stack.pop() {
                 // Update the set of visited nodes.
                 let current_id = *path.last().unwrap_or(&Ustr::default());
@@ -459,13 +459,13 @@ impl UnitGraph for InMemoryUnitGraph {
             //
             // A course's lessons are not explicitly attached to the graph. This is not exactly
             // accurate, but properly connecting them in the graph would require each course to have
-            // two nodes, one inbound which is connected to the starting lessons and the
+            // two nodes, one inbound which is connected to the starting lessons and the course's
             // dependencies, and one outbound which is connected to the last lessons in the course
             // (by the order in which they must be traversed to master the entire course) and to the
-            // dependents. This might be amended, either here in this function or in the
+            // course's dependents. This might be amended, either here in this function or in the
             // implementation of the graph itself, but it is not a high priority.
             dependents.extend(
-                self.get_course_starting_lessons(&course_id)
+                self.get_starting_lessons(&course_id)
                     .unwrap_or_default()
                     .iter(),
             );
