@@ -102,20 +102,30 @@ impl ExerciseScorer for SimpleScorer {
             return Ok(0.0);
         }
 
-        // Calculate the number of days since each trial.
-        let now = Utc::now();
+        // Calculate the number of days from each trial to the next, and from the last trial to now.
+        // This assumes that the trials are sorted by timestamp in descending order.
         let days = previous_trials
             .iter()
-            .map(|t| -> Result<f32> {
-                if let Some(utc_timestame) = Utc.timestamp_opt(t.timestamp, 0).earliest() {
-                    Ok((now - utc_timestame).num_days() as f32)
+            .enumerate()
+            .map(|(i, t)| -> Result<f32> {
+                let now = if i == 0 {
+                    Utc::now()
+                } else {
+                    Utc.timestamp_opt(previous_trials[i - 1].timestamp, 0)
+                        .earliest()
+                        .unwrap_or_default()
+                };
+
+                if let Some(utc_timestamp) = Utc.timestamp_opt(t.timestamp, 0).earliest() {
+                    Ok((now - utc_timestamp).num_days() as f32)
                 } else {
                     Err(anyhow!("Invalid timestamp for exercise trial"))
                 }
             })
             .collect::<Result<Vec<f32>>>()?;
 
-        // Calculate the weight of each score based on the number of days since the trial.
+        // Calculate the weight of each score based on the number of days since each trial to the
+        // next.
         let weights: Vec<f32> = previous_trials
             .iter()
             .zip(days.iter())
@@ -270,8 +280,8 @@ mod test {
 
         let score2 = 5.0;
         let days2 = 10.0;
-        let weight2 = SimpleScorer::weight(num_scores, 1, days2);
-        let adjusted_score2 = SimpleScorer::adjusted_score(score2, days2);
+        let weight2 = SimpleScorer::weight(num_scores, 1, days2 - days1);
+        let adjusted_score2 = SimpleScorer::adjusted_score(score2, days2 - days1);
 
         assert_eq!(
             (weight1 * adjusted_score1 + weight2 * adjusted_score2) / (weight1 + weight2),
