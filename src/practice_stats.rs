@@ -15,7 +15,8 @@ use crate::data::{ExerciseTrial, MasteryScore};
 
 /// Contains functions to retrieve and record the scores from each exercise trial.
 pub trait PracticeStats {
-    /// Retrieves the last `num_scores` scores of a particular exercise.
+    /// Retrieves the last `num_scores` scores of a particular exercise. The scores are returned in
+    /// descending order according to the timestamp.
     fn get_scores(&self, exercise_id: &Ustr, num_scores: usize) -> Result<Vec<ExerciseTrial>>;
 
     /// Records the score assigned to the exercise in a particular trial. Therefore, the score is a
