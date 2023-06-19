@@ -154,9 +154,8 @@ impl LocalCourseLibrary {
     /// Returns the field in the search schema with the given name.
     fn schema_field(field_name: &str) -> Result<Field> {
         let schema = Self::search_schema();
-        schema
-            .get_field(field_name)
-            .ok_or_else(|| anyhow!(format!("Field {field_name} not found in search schema")))
+        let field = schema.get_field(field_name)?;
+        Ok(field)
     }
 
     /// Adds the unit with the given field values to the search index.
