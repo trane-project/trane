@@ -1,7 +1,6 @@
 //! A module containing functions to download and manage courses from git repositories, which is
 //! meant to simplify the process of adding new courses to Trane.
 
-use anyhow::{bail, Result};
 use std::{
     collections::HashMap,
     fs,
@@ -24,19 +23,19 @@ pub trait RepositoryManager {
     /// Downloads the courses from the given git repository into the given directory. The ID will
     /// also be used to identify the repository in the future and as the name of the directory. If
     /// omitted, the name of the repository will be used to generate an ID.
-    fn add_repo(&mut self, url: &str, repo_id: Option<String>) -> Result<()>;
+    fn add_repo(&mut self, url: &str, repo_id: Option<String>) -> Result<(), RepositoryError>;
 
     /// Removes the repository with the given ID.
-    fn remove_repo(&mut self, repo_id: &str) -> Result<()>;
+    fn remove_repo(&mut self, repo_id: &str) -> Result<(), RepositoryError>;
 
     /// Attempts to pull the latest version of the given repository.
-    fn update_repo(&self, repo_id: &str) -> Result<()>;
+    fn update_repo(&self, repo_id: &str) -> Result<(), RepositoryError>;
 
     /// Attempts to pull the latest version of all repositories.
-    fn update_all_repos(&self) -> Result<()>;
+    fn update_all_repos(&self) -> Result<(), RepositoryError>;
 
     /// Returns a list of all the repositories that are currently being managed.
-    fn list_repos(&self) -> Result<Vec<RepositoryMetadata>>;
+    fn list_repos(&self) -> Result<Vec<RepositoryMetadata>, RepositoryError>;
 }
 
 /// An implementation of [RepositoryManager] backed by the local file system. All repositories will
@@ -54,7 +53,7 @@ pub struct LocalRepositoryManager {
 
 impl LocalRepositoryManager {
     /// Returns the default ID for the repository based on the URL.
-    fn id_from_url(url: Url) -> Result<String> {
+    fn id_from_url(url: Url) -> Result<String, RepositoryError> {
         Ok(url
             .path_segments()
             .and_then(|segments| segments.last())
@@ -64,7 +63,7 @@ impl LocalRepositoryManager {
     }
 
     /// Reads the repository metadata from the given path.
-    fn read_metadata(path: &Path) -> Result<RepositoryMetadata> {
+    fn read_metadata(path: &Path) -> Result<RepositoryMetadata, RepositoryError> {
         let repo = serde_json::from_str::<RepositoryMetadata>(
             &fs::read_to_string(path)
                 .map_err(|e| RepositoryError::InvalidMetadataFile(path.to_owned(), e))?, // grcov-excl-line
@@ -74,20 +73,22 @@ impl LocalRepositoryManager {
     }
 
     /// Writes the repository metadata to metadata directory.
-    fn write_metadata(&self, metadata: &RepositoryMetadata) -> Result<()> {
+    fn write_metadata(&self, metadata: &RepositoryMetadata) -> Result<(), RepositoryError> {
         let path = self
             .metadata_directory
             .join(format!("{}.json", metadata.id));
-        fs::write(&path, serde_json::to_string_pretty(metadata)?)
-            .map_err(|e| RepositoryError::InvalidMetadataFile(path, e))?; // grcov-excl-line
+
+        let pretty_json = serde_json::to_string_pretty(metadata)
+            .map_err(|e| RepositoryError::InvalidRepositoryMetadata(path.to_owned(), e))?; // grcov-excl-line
+        fs::write(&path, pretty_json).map_err(|e| RepositoryError::InvalidMetadataFile(path, e))?; // grcov-excl-line
         Ok(())
     }
 
     /// Clones the repository at the given URL into the given directory. If the directory already
     /// exists, it will be deleted and replaced with the new repository.
-    fn clone_repo(&self, url: &str, repo_id: &str) -> Result<()> {
+    fn clone_repo(&self, url: &str, repo_id: &str) -> Result<(), RepositoryError> {
         // Clone the repo into a temp directory.
-        let temp_dir = tempfile::tempdir()?;
+        let temp_dir = tempfile::tempdir().map_err(RepositoryError::TempDir)?;
         let temp_clone_path = temp_dir.path().join(repo_id);
         git2::Repository::clone(url, &temp_clone_path)
             .map_err(|e| RepositoryError::CloneRepository(url.to_string(), e))?;
@@ -110,7 +111,7 @@ impl LocalRepositoryManager {
     }
 
     /// Opens the download directory and tracks all the existing repositories.
-    pub fn new(library_root: &Path) -> Result<LocalRepositoryManager> {
+    pub fn new(library_root: &Path) -> Result<LocalRepositoryManager, RepositoryError> {
         // Create the repository manager and the repository directory if it doesn't exist.
         let repo_dir = library_root
             .join(TRANE_CONFIG_DIR_PATH)
@@ -162,10 +163,10 @@ impl LocalRepositoryManager {
 }
 
 impl RepositoryManager for LocalRepositoryManager {
-    fn add_repo(&mut self, url: &str, repo_id: Option<String>) -> Result<()> {
+    fn add_repo(&mut self, url: &str, repo_id: Option<String>) -> Result<(), RepositoryError> {
         // Check that the repository URL is not an SSH URL.
         if !url.starts_with(HTTPS_PREFIX) {
-            bail!(RepositoryError::InvalidRepositoryURL(url.to_string()));
+            return Err(RepositoryError::InvalidRepositoryURL(url.to_string()));
         }
 
         // Extract the repository ID from the URL if it wasn't provided.
@@ -180,7 +181,7 @@ impl RepositoryManager for LocalRepositoryManager {
 
         // Check that no other repository has the same ID.
         if self.repositories.contains_key(&repo_id) {
-            bail!(RepositoryError::DuplicateRepository(repo_id));
+            return Err(RepositoryError::DuplicateRepository(repo_id));
         }
 
         // Clone the repository into the download directory.
@@ -196,7 +197,7 @@ impl RepositoryManager for LocalRepositoryManager {
         Ok(())
     }
 
-    fn remove_repo(&mut self, repo_id: &str) -> Result<()> {
+    fn remove_repo(&mut self, repo_id: &str) -> Result<(), RepositoryError> {
         // Do nothing if no repository with the given ID exists.
         if !self.repositories.contains_key(repo_id) {
             return Ok(());
@@ -213,10 +214,10 @@ impl RepositoryManager for LocalRepositoryManager {
         Ok(())
     }
 
-    fn update_repo(&self, repo_id: &str) -> Result<()> {
+    fn update_repo(&self, repo_id: &str) -> Result<(), RepositoryError> {
         let repo_metadata = self.repositories.get(repo_id);
         if repo_metadata.is_none() {
-            bail!(RepositoryError::UnknownRepository(repo_id.to_string()));
+            return Err(RepositoryError::UnknownRepository(repo_id.to_string()));
         }
 
         // Re-clone the repository to make the logic easier. Otherwise, it would be harder to handle
@@ -225,14 +226,14 @@ impl RepositoryManager for LocalRepositoryManager {
         self.clone_repo(&repo_metadata.url, &repo_metadata.id)
     }
 
-    fn update_all_repos(&self) -> Result<()> {
+    fn update_all_repos(&self) -> Result<(), RepositoryError> {
         for repo_id in self.repositories.keys() {
             self.update_repo(repo_id)?;
         }
         Ok(())
     }
 
-    fn list_repos(&self) -> Result<Vec<RepositoryMetadata>> {
+    fn list_repos(&self) -> Result<Vec<RepositoryMetadata>, RepositoryError> {
         Ok(self.repositories.values().cloned().collect())
     }
 }

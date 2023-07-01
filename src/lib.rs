@@ -51,7 +51,7 @@ pub mod study_session_manager;
 pub mod testutil;
 
 use anyhow::Result;
-use error::BlacklistError;
+use error::{BlacklistError, RepositoryError};
 use parking_lot::RwLock;
 use review_list::{ReviewList, ReviewListDB};
 use std::{path::Path, sync::Arc};
@@ -345,23 +345,23 @@ impl PracticeStats for Trane {
 }
 
 impl RepositoryManager for Trane {
-    fn add_repo(&mut self, url: &str, repo_id: Option<String>) -> Result<()> {
+    fn add_repo(&mut self, url: &str, repo_id: Option<String>) -> Result<(), RepositoryError> {
         self.repo_manager.write().add_repo(url, repo_id)
     }
 
-    fn remove_repo(&mut self, repo_id: &str) -> Result<()> {
+    fn remove_repo(&mut self, repo_id: &str) -> Result<(), RepositoryError> {
         self.repo_manager.write().remove_repo(repo_id)
     }
 
-    fn update_repo(&self, repo_id: &str) -> Result<()> {
+    fn update_repo(&self, repo_id: &str) -> Result<(), RepositoryError> {
         self.repo_manager.read().update_repo(repo_id)
     }
 
-    fn update_all_repos(&self) -> Result<()> {
+    fn update_all_repos(&self) -> Result<(), RepositoryError> {
         self.repo_manager.read().update_all_repos()
     }
 
-    fn list_repos(&self) -> Result<Vec<data::RepositoryMetadata>> {
+    fn list_repos(&self) -> Result<Vec<data::RepositoryMetadata>, RepositoryError> {
         self.repo_manager.read().list_repos()
     }
 }
