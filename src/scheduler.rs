@@ -664,7 +664,7 @@ impl DepthFirstScheduler {
     fn get_candidates_from_review_list(&self) -> Result<Vec<Candidate>> {
         // Retrieve candidates from each entry in the review list.
         let mut candidates = vec![];
-        let review_list = self.data.review_list.read().all_review_list_entries()?;
+        let review_list = self.data.review_list.read().get_review_list_entries()?;
         for unit_id in &review_list {
             match self.data.get_unit_type(unit_id)? {
                 UnitType::Course => {

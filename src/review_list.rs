@@ -11,17 +11,19 @@ use rusqlite::{params, Connection};
 use rusqlite_migration::{Migrations, M};
 use ustr::Ustr;
 
+use crate::error::ReviewListError;
+
 /// An interface to store and read a list of units that need review.
 pub trait ReviewList {
     /// Adds the given unit to the review list.
-    fn add_to_review_list(&mut self, unit_id: &Ustr) -> Result<()>;
+    fn add_to_review_list(&mut self, unit_id: &Ustr) -> Result<(), ReviewListError>;
 
     /// Removes the given unit from the review list. Do nothing if the unit is not already in the
     /// list.
-    fn remove_from_review_list(&mut self, unit_id: &Ustr) -> Result<()>;
+    fn remove_from_review_list(&mut self, unit_id: &Ustr) -> Result<(), ReviewListError>;
 
     /// Returns all the entries in the review list.
-    fn all_review_list_entries(&self) -> Result<Vec<Ustr>>;
+    fn get_review_list_entries(&self) -> Result<Vec<Ustr>, ReviewListError>;
 }
 
 /// An implementation of [ReviewList] backed by SQLite.
@@ -78,41 +80,45 @@ impl ReviewListDB {
 }
 
 impl ReviewList for ReviewListDB {
-    fn add_to_review_list(&mut self, unit_id: &Ustr) -> Result<()> {
+    fn add_to_review_list(&mut self, unit_id: &Ustr) -> Result<(), ReviewListError> {
         // Add the unit to the database.
-        let connection = self.pool.get()?;
+        let connection = self.pool.get().map_err(ReviewListError::Connection)?;
         let mut stmt = connection
             .prepare_cached("INSERT OR IGNORE INTO review_list (unit_id) VALUES (?1)")
-            .with_context(|| "cannot prepare statement to insert into review list DB")?; // grcov-excl-line
-        stmt.execute(params![unit_id.as_str()])
-            .with_context(|| format!("cannot insert unit {unit_id} into review list DB"))?;
+            .map_err(|e| ReviewListError::AddUnit(*unit_id, e))?; // grcov-excl-line
+        let _ = stmt
+            .execute(params![unit_id.as_str()])
+            .map_err(|e| ReviewListError::AddUnit(*unit_id, e))?;
         Ok(())
     }
 
-    fn remove_from_review_list(&mut self, unit_id: &Ustr) -> Result<()> {
+    fn remove_from_review_list(&mut self, unit_id: &Ustr) -> Result<(), ReviewListError> {
         // Remove the unit from the database.
-        let connection = self.pool.get()?;
+        let connection = self.pool.get().map_err(ReviewListError::Connection)?;
         let mut stmt = connection
             .prepare_cached("DELETE FROM review_list WHERE unit_id = $1")
-            .with_context(|| "cannot prepare statement to delete from review list DB")?; // grcov-excl-line
-        stmt.execute(params![unit_id.as_str()])
-            .with_context(|| format!("cannot remove unit {unit_id} from review list DB"))?;
+            .map_err(|e| ReviewListError::RemoveUnit(*unit_id, e))?; // grcov-excl-line
+        let _ = stmt
+            .execute(params![unit_id.as_str()])
+            .map_err(|e| ReviewListError::RemoveUnit(*unit_id, e))?; // grcov-excl-line
         Ok(())
     }
 
-    fn all_review_list_entries(&self) -> Result<Vec<Ustr>> {
+    fn get_review_list_entries(&self) -> Result<Vec<Ustr>, ReviewListError> {
         // Retrieve all the units from the database.
-        let connection = self.pool.get()?;
+        let connection = self.pool.get().map_err(ReviewListError::Connection)?;
         let mut stmt = connection
             .prepare_cached("SELECT unit_id from review_list;")
-            .with_context(|| "cannot prepare statement to get all entries in review list DB")?; // grcov-excl-line
-        let mut rows = stmt.query(params![])?;
+            .map_err(ReviewListError::GetEntries)?; // grcov-excl-line
+        let mut rows = stmt.query(params![]).map_err(ReviewListError::GetEntries)?;
 
         // Convert the rows into a vector of unit IDs.
         let mut entries = Vec::new();
-        while let Some(row) = rows.next()? {
-            let unit_id: String = row.get(0)?;
+        let mut row = rows.next().map_err(ReviewListError::GetEntries)?;
+        while row.is_some() {
+            let unit_id: String = row.unwrap().get(0).map_err(ReviewListError::GetEntries)?;
             entries.push(Ustr::from(&unit_id));
+            row = rows.next().map_err(ReviewListError::GetEntries)?;
         }
         Ok(entries)
     }
@@ -143,13 +149,13 @@ mod test {
         review_list.add_to_review_list(&unit_id)?;
         review_list.add_to_review_list(&unit_id2)?;
 
-        let entries = review_list.all_review_list_entries()?;
+        let entries = review_list.get_review_list_entries()?;
         assert_eq!(entries.len(), 2);
         assert!(entries.contains(&unit_id));
         assert!(entries.contains(&unit_id2));
 
         review_list.remove_from_review_list(&unit_id)?;
-        let entries = review_list.all_review_list_entries()?;
+        let entries = review_list.get_review_list_entries()?;
         assert_eq!(entries.len(), 1);
         assert!(!entries.contains(&unit_id));
         assert!(entries.contains(&unit_id2));

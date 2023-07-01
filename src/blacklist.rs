@@ -128,7 +128,7 @@ impl Blacklist for BlacklistDB {
             .prepare_cached("INSERT INTO blacklist (unit_id) VALUES (?1)")
             .map_err(BlacklistError::PrepareSqlStatement)?; // grcov-excl-line
         stmt.execute(params![unit_id.as_str()])
-            .map_err(|e| BlacklistError::AddEntry(*unit_id, e))?;
+            .map_err(|e| BlacklistError::AddUnit(*unit_id, e))?;
 
         // Update the cache.
         self.cache.write().insert(*unit_id, true);
@@ -142,7 +142,7 @@ impl Blacklist for BlacklistDB {
             .prepare_cached("DELETE FROM blacklist WHERE unit_id = $1")
             .map_err(BlacklistError::PrepareSqlStatement)?; // grcov-excl-line
         stmt.execute(params![unit_id.as_str()])
-            .map_err(|e| BlacklistError::RemoveEntry(*unit_id, e))?;
+            .map_err(|e| BlacklistError::RemoveUnit(*unit_id, e))?;
 
         // Update the cache.
         self.cache.write().insert(*unit_id, false);
@@ -168,7 +168,7 @@ impl Blacklist for BlacklistDB {
             let unit_id: String = row.unwrap().get(0).map_err(BlacklistError::Query)?;
             println!("Removing {} from blacklist", unit_id);
             stmt.execute(params![unit_id])
-                .map_err(|e| BlacklistError::RemoveEntry(Ustr::from(&unit_id), e))?;
+                .map_err(|e| BlacklistError::RemoveUnit(Ustr::from(&unit_id), e))?;
 
             // Update the cache and get the next row.
             self.cache.write().insert(unit_id.into(), false);

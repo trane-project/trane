@@ -10,7 +10,7 @@ use ustr::Ustr;
 #[allow(missing_docs)]
 pub enum BlacklistError {
     #[error("cannot add unit {0} to the blacklist: {1}")]
-    AddEntry(Ustr, #[source] rusqlite::Error),
+    AddUnit(Ustr, #[source] rusqlite::Error),
 
     #[error("cannot retrieve connection from pool: {0}")]
     Connection(#[source] r2d2::Error),
@@ -22,7 +22,7 @@ pub enum BlacklistError {
     Query(#[source] rusqlite::Error),
 
     #[error("cannot remove unit {0} from the blacklist: {1}")]
-    RemoveEntry(Ustr, #[source] rusqlite::Error),
+    RemoveUnit(Ustr, #[source] rusqlite::Error),
 }
 
 /// An error returned when dealing with the course library.
@@ -37,6 +37,29 @@ pub enum CourseLibraryError {
 
     #[error("cannot retrieve schema for field {0}: {1}")]
     SchemaFieldError(String, #[source] tantivy::error::TantivyError),
+}
+
+/// An error returned when dealing with the practice stats.
+#[derive(Debug, Error)]
+#[allow(missing_docs)]
+pub enum PracticeStatsError {
+    #[error("cannot retrieve connection from pool: {0}")]
+    Connection(#[source] r2d2::Error),
+
+    #[error("cannot get scores for unit {0}: {1}")]
+    GetScores(Ustr, #[source] rusqlite::Error),
+
+    #[error("the sql statement cannot be prepared: {0}")]
+    PrepareSqlStatement(#[source] rusqlite::Error),
+
+    #[error("cannot record score for unit {0}: {1}")]
+    RecordScore(Ustr, #[source] rusqlite::Error),
+
+    #[error("cannot query entries from the practice stats DB: {0}")]
+    Query(#[source] rusqlite::Error),
+
+    #[error("cannot trim scores: {0}")]
+    TrimScores(#[source] rusqlite::Error),
 }
 
 /// An error returned when dealing with git repositories contianing courses.
@@ -77,25 +100,19 @@ pub enum RepositoryError {
     UnknownRepository(String),
 }
 
-/// An error returned when dealing with the practice stats.
+/// An error returned when dealing with the review list.
 #[derive(Debug, Error)]
 #[allow(missing_docs)]
-pub enum PracticeStatsError {
+pub enum ReviewListError {
+    #[error("cannot add unit {0} to the review list: {1}")]
+    AddUnit(Ustr, #[source] rusqlite::Error),
+
     #[error("cannot retrieve connection from pool: {0}")]
     Connection(#[source] r2d2::Error),
 
-    #[error("cannot get scores for unit {0}: {1}")]
-    GetScores(Ustr, #[source] rusqlite::Error),
+    #[error("cannot retrieve the entries from the review list: {0}")]
+    GetEntries(#[source] rusqlite::Error),
 
-    #[error("the sql statement cannot be prepared: {0}")]
-    PrepareSqlStatement(#[source] rusqlite::Error),
-
-    #[error("cannot record score for unit {0}: {1}")]
-    RecordScore(Ustr, #[source] rusqlite::Error),
-
-    #[error("cannot query entries from the practice stats DB: {0}")]
-    Query(#[source] rusqlite::Error),
-
-    #[error("cannot trim scores: {0}")]
-    TrimScores(#[source] rusqlite::Error),
+    #[error("cannot remove unit {0} from the review list: {1}")]
+    RemoveUnit(Ustr, #[source] rusqlite::Error),
 }
