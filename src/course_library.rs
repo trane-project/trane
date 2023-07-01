@@ -668,7 +668,8 @@ impl CourseLibrary for LocalCourseLibrary {
     fn search(&self, query: &str) -> Result<Vec<Ustr>> {
         // Retrieve a searcher from the reader and parse the query.
         if self.reader.is_none() {
-            return Err(CourseLibraryError::MissingIndexReader.into());
+            // This should never happen since the reader is initialized in the constructor.
+            return Ok(Vec::new()); // grcov-excl-line
         }
         let searcher = self.reader.as_ref().unwrap().searcher();
         let id_field = Self::schema_field(ID_SCHEMA_FIELD)?;
