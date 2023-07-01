@@ -51,7 +51,9 @@ pub mod study_session_manager;
 pub mod testutil;
 
 use anyhow::Result;
-use error::{BlacklistError, CourseLibraryError, PracticeStatsError, RepositoryError};
+use error::{
+    BlacklistError, CourseLibraryError, PracticeStatsError, RepositoryError, ReviewListError,
+};
 use parking_lot::RwLock;
 use review_list::{ReviewList, ReviewListDB};
 use std::{path::Path, sync::Arc};
@@ -371,16 +373,16 @@ impl RepositoryManager for Trane {
 }
 
 impl ReviewList for Trane {
-    fn add_to_review_list(&mut self, unit_id: &Ustr) -> Result<()> {
+    fn add_to_review_list(&mut self, unit_id: &Ustr) -> Result<(), ReviewListError> {
         self.review_list.write().add_to_review_list(unit_id)
     }
 
-    fn remove_from_review_list(&mut self, unit_id: &Ustr) -> Result<()> {
+    fn remove_from_review_list(&mut self, unit_id: &Ustr) -> Result<(), ReviewListError> {
         self.review_list.write().remove_from_review_list(unit_id)
     }
 
-    fn all_review_list_entries(&self) -> Result<Vec<Ustr>> {
-        self.review_list.read().all_review_list_entries()
+    fn get_review_list_entries(&self) -> Result<Vec<Ustr>, ReviewListError> {
+        self.review_list.read().get_review_list_entries()
     }
 }
 
