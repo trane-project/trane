@@ -684,7 +684,7 @@ impl CourseLibrary for LocalCourseLibrary {
         );
         let query = query_parser
             .parse_query(query)
-            .map_err(CourseLibraryError::ParseError)?;
+            .map_err(CourseLibraryError::ParseError)?; // grcov-excl-line
 
         // Execute the query and return the results as a list of unit IDs.
         let top_docs = searcher.search(&query, &TopDocs::with_limit(50))?;
