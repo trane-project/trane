@@ -165,14 +165,16 @@ impl Blacklist for BlacklistDB {
         let mut stmt = connection
             .prepare_cached("DELETE FROM blacklist WHERE unit_id = $1")
             .map_err(BlacklistError::PrepareSqlStatement)?; // grcov-excl-line
-        while let Some(row) = rows.next().map_err(BlacklistError::Query)? {
-            let unit_id: String = row.get(0).map_err(BlacklistError::Query)?;
+        let mut row = rows.next().map_err(BlacklistError::Query)?;
+        while row.is_some() {
+            let unit_id: String = row.unwrap().get(0).map_err(BlacklistError::Query)?;
             println!("Removing {} from blacklist", unit_id);
             stmt.execute(params![unit_id])
                 .map_err(|e| BlacklistError::RemoveEntry(Ustr::from(&unit_id), e))?;
 
-            // Update the cache.
+            // Update the cache and get the next row.
             self.cache.write().insert(unit_id.into(), false);
+            row = rows.next().map_err(BlacklistError::Query)?;
         }
         Ok(())
     }
