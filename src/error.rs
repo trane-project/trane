@@ -15,11 +15,11 @@ pub enum BlacklistError {
     #[error("cannot retrieve connection from pool: {0}")]
     Connection(#[source] r2d2::Error),
 
-    #[error("the sql statement cannot be prepared: {0}")]
-    PrepareSqlStatement(#[source] rusqlite::Error),
+    #[error("cannot get entries from the blacklist: {0}")]
+    GetEntries(#[source] rusqlite::Error),
 
-    #[error("cannot query entries from the blacklist DB: {0}")]
-    Query(#[source] rusqlite::Error),
+    #[error("cannot remove entries with prefix {0} from the blacklist: {1}")]
+    RemovePrefix(String, #[source] rusqlite::Error),
 
     #[error("cannot remove unit {0} from the blacklist: {1}")]
     RemoveUnit(Ustr, #[source] rusqlite::Error),
@@ -49,14 +49,8 @@ pub enum PracticeStatsError {
     #[error("cannot get scores for unit {0}: {1}")]
     GetScores(Ustr, #[source] rusqlite::Error),
 
-    #[error("the sql statement cannot be prepared: {0}")]
-    PrepareSqlStatement(#[source] rusqlite::Error),
-
     #[error("cannot record score for unit {0}: {1}")]
     RecordScore(Ustr, #[source] rusqlite::Error),
-
-    #[error("cannot query entries from the practice stats DB: {0}")]
-    Query(#[source] rusqlite::Error),
 
     #[error("cannot trim scores: {0}")]
     TrimScores(#[source] rusqlite::Error),

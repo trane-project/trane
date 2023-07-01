@@ -131,7 +131,7 @@ impl PracticeStats for PracticeStatsDB {
                     SELECT unit_uid FROM uids WHERE unit_id = ?1)
                     ORDER BY timestamp DESC LIMIT ?2;",
             )
-            .map_err(PracticeStatsError::PrepareSqlStatement)?; //grcov-excl-line
+            .map_err(|e| PracticeStatsError::GetScores(*exercise_id, e))?; // grcov-excl-line
 
         // Convert the results into a vector of `ExerciseTrial` objects.
         #[allow(clippy::let_and_return)]
@@ -158,7 +158,7 @@ impl PracticeStats for PracticeStatsDB {
         let connection = self.pool.get().map_err(PracticeStatsError::Connection)?;
         let mut uid_stmt = connection
             .prepare_cached("INSERT OR IGNORE INTO uids(unit_id) VALUES (?1);")
-            .map_err(PracticeStatsError::PrepareSqlStatement)?; // grcov-excl-line
+            .map_err(|e| PracticeStatsError::RecordScore(*exercise_id, e))?; // grcov-excl-line
         uid_stmt
             .execute(params![exercise_id.as_str()])
             .map_err(|e| PracticeStatsError::RecordScore(*exercise_id, e))?; // grcov-excl-line
@@ -169,7 +169,7 @@ impl PracticeStats for PracticeStatsDB {
                 "INSERT INTO practice_stats (unit_uid, score, timestamp) VALUES (
                 (SELECT unit_uid FROM uids WHERE unit_id = ?1), ?2, ?3);",
             )
-            .map_err(PracticeStatsError::PrepareSqlStatement)?; // grcov-excl-line
+            .map_err(|e| PracticeStatsError::RecordScore(*exercise_id, e))?; // grcov-excl-line
         let _ = stmt
             .execute(params![
                 exercise_id.as_str(),
@@ -185,7 +185,7 @@ impl PracticeStats for PracticeStatsDB {
         let connection = self.pool.get().map_err(PracticeStatsError::Connection)?;
         let mut uid_stmt = connection
             .prepare_cached("SELECT unit_uid from uids")
-            .map_err(PracticeStatsError::PrepareSqlStatement)?; // grcov-excl-line
+            .map_err(PracticeStatsError::TrimScores)?; // grcov-excl-line
         let uids = uid_stmt
             .query_map([], |row| row.get(0))
             .map_err(PracticeStatsError::TrimScores)? // grcov-excl-line
@@ -200,7 +200,7 @@ impl PracticeStats for PracticeStatsDB {
                     SELECT timestamp FROM practice_stats WHERE unit_uid = ?1
                     ORDER BY timestamp DESC LIMIT ?2);",
                 )
-                .map_err(PracticeStatsError::PrepareSqlStatement)?; // grcov-excl-line
+                .map_err(PracticeStatsError::TrimScores)?; // grcov-excl-line
             let _ = stmt
                 .execute(params![uid, num_scores])
                 .map_err(PracticeStatsError::TrimScores)?; // grcov-excl-line
