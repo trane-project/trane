@@ -63,9 +63,7 @@ impl BlacklistDB {
     fn init(&mut self) -> Result<()> {
         let mut connection = self.pool.get()?;
         let migrations = Self::migrations();
-        migrations
-            .to_latest(&mut connection)
-            .map_err(BlacklistError::Migration)?; // grcov-excl-line
+        migrations.to_latest(&mut connection)?;
         Ok(())
     }
 

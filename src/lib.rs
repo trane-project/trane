@@ -51,7 +51,7 @@ pub mod study_session_manager;
 pub mod testutil;
 
 use anyhow::Result;
-use error::{BlacklistError, CourseLibraryError, RepositoryError};
+use error::{BlacklistError, CourseLibraryError, PracticeStatsError, RepositoryError};
 use parking_lot::RwLock;
 use review_list::{ReviewList, ReviewListDB};
 use std::{path::Path, sync::Arc};
@@ -322,7 +322,11 @@ impl FilterManager for Trane {
 }
 
 impl PracticeStats for Trane {
-    fn get_scores(&self, exercise_id: &Ustr, num_scores: usize) -> Result<Vec<ExerciseTrial>> {
+    fn get_scores(
+        &self,
+        exercise_id: &Ustr,
+        num_scores: usize,
+    ) -> Result<Vec<ExerciseTrial>, PracticeStatsError> {
         self.practice_stats
             .read()
             .get_scores(exercise_id, num_scores)
@@ -333,13 +337,13 @@ impl PracticeStats for Trane {
         exercise_id: &Ustr,
         score: MasteryScore,
         timestamp: i64,
-    ) -> Result<()> {
+    ) -> Result<(), PracticeStatsError> {
         self.practice_stats
             .write()
             .record_exercise_score(exercise_id, score, timestamp)
     }
 
-    fn trim_scores(&mut self, num_scores: usize) -> Result<()> {
+    fn trim_scores(&mut self, num_scores: usize) -> Result<(), PracticeStatsError> {
         self.practice_stats.write().trim_scores(num_scores)
     }
 }

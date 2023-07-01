@@ -11,13 +11,20 @@ use rusqlite::{params, Connection};
 use rusqlite_migration::{Migrations, M};
 use ustr::Ustr;
 
-use crate::data::{ExerciseTrial, MasteryScore};
+use crate::{
+    data::{ExerciseTrial, MasteryScore},
+    error::PracticeStatsError,
+};
 
 /// Contains functions to retrieve and record the scores from each exercise trial.
 pub trait PracticeStats {
     /// Retrieves the last `num_scores` scores of a particular exercise. The scores are returned in
     /// descending order according to the timestamp.
-    fn get_scores(&self, exercise_id: &Ustr, num_scores: usize) -> Result<Vec<ExerciseTrial>>;
+    fn get_scores(
+        &self,
+        exercise_id: &Ustr,
+        num_scores: usize,
+    ) -> Result<Vec<ExerciseTrial>, PracticeStatsError>;
 
     /// Records the score assigned to the exercise in a particular trial. Therefore, the score is a
     /// value of the `MasteryScore` enum instead of a float. Only units of type `UnitType::Exercise`
@@ -28,11 +35,11 @@ pub trait PracticeStats {
         exercise_id: &Ustr,
         score: MasteryScore,
         timestamp: i64,
-    ) -> Result<()>;
+    ) -> Result<(), PracticeStatsError>;
 
     /// Deletes all the exercise trials except for the last `num_scores` with the aim of keeping the
     /// storage size under check.
-    fn trim_scores(&mut self, num_scores: usize) -> Result<()>;
+    fn trim_scores(&mut self, num_scores: usize) -> Result<(), PracticeStatsError>;
 }
 
 /// An implementation of [PracticeStats] backed by SQLite.
@@ -111,14 +118,20 @@ impl PracticeStatsDB {
 }
 
 impl PracticeStats for PracticeStatsDB {
-    fn get_scores(&self, exercise_id: &Ustr, num_scores: usize) -> Result<Vec<ExerciseTrial>> {
+    fn get_scores(
+        &self,
+        exercise_id: &Ustr,
+        num_scores: usize,
+    ) -> Result<Vec<ExerciseTrial>, PracticeStatsError> {
         // Retrieve the exercise trials from the database.
-        let connection = self.pool.get()?;
-        let mut stmt = connection.prepare_cached(
-            "SELECT score, timestamp from practice_stats WHERE unit_uid = (
+        let connection = self.pool.get().map_err(PracticeStatsError::Connection)?;
+        let mut stmt = connection
+            .prepare_cached(
+                "SELECT score, timestamp from practice_stats WHERE unit_uid = (
                     SELECT unit_uid FROM uids WHERE unit_id = ?1)
                     ORDER BY timestamp DESC LIMIT ?2;",
-        )?; //grcov-excl-line
+            )
+            .map_err(PracticeStatsError::PrepareSqlStatement)?; //grcov-excl-line
 
         // Convert the results into a vector of `ExerciseTrial` objects.
         #[allow(clippy::let_and_return)]
@@ -128,12 +141,9 @@ impl PracticeStats for PracticeStatsDB {
                     score: row.get(0)?,
                     timestamp: row.get(1)?,
                 })
-            })? // grcov-excl-line
-            .map(|r| {
-                r.with_context(
-                    || format!("cannot query practice stats for exercise {exercise_id}"), // grcov-excl-line
-                )
             })
+            .map_err(|e| PracticeStatsError::GetScores(*exercise_id, e))? // grcov-excl-line
+            .map(|r| r.map_err(|e| PracticeStatsError::GetScores(*exercise_id, e)))
             .collect();
         rows
     }
@@ -143,62 +153,63 @@ impl PracticeStats for PracticeStatsDB {
         exercise_id: &Ustr,
         score: MasteryScore,
         timestamp: i64,
-    ) -> Result<()> {
+    ) -> Result<(), PracticeStatsError> {
         // Update the mapping of unit ID to unique integer ID.
-        let connection = self.pool.get()?;
-        let mut uid_stmt =
-            connection.prepare_cached("INSERT OR IGNORE INTO uids(unit_id) VALUES (?1);")?;
+        let connection = self.pool.get().map_err(PracticeStatsError::Connection)?;
+        let mut uid_stmt = connection
+            .prepare_cached("INSERT OR IGNORE INTO uids(unit_id) VALUES (?1);")
+            .map_err(PracticeStatsError::PrepareSqlStatement)?; // grcov-excl-line
         uid_stmt
             .execute(params![exercise_id.as_str()])
-            .with_context(|| {
-                // grcov-excl-start: This should never happen.
-                format!("cannot add {exercise_id} to uids table in practice stats DB")
-                // grcov-excl-stop
-            })?; // grcov-excl-line
+            .map_err(|e| PracticeStatsError::RecordScore(*exercise_id, e))?; // grcov-excl-line
 
         // Insert the exercise trial into the database.
-        let mut stmt = connection.prepare_cached(
-            "INSERT INTO practice_stats (unit_uid, score, timestamp) VALUES (
+        let mut stmt = connection
+            .prepare_cached(
+                "INSERT INTO practice_stats (unit_uid, score, timestamp) VALUES (
                 (SELECT unit_uid FROM uids WHERE unit_id = ?1), ?2, ?3);",
-        )?; // grcov-excl-line
-        stmt.execute(params![
-            exercise_id.as_str(),
-            score.float_score(),
-            timestamp
-        ])
-        .with_context(|| {
-            // grcov-excl-start: This should never happen.
-            format!("cannot record score {score:?} for exercise {exercise_id} to practice stats DB")
-            // grcov-excl-stop
-        })?; // grcov-excl-line
+            )
+            .map_err(PracticeStatsError::PrepareSqlStatement)?; // grcov-excl-line
+        let _ = stmt
+            .execute(params![
+                exercise_id.as_str(),
+                score.float_score(),
+                timestamp
+            ])
+            .map_err(|e| PracticeStatsError::RecordScore(*exercise_id, e))?; // grcov-excl-line
         Ok(())
     }
 
-    fn trim_scores(&mut self, num_scores: usize) -> Result<()> {
+    fn trim_scores(&mut self, num_scores: usize) -> Result<(), PracticeStatsError> {
         // Get all the UIDs from the database.
-        let connection = self.pool.get()?;
-        let mut uid_stmt = connection.prepare_cached("SELECT unit_uid from uids")?;
+        let connection = self.pool.get().map_err(PracticeStatsError::Connection)?;
+        let mut uid_stmt = connection
+            .prepare_cached("SELECT unit_uid from uids")
+            .map_err(PracticeStatsError::PrepareSqlStatement)?; // grcov-excl-line
         let uids = uid_stmt
-            .query_map([], |row| row.get(0))?
-            .map(|r| r.with_context(|| "cannot query uids table in practice stats DB"))
-            .collect::<Result<Vec<i64>>>()?; // grcov-excl-line
+            .query_map([], |row| row.get(0))
+            .map_err(PracticeStatsError::TrimScores)? // grcov-excl-line
+            .map(|r| r.map_err(PracticeStatsError::TrimScores))
+            .collect::<Result<Vec<i64>, PracticeStatsError>>()?; // grcov-excl-line
 
         // Delete the oldest trials for each UID but keep the most recent `num_scores` trials.
         for uid in uids {
-            let mut stmt = connection.prepare_cached(
-                "DELETE FROM practice_stats WHERE unit_uid = ?1 AND timestamp NOT IN (
+            let mut stmt = connection
+                .prepare_cached(
+                    "DELETE FROM practice_stats WHERE unit_uid = ?1 AND timestamp NOT IN (
                     SELECT timestamp FROM practice_stats WHERE unit_uid = ?1
                     ORDER BY timestamp DESC LIMIT ?2);",
-            )?; // grcov-excl-line
-            stmt.execute(params![uid, num_scores])
-                .with_context(|| "cannot trim scores from practice stats DB")?; // grcov-excl-line
+                )
+                .map_err(PracticeStatsError::PrepareSqlStatement)?; // grcov-excl-line
+            let _ = stmt
+                .execute(params![uid, num_scores])
+                .map_err(PracticeStatsError::TrimScores)?; // grcov-excl-line
         }
 
         // Call the `VACUUM` command to reclaim the space freed by the deleted trials.
         connection
             .execute_batch("VACUUM;")
-            .with_context(|| "cannot vacuum practice stats DB")?; // grcov-excl-line
-        Ok(())
+            .map_err(PracticeStatsError::TrimScores) // grcov-excl-line
     }
 }
 
