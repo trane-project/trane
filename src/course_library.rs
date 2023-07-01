@@ -29,6 +29,7 @@ use crate::{
         CourseManifest, ExerciseManifest, GenerateManifests, LessonManifest, NormalizePaths,
         UnitType, UserPreferences,
     },
+    error::CourseLibraryError,
     graph::{InMemoryUnitGraph, UnitGraph},
     FILTERS_DIR, STUDY_SESSIONS_DIR, TRANE_CONFIG_DIR_PATH, USER_PREFERENCES_PATH,
 };
@@ -70,13 +71,13 @@ pub trait CourseLibrary {
     fn get_course_ids(&self) -> Vec<Ustr>;
 
     /// Returns the IDs of all lessons in the given course sorted alphabetically.
-    fn get_lesson_ids(&self, course_id: &Ustr) -> Result<Vec<Ustr>>;
+    fn get_lesson_ids(&self, course_id: &Ustr) -> Option<Vec<Ustr>>;
 
     /// Returns the IDs of all exercises in the given lesson sorted alphabetically.
-    fn get_exercise_ids(&self, lesson_id: &Ustr) -> Result<Vec<Ustr>>;
+    fn get_exercise_ids(&self, lesson_id: &Ustr) -> Option<Vec<Ustr>>;
 
     /// Returns the IDs of all exercises in the given course sorted alphabetically.
-    fn get_all_exercise_ids(&self) -> Result<Vec<Ustr>>;
+    fn get_all_exercise_ids(&self) -> Vec<Ustr>;
 
     /// Returns the IDs of all the units which match the given query.
     fn search(&self, query: &str) -> Result<Vec<Ustr>>;
@@ -154,7 +155,9 @@ impl LocalCourseLibrary {
     /// Returns the field in the search schema with the given name.
     fn schema_field(field_name: &str) -> Result<Field> {
         let schema = Self::search_schema();
-        let field = schema.get_field(field_name)?;
+        let field = schema
+            .get_field(field_name)
+            .map_err(|e| CourseLibraryError::SchemaFieldError(field_name.to_string(), e))?;
         Ok(field)
     }
 
@@ -634,39 +637,39 @@ impl CourseLibrary for LocalCourseLibrary {
         courses
     }
 
-    fn get_lesson_ids(&self, course_id: &Ustr) -> Result<Vec<Ustr>> {
+    fn get_lesson_ids(&self, course_id: &Ustr) -> Option<Vec<Ustr>> {
         let mut lessons = self
             .unit_graph
             .read()
-            .get_course_lessons(course_id)
-            .unwrap_or_default()
+            .get_course_lessons(course_id)?
             .into_iter()
             .collect::<Vec<Ustr>>();
         lessons.sort();
-        Ok(lessons)
+        Some(lessons)
     }
 
-    fn get_exercise_ids(&self, lesson_id: &Ustr) -> Result<Vec<Ustr>> {
+    fn get_exercise_ids(&self, lesson_id: &Ustr) -> Option<Vec<Ustr>> {
         let mut exercises = self
             .unit_graph
             .read()
-            .get_lesson_exercises(lesson_id)
-            .unwrap_or_default()
+            .get_lesson_exercises(lesson_id)?
             .into_iter()
             .collect::<Vec<Ustr>>();
         exercises.sort();
-        Ok(exercises)
+        Some(exercises)
     }
 
-    fn get_all_exercise_ids(&self) -> Result<Vec<Ustr>> {
+    fn get_all_exercise_ids(&self) -> Vec<Ustr> {
         let mut exercises = self.exercise_map.keys().cloned().collect::<Vec<Ustr>>();
         exercises.sort();
-        Ok(exercises)
+        exercises
     }
 
     fn search(&self, query: &str) -> Result<Vec<Ustr>> {
         // Retrieve a searcher from the reader and parse the query.
-        ensure!(self.reader.is_some(), "search index reader not available");
+        if self.reader.is_none() {
+            return Err(CourseLibraryError::MissingIndexReader.into());
+        }
         let searcher = self.reader.as_ref().unwrap().searcher();
         let id_field = Self::schema_field(ID_SCHEMA_FIELD)?;
         let query_parser = QueryParser::for_index(

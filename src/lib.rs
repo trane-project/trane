@@ -289,15 +289,15 @@ impl CourseLibrary for Trane {
         self.course_library.read().get_course_ids()
     }
 
-    fn get_lesson_ids(&self, course_id: &Ustr) -> Result<Vec<Ustr>> {
+    fn get_lesson_ids(&self, course_id: &Ustr) -> Option<Vec<Ustr>> {
         self.course_library.read().get_lesson_ids(course_id)
     }
 
-    fn get_exercise_ids(&self, lesson_id: &Ustr) -> Result<Vec<Ustr>> {
+    fn get_exercise_ids(&self, lesson_id: &Ustr) -> Option<Vec<Ustr>> {
         self.course_library.read().get_exercise_ids(lesson_id)
     }
 
-    fn get_all_exercise_ids(&self) -> Result<Vec<Ustr>> {
+    fn get_all_exercise_ids(&self) -> Vec<Ustr> {
         self.course_library.read().get_all_exercise_ids()
     }
 

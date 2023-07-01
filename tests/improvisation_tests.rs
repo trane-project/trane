@@ -148,7 +148,7 @@ fn all_exercises_visited() -> Result<()> {
     )?;
 
     // Run the simulation.
-    let exercise_ids = trane.get_all_exercise_ids()?;
+    let exercise_ids = trane.get_all_exercise_ids();
     assert!(exercise_ids.len() > 0);
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
@@ -183,7 +183,7 @@ fn all_exercises_visited_no_instruments() -> Result<()> {
     )?;
 
     // Run the simulation.
-    let exercise_ids = trane.get_all_exercise_ids()?;
+    let exercise_ids = trane.get_all_exercise_ids();
     assert!(exercise_ids.len() > 0);
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
@@ -219,7 +219,7 @@ fn all_exercises_visited_rhythm_only() -> Result<()> {
     )?;
 
     // Run the simulation.
-    let exercise_ids = trane.get_all_exercise_ids()?;
+    let exercise_ids = trane.get_all_exercise_ids();
     assert!(exercise_ids.len() > 0);
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 10,
@@ -255,7 +255,7 @@ fn no_progress_past_singing_lessons() -> Result<()> {
 
     // Run the simulation. Give every exercise a score of one, which should block all further
     // progress past the starting lessons.
-    let exercise_ids = trane.get_all_exercise_ids()?;
+    let exercise_ids = trane.get_all_exercise_ids();
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
         Box::new(|_| Some(MasteryScore::One)),
@@ -299,7 +299,7 @@ fn basic_harmony_blocks_advanced_harmony() -> Result<()> {
 
     // Run the simulation. Give every exercise a score of five, except for the basic harmony
     // exercises, which should block progress to the advanced harmony and mastery lessons.
-    let exercise_ids = trane.get_all_exercise_ids()?;
+    let exercise_ids = trane.get_all_exercise_ids();
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
         Box::new(|exercise_id| {
@@ -355,7 +355,7 @@ fn advanced_harmony_blocks_mastery() -> Result<()> {
 
     // Run the simulation. Give every exercise a score of five, except for the advanced harmony
     // exercises, which should block progress to the mastery lessons.
-    let exercise_ids = trane.get_all_exercise_ids()?;
+    let exercise_ids = trane.get_all_exercise_ids();
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
         Box::new(|exercise_id| {
@@ -411,7 +411,7 @@ fn melody_blocks_mastery() -> Result<()> {
 
     // Run the simulation. Give every exercise a score of five, except for the melody exercises,
     // which should block all further progress past the starting lessons.
-    let exercise_ids = trane.get_all_exercise_ids()?;
+    let exercise_ids = trane.get_all_exercise_ids();
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
         Box::new(|exercise_id| {
@@ -467,7 +467,7 @@ fn rhythm_blocks_mastery() -> Result<()> {
 
     // Run the simulation. Give every exercise a score of five, except for the rhythm exercises,
     // which should block all further progress past the starting lessons.
-    let exercise_ids = trane.get_all_exercise_ids()?;
+    let exercise_ids = trane.get_all_exercise_ids();
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
         Box::new(|exercise_id| {
@@ -528,7 +528,7 @@ fn sight_singing_lessons_block_instruments() -> Result<()> {
 
     // Run the simulation. Give all the exercises involving sight-singing and not an instrument a
     // score of one. Give all other exercises a score of five.
-    let exercise_ids = trane.get_all_exercise_ids()?;
+    let exercise_ids = trane.get_all_exercise_ids();
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
         Box::new(|exercise_id| {
@@ -595,7 +595,7 @@ fn key_blocks_next_keys() -> Result<()> {
     // Run the simulation. Give all the exercises involving the key of C a score of one. Give all
     // other exercises a score of five. This should block progress on the exercises for all the
     // other keys.
-    let exercise_ids = trane.get_all_exercise_ids()?;
+    let exercise_ids = trane.get_all_exercise_ids();
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
         Box::new(|exercise_id| {
