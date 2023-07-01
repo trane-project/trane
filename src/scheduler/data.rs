@@ -92,7 +92,8 @@ impl SchedulerData {
 
     /// Returns whether the unit with the given ID is blacklisted.
     pub fn blacklisted(&self, unit_id: &Ustr) -> Result<bool> {
-        self.blacklist.read().blacklisted(unit_id)
+        let blacklisted = self.blacklist.read().blacklisted(unit_id)?;
+        Ok(blacklisted)
     }
 
     /// Returns all the units that are dependencies of the unit with the given ID.
