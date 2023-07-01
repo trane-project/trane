@@ -51,7 +51,7 @@ pub mod study_session_manager;
 pub mod testutil;
 
 use anyhow::Result;
-use error::{BlacklistError, RepositoryError};
+use error::{BlacklistError, CourseLibraryError, RepositoryError};
 use parking_lot::RwLock;
 use review_list::{ReviewList, ReviewListDB};
 use std::{path::Path, sync::Arc};
@@ -302,7 +302,7 @@ impl CourseLibrary for Trane {
         self.course_library.read().get_all_exercise_ids()
     }
 
-    fn search(&self, query: &str) -> Result<Vec<Ustr>> {
+    fn search(&self, query: &str) -> Result<Vec<Ustr>, CourseLibraryError> {
         self.course_library.read().search(query)
     }
 

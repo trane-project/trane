@@ -19,7 +19,7 @@ use tantivy::{
     doc,
     query::QueryParser,
     schema::{Field, Schema, STORED, TEXT},
-    Index, IndexReader, IndexWriter, ReloadPolicy,
+    Index, IndexReader, IndexWriter, ReloadPolicy, TantivyError,
 };
 use ustr::{Ustr, UstrMap};
 use walkdir::WalkDir;
@@ -80,7 +80,7 @@ pub trait CourseLibrary {
     fn get_all_exercise_ids(&self) -> Vec<Ustr>;
 
     /// Returns the IDs of all the units which match the given query.
-    fn search(&self, query: &str) -> Result<Vec<Ustr>>;
+    fn search(&self, query: &str) -> Result<Vec<Ustr>, CourseLibraryError>;
 
     /// Returns the user preferences found in the library. The default preferences should be
     /// returned if the user preferences file is not found.
@@ -153,7 +153,7 @@ impl LocalCourseLibrary {
     }
 
     /// Returns the field in the search schema with the given name.
-    fn schema_field(field_name: &str) -> Result<Field> {
+    fn schema_field(field_name: &str) -> Result<Field, CourseLibraryError> {
         let schema = Self::search_schema();
         let field = schema
             .get_field(field_name)
@@ -665,7 +665,7 @@ impl CourseLibrary for LocalCourseLibrary {
         exercises
     }
 
-    fn search(&self, query: &str) -> Result<Vec<Ustr>> {
+    fn search(&self, query: &str) -> Result<Vec<Ustr>, CourseLibraryError> {
         // Retrieve a searcher from the reader and parse the query.
         if self.reader.is_none() {
             // This should never happen since the reader is initialized in the constructor.
@@ -682,7 +682,9 @@ impl CourseLibrary for LocalCourseLibrary {
                 Self::schema_field(METADATA_SCHEMA_FIELD)?,
             ],
         );
-        let query = query_parser.parse_query(query)?;
+        let query = query_parser
+            .parse_query(query)
+            .map_err(CourseLibraryError::ParseError)?;
 
         // Execute the query and return the results as a list of unit IDs.
         let top_docs = searcher.search(&query, &TopDocs::with_limit(50))?;
@@ -693,7 +695,8 @@ impl CourseLibrary for LocalCourseLibrary {
                 let id = doc.get_first(id_field).unwrap();
                 Ok(id.as_text().unwrap_or("").to_string().into())
             })
-            .collect::<Result<Vec<Ustr>>>()
+            .collect::<Result<Vec<Ustr>, TantivyError>>()
+            .map_err(CourseLibraryError::QueryError)
     }
 
     fn get_user_preferences(&self) -> UserPreferences {

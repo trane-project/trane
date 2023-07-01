@@ -32,6 +32,9 @@ pub enum BlacklistError {
 #[derive(Debug, Error)]
 #[allow(missing_docs)]
 pub enum CourseLibraryError {
+    #[error("cannot parse query: {0}")]
+    ParseError(#[from] tantivy::query::QueryParserError),
+
     #[error("cannot query the course library: {0}")]
     QueryError(#[from] tantivy::error::TantivyError),
 
