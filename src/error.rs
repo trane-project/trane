@@ -12,17 +12,20 @@ pub enum BlacklistError {
     #[error("cannot add unit {0} to the blacklist: {1}")]
     AddEntry(Ustr, #[source] rusqlite::Error),
 
-    #[error("cannot remove unit {0} from the blacklist: {1}")]
-    RemoveEntry(Ustr, #[source] rusqlite::Error),
-
-    #[error("cannot query entries from the blacklist: {0}")]
-    QueryEntries(#[source] rusqlite::Error),
+    #[error("cannot retrieve connection from pool: {0}")]
+    Connection(#[source] r2d2::Error),
 
     #[error("the migrations for the blacklist DB cannot be applied: {0}")]
     Migration(#[source] rusqlite_migration::Error),
 
     #[error("the sql statement cannot be prepared: {0}")]
     PrepareSqlStatement(#[source] rusqlite::Error),
+
+    #[error("cannot query entries from the blacklist: {0}")]
+    Query(#[source] rusqlite::Error),
+
+    #[error("cannot remove unit {0} from the blacklist: {1}")]
+    RemoveEntry(Ustr, #[source] rusqlite::Error),
 }
 
 /// An error returned when dealing with the course library.

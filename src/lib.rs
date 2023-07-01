@@ -51,6 +51,7 @@ pub mod study_session_manager;
 pub mod testutil;
 
 use anyhow::Result;
+use error::BlacklistError;
 use parking_lot::RwLock;
 use review_list::{ReviewList, ReviewListDB};
 use std::{path::Path, sync::Arc};
@@ -243,29 +244,29 @@ impl Trane {
 // from the final report.
 
 impl Blacklist for Trane {
-    fn add_to_blacklist(&mut self, unit_id: &Ustr) -> Result<()> {
+    fn add_to_blacklist(&mut self, unit_id: &Ustr) -> Result<(), BlacklistError> {
         // Make sure to invalidate any cached scores for the given unit.
         self.scheduler.invalidate_cached_score(unit_id);
         self.blacklist.write().add_to_blacklist(unit_id)
     }
 
-    fn remove_from_blacklist(&mut self, unit_id: &Ustr) -> Result<()> {
+    fn remove_from_blacklist(&mut self, unit_id: &Ustr) -> Result<(), BlacklistError> {
         // Make sure to invalidate any cached scores for the given unit.
         self.scheduler.invalidate_cached_score(unit_id);
         self.blacklist.write().remove_from_blacklist(unit_id)
     }
 
-    fn remove_prefix_from_blacklist(&mut self, prefix: &str) -> Result<()> {
+    fn remove_prefix_from_blacklist(&mut self, prefix: &str) -> Result<(), BlacklistError> {
         // Make sure to invalidate any cached scores of units with the given prefix.
         self.scheduler.invalidate_cached_scores_with_prefix(prefix);
         self.blacklist.write().remove_prefix_from_blacklist(prefix)
     }
 
-    fn blacklisted(&self, unit_id: &Ustr) -> Result<bool> {
+    fn blacklisted(&self, unit_id: &Ustr) -> Result<bool, BlacklistError> {
         self.blacklist.read().blacklisted(unit_id)
     }
 
-    fn all_blacklist_entries(&self) -> Result<Vec<Ustr>> {
+    fn all_blacklist_entries(&self) -> Result<Vec<Ustr>, BlacklistError> {
         self.blacklist.read().all_blacklist_entries()
     }
 }
