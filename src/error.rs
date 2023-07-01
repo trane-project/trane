@@ -25,6 +25,20 @@ pub enum BlacklistError {
     PrepareSqlStatement(#[source] rusqlite::Error),
 }
 
+/// An error returned when dealing with the course library.
+#[derive(Debug, Error)]
+#[allow(missing_docs)]
+pub enum CourseLibraryError {
+    #[error("course library does not have a valid index reader")]
+    MissingIndexReader,
+
+    #[error("cannot query the course library: {0}")]
+    QueryError(#[from] tantivy::error::TantivyError),
+
+    #[error("cannot retrieve schema for field {0}: {1}")]
+    SchemaFieldError(String, #[source] tantivy::error::TantivyError),
+}
+
 /// An error returned when dealing with git repositories contianing courses.
 #[derive(Debug, Error)]
 #[allow(missing_docs)]

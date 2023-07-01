@@ -490,12 +490,12 @@ fn get_unit_ids() -> Result<()> {
     // Verify the lesson and exercise IDs.
     for course_id in course_ids {
         let course_test_id = TestId::from(&course_id);
-        let lesson_ids = trane.get_lesson_ids(&course_id)?;
+        let lesson_ids = trane.get_lesson_ids(&course_id).unwrap_or_default();
         for lesson_id in lesson_ids {
             let lesson_test_id = TestId::from(&lesson_id);
             assert_eq!(course_test_id.0, lesson_test_id.0);
             assert_eq!(lesson_test_id.2, None);
-            let exercise_ids = trane.get_exercise_ids(&lesson_id)?;
+            let exercise_ids = trane.get_exercise_ids(&lesson_id).unwrap_or_default();
             for exercise_id in exercise_ids {
                 let exercise_test_id = TestId::from(&exercise_id);
                 assert!(exercise_test_id.2.is_some());
@@ -1763,7 +1763,7 @@ fn ignored_paths() -> Result<()> {
     let trane = init_simulation(&temp_dir.path(), &course_builders, Some(&user_preferences))?;
 
     // Verify the courses in the list are ignored.
-    let exercise_ids = trane.get_all_exercise_ids()?;
+    let exercise_ids = trane.get_all_exercise_ids();
     println!("{:?}", exercise_ids);
     assert!(!exercise_ids.is_empty());
     assert!(exercise_ids.iter().all(|id| !id.starts_with("0::")));

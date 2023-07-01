@@ -123,7 +123,7 @@ fn all_exercises_visited() -> Result<()> {
     )?;
 
     // Run the simulation.
-    let exercise_ids = trane.get_all_exercise_ids()?;
+    let exercise_ids = trane.get_all_exercise_ids();
     assert!(exercise_ids.len() > 0);
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
@@ -159,7 +159,7 @@ fn no_progress_past_singing_lessons() -> Result<()> {
 
     // Run the simulation. Give every exercise a score of one, which should block all further
     // progress past the starting lessons.
-    let exercise_ids = trane.get_all_exercise_ids()?;
+    let exercise_ids = trane.get_all_exercise_ids();
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
         Box::new(|_| Some(MasteryScore::One)),
@@ -203,7 +203,7 @@ fn advanced_singing_blocks_advanced_transcription() -> Result<()> {
 
     // Run the simulation. Give every advanced singing exercise a score of one, which should block
     // all progress on the advanced transcription lessons.
-    let exercise_ids = trane.get_all_exercise_ids()?;
+    let exercise_ids = trane.get_all_exercise_ids();
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
         Box::new(|exercise_id| {
@@ -254,7 +254,7 @@ fn transcription_blocks_advanced_transcription_and_dependents() -> Result<()> {
     // Run the simulation. Give every transcription exercise from the first course a score of one,
     // which should block all progress on the advanced transcription lessons. It also blocks the
     // transcription lessons from the second course.
-    let exercise_ids = trane.get_all_exercise_ids()?;
+    let exercise_ids = trane.get_all_exercise_ids();
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
         Box::new(|exercise_id| {
@@ -304,7 +304,7 @@ fn skip_advanced_lessons() -> Result<()> {
     )?;
 
     // Run the simulation.
-    let exercise_ids = trane.get_all_exercise_ids()?;
+    let exercise_ids = trane.get_all_exercise_ids();
     assert!(exercise_ids.len() > 0);
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
