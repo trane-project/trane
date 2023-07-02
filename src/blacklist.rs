@@ -197,6 +197,7 @@ impl Blacklist for BlacklistDB {
             .map_err(|e| BlacklistError::RemovePrefix(prefix.into(), e))
     }
 
+    #[inline(always)]
     fn blacklisted(&self, unit_id: &Ustr) -> Result<bool, BlacklistError> {
         self.has_entry(unit_id)
     }

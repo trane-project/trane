@@ -51,6 +51,7 @@ pub(crate) struct SchedulerData {
 
 impl SchedulerData {
     /// Returns the ID of the course to which the lesson with the given ID belongs.
+    #[inline(always)]
     pub fn get_course_id(&self, lesson_id: &Ustr) -> Result<Ustr> {
         self.unit_graph
             .read()
@@ -59,6 +60,7 @@ impl SchedulerData {
     }
 
     /// Returns the type of the given unit.
+    #[inline(always)]
     pub fn get_unit_type(&self, unit_id: &Ustr) -> Result<UnitType> {
         self.unit_graph
             .read()
@@ -67,6 +69,7 @@ impl SchedulerData {
     }
 
     /// Returns the manifest for the course with the given ID.
+    #[inline(always)]
     pub fn get_course_manifest(&self, course_id: &Ustr) -> Result<Arc<RwLock<CourseManifest>>> {
         self.course_library
             .read()
@@ -75,6 +78,7 @@ impl SchedulerData {
     }
 
     /// Returns the manifest for the course with the given ID.
+    #[inline(always)]
     pub fn get_lesson_manifest(&self, lesson_id: &Ustr) -> Result<Arc<RwLock<LessonManifest>>> {
         self.course_library
             .read()
@@ -83,6 +87,7 @@ impl SchedulerData {
     }
 
     /// Returns the manifest for the exercise with the given ID.
+    #[inline(always)]
     pub fn get_exercise_manifest(
         &self,
         exercise_id: &Ustr,
@@ -94,12 +99,14 @@ impl SchedulerData {
     }
 
     /// Returns whether the unit with the given ID is blacklisted.
+    #[inline(always)]
     pub fn blacklisted(&self, unit_id: &Ustr) -> Result<bool> {
         let blacklisted = self.blacklist.read().blacklisted(unit_id)?;
         Ok(blacklisted)
     }
 
     /// Returns all the units that are dependencies of the unit with the given ID.
+    #[inline(always)]
     pub fn get_all_dependents(&self, unit_id: &Ustr) -> Vec<Ustr> {
         return self
             .unit_graph
@@ -151,12 +158,14 @@ impl SchedulerData {
     }
 
     /// Returns the value of the course_id field in the manifest of the given lesson.
+    #[inline(always)]
     pub fn get_lesson_course(&self, lesson_id: &Ustr) -> Option<Ustr> {
         self.unit_graph.read().get_lesson_course(lesson_id)
     }
 
     /// Returns whether the unit exists in the library. Some units will exist in the unit graph
     /// because they are a dependency of another, but their data might not exist in the library.
+    #[inline(always)]
     pub fn unit_exists(&self, unit_id: &Ustr) -> Result<bool> {
         // Retrieve the unit type. A missing unit type indicates the unit does not exist.
         let unit_type = self.unit_graph.read().get_unit_type(unit_id);
@@ -174,6 +183,7 @@ impl SchedulerData {
     }
 
     /// Returns the exercises contained within the given unit.
+    #[inline(always)]
     pub fn get_lesson_exercises(&self, unit_id: &Ustr) -> Vec<Ustr> {
         self.unit_graph
             .read()
@@ -184,6 +194,7 @@ impl SchedulerData {
     }
 
     /// Returns the number of lessons in the given course.
+    #[inline(always)]
     pub fn get_num_lessons_in_course(&self, course_id: &Ustr) -> i64 {
         let lessons: UstrSet = self
             .unit_graph
@@ -195,6 +206,7 @@ impl SchedulerData {
 
     /// Returns whether the unit passes the metadata filter, handling all interactions between
     /// lessons and course metadata filters.
+    #[inline(always)]
     pub fn unit_passes_filter(
         &self,
         unit_id: &Ustr,
@@ -237,6 +249,7 @@ impl SchedulerData {
     }
 
     /// Increments the value in the frequency map for the given exercise ID.
+    #[inline(always)]
     pub fn increment_exercise_frequency(&self, exercise_id: &Ustr) {
         let mut frequency_map = self.frequency_map.write();
         let frequency = frequency_map.entry(*exercise_id).or_insert(0.0);
@@ -244,6 +257,7 @@ impl SchedulerData {
     }
 
     /// Returns the frequency of the given exercise ID.
+    #[inline(always)]
     pub fn get_exercise_frequency(&self, exercise_id: &Ustr) -> f32 {
         self.frequency_map
             .read()
