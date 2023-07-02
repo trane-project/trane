@@ -39,6 +39,17 @@ pub enum CourseLibraryError {
     SchemaFieldError(String, #[source] tantivy::error::TantivyError),
 }
 
+/// An error returned when dealing with the exercise scheduler.
+#[derive(Debug, Error)]
+#[allow(missing_docs)]
+pub enum ExerciseSchedulerError {
+    #[error("cannot retrieve exercise batch: {0}")]
+    GetExerciseBatch(#[source] anyhow::Error),
+
+    #[error("cannot score exercise: {0}")]
+    ScoreExercise(#[source] anyhow::Error),
+}
+
 /// An error returned when dealing with the practice stats.
 #[derive(Debug, Error)]
 #[allow(missing_docs)]

@@ -51,9 +51,7 @@ pub mod study_session_manager;
 pub mod testutil;
 
 use anyhow::Result;
-use error::{
-    BlacklistError, CourseLibraryError, PracticeStatsError, RepositoryError, ReviewListError,
-};
+use error::*;
 use parking_lot::RwLock;
 use review_list::{ReviewList, ReviewListDB};
 use std::{path::Path, sync::Arc};
@@ -313,6 +311,44 @@ impl CourseLibrary for Trane {
     }
 }
 
+impl ExerciseScheduler for Trane {
+    fn get_exercise_batch(
+        &self,
+        filter: Option<ExerciseFilter>,
+    ) -> Result<Vec<(Ustr, ExerciseManifest)>, ExerciseSchedulerError> {
+        self.scheduler.get_exercise_batch(filter)
+    }
+
+    fn score_exercise(
+        &self,
+        exercise_id: &Ustr,
+        score: MasteryScore,
+        timestamp: i64,
+    ) -> Result<(), ExerciseSchedulerError> {
+        self.scheduler.score_exercise(exercise_id, score, timestamp)
+    }
+
+    fn invalidate_cached_score(&self, unit_id: &Ustr) {
+        self.scheduler.invalidate_cached_score(unit_id)
+    }
+
+    fn invalidate_cached_scores_with_prefix(&self, prefix: &str) {
+        self.scheduler.invalidate_cached_scores_with_prefix(prefix)
+    }
+
+    fn get_scheduler_options(&self) -> SchedulerOptions {
+        self.scheduler.get_scheduler_options()
+    }
+
+    fn set_scheduler_options(&mut self, options: SchedulerOptions) {
+        self.scheduler.set_scheduler_options(options)
+    }
+
+    fn reset_scheduler_options(&mut self) {
+        self.scheduler.reset_scheduler_options()
+    }
+}
+
 impl FilterManager for Trane {
     fn get_filter(&self, id: &str) -> Option<SavedFilter> {
         self.filter_manager.read().get_filter(id)
@@ -383,44 +419,6 @@ impl ReviewList for Trane {
 
     fn get_review_list_entries(&self) -> Result<Vec<Ustr>, ReviewListError> {
         self.review_list.read().get_review_list_entries()
-    }
-}
-
-impl ExerciseScheduler for Trane {
-    fn get_exercise_batch(
-        &self,
-        filter: Option<ExerciseFilter>,
-    ) -> Result<Vec<(Ustr, ExerciseManifest)>> {
-        self.scheduler.get_exercise_batch(filter)
-    }
-
-    fn score_exercise(
-        &self,
-        exercise_id: &Ustr,
-        score: MasteryScore,
-        timestamp: i64,
-    ) -> Result<()> {
-        self.scheduler.score_exercise(exercise_id, score, timestamp)
-    }
-
-    fn invalidate_cached_score(&self, unit_id: &Ustr) {
-        self.scheduler.invalidate_cached_score(unit_id)
-    }
-
-    fn invalidate_cached_scores_with_prefix(&self, prefix: &str) {
-        self.scheduler.invalidate_cached_scores_with_prefix(prefix)
-    }
-
-    fn get_scheduler_options(&self) -> SchedulerOptions {
-        self.scheduler.get_scheduler_options()
-    }
-
-    fn set_scheduler_options(&mut self, options: SchedulerOptions) {
-        self.scheduler.set_scheduler_options(options)
-    }
-
-    fn reset_scheduler_options(&mut self) {
-        self.scheduler.reset_scheduler_options()
     }
 }
 
