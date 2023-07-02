@@ -5,38 +5,43 @@ use std::{io, path::PathBuf};
 use thiserror::Error;
 use ustr::Ustr;
 
+/// Generic errors for Trane.
+#[derive(Debug, Error)]
+#[allow(missing_docs)]
+pub enum Error {
+    #[error("{0}")]
+    Basic(String),
+
+    #[error("{0}")]
+    Error(#[from] anyhow::Error),
+
+    #[error("{0}: {1}")]
+    WithSource(String, #[source] anyhow::Error),
+}
+
 /// An error returned when dealing with the blacklist.
 #[derive(Debug, Error)]
 #[allow(missing_docs)]
 pub enum BlacklistError {
     #[error("cannot add unit {0} to the blacklist: {1}")]
-    AddUnit(Ustr, #[source] rusqlite::Error),
-
-    #[error("cannot retrieve connection from pool: {0}")]
-    Connection(#[source] r2d2::Error),
+    AddUnit(Ustr, #[source] anyhow::Error),
 
     #[error("cannot get entries from the blacklist: {0}")]
-    GetEntries(#[source] rusqlite::Error),
+    GetEntries(#[source] anyhow::Error),
 
     #[error("cannot remove entries with prefix {0} from the blacklist: {1}")]
-    RemovePrefix(String, #[source] rusqlite::Error),
+    RemovePrefix(String, #[source] anyhow::Error),
 
     #[error("cannot remove unit {0} from the blacklist: {1}")]
-    RemoveUnit(Ustr, #[source] rusqlite::Error),
+    RemoveUnit(Ustr, #[source] anyhow::Error),
 }
 
 /// An error returned when dealing with the course library.
 #[derive(Debug, Error)]
 #[allow(missing_docs)]
 pub enum CourseLibraryError {
-    #[error("cannot parse query: {0}")]
-    ParseError(#[from] tantivy::query::QueryParserError),
-
-    #[error("cannot query the course library: {0}")]
-    QueryError(#[from] tantivy::error::TantivyError),
-
-    #[error("cannot retrieve schema for field {0}: {1}")]
-    SchemaFieldError(String, #[source] tantivy::error::TantivyError),
+    #[error("cannot process query {0}: {1}")]
+    Search(String, #[source] anyhow::Error),
 }
 
 /// An error returned when dealing with the exercise scheduler.
@@ -54,17 +59,14 @@ pub enum ExerciseSchedulerError {
 #[derive(Debug, Error)]
 #[allow(missing_docs)]
 pub enum PracticeStatsError {
-    #[error("cannot retrieve connection from pool: {0}")]
-    Connection(#[source] r2d2::Error),
-
     #[error("cannot get scores for unit {0}: {1}")]
-    GetScores(Ustr, #[source] rusqlite::Error),
+    GetScores(Ustr, #[source] anyhow::Error),
 
     #[error("cannot record score for unit {0}: {1}")]
-    RecordScore(Ustr, #[source] rusqlite::Error),
+    RecordScore(Ustr, #[source] anyhow::Error),
 
     #[error("cannot trim scores: {0}")]
-    TrimScores(#[source] rusqlite::Error),
+    TrimScores(#[source] anyhow::Error),
 }
 
 /// An error returned when dealing with git repositories contianing courses.
@@ -110,14 +112,11 @@ pub enum RepositoryError {
 #[allow(missing_docs)]
 pub enum ReviewListError {
     #[error("cannot add unit {0} to the review list: {1}")]
-    AddUnit(Ustr, #[source] rusqlite::Error),
-
-    #[error("cannot retrieve connection from pool: {0}")]
-    Connection(#[source] r2d2::Error),
+    AddUnit(Ustr, #[source] anyhow::Error),
 
     #[error("cannot retrieve the entries from the review list: {0}")]
-    GetEntries(#[source] rusqlite::Error),
+    GetEntries(#[source] anyhow::Error),
 
     #[error("cannot remove unit {0} from the review list: {1}")]
-    RemoveUnit(Ustr, #[source] rusqlite::Error),
+    RemoveUnit(Ustr, #[source] anyhow::Error),
 }

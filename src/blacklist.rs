@@ -33,7 +33,7 @@ pub trait Blacklist {
     fn blacklisted(&self, unit_id: &Ustr) -> Result<bool, BlacklistError>;
 
     /// Returns all the entries in the blacklist.
-    fn all_blacklist_entries(&self) -> Result<Vec<Ustr>, BlacklistError>;
+    fn get_blacklist_entries(&self) -> Result<Vec<Ustr>, BlacklistError>;
 }
 
 /// An implementation of [Blacklist] backed by SQLite.
@@ -78,7 +78,7 @@ impl BlacklistDB {
         blacklist.init()?;
 
         // Initialize the cache with the existing blacklist entries.
-        for unit_id in blacklist.all_blacklist_entries()? {
+        for unit_id in blacklist.get_blacklist_entries()? {
             blacklist.cache.write().insert(unit_id, true);
         }
 
@@ -112,10 +112,9 @@ impl BlacklistDB {
             Ok(false)
         }
     }
-}
 
-impl Blacklist for BlacklistDB {
-    fn add_to_blacklist(&mut self, unit_id: &Ustr) -> Result<(), BlacklistError> {
+    /// Helper function to add a unit to the blacklist.
+    fn add_to_blacklist_helper(&mut self, unit_id: &Ustr) -> Result<()> {
         // Check the cache first to avoid unnecessary queries.
         let has_entry = self.has_entry(unit_id)?;
         if has_entry {
@@ -123,88 +122,87 @@ impl Blacklist for BlacklistDB {
         }
 
         // Add the entry to the database.
-        let connection = self.pool.get().map_err(BlacklistError::Connection)?;
-        let mut stmt = connection
-            .prepare_cached("INSERT INTO blacklist (unit_id) VALUES (?1)")
-            .map_err(|e| BlacklistError::AddUnit(*unit_id, e))?; // grcov-excl-line
-        stmt.execute(params![unit_id.as_str()])
-            .map_err(|e| BlacklistError::AddUnit(*unit_id, e))?;
+        let connection = self.pool.get()?;
+        let mut stmt = connection.prepare_cached("INSERT INTO blacklist (unit_id) VALUES (?1)")?;
+        stmt.execute(params![unit_id.as_str()])?;
 
         // Update the cache.
         self.cache.write().insert(*unit_id, true);
         Ok(())
     }
 
-    fn remove_from_blacklist(&mut self, unit_id: &Ustr) -> Result<(), BlacklistError> {
+    /// Helper function to remove a unit from the blacklist.
+    fn remove_from_blacklist_helper(&mut self, unit_id: &Ustr) -> Result<()> {
         // Remove the entry from the database.
-        let connection = self.pool.get().map_err(BlacklistError::Connection)?;
-        let mut stmt = connection
-            .prepare_cached("DELETE FROM blacklist WHERE unit_id = $1")
-            .map_err(|e| BlacklistError::RemoveUnit(*unit_id, e))?; // grcov-excl-line
-        stmt.execute(params![unit_id.as_str()])
-            .map_err(|e| BlacklistError::RemoveUnit(*unit_id, e))?;
+        let connection = self.pool.get()?;
+        let mut stmt = connection.prepare_cached("DELETE FROM blacklist WHERE unit_id = $1")?;
+        stmt.execute(params![unit_id.as_str()])?;
 
         // Update the cache.
         self.cache.write().insert(*unit_id, false);
         Ok(())
     }
 
-    fn remove_prefix_from_blacklist(&mut self, prefix: &str) -> Result<(), BlacklistError> {
+    /// Helper function to remove all the entries with the given prefix from the blacklist.
+    fn remove_prefix_from_blacklist_helper(&mut self, prefix: &str) -> Result<()> {
         // Search for all the entries with the given prefix.
-        let connection = self.pool.get().map_err(BlacklistError::Connection)?;
-        let mut stmt = connection
-            .prepare_cached("SELECT unit_id from blacklist WHERE unit_id LIKE $1;")
-            .map_err(|e| BlacklistError::RemovePrefix(prefix.into(), e))?; // grcov-excl-line
-        let mut rows = stmt
-            .query(params![format!("{}%", prefix)])
-            .map_err(|e| BlacklistError::RemovePrefix(prefix.into(), e))?;
+        let connection = self.pool.get()?;
+        let mut stmt =
+            connection.prepare_cached("SELECT unit_id from blacklist WHERE unit_id LIKE $1;")?;
+        let mut rows = stmt.query(params![format!("{}%", prefix)])?;
 
         // Remove all the entries with the given prefix.
-        let mut stmt = connection
-            .prepare_cached("DELETE FROM blacklist WHERE unit_id = $1")
-            .map_err(|e| BlacklistError::RemovePrefix(prefix.into(), e))?; // grcov-excl-line
-        let mut row = rows
-            .next()
-            .map_err(|e| BlacklistError::RemovePrefix(prefix.into(), e))?;
-        while row.is_some() {
-            let unit_id: String = row
-                .unwrap()
-                .get(0)
-                .map_err(|e| BlacklistError::RemovePrefix(prefix.into(), e))?; // grcov-excl-line
-            println!("Removing {} from blacklist", unit_id);
-            stmt.execute(params![unit_id])
-                .map_err(|e| BlacklistError::RemoveUnit(Ustr::from(&unit_id), e))?;
+        let mut stmt = connection.prepare_cached("DELETE FROM blacklist WHERE unit_id = $1")?;
+        while let Some(row) = rows.next()? {
+            let unit_id: String = row.get(0)?;
+            stmt.execute(params![unit_id])?;
 
-            // Update the cache and get the next row.
+            // Update the cache.
             self.cache.write().insert(unit_id.into(), false);
-            row = rows
-                .next()
-                .map_err(|e| BlacklistError::RemovePrefix(prefix.into(), e))?;
         }
         Ok(())
+    }
+
+    /// Helper function to retrieve all the entries in the blacklist.
+    fn all_blacklist_entries_helper(&self) -> Result<Vec<Ustr>> {
+        // Get all the entries from the database.
+        let connection = self.pool.get()?;
+        let mut stmt = connection.prepare_cached("SELECT unit_id from blacklist;")?;
+        let mut rows = stmt.query(params![])?;
+
+        // Convert the rows into a vector of `Ustr` values.
+        let mut entries = Vec::new();
+        while let Some(row) = rows.next()? {
+            let unit_id: String = row.get(0)?;
+            entries.push(Ustr::from(&unit_id));
+        }
+        Ok(entries)
+    }
+}
+
+impl Blacklist for BlacklistDB {
+    fn add_to_blacklist(&mut self, unit_id: &Ustr) -> Result<(), BlacklistError> {
+        self.add_to_blacklist_helper(unit_id)
+            .map_err(|e| BlacklistError::AddUnit(*unit_id, e))
+    }
+
+    fn remove_from_blacklist(&mut self, unit_id: &Ustr) -> Result<(), BlacklistError> {
+        self.remove_from_blacklist_helper(unit_id)
+            .map_err(|e| BlacklistError::RemoveUnit(*unit_id, e))
+    }
+
+    fn remove_prefix_from_blacklist(&mut self, prefix: &str) -> Result<(), BlacklistError> {
+        self.remove_prefix_from_blacklist_helper(prefix)
+            .map_err(|e| BlacklistError::RemovePrefix(prefix.into(), e))
     }
 
     fn blacklisted(&self, unit_id: &Ustr) -> Result<bool, BlacklistError> {
         self.has_entry(unit_id)
     }
 
-    fn all_blacklist_entries(&self) -> Result<Vec<Ustr>, BlacklistError> {
-        // Get all the entries from the database.
-        let connection = self.pool.get().map_err(BlacklistError::Connection)?;
-        let mut stmt = connection
-            .prepare_cached("SELECT unit_id from blacklist;")
-            .map_err(BlacklistError::GetEntries)?; // grcov-excl-line
-        let mut rows = stmt.query(params![]).map_err(BlacklistError::GetEntries)?;
-
-        // Convert the rows into a vector of `Ustr` values.
-        let mut entries = Vec::new();
-        let mut row = rows.next().map_err(BlacklistError::GetEntries)?; // grcov-excl-line
-        while row.is_some() {
-            let unit_id: String = row.unwrap().get(0).map_err(BlacklistError::GetEntries)?;
-            entries.push(Ustr::from(&unit_id));
-            row = rows.next().map_err(BlacklistError::GetEntries)?;
-        }
-        Ok(entries)
+    fn get_blacklist_entries(&self) -> Result<Vec<Ustr>, BlacklistError> {
+        self.all_blacklist_entries_helper()
+            .map_err(BlacklistError::GetEntries)
     }
 }
 
@@ -312,7 +310,7 @@ mod test {
         assert!(blacklist.blacklisted(&unit_id)?);
         blacklist.add_to_blacklist(&unit_id2)?;
         assert!(blacklist.blacklisted(&unit_id2)?);
-        assert_eq!(blacklist.all_blacklist_entries()?, vec![unit_id, unit_id2]);
+        assert_eq!(blacklist.get_blacklist_entries()?, vec![unit_id, unit_id2]);
         Ok(())
     }
 

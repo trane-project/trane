@@ -19,7 +19,7 @@ use tantivy::{
     doc,
     query::QueryParser,
     schema::{Field, Schema, STORED, TEXT},
-    Index, IndexReader, IndexWriter, ReloadPolicy, TantivyError,
+    Index, IndexReader, IndexWriter, ReloadPolicy,
 };
 use ustr::{Ustr, UstrMap};
 use walkdir::WalkDir;
@@ -153,11 +153,9 @@ impl LocalCourseLibrary {
     }
 
     /// Returns the field in the search schema with the given name.
-    fn schema_field(field_name: &str) -> Result<Field, CourseLibraryError> {
+    fn schema_field(field_name: &str) -> Result<Field> {
         let schema = Self::search_schema();
-        let field = schema
-            .get_field(field_name)
-            .map_err(|e| CourseLibraryError::SchemaFieldError(field_name.to_string(), e))?;
+        let field = schema.get_field(field_name)?;
         Ok(field)
     }
 
@@ -616,6 +614,38 @@ impl LocalCourseLibrary {
         library.unit_graph.read().check_cycles()?;
         Ok(library)
     }
+
+    /// Helper function to search the course library.
+    fn search_helper(&self, query: &str) -> Result<Vec<Ustr>> {
+        // Retrieve a searcher from the reader and parse the query.
+        if self.reader.is_none() {
+            // This should never happen since the reader is initialized in the constructor.
+            return Ok(Vec::new()); // grcov-excl-line
+        }
+        let searcher = self.reader.as_ref().unwrap().searcher();
+        let id_field = Self::schema_field(ID_SCHEMA_FIELD)?;
+        let query_parser = QueryParser::for_index(
+            &self.index,
+            vec![
+                id_field,
+                Self::schema_field(NAME_SCHEMA_FIELD)?,
+                Self::schema_field(DESCRIPTION_SCHEMA_FIELD)?,
+                Self::schema_field(METADATA_SCHEMA_FIELD)?,
+            ],
+        );
+        let query = query_parser.parse_query(query)?;
+
+        // Execute the query and return the results as a list of unit IDs.
+        let top_docs = searcher.search(&query, &TopDocs::with_limit(50))?;
+        top_docs
+            .into_iter()
+            .map(|(_, doc_address)| {
+                let doc = searcher.doc(doc_address)?;
+                let id = doc.get_first(id_field).unwrap();
+                Ok(id.as_text().unwrap_or("").to_string().into())
+            })
+            .collect::<Result<Vec<Ustr>>>()
+    }
 }
 
 impl CourseLibrary for LocalCourseLibrary {
@@ -666,37 +696,8 @@ impl CourseLibrary for LocalCourseLibrary {
     }
 
     fn search(&self, query: &str) -> Result<Vec<Ustr>, CourseLibraryError> {
-        // Retrieve a searcher from the reader and parse the query.
-        if self.reader.is_none() {
-            // This should never happen since the reader is initialized in the constructor.
-            return Ok(Vec::new()); // grcov-excl-line
-        }
-        let searcher = self.reader.as_ref().unwrap().searcher();
-        let id_field = Self::schema_field(ID_SCHEMA_FIELD)?;
-        let query_parser = QueryParser::for_index(
-            &self.index,
-            vec![
-                id_field,
-                Self::schema_field(NAME_SCHEMA_FIELD)?,
-                Self::schema_field(DESCRIPTION_SCHEMA_FIELD)?,
-                Self::schema_field(METADATA_SCHEMA_FIELD)?,
-            ],
-        );
-        let query = query_parser
-            .parse_query(query)
-            .map_err(CourseLibraryError::ParseError)?; // grcov-excl-line
-
-        // Execute the query and return the results as a list of unit IDs.
-        let top_docs = searcher.search(&query, &TopDocs::with_limit(50))?;
-        top_docs
-            .into_iter()
-            .map(|(_, doc_address)| {
-                let doc = searcher.doc(doc_address)?;
-                let id = doc.get_first(id_field).unwrap();
-                Ok(id.as_text().unwrap_or("").to_string().into())
-            })
-            .collect::<Result<Vec<Ustr>, TantivyError>>()
-            .map_err(CourseLibraryError::QueryError)
+        self.search_helper(query)
+            .map_err(|e| CourseLibraryError::Search(query.into(), e))
     }
 
     fn get_user_preferences(&self) -> UserPreferences {

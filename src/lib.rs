@@ -266,8 +266,8 @@ impl Blacklist for Trane {
         self.blacklist.read().blacklisted(unit_id)
     }
 
-    fn all_blacklist_entries(&self) -> Result<Vec<Ustr>, BlacklistError> {
-        self.blacklist.read().all_blacklist_entries()
+    fn get_blacklist_entries(&self) -> Result<Vec<Ustr>, BlacklistError> {
+        self.blacklist.read().get_blacklist_entries()
     }
 }
 

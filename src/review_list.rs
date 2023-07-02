@@ -77,50 +77,57 @@ impl ReviewListDB {
         );
         Self::new(connection_manager)
     }
+
+    /// Helper to add a unit to the review list.
+    fn add_to_review_list_helper(&mut self, unit_id: &Ustr) -> Result<()> {
+        // Add the unit to the database.
+        let connection = self.pool.get()?;
+        let mut stmt =
+            connection.prepare_cached("INSERT OR IGNORE INTO review_list (unit_id) VALUES (?1)")?;
+        stmt.execute(params![unit_id.as_str()])?;
+        Ok(())
+    }
+
+    /// Helper to remove a unit from the review list.
+    fn remove_from_review_list_helper(&mut self, unit_id: &Ustr) -> Result<()> {
+        // Remove the unit from the database.
+        let connection = self.pool.get()?;
+        let mut stmt = connection.prepare_cached("DELETE FROM review_list WHERE unit_id = $1")?;
+        stmt.execute(params![unit_id.as_str()])?;
+        Ok(())
+    }
+
+    /// Helper to get all the entries in the review list.
+    fn get_review_list_entries_helper(&self) -> Result<Vec<Ustr>> {
+        // Retrieve all the units from the database.
+        let connection = self.pool.get()?;
+        let mut stmt = connection.prepare_cached("SELECT unit_id from review_list;")?;
+        let mut rows = stmt.query(params![])?;
+
+        // Convert the rows into a vector of unit IDs.
+        let mut entries = Vec::new();
+        while let Some(row) = rows.next()? {
+            let unit_id: String = row.get(0)?;
+            entries.push(Ustr::from(&unit_id));
+        }
+        Ok(entries)
+    }
 }
 
 impl ReviewList for ReviewListDB {
     fn add_to_review_list(&mut self, unit_id: &Ustr) -> Result<(), ReviewListError> {
-        // Add the unit to the database.
-        let connection = self.pool.get().map_err(ReviewListError::Connection)?;
-        let mut stmt = connection
-            .prepare_cached("INSERT OR IGNORE INTO review_list (unit_id) VALUES (?1)")
-            .map_err(|e| ReviewListError::AddUnit(*unit_id, e))?; // grcov-excl-line
-        let _ = stmt
-            .execute(params![unit_id.as_str()])
-            .map_err(|e| ReviewListError::AddUnit(*unit_id, e))?;
-        Ok(())
+        self.add_to_review_list_helper(unit_id)
+            .map_err(|e| ReviewListError::AddUnit(*unit_id, e))
     }
 
     fn remove_from_review_list(&mut self, unit_id: &Ustr) -> Result<(), ReviewListError> {
-        // Remove the unit from the database.
-        let connection = self.pool.get().map_err(ReviewListError::Connection)?;
-        let mut stmt = connection
-            .prepare_cached("DELETE FROM review_list WHERE unit_id = $1")
-            .map_err(|e| ReviewListError::RemoveUnit(*unit_id, e))?; // grcov-excl-line
-        let _ = stmt
-            .execute(params![unit_id.as_str()])
-            .map_err(|e| ReviewListError::RemoveUnit(*unit_id, e))?; // grcov-excl-line
-        Ok(())
+        self.remove_from_review_list_helper(unit_id)
+            .map_err(|e| ReviewListError::RemoveUnit(*unit_id, e))
     }
 
     fn get_review_list_entries(&self) -> Result<Vec<Ustr>, ReviewListError> {
-        // Retrieve all the units from the database.
-        let connection = self.pool.get().map_err(ReviewListError::Connection)?;
-        let mut stmt = connection
-            .prepare_cached("SELECT unit_id from review_list;")
-            .map_err(ReviewListError::GetEntries)?; // grcov-excl-line
-        let mut rows = stmt.query(params![]).map_err(ReviewListError::GetEntries)?;
-
-        // Convert the rows into a vector of unit IDs.
-        let mut entries = Vec::new();
-        let mut row = rows.next().map_err(ReviewListError::GetEntries)?;
-        while row.is_some() {
-            let unit_id: String = row.unwrap().get(0).map_err(ReviewListError::GetEntries)?;
-            entries.push(Ustr::from(&unit_id));
-            row = rows.next().map_err(ReviewListError::GetEntries)?;
-        }
-        Ok(entries)
+        self.get_review_list_entries_helper()
+            .map_err(ReviewListError::GetEntries)
     }
 }
 
