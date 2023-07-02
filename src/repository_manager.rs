@@ -63,45 +63,48 @@ impl LocalRepositoryManager {
         Ok(url
             .path_segments()
             .and_then(|segments| segments.last())
-            .ok_or_else(|| Error::Basic("invalid repository URL".into()))?
+            .ok_or_else(|| Error::Basic("invalid repository URL".into()))? // grcov-excl-line
             .trim_end_matches(".git")
             .into())
     }
 
     /// Reads the repository metadata from the given path.
     fn read_metadata(path: &Path) -> Result<RepositoryMetadata> {
-        let repo = serde_json::from_str::<RepositoryMetadata>(
-            &fs::read_to_string(path).map_err(|e| {
+        // grcov-excl-start: Can rely on serde_json to handle errors.
+        let repo =
+            serde_json::from_str::<RepositoryMetadata>(&fs::read_to_string(path).map_err(|e| {
                 Error::WithSource(
                     format!("invalid metadata file {}", path.display()),
                     e.into(),
                 )
-            })?, // grcov-excl-line
-        )
-        .map_err(|e| {
-            Error::WithSource(
-                format!("invalid metadata at file {}", path.display()),
-                e.into(),
-            )
-        })?; // grcov-excl-line
+            })?)
+            .map_err(|e| {
+                Error::WithSource(
+                    format!("invalid metadata at file {}", path.display()),
+                    e.into(),
+                )
+            })?;
         Ok(repo)
+        // grcov-excl-stop
     }
 
     /// Writes the repository metadata to metadata directory.
     fn write_metadata(&self, metadata: &RepositoryMetadata) -> Result<()> {
+        // grcov-excl-start: Can rely on serde_json to handle errors.
         let path = self
             .metadata_directory
             .join(format!("{}.json", metadata.id));
 
         let pretty_json = serde_json::to_string_pretty(metadata)
-            .map_err(|e| Error::WithSource("invalid metadata".into(), e.into()))?; // grcov-excl-line
+            .map_err(|e| Error::WithSource("invalid metadata".into(), e.into()))?;
         fs::write(&path, pretty_json).map_err(|e| {
             Error::WithSource(
                 format!("failed to write metadata to {}", path.display()),
                 e.into(),
             )
-        })?; // grcov-excl-line
+        })?;
         Ok(())
+        // grcov-excl-stop
     }
 
     /// Clones the repository at the given URL into the given directory. If the directory already
@@ -159,7 +162,7 @@ impl LocalRepositoryManager {
             if !entry.path().is_file() || entry.path().extension().unwrap_or_default() != "json" {
                 continue;
             }
-            // grcov-excl-end
+            // grcov-excl-stop
 
             // Read the repository metadata and add it to the map.
             let repo_metadata = Self::read_metadata(&entry.path())?;
@@ -282,6 +285,8 @@ impl RepositoryManager for LocalRepositoryManager {
 
 #[cfg(test)]
 mod test {
+    use std::os::unix::prelude::PermissionsExt;
+
     use anyhow::Result;
 
     use super::*;
@@ -381,6 +386,21 @@ mod test {
         fs::create_dir_all(&download_dir)?;
         let repo_dir = library_root.path().join(DOWNLOAD_DIRECTORY).join(REPO_ID);
         fs::File::create(&repo_dir)?;
+        assert!(manager.add_repo(REPO_URL, None).is_err());
+        Ok(())
+    }
+
+    /// Verifies adding a repository where the download directory cannot be created.
+    #[test]
+    fn add_bad_download_directory() -> Result<()> {
+        let library_root = tempfile::tempdir()?;
+        setup_directories(library_root.path())?;
+        let mut manager = LocalRepositoryManager::new(library_root.path())?;
+        let download_dir = library_root.path().join(DOWNLOAD_DIRECTORY);
+        fs::create_dir_all(&download_dir)?;
+        // Set permissions to 0 so that the download directory cannot be created.
+        fs::set_permissions(&download_dir, fs::Permissions::from_mode(0))?;
+
         assert!(manager.add_repo(REPO_URL, None).is_err());
         Ok(())
     }
