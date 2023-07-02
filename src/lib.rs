@@ -63,7 +63,8 @@ use blacklist::{Blacklist, BlacklistDB};
 use course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary};
 use data::{
     filter::SavedFilter, CourseManifest, ExerciseManifest, ExerciseTrial, LessonManifest,
-    MasteryScore, SchedulerOptions, SchedulerPreferences, UnitType, UserPreferences,
+    MasteryScore, RepositoryMetadata, SchedulerOptions, SchedulerPreferences, UnitType,
+    UserPreferences,
 };
 use filter_manager::{FilterManager, LocalFilterManager};
 use graph::UnitGraph;
@@ -407,7 +408,7 @@ impl RepositoryManager for Trane {
         self.repo_manager.read().update_all_repos()
     }
 
-    fn list_repos(&self) -> Result<Vec<data::RepositoryMetadata>, RepositoryManagerError> {
+    fn list_repos(&self) -> Vec<RepositoryMetadata> {
         self.repo_manager.read().list_repos()
     }
 }

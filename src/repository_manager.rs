@@ -41,7 +41,7 @@ pub trait RepositoryManager {
     fn update_all_repos(&self) -> Result<(), RepositoryManagerError>;
 
     /// Returns a list of all the repositories that are currently being managed.
-    fn list_repos(&self) -> Result<Vec<RepositoryMetadata>, RepositoryManagerError>;
+    fn list_repos(&self) -> Vec<RepositoryMetadata>;
 }
 
 /// An implementation of [RepositoryManager] backed by the local file system. All repositories will
@@ -275,8 +275,8 @@ impl RepositoryManager for LocalRepositoryManager {
         Ok(())
     }
 
-    fn list_repos(&self) -> Result<Vec<RepositoryMetadata>, RepositoryManagerError> {
-        Ok(self.repositories.values().cloned().collect())
+    fn list_repos(&self) -> Vec<RepositoryMetadata> {
+        self.repositories.values().cloned().collect()
     }
 }
 
@@ -457,7 +457,7 @@ mod test {
         setup_directories(library_root.path())?;
         let mut manager = LocalRepositoryManager::new(library_root.path())?;
         manager.add_repo(REPO_URL, None)?;
-        let repos = manager.list_repos()?;
+        let repos = manager.list_repos();
         assert_eq!(repos.len(), 1);
         assert_eq!(repos[0].id, REPO_ID);
         assert_eq!(repos[0].url, REPO_URL);
