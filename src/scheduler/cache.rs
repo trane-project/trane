@@ -100,7 +100,8 @@ impl ScoreCache {
     /// Returns the average score of all the exercises in the given lesson.
     fn get_lesson_score(&self, lesson_id: &Ustr) -> Result<Option<f32>> {
         // Check if the unit is blacklisted. A blacklisted unit has no score.
-        let blacklisted = self.data.blacklist.read().blacklisted(lesson_id);
+        let blacklist = self.data.blacklist.read();
+        let blacklisted = blacklist.blacklisted(lesson_id);
         if blacklisted.unwrap_or(false) {
             return Ok(None);
         }
@@ -123,7 +124,7 @@ impl ScoreCache {
                 let valid_exercises = exercise_ids
                     .into_iter()
                     .filter(|exercise_id| {
-                        let blacklisted = self.data.blacklist.read().blacklisted(exercise_id);
+                        let blacklisted = blacklist.blacklisted(exercise_id);
                         !blacklisted.unwrap_or(false)
                     })
                     .collect::<Vec<Ustr>>();
@@ -136,9 +137,7 @@ impl ScoreCache {
                     let avg_score: f32 = valid_exercises
                         .iter()
                         .map(|id| self.get_exercise_score(id))
-                        .collect::<Result<Vec<f32>>>()? // grcov-excl-line
-                        .into_iter()
-                        .sum::<f32>()
+                        .sum::<Result<f32>>()?
                         / valid_exercises.len() as f32;
                     Ok(Some(avg_score))
                 }
@@ -182,8 +181,7 @@ impl ScoreCache {
                         }
                         true
                     })
-                    .map(|score| score.unwrap_or(Some(0.0)).unwrap())
-                    .collect::<Vec<f32>>();
+                    .collect::<Result<Vec<_>>>()?;
 
                 // Return an invalid score if all the lesson scores are invalid. This can happen if
                 // all the lessons in the course are blacklisted.
@@ -192,8 +190,11 @@ impl ScoreCache {
                 }
 
                 // Compute the average of the valid lesson scores.
-                let avg_score: f32 =
-                    valid_lesson_scores.iter().sum::<f32>() / valid_lesson_scores.len() as f32;
+                let avg_score: f32 = valid_lesson_scores
+                    .iter()
+                    .map(|s| s.unwrap_or_default())
+                    .sum::<f32>()
+                    / valid_lesson_scores.len() as f32;
                 Ok(Some(avg_score))
             }
         }

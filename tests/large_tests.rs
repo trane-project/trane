@@ -16,7 +16,7 @@ fn all_exercises_scheduled_random() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
     let random_library = RandomCourseLibrary {
-        num_courses: 50,
+        num_courses: 100,
         course_dependencies_range: (5, 5),
         lessons_per_course_range: (5, 5),
         lesson_dependencies_range: (5, 5),
