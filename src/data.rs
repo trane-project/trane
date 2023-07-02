@@ -178,7 +178,7 @@ where
 /// Trait to get the metadata from a lesson or course manifest.
 pub trait GetMetadata {
     /// Returns the manifest's metadata.
-    fn get_metadata(&self) -> Option<BTreeMap<String, Vec<String>>>;
+    fn get_metadata(&self) -> Option<&BTreeMap<String, Vec<String>>>;
 }
 
 /// Trait to get the unit type from a manifest.
@@ -398,8 +398,8 @@ impl VerifyPaths for CourseManifest {
 }
 
 impl GetMetadata for CourseManifest {
-    fn get_metadata(&self) -> Option<BTreeMap<String, Vec<String>>> {
-        self.metadata.clone()
+    fn get_metadata(&self) -> Option<&BTreeMap<String, Vec<String>>> {
+        self.metadata.as_ref()
     }
 }
 
@@ -488,8 +488,8 @@ impl VerifyPaths for LessonManifest {
 }
 
 impl GetMetadata for LessonManifest {
-    fn get_metadata(&self) -> Option<BTreeMap<String, Vec<String>>> {
-        self.metadata.clone()
+    fn get_metadata(&self) -> Option<&BTreeMap<String, Vec<String>>> {
+        self.metadata.as_ref()
     }
 }
 

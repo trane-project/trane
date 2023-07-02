@@ -90,7 +90,7 @@ impl KeyValueFilter {
     /// Applies the filter to the given manifest.
     pub fn apply(&self, manifest: &impl GetMetadata) -> bool {
         let default_metadata = BTreeMap::default();
-        let metadata = manifest.get_metadata().unwrap_or(default_metadata);
+        let metadata = manifest.get_metadata().unwrap_or(&default_metadata);
 
         match self {
             KeyValueFilter::BasicFilter {
@@ -99,7 +99,7 @@ impl KeyValueFilter {
                 filter_type,
             } => {
                 // Return whether the unit passes the single key-value filter.
-                KeyValueFilter::passes_filter(&metadata, key, value, filter_type.clone())
+                KeyValueFilter::passes_filter(metadata, key, value, filter_type.clone())
             }
             KeyValueFilter::CombinedFilter { op, filters } => {
                 // Apply each filter individually and combine the results based on the logical
@@ -387,8 +387,8 @@ mod test {
     use super::StudySession;
 
     impl GetMetadata for BTreeMap<String, Vec<String>> {
-        fn get_metadata(&self) -> Option<BTreeMap<String, Vec<String>>> {
-            Some(self.clone())
+        fn get_metadata(&self) -> Option<&BTreeMap<String, Vec<String>>> {
+            Some(self)
         }
     }
 
