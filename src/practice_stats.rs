@@ -139,7 +139,7 @@ impl PracticeStatsDB {
                 rusqlite::Result::Ok(ExerciseTrial { score, timestamp })
             })? // grcov-excl-line
             .map(|r| r.map_err(|e| Error::Error(e.into())))
-            .collect::<Result<Vec<ExerciseTrial>, _>>()?;
+            .collect::<Result<Vec<ExerciseTrial>, _>>()?; // grcov-excl-line
         Ok(rows)
     }
 
