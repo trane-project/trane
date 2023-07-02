@@ -34,6 +34,7 @@ use crate::{
         filter::{MetadataFilter, StudySessionData, UnitFilter},
         ExerciseManifest, MasteryScore, SchedulerOptions, UnitType,
     },
+    error::ExerciseSchedulerError,
     graph::UnitGraph,
     practice_stats::PracticeStats,
     review_list::ReviewList,
@@ -66,13 +67,17 @@ pub trait ExerciseScheduler {
     fn get_exercise_batch(
         &self,
         filter: Option<ExerciseFilter>,
-    ) -> Result<Vec<(Ustr, ExerciseManifest)>>;
+    ) -> Result<Vec<(Ustr, ExerciseManifest)>, ExerciseSchedulerError>;
 
     /// Records the score of the given exercise's trial. The scores are used by the scheduler to
     /// decide when to stop traversing a path and how to sort and filter all the found candidates
     /// into a final batch.
-    fn score_exercise(&self, exercise_id: &Ustr, score: MasteryScore, timestamp: i64)
-        -> Result<()>;
+    fn score_exercise(
+        &self,
+        exercise_id: &Ustr,
+        score: MasteryScore,
+        timestamp: i64,
+    ) -> Result<(), ExerciseSchedulerError>;
 
     /// Removes any cached scores for the given unit. The score will be recomputed the next time the
     /// score is needed.
@@ -773,13 +778,18 @@ impl ExerciseScheduler for DepthFirstScheduler {
     fn get_exercise_batch(
         &self,
         filter: Option<ExerciseFilter>,
-    ) -> Result<Vec<(Ustr, ExerciseManifest)>> {
+    ) -> Result<Vec<(Ustr, ExerciseManifest)>, ExerciseSchedulerError> {
         // Retrieve an initial batch of candidates based on the type of the filter.
-        let initial_candidates = self.get_initial_candidates(filter)?;
+        let initial_candidates = self
+            .get_initial_candidates(filter)
+            .map_err(ExerciseSchedulerError::GetExerciseBatch)?;
 
         // Sort the candidates into buckets, select the right number from each, and convert them
         // into a final batch of exercises.
-        let final_candidates = self.filter.filter_candidates(initial_candidates)?;
+        let final_candidates = self
+            .filter
+            .filter_candidates(initial_candidates)
+            .map_err(ExerciseSchedulerError::GetExerciseBatch)?;
 
         // Increment the frequency of the exercises in the batch. These exercises will have a lower
         // chance of being selected in the future so that exercises that have not been selected as
@@ -796,12 +806,13 @@ impl ExerciseScheduler for DepthFirstScheduler {
         exercise_id: &Ustr,
         score: MasteryScore,
         timestamp: i64,
-    ) -> Result<()> {
+    ) -> Result<(), ExerciseSchedulerError> {
         // Write the score to the practice stats database.
         self.data
             .practice_stats
             .write()
-            .record_exercise_score(exercise_id, score, timestamp)?;
+            .record_exercise_score(exercise_id, score, timestamp)
+            .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?;
 
         // Any cached score for this exercise and its parent lesson is now invalid. Remove it from
         // the exercise and lesson caches.
