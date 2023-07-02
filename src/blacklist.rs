@@ -159,7 +159,7 @@ impl BlacklistDB {
 
             // Update the cache.
             self.cache.write().insert(unit_id.into(), false);
-        }
+        } // grcov-excl-line
         Ok(())
     }
 

@@ -165,7 +165,7 @@ impl PracticeStatsDB {
             exercise_id.as_str(),
             score.float_score(),
             timestamp
-        ])?;
+        ])?; // grcov-excl-line
         Ok(())
     }
 
