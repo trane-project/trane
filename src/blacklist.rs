@@ -100,6 +100,7 @@ impl BlacklistDB {
     }
 
     /// Returns whether there's an entry for the given unit in the blacklist.
+    #[inline(always)]
     fn has_entry(&self, unit_id: &Ustr) -> Result<bool, BlacklistError> {
         let mut cache = self.cache.write();
         if let Some(has_entry) = cache.get(unit_id) {
@@ -196,6 +197,7 @@ impl Blacklist for BlacklistDB {
             .map_err(|e| BlacklistError::RemovePrefix(prefix.into(), e))
     }
 
+    #[inline(always)]
     fn blacklisted(&self, unit_id: &Ustr) -> Result<bool, BlacklistError> {
         self.has_entry(unit_id)
     }

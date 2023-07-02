@@ -46,6 +46,7 @@ pub struct SimpleScorer {}
 impl SimpleScorer {
     /// Returns the weight of the score based on the number of days since the trial and the index of
     /// of the trial in the list.
+    #[inline(always)]
     fn weight(num_trials: usize, trial_index: usize, num_days: f32) -> f32 {
         // If the difference is negative, there's been some error. Use the min weight for
         // this trial instead of ignoring it.
@@ -66,6 +67,7 @@ impl SimpleScorer {
 
     /// Returns the adjusted score based on the number of days since the trial. The score decreases
     /// with each passing day to account for skills deteriorating over time.
+    #[inline(always)]
     fn adjusted_score(score: f32, num_days: f32) -> f32 {
         // If there's an issue with calculating the number of days since the trial, return
         // the score as is.
@@ -87,6 +89,7 @@ impl SimpleScorer {
     }
 
     /// Returns the weighted average of the scores.
+    #[inline(always)]
     fn weighted_average(scores: &[f32], weights: &[f32]) -> f32 {
         // weighted average = (cross product of scores and their weights) / (sum of weights)
         let cross_product: f32 = scores.iter().zip(weights.iter()).map(|(s, w)| s * *w).sum();

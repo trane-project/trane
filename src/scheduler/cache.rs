@@ -2,9 +2,8 @@
 //! Defines a cache that is used to retrieve unit scores and stores previously computed exercise and
 //! lesson scores
 //!
-//! During performance testing, it was found that caching exercise and lesson scores significantly
-//! improved the performance of exercise scheduling. Caching course scores had a negligible impact,
-//! so they are not cached, although they are still computed through this cache for consistency.
+//! During performance testing, it was found that caching scores scores significantly improved the
+//! performance of exercise scheduling.
 //>@lp-example-2
 
 use anyhow::{anyhow, Result};
@@ -20,15 +19,16 @@ use crate::{
     scorer::{ExerciseScorer, SimpleScorer},
 };
 
-/// A cache of unit scores used to improve the performance of computing exercise and lesson scores
-/// during scheduling. Course scores are also accessed through this struct but are not cached
-/// because the performance improvement is negligible.
+/// A cache of unit scores used to improve the performance of computing them during scheduling.
 pub(super) struct ScoreCache {
     /// A mapping of exercise ID to cached score.
     exercise_cache: RwLock<UstrMap<f32>>,
 
     /// A mapping of lesson ID to cached score.
     lesson_cache: RwLock<UstrMap<Option<f32>>>,
+
+    /// A mapping of course ID to cached score.
+    course_cache: RwLock<UstrMap<Option<f32>>>,
 
     /// The data used by the scheduler.
     data: SchedulerData,
@@ -46,6 +46,7 @@ impl ScoreCache {
         Self {
             exercise_cache: RwLock::new(UstrMap::default()),
             lesson_cache: RwLock::new(UstrMap::default()),
+            course_cache: RwLock::new(UstrMap::default()),
             data,
             options: RwLock::new(options),
             scorer: Box::new(SimpleScorer {}),
@@ -54,14 +55,22 @@ impl ScoreCache {
 
     /// Removes the cached score for the given unit.
     pub(super) fn invalidate_cached_score(&self, unit_id: &Ustr) {
-        // Remove the unit from the exercise and lesson caches. This is safe to do even though the
-        // unit is at most in one cache because the caches are disjoint.
+        // Remove the unit from the exercise, lesson, and course caches. This is safe to do even
+        // though the unit is at most in one cache because the different types of units are
+        // disjoint.
         self.exercise_cache.write().remove(unit_id);
         self.lesson_cache.write().remove(unit_id);
+        self.course_cache.write().remove(unit_id);
 
-        // If the unit is an exercise, invalidate the cached score of its parent lesson.
+        // If the unit is an exercise, invalidate the cached score of its lesson and course. If the
+        // unit is a lesson, invalidate the cached score of its course.
         if let Some(lesson_id) = self.data.unit_graph.read().get_exercise_lesson(unit_id) {
             self.lesson_cache.write().remove(&lesson_id);
+            if let Some(course_id) = self.data.unit_graph.read().get_lesson_course(&lesson_id) {
+                self.course_cache.write().remove(&course_id);
+            }
+        } else if let Some(course_id) = self.data.unit_graph.read().get_lesson_course(unit_id) {
+            self.course_cache.write().remove(&course_id);
         }
     }
 
@@ -100,7 +109,8 @@ impl ScoreCache {
     /// Returns the average score of all the exercises in the given lesson.
     fn get_lesson_score(&self, lesson_id: &Ustr) -> Result<Option<f32>> {
         // Check if the unit is blacklisted. A blacklisted unit has no score.
-        let blacklisted = self.data.blacklist.read().blacklisted(lesson_id);
+        let blacklist = self.data.blacklist.read();
+        let blacklisted = blacklist.blacklisted(lesson_id);
         if blacklisted.unwrap_or(false) {
             return Ok(None);
         }
@@ -123,7 +133,7 @@ impl ScoreCache {
                 let valid_exercises = exercise_ids
                     .into_iter()
                     .filter(|exercise_id| {
-                        let blacklisted = self.data.blacklist.read().blacklisted(exercise_id);
+                        let blacklisted = blacklist.blacklisted(exercise_id);
                         !blacklisted.unwrap_or(false)
                     })
                     .collect::<Vec<Ustr>>();
@@ -136,9 +146,7 @@ impl ScoreCache {
                     let avg_score: f32 = valid_exercises
                         .iter()
                         .map(|id| self.get_exercise_score(id))
-                        .collect::<Result<Vec<f32>>>()? // grcov-excl-line
-                        .into_iter()
-                        .sum::<f32>()
+                        .sum::<Result<f32>>()? // grcov-excl-line
                         / valid_exercises.len() as f32;
                     Ok(Some(avg_score))
                 }
@@ -151,7 +159,6 @@ impl ScoreCache {
                 .write()
                 .insert(*lesson_id, *score.as_ref().unwrap());
         }
-
         score
     }
 
@@ -163,9 +170,15 @@ impl ScoreCache {
             return Ok(None);
         }
 
+        // Return the cached score if it exists.
+        let cached_score = self.course_cache.read().get(course_id).cloned();
+        if let Some(score) = cached_score {
+            return Ok(score);
+        }
+
         // Compute the average score of all the lessons in the course.
         let lessons = self.data.unit_graph.read().get_course_lessons(course_id);
-        match lessons {
+        let score = match lessons {
             None => {
                 // A course with no lessons has no valid score.
                 Ok(None)
@@ -182,8 +195,7 @@ impl ScoreCache {
                         }
                         true
                     })
-                    .map(|score| score.unwrap_or(Some(0.0)).unwrap())
-                    .collect::<Vec<f32>>();
+                    .collect::<Result<Vec<_>>>()?; // grcov-excl-line
 
                 // Return an invalid score if all the lesson scores are invalid. This can happen if
                 // all the lessons in the course are blacklisted.
@@ -192,11 +204,22 @@ impl ScoreCache {
                 }
 
                 // Compute the average of the valid lesson scores.
-                let avg_score: f32 =
-                    valid_lesson_scores.iter().sum::<f32>() / valid_lesson_scores.len() as f32;
+                let avg_score: f32 = valid_lesson_scores
+                    .iter()
+                    .map(|s| s.unwrap_or_default())
+                    .sum::<f32>()
+                    / valid_lesson_scores.len() as f32;
                 Ok(Some(avg_score))
             }
+        };
+
+        // Update the cache with a valid score.
+        if score.is_ok() {
+            self.course_cache
+                .write()
+                .insert(*course_id, *score.as_ref().unwrap());
         }
+        score
     }
 
     /// Returns the score for the given unit. A return value of `Ok(None)` indicates that there is

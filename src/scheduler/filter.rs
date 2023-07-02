@@ -184,11 +184,11 @@ impl CandidateFilter {
         // Retrieve the manifests for each candidate.
         let mut exercises = candidates
             .into_iter()
-            .map(|c| -> Result<(Ustr, ExerciseManifest)> {
+            .map(|c| -> Result<(Ustr, _)> {
                 let manifest = self.data.get_exercise_manifest(&c.exercise_id)?;
                 Ok((c.exercise_id, manifest))
             })
-            .collect::<Result<Vec<(Ustr, ExerciseManifest)>>>()?; // grcov-excl-line
+            .collect::<Result<Vec<(Ustr, _)>>>()?; // grcov-excl-line
 
         // Shuffle the list one more time to add more randomness to the final batch.
         exercises.shuffle(&mut thread_rng());
