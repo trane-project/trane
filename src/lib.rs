@@ -437,15 +437,15 @@ impl StudySessionManager for Trane {
 }
 
 impl UnitGraph for Trane {
-    fn add_course(&mut self, course_id: &Ustr) -> Result<()> {
+    fn add_course(&mut self, course_id: &Ustr) -> Result<(), UnitGraphError> {
         self.unit_graph.write().add_course(course_id)
     }
 
-    fn add_lesson(&mut self, lesson_id: &Ustr, course_id: &Ustr) -> Result<()> {
+    fn add_lesson(&mut self, lesson_id: &Ustr, course_id: &Ustr) -> Result<(), UnitGraphError> {
         self.unit_graph.write().add_lesson(lesson_id, course_id)
     }
 
-    fn add_exercise(&mut self, exercise_id: &Ustr, lesson_id: &Ustr) -> Result<()> {
+    fn add_exercise(&mut self, exercise_id: &Ustr, lesson_id: &Ustr) -> Result<(), UnitGraphError> {
         self.unit_graph.write().add_exercise(exercise_id, lesson_id)
     }
 
@@ -500,7 +500,7 @@ impl UnitGraph for Trane {
         self.unit_graph.read().get_dependency_sinks()
     }
 
-    fn check_cycles(&self) -> Result<()> {
+    fn check_cycles(&self) -> Result<(), UnitGraphError> {
         self.unit_graph.read().check_cycles()
     }
 

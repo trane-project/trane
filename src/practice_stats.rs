@@ -13,7 +13,7 @@ use ustr::Ustr;
 
 use crate::{
     data::{ExerciseTrial, MasteryScore},
-    error::{Error, PracticeStatsError},
+    error::PracticeStatsError,
 };
 
 /// Contains functions to retrieve and record the scores from each exercise trial.
@@ -138,7 +138,7 @@ impl PracticeStatsDB {
                 let timestamp = row.get(1)?;
                 rusqlite::Result::Ok(ExerciseTrial { score, timestamp })
             })? // grcov-excl-line
-            .map(|r| r.map_err(|e| Error::Error(e.into())))
+            .map(|r| r.with_context(|| "failed to retrieve scores from practice stats DB"))
             .collect::<Result<Vec<ExerciseTrial>, _>>()?; // grcov-excl-line
         Ok(rows)
     }
@@ -176,7 +176,7 @@ impl PracticeStatsDB {
         let mut uid_stmt = connection.prepare_cached("SELECT unit_uid from uids")?;
         let uids = uid_stmt
             .query_map([], |row| row.get(0))?
-            .map(|r| r.map_err(|e| Error::Error(e.into())))
+            .map(|r| r.with_context(|| "failed to retrieve UIDs from practice stats DB"))
             .collect::<Result<Vec<i64>, _>>()?; // grcov-excl-line
 
         // Delete the oldest trials for each UID but keep the most recent `num_scores` trials.

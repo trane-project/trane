@@ -3,19 +3,10 @@
 use thiserror::Error;
 use ustr::Ustr;
 
-/// Generic errors for Trane.
-#[derive(Debug, Error)]
-#[allow(missing_docs)]
-pub enum Error {
-    #[error("{0}")]
-    Basic(String),
+use crate::data::UnitType;
 
-    #[error("{0}")]
-    Error(#[source] anyhow::Error),
-
-    #[error("{0}: {1}")]
-    WithSource(String, #[source] anyhow::Error),
-}
+// grcov-excl-start: This file contains only error definitions so it's safe to exclude it from the
+// code coverage report.
 
 /// An error returned when dealing with the blacklist.
 #[derive(Debug, Error)]
@@ -99,4 +90,15 @@ pub enum ReviewListError {
 
     #[error("cannot remove unit {0} from the review list: {1}")]
     RemoveUnit(Ustr, #[source] anyhow::Error),
+}
+
+/// An error returned when dealing with the unit graph.
+#[derive(Debug, Error)]
+#[allow(missing_docs)]
+pub enum UnitGraphError {
+    #[error("cannot add unit {0} of type {1} to the unit graph: {2}")]
+    AddUnit(Ustr, UnitType, #[source] anyhow::Error),
+
+    #[error("checking for cycles in the unit graph failed: {0}")]
+    CheckCycles(#[source] anyhow::Error),
 }
