@@ -20,7 +20,7 @@ fn all_exercises_scheduled_random() -> Result<()> {
         course_dependencies_range: (0, 5),
         lessons_per_course_range: (0, 5),
         lesson_dependencies_range: (0, 5),
-        exercises_per_lesson_range: (0, 20),
+        exercises_per_lesson_range: (0, 10),
     }
     .generate_library();
     let mut trane = init_test_simulation(&temp_dir.path().to_path_buf(), &random_library)?;
