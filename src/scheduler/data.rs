@@ -88,10 +88,7 @@ impl SchedulerData {
 
     /// Returns the manifest for the exercise with the given ID.
     #[inline(always)]
-    pub fn get_exercise_manifest(
-        &self,
-        exercise_id: &Ustr,
-    ) -> Result<ExerciseManifest> {
+    pub fn get_exercise_manifest(&self, exercise_id: &Ustr) -> Result<ExerciseManifest> {
         self.course_library
             .read()
             .get_exercise_manifest(exercise_id)
