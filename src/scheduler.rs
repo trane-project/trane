@@ -782,14 +782,14 @@ impl ExerciseScheduler for DepthFirstScheduler {
         // Retrieve an initial batch of candidates based on the type of the filter.
         let initial_candidates = self
             .get_initial_candidates(filter)
-            .map_err(ExerciseSchedulerError::GetExerciseBatch)?;
+            .map_err(ExerciseSchedulerError::GetExerciseBatch)?; // grcov-excl-line
 
         // Sort the candidates into buckets, select the right number from each, and convert them
         // into a final batch of exercises.
         let final_candidates = self
             .filter
             .filter_candidates(initial_candidates)
-            .map_err(ExerciseSchedulerError::GetExerciseBatch)?;
+            .map_err(ExerciseSchedulerError::GetExerciseBatch)?; // grcov-excl-line
 
         // Increment the frequency of the exercises in the batch. These exercises will have a lower
         // chance of being selected in the future so that exercises that have not been selected as
