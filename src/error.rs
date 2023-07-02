@@ -5,6 +5,9 @@ use ustr::Ustr;
 
 use crate::data::UnitType;
 
+// grcov-excl-start: This file contains only error definitions so it's safe to exclude it from the
+// code coverage report.
+
 /// An error returned when dealing with the blacklist.
 #[derive(Debug, Error)]
 #[allow(missing_docs)]
