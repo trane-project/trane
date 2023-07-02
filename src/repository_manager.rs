@@ -438,6 +438,50 @@ mod test {
         Ok(())
     }
 
+    /// Verifies an error is thrown when removing a repository where the download directory cannot
+    /// be removed.
+    #[test]
+    fn remove_bad_directory() -> Result<()> {
+        // Add the repository.
+        let library_root = tempfile::tempdir()?;
+        setup_directories(library_root.path())?;
+        let mut manager = LocalRepositoryManager::new(library_root.path())?;
+        manager.add_repo(REPO_URL, None)?;
+        assert!(manager.repositories.contains_key(REPO_ID));
+
+        // Set permissions so that the download directory cannot be removed.
+        let repo_dir = library_root.path().join(DOWNLOAD_DIRECTORY).join(REPO_ID);
+        assert!(repo_dir.exists());
+        fs::set_permissions(&repo_dir, fs::Permissions::from_mode(0o000))?;
+        assert!(manager.remove_repo(REPO_ID).is_err());
+
+        Ok(())
+    }
+
+    /// Verifies an error is thrown when removing a repository where the metadata file cannot
+    /// be removed.
+    #[test]
+    fn remove_bad_metadata() -> Result<()> {
+        // Add the repository.
+        let library_root = tempfile::tempdir()?;
+        setup_directories(library_root.path())?;
+        let mut manager = LocalRepositoryManager::new(library_root.path())?;
+        manager.add_repo(REPO_URL, None)?;
+        assert!(manager.repositories.contains_key(REPO_ID));
+
+        // Set the permissions of the metadata directory so that the metadata file cannot be
+        // removed.
+        let metadata_dir = library_root
+            .path()
+            .join(TRANE_CONFIG_DIR_PATH)
+            .join(REPOSITORY_DIRECTORY);
+        assert!(metadata_dir.exists());
+        fs::set_permissions(&metadata_dir, fs::Permissions::from_mode(0o000))?;
+        assert!(manager.remove_repo(REPO_ID).is_err());
+
+        Ok(())
+    }
+
     /// Verifies updating a repository.
     #[test]
     fn update() -> Result<()> {
