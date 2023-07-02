@@ -146,7 +146,7 @@ impl ScoreCache {
                     let avg_score: f32 = valid_exercises
                         .iter()
                         .map(|id| self.get_exercise_score(id))
-                        .sum::<Result<f32>>()?
+                        .sum::<Result<f32>>()? // grcov-excl-line
                         / valid_exercises.len() as f32;
                     Ok(Some(avg_score))
                 }
@@ -195,7 +195,7 @@ impl ScoreCache {
                         }
                         true
                     })
-                    .collect::<Result<Vec<_>>>()?;
+                    .collect::<Result<Vec<_>>>()?; // grcov-excl-line
 
                 // Return an invalid score if all the lesson scores are invalid. This can happen if
                 // all the lessons in the course are blacklisted.
