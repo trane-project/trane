@@ -151,8 +151,8 @@ impl SchedulerData {
     }
 
     /// Returns the value of the course_id field in the manifest of the given lesson.
-    pub fn get_lesson_course_id(&self, lesson_id: &Ustr) -> Result<Ustr> {
-        Ok(self.get_lesson_manifest(lesson_id)?.read().course_id)
+    pub fn get_lesson_course(&self, lesson_id: &Ustr) -> Option<Ustr> {
+        self.unit_graph.read().get_lesson_course(lesson_id)
     }
 
     /// Returns whether the unit exists in the library. Some units will exist in the unit graph
@@ -225,7 +225,7 @@ impl SchedulerData {
                 // Retrieve the lesson and course manifests and check if the lesson passes the
                 // filter.
                 let course_manifest =
-                    self.get_course_manifest(&self.get_lesson_course_id(unit_id)?)?;
+                    self.get_course_manifest(&self.get_lesson_course(unit_id).unwrap_or_default())?;
                 let lesson_manifest = self.get_lesson_manifest(unit_id)?;
                 Ok(UnitFilter::lesson_passes_metadata_filter(
                     metadata_filter.as_ref().unwrap(),

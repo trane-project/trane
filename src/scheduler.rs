@@ -305,7 +305,10 @@ impl DepthFirstScheduler {
         if self.data.blacklisted(&item.unit_id).unwrap_or(false) {
             return Ok((vec![], 0.0));
         }
-        let course_id = self.data.get_lesson_course_id(&item.unit_id)?;
+        let course_id = self
+            .data
+            .get_lesson_course(&item.unit_id)
+            .unwrap_or_default();
         if self.data.blacklisted(&course_id).unwrap_or(false) {
             return Ok((vec![], 0.0));
         }
@@ -365,7 +368,7 @@ impl DepthFirstScheduler {
         // satisfied, so the search can continue past them.
         let course_id = self
             .data
-            .get_lesson_course_id(dependency_id)
+            .get_lesson_course(dependency_id)
             .unwrap_or_default();
         if self.data.blacklisted(&course_id).unwrap_or(false) {
             return true;
@@ -623,7 +626,7 @@ impl DepthFirstScheduler {
             // other courses that might have been added to the stack.
             let lesson_course_id = self
                 .data
-                .get_lesson_course_id(&curr_unit.unit_id)
+                .get_lesson_course(&curr_unit.unit_id)
                 .unwrap_or_default();
             if !course_ids.contains(&lesson_course_id) {
                 continue;
