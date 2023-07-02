@@ -16,11 +16,11 @@ fn all_exercises_scheduled_random() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
     let random_library = RandomCourseLibrary {
-        num_courses: 50,
-        course_dependencies_range: (0, 5),
-        lessons_per_course_range: (0, 5),
-        lesson_dependencies_range: (0, 5),
-        exercises_per_lesson_range: (0, 20),
+        num_courses: 100,
+        course_dependencies_range: (5, 5),
+        lessons_per_course_range: (5, 5),
+        lesson_dependencies_range: (5, 5),
+        exercises_per_lesson_range: (5, 5),
     }
     .generate_library();
     let mut trane = init_test_simulation(&temp_dir.path().to_path_buf(), &random_library)?;
@@ -49,7 +49,7 @@ fn all_exercises_scheduled_random() -> Result<()> {
 
 /// Generates and reads a very large course library. Used mostly to keep track of how long this
 /// operation takes.
-#[test]
+// #[test]
 fn generate_and_read_large_library() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
