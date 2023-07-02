@@ -23,8 +23,8 @@ use crate::{
     blacklist::Blacklist,
     course_builder::{AssetBuilder, CourseBuilder, ExerciseBuilder, LessonBuilder},
     data::{
-        BasicAsset, CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseManifestBuilder,
-        ExerciseType, LessonManifestBuilder, MasteryScore, UserPreferences,
+        BasicAsset, CourseManifest, ExerciseAsset, ExerciseManifestBuilder, ExerciseType,
+        LessonManifestBuilder, MasteryScore, UserPreferences,
     },
     practice_stats::PracticeStats,
     scheduler::{ExerciseFilter, ExerciseScheduler},
@@ -430,7 +430,7 @@ impl TraneSimulation {
 
         // Initialize the counter and batch.
         let mut completed_exercises = 0;
-        let mut batch: Vec<(Ustr, ExerciseManifest)> = vec![];
+        let mut batch = vec![];
 
         // Loop until the simulation has received the desired number of exercises.
         while completed_exercises < self.num_exercises {

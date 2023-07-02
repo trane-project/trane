@@ -8,8 +8,9 @@ pub mod music;
 
 use anyhow::{bail, Result};
 use derive_builder::Builder;
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, path::Path};
+use std::{collections::BTreeMap, path::Path, sync::Arc};
 use ustr::Ustr;
 
 use self::course_generator::{
@@ -178,7 +179,7 @@ where
 /// Trait to get the metadata from a lesson or course manifest.
 pub trait GetMetadata {
     /// Returns the manifest's metadata.
-    fn get_metadata(&self) -> Option<&BTreeMap<String, Vec<String>>>;
+    fn get_metadata(&self) -> Option<BTreeMap<String, Vec<String>>>;
 }
 
 /// Trait to get the unit type from a manifest.
@@ -398,8 +399,14 @@ impl VerifyPaths for CourseManifest {
 }
 
 impl GetMetadata for CourseManifest {
-    fn get_metadata(&self) -> Option<&BTreeMap<String, Vec<String>>> {
-        self.metadata.as_ref()
+    fn get_metadata(&self) -> Option<BTreeMap<String, Vec<String>>> {
+        self.metadata.clone()
+    }
+}
+
+impl GetMetadata for Arc<RwLock<CourseManifest>> {
+    fn get_metadata(&self) -> Option<BTreeMap<String, Vec<String>>> {
+        self.read().get_metadata()
     }
 }
 
@@ -488,8 +495,14 @@ impl VerifyPaths for LessonManifest {
 }
 
 impl GetMetadata for LessonManifest {
-    fn get_metadata(&self) -> Option<&BTreeMap<String, Vec<String>>> {
-        self.metadata.as_ref()
+    fn get_metadata(&self) -> Option<BTreeMap<String, Vec<String>>> {
+        self.metadata.clone()
+    }
+}
+
+impl GetMetadata for Arc<RwLock<LessonManifest>> {
+    fn get_metadata(&self) -> Option<BTreeMap<String, Vec<String>>> {
+        self.read().get_metadata()
     }
 }
 

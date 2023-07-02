@@ -59,13 +59,13 @@ const METADATA_SCHEMA_FIELD: &str = "metadata";
 /// operations to retrieve the courses, lessons in a course, and exercises in a lesson.
 pub trait CourseLibrary {
     /// Returns the course manifest for the given course.
-    fn get_course_manifest(&self, course_id: &Ustr) -> Option<CourseManifest>;
+    fn get_course_manifest(&self, course_id: &Ustr) -> Option<Arc<RwLock<CourseManifest>>>;
 
     /// Returns the lesson manifest for the given lesson.
-    fn get_lesson_manifest(&self, lesson_id: &Ustr) -> Option<LessonManifest>;
+    fn get_lesson_manifest(&self, lesson_id: &Ustr) -> Option<Arc<RwLock<LessonManifest>>>;
 
     /// Returns the exercise manifest for the given exercise.
-    fn get_exercise_manifest(&self, exercise_id: &Ustr) -> Option<ExerciseManifest>;
+    fn get_exercise_manifest(&self, exercise_id: &Ustr) -> Option<Arc<RwLock<ExerciseManifest>>>;
 
     /// Returns the IDs of all courses in the library sorted alphabetically.
     fn get_course_ids(&self) -> Vec<Ustr>;
@@ -123,13 +123,13 @@ pub(crate) struct LocalCourseLibrary {
     unit_graph: Arc<RwLock<InMemoryUnitGraph>>,
 
     /// A mapping of course ID to its corresponding course manifest.
-    course_map: UstrMap<CourseManifest>,
+    course_map: UstrMap<Arc<RwLock<CourseManifest>>>,
 
     /// A mapping of lesson ID to its corresponding lesson manifest.
-    lesson_map: UstrMap<LessonManifest>,
+    lesson_map: UstrMap<Arc<RwLock<LessonManifest>>>,
 
     /// A mapping of exercise ID to its corresponding exercise manifest.
-    exercise_map: UstrMap<ExerciseManifest>,
+    exercise_map: UstrMap<Arc<RwLock<ExerciseManifest>>>,
 
     /// The user preferences.
     user_preferences: UserPreferences,
@@ -247,8 +247,10 @@ impl LocalCourseLibrary {
         self.unit_graph
             .write()
             .add_exercise(&exercise_manifest.id, &exercise_manifest.lesson_id)?;
-        self.exercise_map
-            .insert(exercise_manifest.id, exercise_manifest);
+        self.exercise_map.insert(
+            exercise_manifest.id,
+            Arc::new(RwLock::new(exercise_manifest)),
+        );
         Ok(())
     }
 
@@ -328,8 +330,10 @@ impl LocalCourseLibrary {
         }
 
         // Add the lesson manifest to the lesson map and the search index.
-        self.lesson_map
-            .insert(lesson_manifest.id, lesson_manifest.clone());
+        self.lesson_map.insert(
+            lesson_manifest.id,
+            Arc::new(RwLock::new(lesson_manifest.clone())),
+        );
         Self::add_to_index_writer(
             index_writer,
             lesson_manifest.id,
@@ -423,8 +427,10 @@ impl LocalCourseLibrary {
 
         // Add the course manifest to the course map and the search index. This needs to happen at
         // the end in case the course has a generator config and the course manifest was updated.
-        self.course_map
-            .insert(course_manifest.id, course_manifest.clone());
+        self.course_map.insert(
+            course_manifest.id,
+            Arc::new(RwLock::new(course_manifest.clone())),
+        );
         Self::add_to_index_writer(
             index_writer,
             course_manifest.id,
@@ -649,15 +655,15 @@ impl LocalCourseLibrary {
 }
 
 impl CourseLibrary for LocalCourseLibrary {
-    fn get_course_manifest(&self, course_id: &Ustr) -> Option<CourseManifest> {
+    fn get_course_manifest(&self, course_id: &Ustr) -> Option<Arc<RwLock<CourseManifest>>> {
         self.course_map.get(course_id).cloned()
     }
 
-    fn get_lesson_manifest(&self, lesson_id: &Ustr) -> Option<LessonManifest> {
+    fn get_lesson_manifest(&self, lesson_id: &Ustr) -> Option<Arc<RwLock<LessonManifest>>> {
         self.lesson_map.get(lesson_id).cloned()
     }
 
-    fn get_exercise_manifest(&self, exercise_id: &Ustr) -> Option<ExerciseManifest> {
+    fn get_exercise_manifest(&self, exercise_id: &Ustr) -> Option<Arc<RwLock<ExerciseManifest>>> {
         self.exercise_map.get(exercise_id).cloned()
     }
 

@@ -10,7 +10,10 @@
 //!    number of factors, including the number of hops that were needed to reach a candidate, the
 //!    score, and the frequency with which the exercise has been scheduled in the past.
 
+use std::sync::Arc;
+
 use anyhow::Result;
+use parking_lot::RwLock;
 use rand::{prelude::SliceRandom, thread_rng};
 use ustr::{Ustr, UstrMap, UstrSet};
 
@@ -180,15 +183,15 @@ impl CandidateFilter {
     fn candidates_to_exercises(
         &self,
         candidates: Vec<Candidate>,
-    ) -> Result<Vec<(Ustr, ExerciseManifest)>> {
+    ) -> Result<Vec<(Ustr, Arc<RwLock<ExerciseManifest>>)>> {
         // Retrieve the manifests for each candidate.
         let mut exercises = candidates
             .into_iter()
-            .map(|c| -> Result<(Ustr, ExerciseManifest)> {
+            .map(|c| -> Result<(Ustr, _)> {
                 let manifest = self.data.get_exercise_manifest(&c.exercise_id)?;
                 Ok((c.exercise_id, manifest))
             })
-            .collect::<Result<Vec<(Ustr, ExerciseManifest)>>>()?; // grcov-excl-line
+            .collect::<Result<Vec<(Ustr, _)>>>()?; // grcov-excl-line
 
         // Shuffle the list one more time to add more randomness to the final batch.
         exercises.shuffle(&mut thread_rng());
@@ -218,7 +221,7 @@ impl CandidateFilter {
     pub fn filter_candidates(
         &self,
         candidates: Vec<Candidate>,
-    ) -> Result<Vec<(Ustr, ExerciseManifest)>> {
+    ) -> Result<Vec<(Ustr, Arc<RwLock<ExerciseManifest>>)>> {
         let options = &self.data.options;
         let batch_size = Self::dynamic_batch_size(options.batch_size, candidates.len());
         let batch_size_float = batch_size as f32;

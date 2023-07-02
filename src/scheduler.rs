@@ -24,8 +24,11 @@ mod cache;
 pub mod data;
 mod filter;
 
+use std::sync::Arc;
+
 use anyhow::Result;
 use chrono::Utc;
+use parking_lot::RwLock;
 use rand::{seq::SliceRandom, thread_rng};
 use ustr::{Ustr, UstrMap, UstrSet};
 
@@ -57,6 +60,9 @@ pub enum ExerciseFilter {
     StudySession(StudySessionData),
 }
 
+/// A vector of manifests, returned as a thread-safe reference to avoid cloning the data.
+pub type ExerciseManifests = Vec<(Ustr, Arc<RwLock<ExerciseManifest>>)>;
+
 /// The trait that defines the interface for the scheduler. Contains functions to request a new
 /// batch of exercises and to provide Trane the self-reported scores for said exercises.
 pub trait ExerciseScheduler {
@@ -67,7 +73,7 @@ pub trait ExerciseScheduler {
     fn get_exercise_batch(
         &self,
         filter: Option<ExerciseFilter>,
-    ) -> Result<Vec<(Ustr, ExerciseManifest)>, ExerciseSchedulerError>;
+    ) -> Result<ExerciseManifests, ExerciseSchedulerError>;
 
     /// Records the score of the given exercise's trial. The scores are used by the scheduler to
     /// decide when to stop traversing a path and how to sort and filter all the found candidates
@@ -778,7 +784,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
     fn get_exercise_batch(
         &self,
         filter: Option<ExerciseFilter>,
-    ) -> Result<Vec<(Ustr, ExerciseManifest)>, ExerciseSchedulerError> {
+    ) -> Result<ExerciseManifests, ExerciseSchedulerError> {
         // Retrieve an initial batch of candidates based on the type of the filter.
         let initial_candidates = self
             .get_initial_candidates(filter)

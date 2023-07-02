@@ -67,7 +67,7 @@ impl SchedulerData {
     }
 
     /// Returns the manifest for the course with the given ID.
-    pub fn get_course_manifest(&self, course_id: &Ustr) -> Result<CourseManifest> {
+    pub fn get_course_manifest(&self, course_id: &Ustr) -> Result<Arc<RwLock<CourseManifest>>> {
         self.course_library
             .read()
             .get_course_manifest(course_id)
@@ -75,7 +75,7 @@ impl SchedulerData {
     }
 
     /// Returns the manifest for the course with the given ID.
-    pub fn get_lesson_manifest(&self, lesson_id: &Ustr) -> Result<LessonManifest> {
+    pub fn get_lesson_manifest(&self, lesson_id: &Ustr) -> Result<Arc<RwLock<LessonManifest>>> {
         self.course_library
             .read()
             .get_lesson_manifest(lesson_id)
@@ -83,7 +83,10 @@ impl SchedulerData {
     }
 
     /// Returns the manifest for the exercise with the given ID.
-    pub fn get_exercise_manifest(&self, exercise_id: &Ustr) -> Result<ExerciseManifest> {
+    pub fn get_exercise_manifest(
+        &self,
+        exercise_id: &Ustr,
+    ) -> Result<Arc<RwLock<ExerciseManifest>>> {
         self.course_library
             .read()
             .get_exercise_manifest(exercise_id)
@@ -149,7 +152,7 @@ impl SchedulerData {
 
     /// Returns the value of the course_id field in the manifest of the given lesson.
     pub fn get_lesson_course_id(&self, lesson_id: &Ustr) -> Result<Ustr> {
-        Ok(self.get_lesson_manifest(lesson_id)?.course_id)
+        Ok(self.get_lesson_manifest(lesson_id)?.read().course_id)
     }
 
     /// Returns whether the unit exists in the library. Some units will exist in the unit graph

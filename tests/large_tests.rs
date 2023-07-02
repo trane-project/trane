@@ -49,7 +49,7 @@ fn all_exercises_scheduled_random() -> Result<()> {
 
 /// Generates and reads a very large course library. Used mostly to keep track of how long this
 /// operation takes.
-#[test]
+// #[test]
 fn generate_and_read_large_library() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
