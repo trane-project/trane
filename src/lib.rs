@@ -70,9 +70,7 @@ use filter_manager::{FilterManager, LocalFilterManager};
 use graph::UnitGraph;
 use practice_stats::{PracticeStats, PracticeStatsDB};
 use repository_manager::{LocalRepositoryManager, RepositoryManager};
-use scheduler::{
-    data::SchedulerData, DepthFirstScheduler, ExerciseFilter, ExerciseManifests, ExerciseScheduler,
-};
+use scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseFilter, ExerciseScheduler};
 
 /// The path to the folder inside each course library containing the user data.
 pub const TRANE_CONFIG_DIR_PATH: &str = ".trane";
@@ -274,15 +272,15 @@ impl Blacklist for Trane {
 }
 
 impl CourseLibrary for Trane {
-    fn get_course_manifest(&self, course_id: &Ustr) -> Option<Arc<RwLock<CourseManifest>>> {
+    fn get_course_manifest(&self, course_id: &Ustr) -> Option<CourseManifest> {
         self.course_library.read().get_course_manifest(course_id)
     }
 
-    fn get_lesson_manifest(&self, lesson_id: &Ustr) -> Option<Arc<RwLock<LessonManifest>>> {
+    fn get_lesson_manifest(&self, lesson_id: &Ustr) -> Option<LessonManifest> {
         self.course_library.read().get_lesson_manifest(lesson_id)
     }
 
-    fn get_exercise_manifest(&self, exercise_id: &Ustr) -> Option<Arc<RwLock<ExerciseManifest>>> {
+    fn get_exercise_manifest(&self, exercise_id: &Ustr) -> Option<ExerciseManifest> {
         self.course_library
             .read()
             .get_exercise_manifest(exercise_id)
@@ -317,7 +315,7 @@ impl ExerciseScheduler for Trane {
     fn get_exercise_batch(
         &self,
         filter: Option<ExerciseFilter>,
-    ) -> Result<ExerciseManifests, ExerciseSchedulerError> {
+    ) -> Result<Vec<(Ustr, ExerciseManifest)>, ExerciseSchedulerError> {
         self.scheduler.get_exercise_batch(filter)
     }
 

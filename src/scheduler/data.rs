@@ -70,7 +70,7 @@ impl SchedulerData {
 
     /// Returns the manifest for the course with the given ID.
     #[inline(always)]
-    pub fn get_course_manifest(&self, course_id: &Ustr) -> Result<Arc<RwLock<CourseManifest>>> {
+    pub fn get_course_manifest(&self, course_id: &Ustr) -> Result<CourseManifest> {
         self.course_library
             .read()
             .get_course_manifest(course_id)
@@ -79,7 +79,7 @@ impl SchedulerData {
 
     /// Returns the manifest for the course with the given ID.
     #[inline(always)]
-    pub fn get_lesson_manifest(&self, lesson_id: &Ustr) -> Result<Arc<RwLock<LessonManifest>>> {
+    pub fn get_lesson_manifest(&self, lesson_id: &Ustr) -> Result<LessonManifest> {
         self.course_library
             .read()
             .get_lesson_manifest(lesson_id)
@@ -91,7 +91,7 @@ impl SchedulerData {
     pub fn get_exercise_manifest(
         &self,
         exercise_id: &Ustr,
-    ) -> Result<Arc<RwLock<ExerciseManifest>>> {
+    ) -> Result<ExerciseManifest> {
         self.course_library
             .read()
             .get_exercise_manifest(exercise_id)

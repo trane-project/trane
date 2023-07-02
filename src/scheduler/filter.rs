@@ -10,10 +10,7 @@
 //!    number of factors, including the number of hops that were needed to reach a candidate, the
 //!    score, and the frequency with which the exercise has been scheduled in the past.
 
-use std::sync::Arc;
-
 use anyhow::Result;
-use parking_lot::RwLock;
 use rand::{prelude::SliceRandom, thread_rng};
 use ustr::{Ustr, UstrMap, UstrSet};
 
@@ -183,7 +180,7 @@ impl CandidateFilter {
     fn candidates_to_exercises(
         &self,
         candidates: Vec<Candidate>,
-    ) -> Result<Vec<(Ustr, Arc<RwLock<ExerciseManifest>>)>> {
+    ) -> Result<Vec<(Ustr, ExerciseManifest)>> {
         // Retrieve the manifests for each candidate.
         let mut exercises = candidates
             .into_iter()
@@ -221,7 +218,7 @@ impl CandidateFilter {
     pub fn filter_candidates(
         &self,
         candidates: Vec<Candidate>,
-    ) -> Result<Vec<(Ustr, Arc<RwLock<ExerciseManifest>>)>> {
+    ) -> Result<Vec<(Ustr, ExerciseManifest)>> {
         let options = &self.data.options;
         let batch_size = Self::dynamic_batch_size(options.batch_size, candidates.len());
         let batch_size_float = batch_size as f32;
