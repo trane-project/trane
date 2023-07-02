@@ -129,7 +129,6 @@ pub struct Trane {
 
     /// The object managing access to all the data needed by the scheduler. It's saved separately
     /// from the scheduler so that tests can have access to it.
-    #[allow(dead_code)]
     scheduler_data: SchedulerData,
 
     /// The object managing the scheduling algorithm.
