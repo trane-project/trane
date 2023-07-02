@@ -35,7 +35,7 @@ use anyhow::{anyhow, bail, ensure, Result};
 use std::fmt::Write;
 use ustr::{Ustr, UstrMap, UstrSet};
 
-use crate::data::UnitType;
+use crate::{data::UnitType, error::UnitGraphError};
 
 /// Stores the units and their dependency relationships (for lessons and courses only, since
 /// exercises do not define any dependencies). It provides basic functions to update the graph and
@@ -47,15 +47,15 @@ use crate::data::UnitType;
 /// the process takes only a couple of seconds.
 pub trait UnitGraph {
     /// Adds a new course to the unit graph.
-    fn add_course(&mut self, course_id: &Ustr) -> Result<()>;
+    fn add_course(&mut self, course_id: &Ustr) -> Result<(), UnitGraphError>;
 
     /// Adds a new lesson to the unit graph. It also takes the ID of the course to which this lesson
     /// belongs.
-    fn add_lesson(&mut self, lesson_id: &Ustr, course_id: &Ustr) -> Result<()>;
+    fn add_lesson(&mut self, lesson_id: &Ustr, course_id: &Ustr) -> Result<(), UnitGraphError>;
 
     /// Adds a new exercise to the unit graph. It also takes the ID of the lesson to which this
     /// exercise belongs.
-    fn add_exercise(&mut self, exercise_id: &Ustr, lesson_id: &Ustr) -> Result<()>;
+    fn add_exercise(&mut self, exercise_id: &Ustr, lesson_id: &Ustr) -> Result<(), UnitGraphError>;
 
     /// Takes a unit and its dependencies and updates the graph accordingly. Returns an error if
     /// `unit_type` is `UnitType::Exercise` as only courses and lessons are allowed to have
@@ -111,7 +111,7 @@ pub trait UnitGraph {
 
     /// Performs a cycle check on the graph, done currently when opening the Trane library to
     /// prevent any infinite traversal of the graph and immediately inform the user of the issue.
-    fn check_cycles(&self) -> Result<()>;
+    fn check_cycles(&self) -> Result<(), UnitGraphError>;
 
     /// Generates a DOT graph of the dependent graph. DOT files are used by Graphviz to visualize a
     /// graph, in this case the dependent graph. This operation was suggested in issue
@@ -214,10 +214,9 @@ impl InMemoryUnitGraph {
             }
         }
     }
-}
 
-impl UnitGraph for InMemoryUnitGraph {
-    fn add_course(&mut self, course_id: &Ustr) -> Result<()> {
+    /// Helper function to add a course to the graph.
+    fn add_course_helper(&mut self, course_id: &Ustr) -> Result<()> {
         // Verify the course doesn't already exist.
         ensure!(
             !self.type_map.contains_key(course_id),
@@ -230,7 +229,8 @@ impl UnitGraph for InMemoryUnitGraph {
         Ok(())
     }
 
-    fn add_lesson(&mut self, lesson_id: &Ustr, course_id: &Ustr) -> Result<()> {
+    /// Helper function to add a lesson to the graph.
+    fn add_lesson_helper(&mut self, lesson_id: &Ustr, course_id: &Ustr) -> Result<()> {
         // Verify the lesson doesn't already exist.
         ensure!(
             !self.type_map.contains_key(lesson_id),
@@ -251,7 +251,8 @@ impl UnitGraph for InMemoryUnitGraph {
         Ok(())
     }
 
-    fn add_exercise(&mut self, exercise_id: &Ustr, lesson_id: &Ustr) -> Result<()> {
+    /// Helper function to add an exercise to the graph.
+    fn add_exercise_helper(&mut self, exercise_id: &Ustr, lesson_id: &Ustr) -> Result<()> {
         // Verify the exercise doesn't already exist.
         ensure!(
             !self.type_map.contains_key(exercise_id),
@@ -270,6 +271,86 @@ impl UnitGraph for InMemoryUnitGraph {
             .insert(*exercise_id);
         self.exercise_lesson_map.insert(*exercise_id, *lesson_id);
         Ok(())
+    }
+
+    /// Helper function to check for cycles in the dependency graph.
+    fn check_cycles_helper(&self) -> Result<()> {
+        // Perform a depth-first search of the dependency graph from each unit. Return an error if
+        // the same unit is encountered twice during the search.
+        let mut visited = UstrSet::default();
+        for unit_id in self.dependency_graph.keys() {
+            // The node has been visited, so it can be skipped.
+            if visited.contains(unit_id) {
+                continue;
+            }
+
+            // The stacks store a path of traversed units and is initialized with the current unit.
+            let mut stack: Vec<Vec<Ustr>> = Vec::new();
+            stack.push(vec![*unit_id]);
+
+            // Run a depth-first search and stop if a cycle is found or the graph is exhausted.
+            while let Some(path) = stack.pop() {
+                // Update the set of visited nodes.
+                let current_id = *path.last().unwrap_or(&Ustr::default());
+                if visited.contains(&current_id) {
+                    continue;
+                } else {
+                    visited.insert(current_id);
+                }
+
+                // Get the dependencies of the current node, check that the dependency and dependent
+                // graph agree with each other, and generate new paths to add to the stack.
+                if let Some(dependencies) = self.get_dependencies(&current_id) {
+                    for dependency_id in dependencies {
+                        // Verify that the dependency and dependent graphs agree with each other by
+                        // checking that this dependency lists the current unit as a dependent.
+                        let dependents = self.get_dependents(&dependency_id);
+                        let mut missing_dependent = dependents.is_none();
+                        if let Some(dependents) = dependents {
+                            if !dependents.contains(&current_id) {
+                                missing_dependent = true;
+                            }
+                        }
+                        if missing_dependent {
+                            bail!(
+                                "unit {} lists unit {} as a dependency but the dependent \
+                                relationship does not exist",
+                                current_id,
+                                dependency_id
+                            );
+                        }
+
+                        // Check for repeated nodes in the path.
+                        if path.contains(&dependency_id) {
+                            bail!("cycle in dependency graph detected");
+                        }
+
+                        // Add a new path to the stack.
+                        let mut new_path = path.clone();
+                        new_path.push(dependency_id);
+                        stack.push(new_path);
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl UnitGraph for InMemoryUnitGraph {
+    fn add_course(&mut self, course_id: &Ustr) -> Result<(), UnitGraphError> {
+        self.add_course_helper(course_id)
+            .map_err(|e| UnitGraphError::AddUnit(*course_id, UnitType::Course, e))
+    }
+
+    fn add_lesson(&mut self, lesson_id: &Ustr, course_id: &Ustr) -> Result<(), UnitGraphError> {
+        self.add_lesson_helper(lesson_id, course_id)
+            .map_err(|e| UnitGraphError::AddUnit(*lesson_id, UnitType::Lesson, e))
+    }
+
+    fn add_exercise(&mut self, exercise_id: &Ustr, lesson_id: &Ustr) -> Result<(), UnitGraphError> {
+        self.add_exercise_helper(exercise_id, lesson_id)
+            .map_err(|e| UnitGraphError::AddUnit(*exercise_id, UnitType::Exercise, e))
     }
 
     fn add_dependencies(
@@ -375,66 +456,9 @@ impl UnitGraph for InMemoryUnitGraph {
         self.dependency_sinks.clone()
     }
 
-    fn check_cycles(&self) -> Result<()> {
-        // Perform a depth-first search of the dependency graph from each unit. Return an error if
-        // the same unit is encountered twice during the search.
-        let mut visited = UstrSet::default();
-        for unit_id in self.dependency_graph.keys() {
-            // The node has been visited, so it can be skipped.
-            if visited.contains(unit_id) {
-                continue;
-            }
-
-            // The stacks store a path of traversed units and is initialized with the current unit.
-            let mut stack: Vec<Vec<Ustr>> = Vec::new();
-            stack.push(vec![*unit_id]);
-
-            // Run a depth-first search and stop if a cycle is found or the graph is exhausted.
-            while let Some(path) = stack.pop() {
-                // Update the set of visited nodes.
-                let current_id = *path.last().unwrap_or(&Ustr::default());
-                if visited.contains(&current_id) {
-                    continue;
-                } else {
-                    visited.insert(current_id);
-                }
-
-                // Get the dependencies of the current node, check that the dependency and dependent
-                // graph agree with each other, and generate new paths to add to the stack.
-                if let Some(dependencies) = self.get_dependencies(&current_id) {
-                    for dependency_id in dependencies {
-                        // Verify that the dependency and dependent graphs agree with each other by
-                        // checking that this dependency lists the current unit as a dependent.
-                        let dependents = self.get_dependents(&dependency_id);
-                        let mut missing_dependent = dependents.is_none();
-                        if let Some(dependents) = dependents {
-                            if !dependents.contains(&current_id) {
-                                missing_dependent = true;
-                            }
-                        }
-                        if missing_dependent {
-                            bail!(
-                                "unit {} lists unit {} as a dependency but the dependent \
-                                relationship does not exist",
-                                current_id,
-                                dependency_id
-                            );
-                        }
-
-                        // Check for repeated nodes in the path.
-                        if path.contains(&dependency_id) {
-                            bail!("cycle in dependency graph detected");
-                        }
-
-                        // Add a new path to the stack.
-                        let mut new_path = path.clone();
-                        new_path.push(dependency_id);
-                        stack.push(new_path);
-                    }
-                }
-            }
-        }
-        Ok(())
+    fn check_cycles(&self) -> Result<(), UnitGraphError> {
+        self.check_cycles_helper()
+            .map_err(UnitGraphError::CheckCycles)
     }
 
     fn generate_dot_graph(&self) -> String {
