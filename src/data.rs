@@ -3,6 +3,7 @@
 //! control the behavior of the scheduler, among other things.
 
 pub mod course_generator;
+pub mod ffi;
 pub mod filter;
 pub mod music;
 
