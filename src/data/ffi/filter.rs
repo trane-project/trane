@@ -1,5 +1,6 @@
 //! FFI types for the data::filter module.
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use typeshare::typeshare;
 use ustr::Ustr;
@@ -329,6 +330,61 @@ impl From<filter::StudySession> for StudySession {
             id: session.id,
             description: session.description,
             parts: session.parts.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+#[typeshare]
+#[allow(missing_docs)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct StudySessionData {
+    pub start_time: String,
+    pub definition: StudySession,
+}
+
+impl From<StudySessionData> for filter::StudySessionData {
+    fn from(session: StudySessionData) -> Self {
+        Self {
+            start_time: DateTime::parse_from_rfc3339(&session.start_time)
+                .unwrap_or_else(|_| Utc::now().fixed_offset())
+                .with_timezone(&Utc),
+            definition: session.definition.into(),
+        }
+    }
+}
+
+impl From<filter::StudySessionData> for StudySessionData {
+    fn from(session: filter::StudySessionData) -> Self {
+        Self {
+            start_time: session.start_time.to_rfc3339(),
+            definition: session.definition.into(),
+        }
+    }
+}
+
+#[typeshare]
+#[allow(missing_docs)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(tag = "type", content = "content")]
+pub enum ExerciseFilter {
+    UnitFilter(UnitFilter),
+    StudySession(StudySessionData),
+}
+
+impl From<ExerciseFilter> for filter::ExerciseFilter {
+    fn from(filter: ExerciseFilter) -> Self {
+        match filter {
+            ExerciseFilter::UnitFilter(filter) => Self::UnitFilter(filter.into()),
+            ExerciseFilter::StudySession(session) => Self::StudySession(session.into()),
+        }
+    }
+}
+
+impl From<filter::ExerciseFilter> for ExerciseFilter {
+    fn from(filter: filter::ExerciseFilter) -> Self {
+        match filter {
+            filter::ExerciseFilter::UnitFilter(filter) => Self::UnitFilter(filter.into()),
+            filter::ExerciseFilter::StudySession(session) => Self::StudySession(session.into()),
         }
     }
 }

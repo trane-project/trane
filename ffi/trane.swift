@@ -520,6 +520,26 @@ public struct StudySession: Codable {
 	}
 }
 
+public struct StudySessionData: Codable {
+	public let start_time: String
+	public let definition: StudySession
+
+	public init(start_time: String, definition: StudySession) {
+		self.start_time = start_time
+		self.definition = definition
+	}
+}
+
+public struct ExerciseTrial: Codable {
+	public let score: Float
+	public let timestamp: String
+
+	public init(score: Float, timestamp: String) {
+		self.score = score
+		self.timestamp = timestamp
+	}
+}
+
 
 /// Generated type representing the anonymous struct variant `MarkdownAsset` of the `BasicAsset` Rust enum
 public struct BasicAssetMarkdownAssetInner: Codable {
@@ -817,6 +837,96 @@ public struct ExerciseManifest: Codable {
 	}
 }
 
+public struct MasteryWindow: Codable {
+	public let percentage: Float
+	public let range: [Float]
+
+	public init(percentage: Float, range: [Float]) {
+		self.percentage = percentage
+		self.range = range
+	}
+}
+
+
+/// Generated type representing the anonymous struct variant `IncreasingScore` of the `PassingScoreOptions` Rust enum
+public struct PassingScoreOptionsIncreasingScoreInner: Codable {
+	public let starting_score: Float
+	public let step_size: Float
+	public let max_steps: UInt32
+
+	public init(starting_score: Float, step_size: Float, max_steps: UInt32) {
+		self.starting_score = starting_score
+		self.step_size = step_size
+		self.max_steps = max_steps
+	}
+}
+public enum PassingScoreOptions: Codable {
+	case constantScore(Float)
+	case increasingScore(PassingScoreOptionsIncreasingScoreInner)
+
+	enum CodingKeys: String, CodingKey, Codable {
+		case constantScore = "ConstantScore",
+			increasingScore = "IncreasingScore"
+	}
+
+	private enum ContainerCodingKeys: String, CodingKey {
+		case type, content
+	}
+
+	public init(from decoder: Decoder) throws {
+		let container = try decoder.container(keyedBy: ContainerCodingKeys.self)
+		if let type = try? container.decode(CodingKeys.self, forKey: .type) {
+			switch type {
+			case .constantScore:
+				if let content = try? container.decode(Float.self, forKey: .content) {
+					self = .constantScore(content)
+					return
+				}
+			case .increasingScore:
+				if let content = try? container.decode(PassingScoreOptionsIncreasingScoreInner.self, forKey: .content) {
+					self = .increasingScore(content)
+					return
+				}
+			}
+		}
+		throw DecodingError.typeMismatch(PassingScoreOptions.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for PassingScoreOptions"))
+	}
+
+	public func encode(to encoder: Encoder) throws {
+		var container = encoder.container(keyedBy: ContainerCodingKeys.self)
+		switch self {
+		case .constantScore(let content):
+			try container.encode(CodingKeys.constantScore, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .increasingScore(let content):
+			try container.encode(CodingKeys.increasingScore, forKey: .type)
+			try container.encode(content, forKey: .content)
+		}
+	}
+}
+
+public struct SchedulerOptions: Codable {
+	public let batch_size: UInt32
+	public let new_window_opts: MasteryWindow
+	public let target_window_opts: MasteryWindow
+	public let current_window_opts: MasteryWindow
+	public let easy_window_opts: MasteryWindow
+	public let mastered_window_opts: MasteryWindow
+	public let passing_score: PassingScoreOptions
+	public let num_trials: UInt32
+
+	public init(batch_size: UInt32, new_window_opts: MasteryWindow, target_window_opts: MasteryWindow, current_window_opts: MasteryWindow, easy_window_opts: MasteryWindow, mastered_window_opts: MasteryWindow, passing_score: PassingScoreOptions, num_trials: UInt32) {
+		self.batch_size = batch_size
+		self.new_window_opts = new_window_opts
+		self.target_window_opts = target_window_opts
+		self.current_window_opts = current_window_opts
+		self.easy_window_opts = easy_window_opts
+		self.mastered_window_opts = mastered_window_opts
+		self.passing_score = passing_score
+		self.num_trials = num_trials
+	}
+}
+
 public struct SchedulerPreferences: Codable {
 	public let batch_size: UInt32?
 
@@ -852,6 +962,51 @@ public struct UserPreferences: Codable {
 public enum FilterType: String, Codable {
 	case include = "Include"
 	case exclude = "Exclude"
+}
+
+public enum ExerciseFilter: Codable {
+	case unitFilter(UnitFilter)
+	case studySession(StudySessionData)
+
+	enum CodingKeys: String, CodingKey, Codable {
+		case unitFilter = "UnitFilter",
+			studySession = "StudySession"
+	}
+
+	private enum ContainerCodingKeys: String, CodingKey {
+		case type, content
+	}
+
+	public init(from decoder: Decoder) throws {
+		let container = try decoder.container(keyedBy: ContainerCodingKeys.self)
+		if let type = try? container.decode(CodingKeys.self, forKey: .type) {
+			switch type {
+			case .unitFilter:
+				if let content = try? container.decode(UnitFilter.self, forKey: .content) {
+					self = .unitFilter(content)
+					return
+				}
+			case .studySession:
+				if let content = try? container.decode(StudySessionData.self, forKey: .content) {
+					self = .studySession(content)
+					return
+				}
+			}
+		}
+		throw DecodingError.typeMismatch(ExerciseFilter.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for ExerciseFilter"))
+	}
+
+	public func encode(to encoder: Encoder) throws {
+		var container = encoder.container(keyedBy: ContainerCodingKeys.self)
+		switch self {
+		case .unitFilter(let content):
+			try container.encode(CodingKeys.unitFilter, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .studySession(let content):
+			try container.encode(CodingKeys.studySession, forKey: .type)
+			try container.encode(content, forKey: .content)
+		}
+	}
 }
 
 public enum UnitType: String, Codable {

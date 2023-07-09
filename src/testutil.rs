@@ -23,11 +23,11 @@ use crate::{
     blacklist::Blacklist,
     course_builder::{AssetBuilder, CourseBuilder, ExerciseBuilder, LessonBuilder},
     data::{
-        BasicAsset, CourseManifest, ExerciseAsset, ExerciseManifestBuilder, ExerciseType,
-        LessonManifestBuilder, MasteryScore, UserPreferences,
+        filter::ExerciseFilter, BasicAsset, CourseManifest, ExerciseAsset, ExerciseManifestBuilder,
+        ExerciseType, LessonManifestBuilder, MasteryScore, UserPreferences,
     },
     practice_stats::PracticeStats,
-    scheduler::{ExerciseFilter, ExerciseScheduler},
+    scheduler::ExerciseScheduler,
     Trane, TRANE_CONFIG_DIR_PATH, USER_PREFERENCES_PATH,
 };
 

@@ -329,9 +329,9 @@ pub struct StudySession {
     pub parts: Vec<SessionPart>,
 }
 
-/// A specific instace of a study session. It contains the start time of the session and its
+/// A specific instance of a study session. It contains the start time of the session and its
 /// definition so that the scheduler knows the progress of the session.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct StudySessionData {
     /// The start time of the session.
     pub start_time: DateTime<Utc>,
@@ -367,6 +367,17 @@ impl StudySessionData {
         }
         self.definition.parts.last().unwrap().clone()
     }
+}
+
+/// A set of options to control which exercises should be considered to be included in the final
+/// batch.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub enum ExerciseFilter {
+    /// Select exercises based on a unit filter.
+    UnitFilter(UnitFilter),
+
+    /// Select exercises based on a study session.
+    StudySession(StudySessionData),
 }
 
 #[cfg(test)]

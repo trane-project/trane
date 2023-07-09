@@ -221,6 +221,18 @@ data class StudySession (
 	val parts: List<SessionPart>? = null
 )
 
+@Serializable
+data class StudySessionData (
+	val start_time: String,
+	val definition: StudySession
+)
+
+@Serializable
+data class ExerciseTrial (
+	val score: Float,
+	val timestamp: String
+)
+
 /// Generated type representing the anonymous struct variant `MarkdownAsset` of the `BasicAsset` Rust enum
 @Serializable
 data class BasicAssetMarkdownAssetInner (
@@ -341,6 +353,42 @@ data class ExerciseManifest (
 )
 
 @Serializable
+data class MasteryWindow (
+	val percentage: Float,
+	val range: List<Float>
+)
+
+/// Generated type representing the anonymous struct variant `IncreasingScore` of the `PassingScoreOptions` Rust enum
+@Serializable
+data class PassingScoreOptionsIncreasingScoreInner (
+	val starting_score: Float,
+	val step_size: Float,
+	val max_steps: UInt
+)
+
+@Serializable
+sealed class PassingScoreOptions {
+	@Serializable
+	@SerialName("ConstantScore")
+	data class ConstantScore(val content: Float): PassingScoreOptions()
+	@Serializable
+	@SerialName("IncreasingScore")
+	data class IncreasingScore(val content: PassingScoreOptionsIncreasingScoreInner): PassingScoreOptions()
+}
+
+@Serializable
+data class SchedulerOptions (
+	val batch_size: UInt,
+	val new_window_opts: MasteryWindow,
+	val target_window_opts: MasteryWindow,
+	val current_window_opts: MasteryWindow,
+	val easy_window_opts: MasteryWindow,
+	val mastered_window_opts: MasteryWindow,
+	val passing_score: PassingScoreOptions,
+	val num_trials: UInt
+)
+
+@Serializable
 data class SchedulerPreferences (
 	val batch_size: UInt? = null
 )
@@ -365,6 +413,16 @@ enum class FilterType(val string: String) {
 	Include("Include"),
 	@SerialName("Exclude")
 	Exclude("Exclude"),
+}
+
+@Serializable
+sealed class ExerciseFilter {
+	@Serializable
+	@SerialName("UnitFilter")
+	data class UnitFilter(val content: UnitFilter): ExerciseFilter()
+	@Serializable
+	@SerialName("StudySession")
+	data class StudySession(val content: StudySessionData): ExerciseFilter()
 }
 
 @Serializable
