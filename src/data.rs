@@ -72,6 +72,7 @@ impl MasteryScore {
 
 //@<lp-example-4
 /// The result of a single trial.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ExerciseTrial {
     /// The score assigned to the exercise after the trial.
     pub score: f32,
@@ -80,39 +81,6 @@ pub struct ExerciseTrial {
     pub timestamp: i64,
 }
 //>@lp-example-4
-
-/// A mastery window consists a range of scores and the percentage of the total exercises in the
-/// batch returned by the scheduler that will fall within that range.
-///
-/// Mastery windows are used by the scheduler to control the amount of exercises for a given range
-/// of difficulty given to the student to try to keep an optimal balance. For example, exercises
-/// that are already fully mastered should not be shown very often lest the student becomes bored.
-/// Very difficult exercises should not be shown too often either lest the student becomes
-/// frustrated.
-#[derive(Clone, Debug)]
-pub struct MasteryWindow {
-    /// The percentage of the exercises in each batch returned by the scheduler whose scores should
-    /// fall within this window.
-    pub percentage: f32,
-
-    /// The range of scores which fall on this window. Scores whose values are in the range
-    /// `[range.0, range.1)` fall within this window. If `range.1` is equal to 5.0 (the float
-    /// representation of the maximum possible score), then the range becomes inclusive.
-    pub range: (f32, f32),
-}
-
-impl MasteryWindow {
-    /// Returns whether the given score falls within this window.
-    pub fn in_window(&self, score: f32) -> bool {
-        // Handle the special case of the window containing the maximum score.
-        if self.range.1 >= 5.0 && score == 5.0 {
-            return true;
-        }
-
-        // Return true if the score falls within the range `[range.0, range.1)`.
-        self.range.0 <= score && score < self.range.1
-    }
-}
 
 /// The type of the units stored in the dependency graph.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -680,7 +648,7 @@ impl GetUnitType for ExerciseManifest {
 }
 
 /// Options to compute the passing score for a unit.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum PassingScoreOptions {
     /// The score will be a fixed value.
     ConstantScore(f32),
@@ -756,8 +724,41 @@ impl PassingScoreOptions {
     }
 }
 
+/// A mastery window consists a range of scores and the percentage of the total exercises in the
+/// batch returned by the scheduler that will fall within that range.
+///
+/// Mastery windows are used by the scheduler to control the amount of exercises for a given range
+/// of difficulty given to the student to try to keep an optimal balance. For example, exercises
+/// that are already fully mastered should not be shown very often lest the student becomes bored.
+/// Very difficult exercises should not be shown too often either lest the student becomes
+/// frustrated.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct MasteryWindow {
+    /// The percentage of the exercises in each batch returned by the scheduler whose scores should
+    /// fall within this window.
+    pub percentage: f32,
+
+    /// The range of scores which fall on this window. Scores whose values are in the range
+    /// `[range.0, range.1)` fall within this window. If `range.1` is equal to 5.0 (the float
+    /// representation of the maximum possible score), then the range becomes inclusive.
+    pub range: (f32, f32),
+}
+
+impl MasteryWindow {
+    /// Returns whether the given score falls within this window.
+    pub fn in_window(&self, score: f32) -> bool {
+        // Handle the special case of the window containing the maximum score.
+        if self.range.1 >= 5.0 && score == 5.0 {
+            return true;
+        }
+
+        // Return true if the score falls within the range `[range.0, range.1)`.
+        self.range.0 <= score && score < self.range.1
+    }
+}
+
 /// Options to control how the scheduler selects exercises.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct SchedulerOptions {
     /// The maximum number of candidates to return each time the scheduler is called.
     pub batch_size: usize,
@@ -1295,5 +1296,15 @@ mod test {
             ignored_paths: vec!["courses/".to_owned()],
         };
         assert_eq!(preferences, preferences.clone());
+    }
+
+    /// Verifies the clone method for the `ExerciseTrial` struct. Written to satisfy code coverage.
+    #[test]
+    fn exercise_trial_clone() {
+        let trial = ExerciseTrial {
+            score: 5.0,
+            timestamp: 1,
+        };
+        assert_eq!(trial, trial.clone());
     }
 }

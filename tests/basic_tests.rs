@@ -38,13 +38,13 @@ use trane::{
     course_library::CourseLibrary,
     data::{
         filter::{
-            FilterOp, FilterType, KeyValueFilter, MetadataFilter, SessionPart, StudySession,
-            StudySessionData, UnitFilter,
+            ExerciseFilter, FilterOp, FilterType, KeyValueFilter, MetadataFilter, SessionPart,
+            StudySession, StudySessionData, UnitFilter,
         },
         MasteryScore, SchedulerOptions, UserPreferences,
     },
     review_list::ReviewList,
-    scheduler::{ExerciseFilter, ExerciseScheduler},
+    scheduler::ExerciseScheduler,
     testutil::*,
 };
 use ustr::Ustr;

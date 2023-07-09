@@ -39,6 +39,7 @@ pub mod course_builder;
 pub mod course_library;
 pub mod data;
 pub mod error;
+pub mod ffi;
 pub mod filter_manager;
 pub mod graph;
 pub mod mantra_miner;
@@ -62,15 +63,15 @@ use crate::mantra_miner::TraneMantraMiner;
 use blacklist::{Blacklist, BlacklistDB};
 use course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary};
 use data::{
-    filter::SavedFilter, CourseManifest, ExerciseManifest, ExerciseTrial, LessonManifest,
-    MasteryScore, RepositoryMetadata, SchedulerOptions, SchedulerPreferences, UnitType,
-    UserPreferences,
+    filter::{ExerciseFilter, SavedFilter},
+    CourseManifest, ExerciseManifest, ExerciseTrial, LessonManifest, MasteryScore,
+    RepositoryMetadata, SchedulerOptions, SchedulerPreferences, UnitType, UserPreferences,
 };
 use filter_manager::{FilterManager, LocalFilterManager};
 use graph::UnitGraph;
 use practice_stats::{PracticeStats, PracticeStatsDB};
 use repository_manager::{LocalRepositoryManager, RepositoryManager};
-use scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseFilter, ExerciseScheduler};
+use scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseScheduler};
 
 /// The path to the folder inside each course library containing the user data.
 pub const TRANE_CONFIG_DIR_PATH: &str = ".trane";

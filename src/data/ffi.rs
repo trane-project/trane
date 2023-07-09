@@ -5,10 +5,16 @@
 //! types are replicated in this module. Bidirectional implementations of the `From` trait are
 //! provided to convert between the Rust types and the FFI types and ensure that the types are
 //! equivalent at compile time.
+//! Some considerations when translating between the native and FFI types:
+//! - Serialize `Ustr` values as `String`.
+//! - Serialize `BTreeMap` values as `HashMap`.
+//! - Serialize dates, given as either a timestamp or a `DateTime`, as an RFC 3339 string. This is
+//!   because `typeshare` does not support serializing `chrono` types not 64-bit integers.
 
 pub mod course_generator;
 pub mod filter;
 
+use chrono::{DateTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use typeshare::typeshare;
@@ -19,6 +25,39 @@ use crate::data::ffi::course_generator::*;
 
 // grcov-excl-start: The FFI types are not tested since the implementations of the `From` trait
 // should be sufficient to ensure that the types are equivalent at compile time.
+
+#[typeshare]
+#[allow(missing_docs)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct ExerciseTrial {
+    pub score: f32,
+    pub timestamp: String,
+}
+
+impl From<ExerciseTrial> for data::ExerciseTrial {
+    fn from(exercise_trial: ExerciseTrial) -> Self {
+        Self {
+            score: exercise_trial.score,
+            timestamp: DateTime::parse_from_rfc3339(&exercise_trial.timestamp)
+                .unwrap_or_else(|_| Utc::now().fixed_offset())
+                .with_timezone(&Utc)
+                .timestamp(),
+        }
+    }
+}
+
+impl From<data::ExerciseTrial> for ExerciseTrial {
+    fn from(exercise_trial: data::ExerciseTrial) -> Self {
+        Self {
+            score: exercise_trial.score,
+            timestamp: Utc
+                .timestamp_opt(exercise_trial.timestamp, 0)
+                .earliest()
+                .unwrap_or_default()
+                .to_rfc3339(),
+        }
+    }
+}
 
 #[typeshare]
 #[allow(missing_docs)]
@@ -371,6 +410,127 @@ impl From<data::ExerciseManifest> for ExerciseManifest {
             description: manifest.description,
             exercise_type: manifest.exercise_type.into(),
             exercise_asset: manifest.exercise_asset.into(),
+        }
+    }
+}
+
+#[typeshare]
+#[allow(missing_docs)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(tag = "type", content = "content")]
+pub enum PassingScoreOptions {
+    ConstantScore(f32),
+    IncreasingScore {
+        starting_score: f32,
+        step_size: f32,
+        #[typeshare(serialized_as = "u32")]
+        max_steps: usize,
+    },
+}
+
+impl From<PassingScoreOptions> for data::PassingScoreOptions {
+    fn from(options: PassingScoreOptions) -> Self {
+        match options {
+            PassingScoreOptions::ConstantScore(score) => Self::ConstantScore(score),
+            PassingScoreOptions::IncreasingScore {
+                starting_score,
+                step_size,
+                max_steps,
+            } => Self::IncreasingScore {
+                starting_score,
+                step_size,
+                max_steps,
+            },
+        }
+    }
+}
+
+impl From<data::PassingScoreOptions> for PassingScoreOptions {
+    fn from(options: data::PassingScoreOptions) -> Self {
+        match options {
+            data::PassingScoreOptions::ConstantScore(score) => Self::ConstantScore(score),
+            data::PassingScoreOptions::IncreasingScore {
+                starting_score,
+                step_size,
+                max_steps,
+            } => Self::IncreasingScore {
+                starting_score,
+                step_size,
+                max_steps,
+            },
+        }
+    }
+}
+
+#[typeshare]
+#[allow(missing_docs)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct MasteryWindow {
+    pub percentage: f32,
+    #[typeshare(serialized_as = "Vec<f32>")]
+    pub range: (f32, f32),
+}
+
+impl From<MasteryWindow> for data::MasteryWindow {
+    fn from(window: MasteryWindow) -> Self {
+        Self {
+            percentage: window.percentage,
+            range: window.range,
+        }
+    }
+}
+
+impl From<data::MasteryWindow> for MasteryWindow {
+    fn from(window: data::MasteryWindow) -> Self {
+        Self {
+            percentage: window.percentage,
+            range: window.range,
+        }
+    }
+}
+
+#[typeshare]
+#[allow(missing_docs)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct SchedulerOptions {
+    #[typeshare(serialized_as = "u32")]
+    pub batch_size: usize,
+    pub new_window_opts: MasteryWindow,
+    pub target_window_opts: MasteryWindow,
+    pub current_window_opts: MasteryWindow,
+    pub easy_window_opts: MasteryWindow,
+    pub mastered_window_opts: MasteryWindow,
+    pub passing_score: PassingScoreOptions,
+    #[typeshare(serialized_as = "u32")]
+    pub num_trials: usize,
+}
+
+impl From<SchedulerOptions> for data::SchedulerOptions {
+    fn from(options: SchedulerOptions) -> Self {
+        Self {
+            batch_size: options.batch_size,
+            new_window_opts: options.new_window_opts.into(),
+            target_window_opts: options.target_window_opts.into(),
+            current_window_opts: options.current_window_opts.into(),
+            easy_window_opts: options.easy_window_opts.into(),
+            mastered_window_opts: options.mastered_window_opts.into(),
+            passing_score: options.passing_score.into(),
+            num_trials: options.num_trials,
+        }
+    }
+}
+
+impl From<data::SchedulerOptions> for SchedulerOptions {
+    fn from(options: data::SchedulerOptions) -> Self {
+        Self {
+            batch_size: options.batch_size,
+            new_window_opts: options.new_window_opts.into(),
+            target_window_opts: options.target_window_opts.into(),
+            current_window_opts: options.current_window_opts.into(),
+            easy_window_opts: options.easy_window_opts.into(),
+            mastered_window_opts: options.mastered_window_opts.into(),
+            passing_score: options.passing_score.into(),
+            num_trials: options.num_trials,
         }
     }
 }

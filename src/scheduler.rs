@@ -31,7 +31,7 @@ use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
     data::{
-        filter::{MetadataFilter, StudySessionData, UnitFilter},
+        filter::{ExerciseFilter, MetadataFilter, UnitFilter},
         ExerciseManifest, MasteryScore, SchedulerOptions, UnitType,
     },
     error::ExerciseSchedulerError,
@@ -45,17 +45,6 @@ use crate::{
 /// bigger than the multiple of the final batch size and this value. This is to avoid the need to
 /// search the entire graph if the search already found a decently sized pool of candidates.
 const MAX_CANDIDATE_FACTOR: usize = 10;
-
-/// A set of options to control which exercises should be considered to be included in the final
-/// batch.
-#[derive(Clone, Debug)]
-pub enum ExerciseFilter {
-    /// Selects exercises based on a unit filter.
-    UnitFilter(UnitFilter),
-
-    /// Selects exercises based on a study session.
-    StudySession(StudySessionData),
-}
 
 /// The trait that defines the interface for the scheduler. Contains functions to request a new
 /// batch of exercises and to provide Trane the self-reported scores for said exercises.

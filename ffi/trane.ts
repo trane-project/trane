@@ -129,6 +129,16 @@ export interface StudySession {
 	parts?: SessionPart[];
 }
 
+export interface StudySessionData {
+	start_time: string;
+	definition: StudySession;
+}
+
+export interface ExerciseTrial {
+	score: number;
+	timestamp: string;
+}
+
 export type BasicAsset = 
 	| { type: "MarkdownAsset", content: {
 	path: string;
@@ -196,6 +206,30 @@ export interface ExerciseManifest {
 	exercise_asset: ExerciseAsset;
 }
 
+export interface MasteryWindow {
+	percentage: number;
+	range: number[];
+}
+
+export type PassingScoreOptions = 
+	| { type: "ConstantScore", content: number }
+	| { type: "IncreasingScore", content: {
+	starting_score: number;
+	step_size: number;
+	max_steps: number;
+}};
+
+export interface SchedulerOptions {
+	batch_size: number;
+	new_window_opts: MasteryWindow;
+	target_window_opts: MasteryWindow;
+	current_window_opts: MasteryWindow;
+	easy_window_opts: MasteryWindow;
+	mastered_window_opts: MasteryWindow;
+	passing_score: PassingScoreOptions;
+	num_trials: number;
+}
+
 export interface SchedulerPreferences {
 	batch_size?: number;
 }
@@ -216,6 +250,10 @@ export enum FilterType {
 	Include = "Include",
 	Exclude = "Exclude",
 }
+
+export type ExerciseFilter = 
+	| { type: "UnitFilter", content: UnitFilter }
+	| { type: "StudySession", content: StudySessionData };
 
 export enum UnitType {
 	Exercise = "Exercise",
