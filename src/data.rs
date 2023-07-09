@@ -1297,4 +1297,14 @@ mod test {
         };
         assert_eq!(preferences, preferences.clone());
     }
+
+    /// Verifies the clone method for the `ExerciseTrial` struct. Written to satisfy code coverage.
+    #[test]
+    fn exercise_trial_clone() {
+        let trial = ExerciseTrial {
+            score: 5.0,
+            timestamp: 1,
+        };
+        assert_eq!(trial, trial.clone());
+    }
 }
