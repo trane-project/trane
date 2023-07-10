@@ -426,6 +426,20 @@ sealed class ExerciseFilter {
 }
 
 @Serializable
+enum class MasteryScore(val string: String) {
+	@SerialName("One")
+	One("One"),
+	@SerialName("Two")
+	Two("Two"),
+	@SerialName("Three")
+	Three("Three"),
+	@SerialName("Four")
+	Four("Four"),
+	@SerialName("Five")
+	Five("Five"),
+}
+
+@Serializable
 enum class UnitType(val string: String) {
 	@SerialName("Exercise")
 	Exercise("Exercise"),

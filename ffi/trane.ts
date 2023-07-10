@@ -255,6 +255,14 @@ export type ExerciseFilter =
 	| { type: "UnitFilter", content: UnitFilter }
 	| { type: "StudySession", content: StudySessionData };
 
+export enum MasteryScore {
+	One = "One",
+	Two = "Two",
+	Three = "Three",
+	Four = "Four",
+	Five = "Five",
+}
+
 export enum UnitType {
 	Exercise = "Exercise",
 	Lesson = "Lesson",

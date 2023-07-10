@@ -28,6 +28,41 @@ use crate::data::ffi::course_generator::*;
 
 #[typeshare]
 #[allow(missing_docs)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum MasteryScore {
+    One,
+    Two,
+    Three,
+    Four,
+    Five,
+}
+
+impl From<MasteryScore> for data::MasteryScore {
+    fn from(mastery_score: MasteryScore) -> Self {
+        match mastery_score {
+            MasteryScore::One => data::MasteryScore::One,
+            MasteryScore::Two => data::MasteryScore::Two,
+            MasteryScore::Three => data::MasteryScore::Three,
+            MasteryScore::Four => data::MasteryScore::Four,
+            MasteryScore::Five => data::MasteryScore::Five,
+        }
+    }
+}
+
+impl From<data::MasteryScore> for MasteryScore {
+    fn from(mastery_score: data::MasteryScore) -> Self {
+        match mastery_score {
+            data::MasteryScore::One => MasteryScore::One,
+            data::MasteryScore::Two => MasteryScore::Two,
+            data::MasteryScore::Three => MasteryScore::Three,
+            data::MasteryScore::Four => MasteryScore::Four,
+            data::MasteryScore::Five => MasteryScore::Five,
+        }
+    }
+}
+
+#[typeshare]
+#[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ExerciseTrial {
     pub score: f32,
