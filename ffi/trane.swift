@@ -1009,6 +1009,14 @@ public enum ExerciseFilter: Codable {
 	}
 }
 
+public enum MasteryScore: String, Codable {
+	case one = "One"
+	case two = "Two"
+	case three = "Three"
+	case four = "Four"
+	case five = "Five"
+}
+
 public enum UnitType: String, Codable {
 	case exercise = "Exercise"
 	case lesson = "Lesson"

@@ -10,7 +10,7 @@ use ustr::UstrSet;
 use crate::{
     blacklist::Blacklist,
     course_library::CourseLibrary,
-    data::{ffi::filter::*, ffi::*, ExerciseTrial, MasteryScore},
+    data::{ffi::filter::*, ffi::*, ExerciseTrial},
     error::*,
     filter_manager::FilterManager,
     graph::UnitGraph,
@@ -144,7 +144,8 @@ impl ExerciseSchedulerFFI for TraneFFI {
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<(), ExerciseSchedulerError> {
-        self.trane.score_exercise(exercise_id, score, timestamp)
+        self.trane
+            .score_exercise(exercise_id, score.into(), timestamp)
     }
     fn invalidate_cached_score(&self, unit_id: &Ustr) {
         self.trane.invalidate_cached_score(unit_id)
@@ -211,7 +212,7 @@ impl PracticeStatsFFI for TraneFFI {
         timestamp: i64,
     ) -> Result<(), PracticeStatsError> {
         self.trane
-            .record_exercise_score(exercise_id, score, timestamp)
+            .record_exercise_score(exercise_id, score.into(), timestamp)
     }
     fn trim_scores(&mut self, num_scores: usize) -> Result<(), PracticeStatsError> {
         self.trane.trim_scores(num_scores)
