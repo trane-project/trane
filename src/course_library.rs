@@ -87,12 +87,10 @@ pub trait CourseLibrary {
     fn get_user_preferences(&self) -> UserPreferences;
 }
 
-/// A trait that retrieves the unit graph generated after reading a course library. The visibility
-/// is set to `pub(crate)` because `InMemoryUnitGraph` has the same visibility and returning a
-/// concrete type avoids the need for indirection.
+/// A trait that retrieves the unit graph generated after reading a course library.
 pub(crate) trait GetUnitGraph {
-    /// Returns a reference to the unit graph describing the dependencies among the courses and
-    /// lessons in this library.
+    /// Returns a reference to the in-memory unit graph describing the dependencies among the
+    /// courses and lessons in this library.
     fn get_unit_graph(&self) -> Arc<RwLock<InMemoryUnitGraph>>;
 }
 
@@ -118,7 +116,7 @@ pub(crate) trait GetUnitGraph {
 ///
 /// The directory can also contain asset files referenced by the manifests. For example, a basic
 /// flashcard with a front and back can be stored using two markdown files.
-pub(crate) struct LocalCourseLibrary {
+pub struct LocalCourseLibrary {
     /// A `UnitGraph` constructed when opening the library.
     unit_graph: Arc<RwLock<InMemoryUnitGraph>>,
 

@@ -21,7 +21,7 @@ use crate::{
 
 /// A struct encapsulating all the state needed by the scheduler.
 #[derive(Clone)]
-pub(crate) struct SchedulerData {
+pub struct SchedulerData {
     /// The options used to run this scheduler.
     pub options: SchedulerOptions,
 

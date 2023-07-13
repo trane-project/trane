@@ -131,7 +131,7 @@ pub trait UnitGraph {
 /// stored in hash maps. All of it is stored in memory, as the memory benchmarks show that less than
 /// 20 MB of memory are used even when opening a large Trane library.
 #[derive(Default)]
-pub(crate) struct InMemoryUnitGraph {
+pub struct InMemoryUnitGraph {
     /// The mapping of a unit to its type.
     type_map: UstrMap<UnitType>,
 

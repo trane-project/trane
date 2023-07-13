@@ -131,7 +131,7 @@ struct Candidate {
 }
 
 /// An implementation of [ExerciseScheduler] based on depth-first search.
-pub(crate) struct DepthFirstScheduler {
+pub struct DepthFirstScheduler {
     /// The external data used by the scheduler. Contains pointers to the graph, blacklist, and
     /// course library and provides convenient functions.
     data: SchedulerData,
