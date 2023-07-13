@@ -239,6 +239,7 @@ impl SimpleKnowledgeBaseExercise {
     }
 }
 
+//@<simple-knowledge-base-lesson
 /// Represents a simple knowledge base lesson which only specifies the short ID of the lesson, the
 /// dependencies of the lesson, and a list of simple exercises. The instructions, material, and
 /// metadata can be optionally specified as well. In a lot of cases, this is enough to deliver the
@@ -265,6 +266,7 @@ pub struct SimpleKnowledgeBaseLesson {
     #[serde(default)]
     pub additional_files: Vec<AssetBuilder>,
 }
+//>@simple-knowledge-base-lesson
 
 impl SimpleKnowledgeBaseLesson {
     /// Generates the lesson builder from this simple lesson.
@@ -323,6 +325,7 @@ impl SimpleKnowledgeBaseLesson {
     }
 }
 
+//@<simple-knowledge-base-course
 /// Represents a simple knowledge base course which only specifies the course manifest and a list of
 /// simple lessons. It is meant to help course authors write simple knowledge base courses by
 /// writing a simple configuration to a single JSON file.
@@ -335,6 +338,7 @@ pub struct SimpleKnowledgeBaseCourse {
     #[serde(default)]
     pub lessons: Vec<SimpleKnowledgeBaseLesson>,
 }
+//>@simple-knowledge-base-course
 
 impl SimpleKnowledgeBaseCourse {
     /// Writes the course manifests and the lesson directories with the assets and exercises to the
