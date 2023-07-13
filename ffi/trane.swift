@@ -117,9 +117,9 @@ public struct TranscriptionAssetTrackInner: Codable {
 	public let artist_name: String?
 	public let album_name: String?
 	public let duration: String?
-	public let external_link: String?
+	public let external_link: TranscriptionLink?
 
-	public init(short_id: String, track_name: String, artist_name: String?, album_name: String?, duration: String?, external_link: String?) {
+	public init(short_id: String, track_name: String, artist_name: String?, album_name: String?, duration: String?, external_link: TranscriptionLink?) {
 		self.short_id = short_id
 		self.track_name = track_name
 		self.artist_name = artist_name
@@ -956,6 +956,41 @@ public struct UserPreferences: Codable {
 		self.transcription = transcription
 		self.scheduler = scheduler
 		self.ignored_paths = ignored_paths
+	}
+}
+
+public enum TranscriptionLink: Codable {
+	case youTube(String)
+
+	enum CodingKeys: String, CodingKey, Codable {
+		case youTube = "YouTube"
+	}
+
+	private enum ContainerCodingKeys: String, CodingKey {
+		case type, content
+	}
+
+	public init(from decoder: Decoder) throws {
+		let container = try decoder.container(keyedBy: ContainerCodingKeys.self)
+		if let type = try? container.decode(CodingKeys.self, forKey: .type) {
+			switch type {
+			case .youTube:
+				if let content = try? container.decode(String.self, forKey: .content) {
+					self = .youTube(content)
+					return
+				}
+			}
+		}
+		throw DecodingError.typeMismatch(TranscriptionLink.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for TranscriptionLink"))
+	}
+
+	public func encode(to encoder: Encoder) throws {
+		var container = encoder.container(keyedBy: ContainerCodingKeys.self)
+		switch self {
+		case .youTube(let content):
+			try container.encode(CodingKeys.youTube, forKey: .type)
+			try container.encode(content, forKey: .content)
+		}
 	}
 }
 

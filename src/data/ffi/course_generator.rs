@@ -231,6 +231,30 @@ impl From<music_piece::MusicPieceConfig> for MusicPieceConfig {
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(tag = "type", content = "content")]
+pub enum TranscriptionLink {
+    YouTube(String),
+}
+
+impl From<TranscriptionLink> for transcription::TranscriptionLink {
+    fn from(link: TranscriptionLink) -> Self {
+        match link {
+            TranscriptionLink::YouTube(id) => Self::YouTube(id),
+        }
+    }
+}
+
+impl From<transcription::TranscriptionLink> for TranscriptionLink {
+    fn from(link: transcription::TranscriptionLink) -> Self {
+        match link {
+            transcription::TranscriptionLink::YouTube(id) => Self::YouTube(id),
+        }
+    }
+}
+
+#[typeshare]
+#[allow(missing_docs)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(tag = "type", content = "content")]
 pub enum TranscriptionAsset {
     Track {
         short_id: String,
@@ -242,7 +266,7 @@ pub enum TranscriptionAsset {
         #[serde(default)]
         duration: Option<String>,
         #[serde(default)]
-        external_link: Option<String>,
+        external_link: Option<TranscriptionLink>,
     },
 }
 
@@ -262,7 +286,7 @@ impl From<TranscriptionAsset> for transcription::TranscriptionAsset {
                 artist_name,
                 album_name,
                 duration,
-                external_link,
+                external_link: external_link.map(Into::into),
             },
         }
     }
@@ -284,7 +308,7 @@ impl From<transcription::TranscriptionAsset> for TranscriptionAsset {
                 artist_name,
                 album_name,
                 duration,
-                external_link,
+                external_link: external_link.map(Into::into),
             },
         }
     }

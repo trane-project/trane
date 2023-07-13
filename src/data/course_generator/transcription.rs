@@ -28,6 +28,22 @@ use crate::data::{
 };
 use constants::*;
 
+/// A link to an external resource for a transcription asset.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub enum TranscriptionLink {
+    /// A link to a YouTube video.
+    YouTube(String),
+}
+
+impl TranscriptionLink {
+    /// Returns the URL of the link.
+    pub fn url(&self) -> &str {
+        match self {
+            TranscriptionLink::YouTube(url) => url,
+        }
+    }
+}
+
 /// An asset used for the transcription course generator.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum TranscriptionAsset {
@@ -54,7 +70,7 @@ pub enum TranscriptionAsset {
 
         /// A link to an external copy (e.g. youtube video) of the track.
         #[serde(default)]
-        external_link: Option<String>,
+        external_link: Option<TranscriptionLink>,
     },
 }
 
@@ -117,7 +133,8 @@ impl TranscriptionPassages {
                     {}",
                     description, track_name, artist_name.as_deref().unwrap_or(""),
                     album_name.as_deref().unwrap_or(""), duration.as_deref().unwrap_or(""),
-                    external_link.as_deref().unwrap_or(""), start, end, instrument_instruction
+                    external_link.as_ref().map(|l| l.url()).unwrap_or(""), start, end,
+                    instrument_instruction
                 }
                 .into(),
             }),
@@ -743,7 +760,7 @@ mod test {
                 artist_name: Some("Artist".into()),
                 album_name: Some("Album".into()),
                 duration: Some("1:30".into()),
-                external_link: Some("https://example.com".into()),
+                external_link: Some(TranscriptionLink::YouTube("https://example.com".into())),
             },
             intervals: HashMap::from([
                 (1, ("0:00".into(), "0:01".into())),
@@ -940,7 +957,7 @@ mod test {
             artist_name: Some("Artist".into()),
             album_name: Some("Album".into()),
             duration: Some("1:30".into()),
-            external_link: Some("https://example.com".into()),
+            external_link: Some(TranscriptionLink::YouTube("https://example.com".into())),
         };
         let asset_clone = asset.clone();
         assert_eq!(asset, asset_clone);
@@ -957,7 +974,7 @@ mod test {
                 artist_name: Some("Artist".into()),
                 album_name: Some("Album".into()),
                 duration: Some("1:30".into()),
-                external_link: Some("https://example.com".into()),
+                external_link: Some(TranscriptionLink::YouTube("https://example.com".into())),
             },
             intervals: HashMap::from([(1, ("0:00".into(), "0:01".into()))]),
         };

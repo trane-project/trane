@@ -52,7 +52,7 @@ data class TranscriptionAssetTrackInner (
 	val artist_name: String? = null,
 	val album_name: String? = null,
 	val duration: String? = null,
-	val external_link: String? = null
+	val external_link: TranscriptionLink? = null
 )
 
 @Serializable
@@ -406,6 +406,13 @@ data class UserPreferences (
 	val scheduler: SchedulerPreferences? = null,
 	val ignored_paths: List<String>? = null
 )
+
+@Serializable
+sealed class TranscriptionLink {
+	@Serializable
+	@SerialName("YouTube")
+	data class YouTube(val content: String): TranscriptionLink()
+}
 
 @Serializable
 enum class FilterType(val string: String) {

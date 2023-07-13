@@ -44,7 +44,7 @@ export type TranscriptionAsset =
 	artist_name?: string;
 	album_name?: string;
 	duration?: string;
-	external_link?: string;
+	external_link?: TranscriptionLink;
 }};
 
 export interface TranscriptionPassages {
@@ -245,6 +245,9 @@ export interface UserPreferences {
 	scheduler?: SchedulerPreferences;
 	ignored_paths?: string[];
 }
+
+export type TranscriptionLink = 
+	| { type: "YouTube", content: string };
 
 export enum FilterType {
 	Include = "Include",
