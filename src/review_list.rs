@@ -27,7 +27,7 @@ pub trait ReviewList {
 }
 
 /// An implementation of [ReviewList] backed by SQLite.
-pub(crate) struct ReviewListDB {
+pub struct ReviewListDB {
     /// A pool of connections to the database.
     pool: Pool<SqliteConnectionManager>,
 }

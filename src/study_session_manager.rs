@@ -20,7 +20,7 @@ pub trait StudySessionManager {
 }
 
 /// An implementation of [StudySessionManager] backed by the local file system.
-pub(crate) struct LocalStudySessionManager {
+pub struct LocalStudySessionManager {
     /// A map of session IDs to sessions.
     pub sessions: HashMap<String, StudySession>,
 }
