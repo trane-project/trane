@@ -390,7 +390,6 @@ impl TranscriptionConfig {
             .map(|id| format!("{id}::transcription::{}", instrument.id).into())
             .collect();
         dependencies.push(Self::singing_lesson_id(&course_manifest.id));
-        // let dependencies = vec![Self::singing_lesson_id(&course_manifest.id)];
         let lesson_manifest = LessonManifest {
             id: Self::transcription_lesson_id(&course_manifest.id, instrument),
             course_id: course_manifest.id,
