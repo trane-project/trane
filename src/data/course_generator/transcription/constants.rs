@@ -41,7 +41,7 @@ pub const COURSE_METADATA: &str = "transcription";
 /// The metadata key indicating the type of the transcription lesson.
 pub const LESSON_METADATA: &str = "transcription_lesson";
 
-/// The metadata key indicating the instrument of the improvisation lesson.
+/// The metadata key indicating the instrument of the transcription lesson.
 pub const INSTRUMENT_METADATA: &str = "instrument";
 
 lazy_static! {
