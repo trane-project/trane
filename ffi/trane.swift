@@ -185,12 +185,14 @@ public struct TranscriptionConfig: Codable {
 	public let transcription_dependencies: [String]?
 	public let passage_directory: String?
 	public let inlined_passages: [TranscriptionPassages]?
+	public let skip_singing_lessons: Bool?
 	public let skip_advanced_lessons: Bool?
 
-	public init(transcription_dependencies: [String]?, passage_directory: String?, inlined_passages: [TranscriptionPassages]?, skip_advanced_lessons: Bool?) {
+	public init(transcription_dependencies: [String]?, passage_directory: String?, inlined_passages: [TranscriptionPassages]?, skip_singing_lessons: Bool?, skip_advanced_lessons: Bool?) {
 		self.transcription_dependencies = transcription_dependencies
 		self.passage_directory = passage_directory
 		self.inlined_passages = inlined_passages
+		self.skip_singing_lessons = skip_singing_lessons
 		self.skip_advanced_lessons = skip_advanced_lessons
 	}
 }
