@@ -428,9 +428,8 @@ impl DepthFirstScheduler {
         let mut pending_course_lessons: UstrMap<i64> = UstrMap::default();
 
         // Perform a depth-first search of the graph.
-        while !stack.is_empty() {
-            // Pop the next unit from the stack. Immediately skip the item if it has been visited.
-            let curr_unit = stack.pop().unwrap();
+        while let Some(curr_unit) = stack.pop() {
+            // Immediately skip the item if it has been visited.
             if visited.contains(&curr_unit.unit_id) {
                 continue;
             }
@@ -581,9 +580,8 @@ impl DepthFirstScheduler {
         let mut all_candidates: Vec<Candidate> = Vec::new();
 
         // Perform a depth-first search to find the candidates.
-        while !stack.is_empty() {
-            // Pop the next unit from the stack and update the set of visited units.
-            let curr_unit = stack.pop().unwrap();
+        while let Some(curr_unit) = stack.pop() {
+            // Continue if the unit has been visited and update the list of visited units.
             if visited.contains(&curr_unit.unit_id) {
                 continue;
             } else {

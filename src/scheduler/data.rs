@@ -119,8 +119,7 @@ impl SchedulerData {
         // Search for the dependencies at the given depth.
         let mut dependencies = vec![];
         let mut stack = vec![(*unit_id, 0)];
-        while !stack.is_empty() {
-            let (candidate_id, candidate_depth) = stack.pop().unwrap();
+        while let Some((candidate_id, candidate_depth)) = stack.pop() {
             if candidate_depth == depth {
                 // Reached the end of the search.
                 dependencies.push(candidate_id);
