@@ -60,6 +60,7 @@ export interface TranscriptionConfig {
 	transcription_dependencies?: string[];
 	passage_directory?: string;
 	inlined_passages?: TranscriptionPassages[];
+	skip_singing_lessons?: boolean;
 	skip_advanced_lessons?: boolean;
 }
 

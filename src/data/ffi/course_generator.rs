@@ -385,6 +385,8 @@ pub struct TranscriptionConfig {
     #[serde(default)]
     pub inlined_passages: Vec<TranscriptionPassages>,
     #[serde(default)]
+    pub skip_singing_lessons: bool,
+    #[serde(default)]
     pub skip_advanced_lessons: bool,
 }
 
@@ -398,6 +400,7 @@ impl From<TranscriptionConfig> for transcription::TranscriptionConfig {
                 .into_iter()
                 .map(Into::into)
                 .collect(),
+            skip_singing_lessons: config.skip_singing_lessons,
             skip_advanced_lessons: config.skip_advanced_lessons,
         }
     }
@@ -413,6 +416,7 @@ impl From<transcription::TranscriptionConfig> for TranscriptionConfig {
                 .into_iter()
                 .map(Into::into)
                 .collect(),
+            skip_singing_lessons: config.skip_singing_lessons,
             skip_advanced_lessons: config.skip_advanced_lessons,
         }
     }

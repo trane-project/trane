@@ -78,6 +78,7 @@ data class TranscriptionConfig (
 	val transcription_dependencies: List<String>? = null,
 	val passage_directory: String? = null,
 	val inlined_passages: List<TranscriptionPassages>? = null,
+	val skip_singing_lessons: Boolean? = null,
 	val skip_advanced_lessons: Boolean? = null
 )
 

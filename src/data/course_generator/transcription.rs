@@ -182,6 +182,14 @@ pub struct TranscriptionConfig {
     #[serde(default)]
     pub inlined_passages: Vec<TranscriptionPassages>,
 
+    /// If true, the course will skip creating the singing lesson. This is useful when the course
+    /// contains backing tracks that have not melodies, for example. Both the singing and the
+    /// advanced singing lessons will be skipped. Because other transcription courses that depend on
+    /// this lesson will use the singing lesson to create the dependency, the lesson will be
+    /// created, but will be empty.
+    #[serde(default)]
+    pub skip_singing_lessons: bool,
+
     /// If true, the course will skip the advanced singing and transcription lessons. This is useful
     /// when there are copies of the same recording for every key, which makes the need for the
     /// advanced lessons obsolete.
@@ -232,6 +240,7 @@ impl TranscriptionConfig {
         &self,
         course_manifest: &CourseManifest,
         passages: &[TranscriptionPassages],
+        skip_singing_lessons: bool,
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Generate the lesson manifest. The lesson depends on the singing lessons of all the other
         // transcription courses listed as dependencies.
@@ -255,6 +264,13 @@ impl TranscriptionConfig {
             }),
             lesson_material: None,
         };
+
+        // If the course is configured to skip the singing lessons, return the lesson manifest with
+        // no exercises. The lesson is still needed to correctly generate the dependencies for other
+        // transcription courses that depend on this course.
+        if skip_singing_lessons {
+            return (lesson_manifest, Vec::new());
+        }
 
         // Generate an exercise for each passage.
         let exercises = passages
@@ -303,6 +319,7 @@ impl TranscriptionConfig {
         &self,
         course_manifest: &CourseManifest,
         passages: &[TranscriptionPassages],
+        skip_singing_lessons: bool,
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Generate the lesson manifest. The lesson depends on the singing lesson.
         let lesson_manifest = LessonManifest {
@@ -323,6 +340,13 @@ impl TranscriptionConfig {
             }),
             lesson_material: None,
         };
+
+        // If the course is configured to skip the singing lessons, return the lesson manifest with
+        // no exercises. The lesson is still needed to correctly generate the dependencies for other
+        // transcription courses that depend on this course.
+        if skip_singing_lessons {
+            return (lesson_manifest, Vec::new());
+        }
 
         // Generate an exercise for each passage.
         let exercises = passages
@@ -490,7 +514,8 @@ impl TranscriptionConfig {
         passages: &[TranscriptionPassages],
         instrument: &Instrument,
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
-        // Generate the lesson manifest. The lesson depends on the advanced singing lesson.
+        // Generate the lesson manifest. The lesson depends on the advanced singing lesson and the
+        // transcription lesson for the instrument.
         let lesson_manifest = LessonManifest {
             id: Self::advanced_transcription_lesson_id(&course_manifest.id, instrument),
             course_id: course_manifest.id,
@@ -605,17 +630,20 @@ impl TranscriptionConfig {
         preferences: &TranscriptionPreferences,
         passages: Vec<TranscriptionPassages>,
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
-        let skip_advanced_lessons = if let Some(CourseGenerator::Transcription(config)) =
-            &course_manifest.generator_config
-        {
-            config.skip_advanced_lessons
-        } else {
-            false // grcov-excl-line: This line should be unreachable.
-        };
+        let mut skip_singing_lessons = false;
+        let mut skip_advanced_lessons = false;
+        if let Some(CourseGenerator::Transcription(config)) = &course_manifest.generator_config {
+            skip_singing_lessons = config.skip_singing_lessons;
+            skip_advanced_lessons = config.skip_advanced_lessons;
+        }
 
         if skip_advanced_lessons {
             Ok(vec![
-                vec![self.generate_singing_lesson(course_manifest, &passages)],
+                vec![self.generate_singing_lesson(
+                    course_manifest,
+                    &passages,
+                    skip_singing_lessons,
+                )],
                 self.generate_transcription_lessons(course_manifest, preferences, &passages),
             ]
             .into_iter()
@@ -623,8 +651,16 @@ impl TranscriptionConfig {
             .collect())
         } else {
             Ok(vec![
-                vec![self.generate_singing_lesson(course_manifest, &passages)],
-                vec![self.generate_advanced_singing_lesson(course_manifest, &passages)],
+                vec![self.generate_singing_lesson(
+                    course_manifest,
+                    &passages,
+                    skip_singing_lessons,
+                )],
+                vec![self.generate_advanced_singing_lesson(
+                    course_manifest,
+                    &passages,
+                    skip_singing_lessons,
+                )],
                 self.generate_transcription_lessons(course_manifest, preferences, &passages),
                 self.generate_advanced_transcription_lessons(
                     course_manifest,
@@ -853,6 +889,7 @@ mod test {
             passage_directory: "passages".into(),
             inlined_passages: vec![],
             transcription_dependencies: vec![],
+            skip_singing_lessons: false,
             skip_advanced_lessons: false,
         };
         let passages = config.open_passage_directory(&temp_dir.path())?;
@@ -872,6 +909,7 @@ mod test {
             passage_directory: "".into(),
             inlined_passages: vec![],
             transcription_dependencies: vec![],
+            skip_singing_lessons: false,
             skip_advanced_lessons: false,
         };
         let passages = config.open_passage_directory(&temp_dir.path())?;
@@ -921,6 +959,7 @@ mod test {
             passage_directory: "passages".into(),
             inlined_passages: vec![],
             transcription_dependencies: vec![],
+            skip_singing_lessons: false,
             skip_advanced_lessons: false,
         };
         let result = config.open_passage_directory(&temp_dir.path());
@@ -939,6 +978,7 @@ mod test {
             passage_directory: "passages".into(),
             inlined_passages: vec![],
             transcription_dependencies: vec![],
+            skip_singing_lessons: false,
             skip_advanced_lessons: false,
         };
         let result = config.open_passage_directory(&temp_dir.path());
@@ -990,6 +1030,7 @@ mod test {
             transcription_dependencies: vec![],
             passage_directory: "passages".to_string(),
             inlined_passages: vec![],
+            skip_singing_lessons: false,
             skip_advanced_lessons: false,
         });
 
