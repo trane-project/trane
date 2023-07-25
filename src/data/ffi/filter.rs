@@ -13,6 +13,7 @@ use crate::data::filter;
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub enum FilterOp {
     All,
     Any,
@@ -39,6 +40,7 @@ impl From<filter::FilterOp> for FilterOp {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub enum FilterType {
     Include,
     Exclude,
@@ -65,6 +67,7 @@ impl From<filter::FilterType> for FilterType {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 #[serde(tag = "type", content = "content")]
 pub enum KeyValueFilter {
     BasicFilter {
@@ -121,6 +124,7 @@ impl From<filter::KeyValueFilter> for KeyValueFilter {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct MetadataFilter {
     #[serde(default)]
     pub course_filter: Option<KeyValueFilter>,
@@ -152,6 +156,7 @@ impl From<filter::MetadataFilter> for MetadataFilter {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 #[serde(tag = "type", content = "content")]
 pub enum UnitFilter {
     CourseFilter {
@@ -229,6 +234,7 @@ impl From<filter::UnitFilter> for UnitFilter {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct SavedFilter {
     pub id: String,
     pub description: String,
@@ -258,6 +264,7 @@ impl From<filter::SavedFilter> for SavedFilter {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 #[serde(tag = "type", content = "content")]
 pub enum SessionPart {
     UnitFilter { filter: UnitFilter, duration: u32 },
@@ -306,6 +313,7 @@ impl From<filter::SessionPart> for SessionPart {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct StudySession {
     pub id: String,
     #[serde(default)]
@@ -337,6 +345,7 @@ impl From<filter::StudySession> for StudySession {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct StudySessionData {
     pub start_time: String,
     pub definition: StudySession,
@@ -365,6 +374,7 @@ impl From<filter::StudySessionData> for StudySessionData {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 #[serde(tag = "type", content = "content")]
 pub enum ExerciseFilter {
     UnitFilter(UnitFilter),

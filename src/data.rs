@@ -24,6 +24,7 @@ use self::course_generator::{
 /// More detailed descriptions of the levels are provided using the example of an exercise that
 /// requires the student to learn a musical passage.
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub enum MasteryScore {
     /// One signifies the student has barely any mastery of the exercise. For a musical passage,
     /// this level of mastery represents the initial attempts at hearing and reading the music, and
@@ -73,6 +74,7 @@ impl MasteryScore {
 //@<lp-example-4
 /// The result of a single trial.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct ExerciseTrial {
     /// The score assigned to the exercise after the trial.
     pub score: f32,
@@ -84,6 +86,7 @@ pub struct ExerciseTrial {
 
 /// The type of the units stored in the dependency graph.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub enum UnitType {
     /// A single task, which the student is meant to perform and assess.
     Exercise,
@@ -159,6 +162,7 @@ pub trait GetUnitType {
 /// An asset attached to a unit, which could be used to store instructions, or present the material
 /// introduced by a course or lesson.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub enum BasicAsset {
     /// An asset containing the path to a markdown file.
     MarkdownAsset {
@@ -209,6 +213,7 @@ impl VerifyPaths for BasicAsset {
 //@<course-generator
 /// A configuration used for generating special types of courses on the fly.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub enum CourseGenerator {
     /// The configuration for generating an improvisation course.
     Improvisation(ImprovisationConfig),
@@ -275,6 +280,7 @@ impl GenerateManifests for CourseGenerator {
 
 /// A manifest describing the contents of a course.
 #[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct CourseManifest {
     /// The ID assigned to this course.
     ///
@@ -380,6 +386,7 @@ impl GetUnitType for CourseManifest {
 
 /// A manifest describing the contents of a lesson.
 #[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct LessonManifest {
     /// The ID assigned to this lesson.
     ///
@@ -470,6 +477,7 @@ impl GetUnitType for LessonManifest {
 
 /// The type of knowledge tested by an exercise.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub enum ExerciseType {
     /// Represents an exercise that tests mastery of factual knowledge. For example, an exercise
     /// asking students to name the notes in a D Major chord.
@@ -483,6 +491,7 @@ pub enum ExerciseType {
 
 /// The asset storing the material of a particular exercise.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub enum ExerciseAsset {
     /// An asset which stores a link to a SoundSlice.
     SoundSliceAsset {
@@ -591,6 +600,7 @@ impl VerifyPaths for ExerciseAsset {
 
 /// Manifest describing a single exercise.
 #[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct ExerciseManifest {
     /// The ID assigned to this exercise.
     ///
@@ -649,6 +659,7 @@ impl GetUnitType for ExerciseManifest {
 
 /// Options to compute the passing score for a unit.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub enum PassingScoreOptions {
     /// The score will be a fixed value.
     ConstantScore(f32),
@@ -733,6 +744,7 @@ impl PassingScoreOptions {
 /// Very difficult exercises should not be shown too often either lest the student becomes
 /// frustrated.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct MasteryWindow {
     /// The percentage of the exercises in each batch returned by the scheduler whose scores should
     /// fall within this window.
@@ -759,6 +771,7 @@ impl MasteryWindow {
 
 /// Options to control how the scheduler selects exercises.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct SchedulerOptions {
     /// The maximum number of candidates to return each time the scheduler is called.
     pub batch_size: usize,
@@ -871,6 +884,7 @@ impl Default for SchedulerOptions {
 
 /// Represents the scheduler's options that can be customized by the user.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct SchedulerPreferences {
     /// The maximum number of candidates to return each time the scheduler is called.
     #[serde(default)]
@@ -879,6 +893,7 @@ pub struct SchedulerPreferences {
 
 /// Represents a repository containing Trane courses.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct RepositoryMetadata {
     /// The ID of the repository, which is also used to name the directory.
     pub id: String,
@@ -890,6 +905,7 @@ pub struct RepositoryMetadata {
 //@<user-preferences
 /// The user-specific configuration
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct UserPreferences {
     /// The preferences for generating improvisation courses.
     #[serde(default)]

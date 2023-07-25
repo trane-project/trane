@@ -27,6 +27,7 @@ use constants::*;
 /// A single musical passage to be used in an improvisation course. A course can contain multiple
 /// passages but all of those passages are assumed to have the same key or mode.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct ImprovisationPassage {
     /// A unique ID to identify this passage. This ID is used to generate the IDs of the exercises
     /// which use this passage.
@@ -59,6 +60,7 @@ impl ImprovisationPassage {
 //@<improvisation-config
 /// The configuration for creating a new improvisation course.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct ImprovisationConfig {
     /// The dependencies on other improvisation courses. Specifying these dependencies here instead
     /// of the [CourseManifest](crate::data::CourseManifest) allows Trane to generate more
@@ -89,6 +91,7 @@ pub struct ImprovisationConfig {
 //@<improvisation-preferences
 /// Settings for generating a new improvisation course that are specific to a user.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct ImprovisationPreferences {
     /// The list of instruments the user wants to practice.
     #[serde(default)]

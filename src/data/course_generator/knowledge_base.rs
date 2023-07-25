@@ -490,6 +490,7 @@ impl From<KnowledgeBaseLesson> for LessonManifest {
 /// added for consistency with other course generators and to implement the
 /// [GenerateManifests](crate::data::GenerateManifests) trait.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct KnowledgeBaseConfig {}
 
 impl KnowledgeBaseConfig {

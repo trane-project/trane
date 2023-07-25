@@ -29,6 +29,7 @@ use crate::data::ffi::course_generator::*;
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub enum MasteryScore {
     One,
     Two,
@@ -64,6 +65,7 @@ impl From<data::MasteryScore> for MasteryScore {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct ExerciseTrial {
     pub score: f32,
     pub timestamp: String,
@@ -97,6 +99,7 @@ impl From<data::ExerciseTrial> for ExerciseTrial {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub enum UnitType {
     Exercise,
     Lesson,
@@ -126,6 +129,7 @@ impl From<data::UnitType> for UnitType {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 #[serde(tag = "type", content = "content")]
 pub enum BasicAsset {
     MarkdownAsset {
@@ -165,6 +169,7 @@ impl From<data::BasicAsset> for BasicAsset {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 #[serde(tag = "type", content = "content")]
 pub enum CourseGenerator {
     Improvisation(ImprovisationConfig),
@@ -198,6 +203,7 @@ impl From<data::CourseGenerator> for CourseGenerator {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct CourseManifest {
     #[typeshare(serialized_as = "String")]
     pub id: Ustr,
@@ -256,6 +262,7 @@ impl From<data::CourseManifest> for CourseManifest {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct LessonManifest {
     #[typeshare(serialized_as = "String")]
     pub id: Ustr,
@@ -310,6 +317,7 @@ impl From<data::LessonManifest> for LessonManifest {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub enum ExerciseType {
     Declarative,
     #[default]
@@ -337,6 +345,7 @@ impl From<data::ExerciseType> for ExerciseType {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 #[serde(tag = "type", content = "content")]
 pub enum ExerciseAsset {
     SoundSliceAsset {
@@ -405,6 +414,7 @@ impl From<data::ExerciseAsset> for ExerciseAsset {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct ExerciseManifest {
     #[typeshare(serialized_as = "String")]
     pub id: Ustr,
@@ -452,6 +462,7 @@ impl From<data::ExerciseManifest> for ExerciseManifest {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 #[serde(tag = "type", content = "content")]
 pub enum PassingScoreOptions {
     ConstantScore(f32),
@@ -500,6 +511,7 @@ impl From<data::PassingScoreOptions> for PassingScoreOptions {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct MasteryWindow {
     pub percentage: f32,
     #[typeshare(serialized_as = "Vec<f32>")]
@@ -527,6 +539,7 @@ impl From<data::MasteryWindow> for MasteryWindow {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct SchedulerOptions {
     #[typeshare(serialized_as = "u32")]
     pub batch_size: usize,
@@ -573,6 +586,7 @@ impl From<data::SchedulerOptions> for SchedulerOptions {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct SchedulerPreferences {
     #[serde(default)]
     #[typeshare(serialized_as = "Option<u32>")]
@@ -598,6 +612,7 @@ impl From<data::SchedulerPreferences> for SchedulerPreferences {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct RepositoryMetadata {
     pub id: String,
     pub url: String,
@@ -624,6 +639,7 @@ impl From<data::RepositoryMetadata> for RepositoryMetadata {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct UserPreferences {
     #[serde(default)]
     pub improvisation: Option<ImprovisationPreferences>,

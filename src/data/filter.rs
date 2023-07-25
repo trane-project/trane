@@ -18,6 +18,7 @@ use crate::data::GetMetadata;
 
 /// The logical operation used to combine multiple filters.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub enum FilterOp {
     /// A filter returns true if all its sub-filters pass.
     All,
@@ -28,6 +29,7 @@ pub enum FilterOp {
 
 /// The type of filter according to whether the units which match are included or excluded.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub enum FilterType {
     /// A filter which includes the units that match it.
     Include,
@@ -38,6 +40,7 @@ pub enum FilterType {
 
 /// A filter on course or lesson metadata.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub enum KeyValueFilter {
     /// A basic filter that matches a key value pair.
     BasicFilter {
@@ -116,6 +119,7 @@ impl KeyValueFilter {
 
 /// A filter on course and/or lesson metadata.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct MetadataFilter {
     /// The filter to apply on course metadata.
     #[serde(default)]
@@ -132,6 +136,7 @@ pub struct MetadataFilter {
 // grcov-excl-start: Code coverage for this struct is flaky for some unknown reason.
 /// A filter on a course or lesson manifest.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub enum UnitFilter {
     /// A filter to show exercises belonging to the given courses.
     CourseFilter {
@@ -259,6 +264,7 @@ impl UnitFilter {
 //@<saved-filter
 /// A saved filter for easy reference.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct SavedFilter {
     /// A unique ID for the filter.
     pub id: String,
@@ -276,6 +282,7 @@ pub struct SavedFilter {
 /// [UnitFilter](crate::data::filter::UnitFilter) defined inline or a reference to a
 /// [SavedFilter](crate::data::filter::SavedFilter).
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub enum SessionPart {
     /// A part of the study session that uses a filter defined inline.
     UnitFilter {
@@ -316,6 +323,7 @@ impl SessionPart {
 /// long. For example, a student learning to play piano and guitar could define a session that
 /// spends 30 minutes on exercises for piano, and 30 minutes on exercises for guitar.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct StudySession {
     /// A unique identifier for the study session.
     pub id: String,
@@ -332,6 +340,7 @@ pub struct StudySession {
 /// A specific instance of a study session. It contains the start time of the session and its
 /// definition so that the scheduler knows the progress of the session.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct StudySessionData {
     /// The start time of the session.
     pub start_time: DateTime<Utc>,
@@ -372,6 +381,7 @@ impl StudySessionData {
 /// A set of options to control which exercises should be considered to be included in the final
 /// batch.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub enum ExerciseFilter {
     /// Select exercises based on a unit filter.
     UnitFilter(UnitFilter),
