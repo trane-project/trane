@@ -30,6 +30,7 @@ use constants::*;
 
 /// A link to an external resource for a transcription asset.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub enum TranscriptionLink {
     /// A link to a YouTube video.
     YouTube(String),
@@ -46,6 +47,7 @@ impl TranscriptionLink {
 
 /// An asset used for the transcription course generator.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub enum TranscriptionAsset {
     /// A track of recorded music that is not included along with the course. Used to reference
     /// commercial music for which there is no legal way to distribute the audio.
@@ -85,6 +87,7 @@ impl TranscriptionAsset {
 
 /// A collection of passages from a track that can be used for a transcription course.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct TranscriptionPassages {
     /// The asset to transcribe.
     pub asset: TranscriptionAsset,
@@ -154,6 +157,7 @@ impl TranscriptionPassages {
 
 /// Settings for generating a new transcription course that are specific to a user.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct TranscriptionPreferences {
     /// The list of instruments the user wants to practice.
     #[serde(default)]
@@ -162,6 +166,7 @@ pub struct TranscriptionPreferences {
 
 /// The configuration used to generate a transcription course.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct TranscriptionConfig {
     /// The dependencies on other transcription courses. Specifying these dependencies here instead
     /// of the [CourseManifest](crate::data::CourseManifest) allows Trane to generate more
