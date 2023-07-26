@@ -687,8 +687,8 @@ impl Default for PassingScoreOptions {
     fn default() -> Self {
         PassingScoreOptions::IncreasingScore {
             starting_score: 3.50,
-            step_size: 0.05,
-            max_steps: 5,
+            step_size: 0.01,
+            max_steps: 25,
         }
     }
 }
@@ -1268,10 +1268,11 @@ mod test {
 
         let options = PassingScoreOptions::default();
         assert_eq!(options.compute_score(0), 3.50);
-        assert_eq!(options.compute_score(1), 3.55);
-        assert_eq!(options.compute_score(2), 3.60);
-        assert_eq!(options.compute_score(5), 3.75);
-        assert_eq!(options.compute_score(10), 3.75);
+        assert_eq!(options.compute_score(1), 3.51);
+        assert_eq!(options.compute_score(2), 3.52);
+        assert_eq!(options.compute_score(5), 3.55);
+        assert_eq!(options.compute_score(25), 3.75);
+        assert_eq!(options.compute_score(50), 3.75);
         // Clone the score for code coverage.
         assert_eq!(options, options.clone());
     }

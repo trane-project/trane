@@ -360,11 +360,11 @@ impl DepthFirstScheduler {
         // Finally, dependencies with a score equal or greater than the passing score are considered
         // as satisfied.
         let score = self.score_cache.get_unit_score(dependency_id);
-        if score.is_err() || score.as_ref().unwrap().is_none() {
-            return true;
+        if let Ok(Some(score)) = score {
+            score >= self.data.options.passing_score.compute_score(depth)
+        } else {
+            true
         }
-        let avg_score = score.unwrap().unwrap();
-        avg_score >= self.data.options.passing_score.compute_score(depth)
     }
 
     /// Returns whether all the dependencies of the given unit are satisfied.
