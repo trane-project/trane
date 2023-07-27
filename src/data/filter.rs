@@ -170,7 +170,8 @@ impl KeyValueFilter {
         }
     }
 
-    /// Applies the filter to the lesson with the given manifest.
+    /// Applies the filter to the lesson with the given manifest. The function also takes the
+    /// manifest of the lesson's course to exclude lessons whose course do not match the filter.
     pub fn apply_to_lesson(
         &self,
         course_manifest: &impl GetMetadata,
@@ -613,7 +614,7 @@ mod test {
         Ok(())
     }
 
-    /// Verifies correctly applying a course filter to a lesson.
+    /// Verifies correctly applying a course filter to a lesson that does not match the filter.
     #[test]
     fn apply_course_filter_to_lesson_no_match() -> Result<()> {
         let course_metadata = BTreeMap::from([
@@ -652,7 +653,7 @@ mod test {
         Ok(())
     }
 
-    /// Verifies correctly applying a lesson filter to a lesson.
+    /// Verifies correctly applying a lesson filter to a lesson that does not match the filter.
     #[test]
     fn apply_lesson_filter_to_lesson_no_match() -> Result<()> {
         let course_metadata = BTreeMap::from([
@@ -893,6 +894,47 @@ mod test {
                     key: "key2".to_string(),
                     value: "value5".to_string(),
                     filter_type: FilterType::Include,
+                },
+            ],
+        };
+        assert!(!filter.apply_to_course(&metadata));
+        Ok(())
+    }
+
+    /// Verifies applying a combined key-value filter containing a nested combined filter with the
+    /// Any operator to a course.
+    #[test]
+    fn apply_combined_any_filter_with_combined_filter_to_course() -> Result<()> {
+        let metadata = BTreeMap::from([
+            (
+                "key1".to_string(),
+                vec!["value1".to_string(), "value2".to_string()],
+            ),
+            (
+                "key2".to_string(),
+                vec!["value3".to_string(), "value4".to_string()],
+            ),
+        ]);
+        let filter = KeyValueFilter::CombinedFilter {
+            op: FilterOp::Any,
+            filters: vec![
+                KeyValueFilter::CourseFilter {
+                    key: "key1".to_string(),
+                    value: "value1".to_string(),
+                    filter_type: FilterType::Include,
+                },
+                KeyValueFilter::CourseFilter {
+                    key: "key2".to_string(),
+                    value: "value4".to_string(),
+                    filter_type: FilterType::Include,
+                },
+                KeyValueFilter::CombinedFilter {
+                    op: FilterOp::All,
+                    filters: vec![KeyValueFilter::CourseFilter {
+                        key: "key1".to_string(),
+                        value: "value2".to_string(),
+                        filter_type: FilterType::Include,
+                    }],
                 },
             ],
         };
