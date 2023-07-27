@@ -363,7 +363,7 @@ impl LocalCourseLibrary {
                 course_root,
                 &course_manifest,
                 &self.user_preferences,
-            )?;
+            )?; // grcov-excl-line
             for (lesson_manifest, exercise_manifests) in generated_course.lessons {
                 // All the generated lessons will use the root of the course as their root.
                 self.process_lesson_manifest(

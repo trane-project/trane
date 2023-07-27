@@ -101,6 +101,14 @@ mod test {
     /// Verifies converting a note to a string.
     #[test]
     fn to_string() {
+        assert_eq!(NaturalNote::A.to_string(), "A");
+        assert_eq!(NaturalNote::B.to_string(), "B");
+        assert_eq!(NaturalNote::C.to_string(), "C");
+        assert_eq!(NaturalNote::D.to_string(), "D");
+        assert_eq!(NaturalNote::E.to_string(), "E");
+        assert_eq!(NaturalNote::F.to_string(), "F");
+        assert_eq!(NaturalNote::G.to_string(), "G");
+
         assert_eq!(Note(NaturalNote::A, Accidental::Natural).to_string(), "A");
         assert_eq!(Note(NaturalNote::A, Accidental::Flat).to_string(), "A♭");
         assert_eq!(Note(NaturalNote::A, Accidental::Sharp).to_string(), "A♯");
