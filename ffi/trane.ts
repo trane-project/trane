@@ -7,18 +7,6 @@ export interface Instrument {
 	id: string;
 }
 
-export interface ImprovisationConfig {
-	improvisation_dependencies?: string[];
-	rhythm_only?: boolean;
-	passage_directory: string;
-	file_extensions: string[];
-}
-
-export interface ImprovisationPreferences {
-	instruments?: Instrument[];
-	rhythm_instruments?: Instrument[];
-}
-
 export interface KnowledgeBaseConfig {
 }
 
@@ -130,7 +118,6 @@ export type BasicAsset =
 }};
 
 export type CourseGenerator = 
-	| { type: "Improvisation", content: ImprovisationConfig }
 	| { type: "KnowledgeBase", content: KnowledgeBaseConfig }
 	| { type: "MusicPiece", content: MusicPieceConfig }
 	| { type: "Transcription", content: TranscriptionConfig };
@@ -219,7 +206,6 @@ export interface RepositoryMetadata {
 }
 
 export interface UserPreferences {
-	improvisation?: ImprovisationPreferences;
 	transcription?: TranscriptionPreferences;
 	scheduler?: SchedulerPreferences;
 	ignored_paths?: string[];

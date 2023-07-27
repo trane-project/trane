@@ -14,7 +14,6 @@ use std::{collections::BTreeMap, path::Path};
 use ustr::Ustr;
 
 use self::course_generator::{
-    improvisation::{ImprovisationConfig, ImprovisationPreferences},
     knowledge_base::KnowledgeBaseConfig,
     music_piece::MusicPieceConfig,
     transcription::{TranscriptionConfig, TranscriptionPreferences},
@@ -215,9 +214,6 @@ impl VerifyPaths for BasicAsset {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub enum CourseGenerator {
-    /// The configuration for generating an improvisation course.
-    Improvisation(ImprovisationConfig),
-
     /// The configuration for generating a knowledge base course. Currently, there are no
     /// configuration options, but the struct was added to implement the [GenerateManifests] trait
     /// and for future extensibility.
@@ -262,9 +258,6 @@ impl GenerateManifests for CourseGenerator {
         preferences: &UserPreferences,
     ) -> Result<GeneratedCourse> {
         match self {
-            CourseGenerator::Improvisation(config) => {
-                config.generate_manifests(course_root, course_manifest, preferences)
-            }
             CourseGenerator::KnowledgeBase(config) => {
                 config.generate_manifests(course_root, course_manifest, preferences)
             }
@@ -907,10 +900,6 @@ pub struct RepositoryMetadata {
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct UserPreferences {
-    /// The preferences for generating improvisation courses.
-    #[serde(default)]
-    pub improvisation: Option<ImprovisationPreferences>,
-
     /// The preferences for generating transcription courses.
     #[serde(default)]
     pub transcription: Option<TranscriptionPreferences>,
@@ -1300,10 +1289,6 @@ mod test {
     #[test]
     fn user_preferences_clone() {
         let preferences = UserPreferences {
-            improvisation: Some(ImprovisationPreferences {
-                instruments: vec![],
-                rhythm_instruments: vec![],
-            }),
             transcription: Some(TranscriptionPreferences {
                 instruments: vec![],
             }),
