@@ -42,8 +42,20 @@ pub enum FilterType {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub enum KeyValueFilter {
-    /// A basic filter that matches a key value pair.
-    BasicFilter {
+    /// A basic filter that matches a key value pair in the course's metadata.
+    CourseFilter {
+        /// The key to filter.
+        key: String,
+
+        /// The value to filter.
+        value: String,
+
+        /// Whether units which match the filter should be included or excluded.
+        filter_type: FilterType,
+    },
+
+    /// A basic filter that matches a key value pair in the lesson's metadata.
+    LessonFilter {
         /// The key to filter.
         key: String,
 
@@ -90,47 +102,116 @@ impl KeyValueFilter {
         }
     }
 
-    /// Applies the filter to the given manifest.
-    pub fn apply(&self, manifest: &impl GetMetadata) -> bool {
+    /// Applies the filter to the course with the given manifest.
+    pub fn apply_to_course(&self, course_manifest: &impl GetMetadata) -> bool {
         let default_metadata = BTreeMap::default();
-        let metadata = manifest.get_metadata().unwrap_or(&default_metadata);
+        let course_metadata = course_manifest.get_metadata().unwrap_or(&default_metadata);
 
         match self {
-            KeyValueFilter::BasicFilter {
+            KeyValueFilter::CourseFilter {
                 key,
                 value,
                 filter_type,
             } => {
-                // Return whether the unit passes the single key-value filter.
-                KeyValueFilter::passes_filter(metadata, key, value, filter_type.clone())
+                // Compare the course's metadata against the filter.
+                KeyValueFilter::passes_filter(course_metadata, key, value, filter_type.clone())
+            }
+            KeyValueFilter::LessonFilter { .. } => {
+                // Return false because this filter is not applicable to courses. The course will be
+                // skipped and the decision will be made based on the lesson's metadata.
+                false
             }
             KeyValueFilter::CombinedFilter { op, filters } => {
-                // Apply each filter individually and combine the results based on the logical
-                // operation.
-                let mut results = filters.iter().map(|f| f.apply(manifest));
+                // Separate the course filters from the list of filters.
+                let course_filters = filters
+                    .iter()
+                    .filter(|f| matches!(f, KeyValueFilter::CourseFilter { .. }))
+                    .collect::<Vec<_>>();
+                let other_filters = filters
+                    .iter()
+                    .filter(|f| !matches!(f, KeyValueFilter::CourseFilter { .. }))
+                    .collect::<Vec<_>>();
+
+                // Apply each course filter individually and combine the results based on the
+                // logical operation. Do the same for the other filters.
+                let course_result = match *op {
+                    FilterOp::All => course_filters
+                        .iter()
+                        .map(|f| f.apply_to_course(course_manifest))
+                        .all(|x| x),
+                    FilterOp::Any => course_filters
+                        .iter()
+                        .map(|f| f.apply_to_course(course_manifest))
+                        .any(|x| x),
+                };
+                let other_result = match *op {
+                    FilterOp::All => other_filters
+                        .iter()
+                        .map(|f| f.apply_to_course(course_manifest))
+                        .all(|x| x),
+                    FilterOp::Any => other_filters
+                        .iter()
+                        .map(|f| f.apply_to_course(course_manifest))
+                        .any(|x| x),
+                };
+
+                // If there were only course filters, return that result as is.
+                if other_filters.is_empty() {
+                    return course_result;
+                }
+
+                // Otherwise, return false if the operation is `Any` so that the course is skipped
+                // and the decision is made based on the lesson.
                 match *op {
-                    FilterOp::All => results.all(|x| x),
-                    FilterOp::Any => results.any(|x| x),
+                    FilterOp::All => course_result && other_result,
+                    FilterOp::Any => false,
                 }
             }
         }
     }
-}
 
-/// A filter on course and/or lesson metadata.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct MetadataFilter {
-    /// The filter to apply on course metadata.
-    #[serde(default)]
-    pub course_filter: Option<KeyValueFilter>,
+    /// Applies the filter to the lesson with the given manifest.
+    pub fn apply_to_lesson(
+        &self,
+        course_manifest: &impl GetMetadata,
+        lesson_manifest: &impl GetMetadata,
+    ) -> bool {
+        let default_metadata = BTreeMap::default();
+        let course_metadata = course_manifest.get_metadata().unwrap_or(&default_metadata);
+        let lesson_metadata = lesson_manifest.get_metadata().unwrap_or(&default_metadata);
 
-    /// The filter to apply on lesson metadata.
-    #[serde(default)]
-    pub lesson_filter: Option<KeyValueFilter>,
-
-    /// The logical operation used to combine the course and lesson filters.
-    pub op: FilterOp,
+        match self {
+            KeyValueFilter::CourseFilter {
+                key,
+                value,
+                filter_type,
+            } => {
+                // Compare the course's metadata against the filter.
+                KeyValueFilter::passes_filter(course_metadata, key, value, filter_type.clone())
+            }
+            KeyValueFilter::LessonFilter {
+                key,
+                value,
+                filter_type,
+            } => {
+                // Compare the lesson's metadata against the filter.
+                KeyValueFilter::passes_filter(lesson_metadata, key, value, filter_type.clone())
+            }
+            KeyValueFilter::CombinedFilter { op, filters } => {
+                // Combine the filters using the given logical operation.
+                match *op {
+                    FilterOp::All => filters
+                        .iter()
+                        .map(|f| f.apply_to_lesson(course_manifest, lesson_manifest))
+                        .all(|x| x),
+                    FilterOp::Any => filters
+                        .iter()
+                        .map(|f| f.apply_to_lesson(course_manifest, lesson_manifest))
+                        .any(|x| x),
+                }
+            }
+        }
+    }
 }
 
 // grcov-excl-start: Code coverage for this struct is flaky for some unknown reason.
@@ -153,7 +234,7 @@ pub enum UnitFilter {
     /// A filter on the metadata of a course or lesson.
     MetadataFilter {
         /// The filter to apply to the course or lesson metadata.
-        filter: MetadataFilter,
+        filter: KeyValueFilter,
     },
 
     /// A filter that indicates only exercises from the review list should be scheduled.
@@ -190,73 +271,6 @@ impl UnitFilter {
         match self {
             UnitFilter::LessonFilter { lesson_ids } => lesson_ids.contains(lesson_id),
             _ => false,
-        }
-    }
-
-    /// Returns whether the course with the given metadata passes the metadata filter.
-    pub fn course_passes_metadata_filter(
-        filter: &MetadataFilter,
-        course_manifest: &impl GetMetadata,
-    ) -> bool {
-        // Apply the course filter to the metadata.
-        let course_passes = filter
-            .course_filter
-            .as_ref()
-            .map(|course_filter| course_filter.apply(course_manifest));
-
-        // Decide how to proceed based on the values of the course and lesson filters.
-        match (&filter.course_filter, &filter.lesson_filter) {
-            // There's no lesson nor course filter, so the course passes the filter.
-            (None, None) => true,
-            // There's only a course filter, so return whether the course passed the filter.
-            (Some(_), None) => course_passes.unwrap_or(false),
-            // There's only a lesson filter. Return false so that the course is skipped, and the
-            // decision is made based on the lesson.
-            (None, Some(_)) => false,
-            // There's both a lesson and course filter. The behavior depends on the logical op used
-            // in the filter.
-            (Some(_), Some(_)) => match filter.op {
-                // If the op is All, return whether the course passed the filter.
-                FilterOp::All => course_passes.unwrap_or(false),
-                // If the op is Any, return false so that the course is skipped and the decision is
-                // made based on the lesson.
-                FilterOp::Any => false,
-            },
-        }
-    }
-
-    /// Returns whether the lesson with the given lesson and course metadata passes the filter.
-    pub fn lesson_passes_metadata_filter(
-        filter: &MetadataFilter,
-        course_manifest: &impl GetMetadata,
-        lesson_manifest: &impl GetMetadata,
-    ) -> bool {
-        // Apply the course and lesson filters to the course and lesson metadata.
-        let course_passes = filter
-            .course_filter
-            .as_ref()
-            .map(|course_filter| course_filter.apply(course_manifest));
-        let lesson_passes = filter
-            .lesson_filter
-            .as_ref()
-            .map(|lesson_filter| lesson_filter.apply(lesson_manifest));
-
-        // Decide how to proceed based on the values of the course and lesson filters.
-        match (&filter.course_filter, &filter.lesson_filter) {
-            // There's no lesson nor course filter, so the lesson passes the filter.
-            (None, None) => true,
-            // There's only a course filter, so return whether the course passed the filter.
-            (Some(_), None) => course_passes.unwrap_or(false),
-            // There's only a lesson filter, so return whether the lesson passed the filter.
-            (None, Some(_)) => lesson_passes.unwrap_or(false),
-            // There's both a lesson and course filter. The behavior depends on the logical op used
-            // in the filter.
-            (Some(_), Some(_)) => match filter.op {
-                // If the op is All, return whether the lesson and the course passed the filters.
-                FilterOp::All => lesson_passes.unwrap_or(false) && course_passes.unwrap_or(false),
-                // If the op is Any, return whether the lesson or the course passed the filter.
-                FilterOp::Any => lesson_passes.unwrap_or(false) || course_passes.unwrap_or(false),
-            },
         }
     }
 }
@@ -398,10 +412,7 @@ mod test {
     use ustr::Ustr;
 
     use crate::data::{
-        filter::{
-            FilterOp, FilterType, KeyValueFilter, MetadataFilter, SessionPart, StudySessionData,
-            UnitFilter,
-        },
+        filter::{FilterOp, FilterType, KeyValueFilter, SessionPart, StudySessionData, UnitFilter},
         GetMetadata,
     };
 
@@ -435,31 +446,9 @@ mod test {
         assert!(!filter.passes_course_filter(&"course1".into()));
     }
 
-    /// Verifies that a metadata filter with no course or lesson filter passes all courses and
-    /// lessons.
+    /// Verifies correctly applying a course filter to a course.
     #[test]
-    fn passes_metadata_filter_none() {
-        let filter = MetadataFilter {
-            course_filter: None,
-            lesson_filter: None,
-            op: FilterOp::Any,
-        };
-        let course_metadata = BTreeMap::new();
-        let lesson_metadata = BTreeMap::new();
-        assert!(UnitFilter::course_passes_metadata_filter(
-            &filter,
-            &course_metadata
-        ));
-        assert!(UnitFilter::lesson_passes_metadata_filter(
-            &filter,
-            &course_metadata,
-            &lesson_metadata
-        ));
-    }
-
-    /// Verifies correctly applying a basic key-value filter.
-    #[test]
-    fn apply_simple_filter() -> Result<()> {
+    fn apply_course_filter_to_course() -> Result<()> {
         let metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -470,25 +459,53 @@ mod test {
                 vec!["value3".to_string(), "value4".to_string()],
             ),
         ]);
-        let include_filter = KeyValueFilter::BasicFilter {
+        let include_filter = KeyValueFilter::CourseFilter {
             key: "key1".to_string(),
             value: "value1".to_string(),
             filter_type: FilterType::Include,
         };
-        assert!(include_filter.apply(&metadata));
-        let exclude_filter = KeyValueFilter::BasicFilter {
+        assert!(include_filter.apply_to_course(&metadata));
+        let exclude_filter = KeyValueFilter::CourseFilter {
             key: "key1".to_string(),
             value: "value1".to_string(),
             filter_type: FilterType::Exclude,
         };
-        assert!(!exclude_filter.apply(&metadata));
+        assert!(!exclude_filter.apply_to_course(&metadata));
         Ok(())
     }
 
-    /// Verifies applying a basic key-value filter to metadata that doesn't contain the required
-    /// keys or values.
+    /// Verifies applying a lesson filter to a course.
     #[test]
-    fn apply_simple_filter_no_match() -> Result<()> {
+    fn apply_lesson_filter_to_course() -> Result<()> {
+        let metadata = BTreeMap::from([
+            (
+                "key1".to_string(),
+                vec!["value1".to_string(), "value2".to_string()],
+            ),
+            (
+                "key2".to_string(),
+                vec!["value3".to_string(), "value4".to_string()],
+            ),
+        ]);
+        let include_filter = KeyValueFilter::LessonFilter {
+            key: "key1".to_string(),
+            value: "value1".to_string(),
+            filter_type: FilterType::Include,
+        };
+        assert!(!include_filter.apply_to_course(&metadata));
+        let exclude_filter = KeyValueFilter::LessonFilter {
+            key: "key1".to_string(),
+            value: "value1".to_string(),
+            filter_type: FilterType::Exclude,
+        };
+        assert!(!exclude_filter.apply_to_course(&metadata));
+        Ok(())
+    }
+
+    /// Verifies applying a course filter to a course with metadata that doesn't contain the
+    /// required keys or values.
+    #[test]
+    fn apply_course_filter_to_course_no_match() -> Result<()> {
         let metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -501,26 +518,182 @@ mod test {
         ]);
 
         // The key-value pair doesn't exist in the metadata so the filter should not apply.
-        let include_filter = KeyValueFilter::BasicFilter {
+        let include_filter = KeyValueFilter::CourseFilter {
             key: "key10".to_string(),
             value: "value1".to_string(),
             filter_type: FilterType::Include,
         };
-        assert!(!include_filter.apply(&metadata));
+        assert!(!include_filter.apply_to_course(&metadata));
 
         // The same key-value pair should apply to the exclude filter.
-        let exclude_filter = KeyValueFilter::BasicFilter {
+        let exclude_filter = KeyValueFilter::CourseFilter {
             key: "key10".to_string(),
             value: "value1".to_string(),
             filter_type: FilterType::Exclude,
         };
-        assert!(exclude_filter.apply(&metadata));
+        assert!(exclude_filter.apply_to_course(&metadata));
         Ok(())
     }
 
-    /// Verifies applying a combined key-value filter with the ALL operator.
+    /// Verifies correctly applying a course filter to a lesson.
     #[test]
-    fn apply_combined_all_filter() -> Result<()> {
+    fn apply_course_filter_to_lesson() -> Result<()> {
+        let course_metadata = BTreeMap::from([
+            (
+                "key1".to_string(),
+                vec!["value1".to_string(), "value2".to_string()],
+            ),
+            (
+                "key2".to_string(),
+                vec!["value3".to_string(), "value4".to_string()],
+            ),
+        ]);
+        let lesson_metadata = BTreeMap::from([
+            (
+                "key3".to_string(),
+                vec!["value5".to_string(), "value6".to_string()],
+            ),
+            (
+                "key4".to_string(),
+                vec!["value7".to_string(), "value8".to_string()],
+            ),
+        ]);
+
+        let include_filter = KeyValueFilter::CourseFilter {
+            key: "key1".to_string(),
+            value: "value1".to_string(),
+            filter_type: FilterType::Include,
+        };
+        assert!(include_filter.apply_to_lesson(&course_metadata, &lesson_metadata));
+        let exclude_filter = KeyValueFilter::CourseFilter {
+            key: "key1".to_string(),
+            value: "value1".to_string(),
+            filter_type: FilterType::Exclude,
+        };
+        assert!(!exclude_filter.apply_to_lesson(&course_metadata, &lesson_metadata));
+        Ok(())
+    }
+
+    /// Verifies correctly applying a lesson filter to a lesson.
+    #[test]
+    fn apply_lesson_filter_to_lesson() -> Result<()> {
+        let course_metadata = BTreeMap::from([
+            (
+                "key1".to_string(),
+                vec!["value1".to_string(), "value2".to_string()],
+            ),
+            (
+                "key2".to_string(),
+                vec!["value3".to_string(), "value4".to_string()],
+            ),
+        ]);
+        let lesson_metadata = BTreeMap::from([
+            (
+                "key3".to_string(),
+                vec!["value5".to_string(), "value6".to_string()],
+            ),
+            (
+                "key4".to_string(),
+                vec!["value7".to_string(), "value8".to_string()],
+            ),
+        ]);
+
+        let include_filter = KeyValueFilter::LessonFilter {
+            key: "key3".to_string(),
+            value: "value5".to_string(),
+            filter_type: FilterType::Include,
+        };
+        assert!(include_filter.apply_to_lesson(&course_metadata, &lesson_metadata));
+        let exclude_filter = KeyValueFilter::LessonFilter {
+            key: "key3".to_string(),
+            value: "value5".to_string(),
+            filter_type: FilterType::Exclude,
+        };
+        assert!(!exclude_filter.apply_to_lesson(&course_metadata, &lesson_metadata));
+        Ok(())
+    }
+
+    /// Verifies correctly applying a course filter to a lesson.
+    #[test]
+    fn apply_course_filter_to_lesson_no_match() -> Result<()> {
+        let course_metadata = BTreeMap::from([
+            (
+                "key1".to_string(),
+                vec!["value1".to_string(), "value2".to_string()],
+            ),
+            (
+                "key2".to_string(),
+                vec!["value3".to_string(), "value4".to_string()],
+            ),
+        ]);
+        let lesson_metadata = BTreeMap::from([
+            (
+                "key3".to_string(),
+                vec!["value5".to_string(), "value6".to_string()],
+            ),
+            (
+                "key4".to_string(),
+                vec!["value7".to_string(), "value8".to_string()],
+            ),
+        ]);
+
+        let include_filter = KeyValueFilter::CourseFilter {
+            key: "key3".to_string(),
+            value: "value1".to_string(),
+            filter_type: FilterType::Include,
+        };
+        assert!(!include_filter.apply_to_lesson(&course_metadata, &lesson_metadata));
+        let exclude_filter = KeyValueFilter::CourseFilter {
+            key: "key3".to_string(),
+            value: "value1".to_string(),
+            filter_type: FilterType::Exclude,
+        };
+        assert!(exclude_filter.apply_to_lesson(&course_metadata, &lesson_metadata));
+        Ok(())
+    }
+
+    /// Verifies correctly applying a lesson filter to a lesson.
+    #[test]
+    fn apply_lesson_filter_to_lesson_no_match() -> Result<()> {
+        let course_metadata = BTreeMap::from([
+            (
+                "key1".to_string(),
+                vec!["value1".to_string(), "value2".to_string()],
+            ),
+            (
+                "key2".to_string(),
+                vec!["value3".to_string(), "value4".to_string()],
+            ),
+        ]);
+        let lesson_metadata = BTreeMap::from([
+            (
+                "key3".to_string(),
+                vec!["value5".to_string(), "value6".to_string()],
+            ),
+            (
+                "key4".to_string(),
+                vec!["value7".to_string(), "value8".to_string()],
+            ),
+        ]);
+
+        let include_filter = KeyValueFilter::LessonFilter {
+            key: "key2".to_string(),
+            value: "value5".to_string(),
+            filter_type: FilterType::Include,
+        };
+        assert!(!include_filter.apply_to_lesson(&course_metadata, &lesson_metadata));
+        let exclude_filter = KeyValueFilter::LessonFilter {
+            key: "key2".to_string(),
+            value: "value5".to_string(),
+            filter_type: FilterType::Exclude,
+        };
+        assert!(exclude_filter.apply_to_lesson(&course_metadata, &lesson_metadata));
+        Ok(())
+    }
+
+    /// Verifies applying a combined key-value filter with the All operator to a course.
+    #[test]
+    fn apply_combined_all_filter_to_course() -> Result<()> {
         let metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -534,26 +707,26 @@ mod test {
         let filter = KeyValueFilter::CombinedFilter {
             op: FilterOp::All,
             filters: vec![
-                KeyValueFilter::BasicFilter {
+                KeyValueFilter::CourseFilter {
                     key: "key1".to_string(),
                     value: "value1".to_string(),
                     filter_type: FilterType::Include,
                 },
-                KeyValueFilter::BasicFilter {
+                KeyValueFilter::CourseFilter {
                     key: "key2".to_string(),
                     value: "value4".to_string(),
                     filter_type: FilterType::Include,
                 },
             ],
         };
-        assert!(filter.apply(&metadata));
+        assert!(filter.apply_to_course(&metadata));
         Ok(())
     }
 
-    /// Verifies applying a combined key-value filter with the ALL operator to a key-value pair that
-    /// does not pass the filter.
+    /// Verifies applying a combined key-value filter containing a lesson filter with the All
+    /// operator to a course.
     #[test]
-    fn apply_combined_all_filter_no_match() -> Result<()> {
+    fn apply_combined_all_filter_with_lesson_filter_to_course() -> Result<()> {
         let metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -567,25 +740,31 @@ mod test {
         let filter = KeyValueFilter::CombinedFilter {
             op: FilterOp::All,
             filters: vec![
-                KeyValueFilter::BasicFilter {
+                KeyValueFilter::CourseFilter {
                     key: "key1".to_string(),
                     value: "value1".to_string(),
                     filter_type: FilterType::Include,
                 },
-                KeyValueFilter::BasicFilter {
+                KeyValueFilter::CourseFilter {
                     key: "key2".to_string(),
+                    value: "value4".to_string(),
+                    filter_type: FilterType::Include,
+                },
+                KeyValueFilter::LessonFilter {
+                    key: "key3".to_string(),
                     value: "value5".to_string(),
                     filter_type: FilterType::Include,
                 },
             ],
         };
-        assert!(!filter.apply(&metadata));
+        assert!(!filter.apply_to_course(&metadata));
         Ok(())
     }
 
-    /// Verifies applying a combined key-value filter with the ANY operator.
+    /// Verifies applying a combined key-value filter containing a nested combined filter with the
+    /// All operator to a course.
     #[test]
-    fn apply_combined_any_filter() -> Result<()> {
+    fn apply_combined_all_filter_with_combined_filter_to_course() -> Result<()> {
         let metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -597,28 +776,68 @@ mod test {
             ),
         ]);
         let filter = KeyValueFilter::CombinedFilter {
-            op: FilterOp::Any,
+            op: FilterOp::All,
             filters: vec![
-                KeyValueFilter::BasicFilter {
+                KeyValueFilter::CourseFilter {
                     key: "key1".to_string(),
                     value: "value1".to_string(),
                     filter_type: FilterType::Include,
                 },
-                KeyValueFilter::BasicFilter {
+                KeyValueFilter::CourseFilter {
                     key: "key2".to_string(),
-                    value: "value5".to_string(),
+                    value: "value4".to_string(),
                     filter_type: FilterType::Include,
+                },
+                KeyValueFilter::CombinedFilter {
+                    op: FilterOp::All,
+                    filters: vec![KeyValueFilter::CourseFilter {
+                        key: "key1".to_string(),
+                        value: "value2".to_string(),
+                        filter_type: FilterType::Include,
+                    }],
                 },
             ],
         };
-        assert!(filter.apply(&metadata));
+        assert!(filter.apply_to_course(&metadata));
         Ok(())
     }
 
-    /// Verifies applying a combined key-value filter with the ANY operator to a key-value pair that
+    /// Verifies applying a combined key-value filter with the All operator to a key-value pair that
     /// does not pass the filter.
     #[test]
-    fn apply_combined_any_filter_no_match() -> Result<()> {
+    fn apply_combined_all_filter_to_course_no_match() -> Result<()> {
+        let metadata = BTreeMap::from([
+            (
+                "key1".to_string(),
+                vec!["value1".to_string(), "value2".to_string()],
+            ),
+            (
+                "key2".to_string(),
+                vec!["value3".to_string(), "value4".to_string()],
+            ),
+        ]);
+        let filter = KeyValueFilter::CombinedFilter {
+            op: FilterOp::All,
+            filters: vec![
+                KeyValueFilter::CourseFilter {
+                    key: "key1".to_string(),
+                    value: "value1".to_string(),
+                    filter_type: FilterType::Include,
+                },
+                KeyValueFilter::CourseFilter {
+                    key: "key2".to_string(),
+                    value: "value5".to_string(),
+                    filter_type: FilterType::Include,
+                },
+            ],
+        };
+        assert!(!filter.apply_to_course(&metadata));
+        Ok(())
+    }
+
+    /// Verifies applying a combined key-value filter with the Any operator to a course.
+    #[test]
+    fn apply_combined_any_filter_to_course() -> Result<()> {
         let metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -632,19 +851,226 @@ mod test {
         let filter = KeyValueFilter::CombinedFilter {
             op: FilterOp::Any,
             filters: vec![
-                KeyValueFilter::BasicFilter {
+                KeyValueFilter::CourseFilter {
+                    key: "key1".to_string(),
+                    value: "value1".to_string(),
+                    filter_type: FilterType::Include,
+                },
+                KeyValueFilter::CourseFilter {
+                    key: "key2".to_string(),
+                    value: "value5".to_string(),
+                    filter_type: FilterType::Include,
+                },
+            ],
+        };
+        assert!(filter.apply_to_course(&metadata));
+        Ok(())
+    }
+
+    /// Verifies applying a combined key-value filter with the Any operator to a course that
+    /// does not pass the filter.
+    #[test]
+    fn apply_combined_any_filter_to_course_no_match() -> Result<()> {
+        let metadata = BTreeMap::from([
+            (
+                "key1".to_string(),
+                vec!["value1".to_string(), "value2".to_string()],
+            ),
+            (
+                "key2".to_string(),
+                vec!["value3".to_string(), "value4".to_string()],
+            ),
+        ]);
+        let filter = KeyValueFilter::CombinedFilter {
+            op: FilterOp::Any,
+            filters: vec![
+                KeyValueFilter::CourseFilter {
                     key: "key1".to_string(),
                     value: "value3".to_string(),
                     filter_type: FilterType::Include,
                 },
-                KeyValueFilter::BasicFilter {
+                KeyValueFilter::CourseFilter {
                     key: "key2".to_string(),
                     value: "value5".to_string(),
                     filter_type: FilterType::Include,
                 },
             ],
         };
-        assert!(!filter.apply(&metadata));
+        assert!(!filter.apply_to_course(&metadata));
+        Ok(())
+    }
+
+    /// Verifies applying a combined key-value filter with the All operator to a lesson.
+    #[test]
+    fn apply_combined_all_filter_to_lesson() -> Result<()> {
+        let course_metadata = BTreeMap::from([
+            (
+                "key1".to_string(),
+                vec!["value1".to_string(), "value2".to_string()],
+            ),
+            (
+                "key2".to_string(),
+                vec!["value3".to_string(), "value4".to_string()],
+            ),
+        ]);
+        let lesson_metadata = BTreeMap::from([
+            (
+                "key3".to_string(),
+                vec!["value5".to_string(), "value6".to_string()],
+            ),
+            (
+                "key4".to_string(),
+                vec!["value7".to_string(), "value8".to_string()],
+            ),
+        ]);
+
+        let filter = KeyValueFilter::CombinedFilter {
+            op: FilterOp::All,
+            filters: vec![
+                KeyValueFilter::CourseFilter {
+                    key: "key1".to_string(),
+                    value: "value1".to_string(),
+                    filter_type: FilterType::Include,
+                },
+                KeyValueFilter::LessonFilter {
+                    key: "key3".to_string(),
+                    value: "value6".to_string(),
+                    filter_type: FilterType::Include,
+                },
+            ],
+        };
+        assert!(filter.apply_to_lesson(&course_metadata, &lesson_metadata));
+        Ok(())
+    }
+
+    /// Verifies applying a combined key-value filter with the All operator to a lesson that does
+    /// not match.
+    #[test]
+    fn apply_combined_all_filter_to_lesson_no_match() -> Result<()> {
+        let course_metadata = BTreeMap::from([
+            (
+                "key1".to_string(),
+                vec!["value1".to_string(), "value2".to_string()],
+            ),
+            (
+                "key2".to_string(),
+                vec!["value3".to_string(), "value4".to_string()],
+            ),
+        ]);
+        let lesson_metadata = BTreeMap::from([
+            (
+                "key3".to_string(),
+                vec!["value5".to_string(), "value6".to_string()],
+            ),
+            (
+                "key4".to_string(),
+                vec!["value7".to_string(), "value8".to_string()],
+            ),
+        ]);
+
+        let filter = KeyValueFilter::CombinedFilter {
+            op: FilterOp::All,
+            filters: vec![
+                KeyValueFilter::CourseFilter {
+                    key: "key1".to_string(),
+                    value: "value8".to_string(),
+                    filter_type: FilterType::Include,
+                },
+                KeyValueFilter::LessonFilter {
+                    key: "key3".to_string(),
+                    value: "value6".to_string(),
+                    filter_type: FilterType::Include,
+                },
+            ],
+        };
+        assert!(!filter.apply_to_lesson(&course_metadata, &lesson_metadata));
+        Ok(())
+    }
+
+    /// Verifies applying a combined key-value filter with the Any operator to a lesson.
+    #[test]
+    fn apply_combined_any_filter_to_lesson() -> Result<()> {
+        let course_metadata = BTreeMap::from([
+            (
+                "key1".to_string(),
+                vec!["value1".to_string(), "value2".to_string()],
+            ),
+            (
+                "key2".to_string(),
+                vec!["value3".to_string(), "value4".to_string()],
+            ),
+        ]);
+        let lesson_metadata = BTreeMap::from([
+            (
+                "key3".to_string(),
+                vec!["value5".to_string(), "value6".to_string()],
+            ),
+            (
+                "key4".to_string(),
+                vec!["value7".to_string(), "value8".to_string()],
+            ),
+        ]);
+
+        let filter = KeyValueFilter::CombinedFilter {
+            op: FilterOp::Any,
+            filters: vec![
+                KeyValueFilter::CourseFilter {
+                    key: "key1".to_string(),
+                    value: "value1".to_string(),
+                    filter_type: FilterType::Include,
+                },
+                KeyValueFilter::LessonFilter {
+                    key: "key3".to_string(),
+                    value: "value1".to_string(),
+                    filter_type: FilterType::Include,
+                },
+            ],
+        };
+        assert!(filter.apply_to_lesson(&course_metadata, &lesson_metadata));
+        Ok(())
+    }
+
+    /// Verifies applying a combined key-value filter with the Any operator to a lesson that does
+    /// not match.
+    #[test]
+    fn apply_combined_any_filter_to_lesson_no_match() -> Result<()> {
+        let course_metadata = BTreeMap::from([
+            (
+                "key1".to_string(),
+                vec!["value1".to_string(), "value2".to_string()],
+            ),
+            (
+                "key2".to_string(),
+                vec!["value3".to_string(), "value4".to_string()],
+            ),
+        ]);
+        let lesson_metadata = BTreeMap::from([
+            (
+                "key3".to_string(),
+                vec!["value5".to_string(), "value6".to_string()],
+            ),
+            (
+                "key4".to_string(),
+                vec!["value7".to_string(), "value8".to_string()],
+            ),
+        ]);
+
+        let filter = KeyValueFilter::CombinedFilter {
+            op: FilterOp::Any,
+            filters: vec![
+                KeyValueFilter::CourseFilter {
+                    key: "key1".to_string(),
+                    value: "value8".to_string(),
+                    filter_type: FilterType::Include,
+                },
+                KeyValueFilter::LessonFilter {
+                    key: "key3".to_string(),
+                    value: "value2".to_string(),
+                    filter_type: FilterType::Include,
+                },
+            ],
+        };
+        assert!(!filter.apply_to_lesson(&course_metadata, &lesson_metadata));
         Ok(())
     }
 
@@ -663,10 +1089,10 @@ mod test {
         assert_eq!(filter.clone(), filter);
 
         let filter = UnitFilter::MetadataFilter {
-            filter: MetadataFilter {
-                course_filter: None,
-                lesson_filter: None,
-                op: FilterOp::Any,
+            filter: KeyValueFilter::CourseFilter {
+                key: "key".into(),
+                value: "value".into(),
+                filter_type: FilterType::Include,
             },
         };
         assert_eq!(filter.clone(), filter);

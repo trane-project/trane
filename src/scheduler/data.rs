@@ -10,7 +10,7 @@ use crate::{
     blacklist::{Blacklist, BlacklistDB},
     course_library::{CourseLibrary, LocalCourseLibrary},
     data::{
-        filter::{MetadataFilter, SavedFilter, SessionPart, StudySessionData, UnitFilter},
+        filter::{KeyValueFilter, SavedFilter, SessionPart, StudySessionData, UnitFilter},
         CourseManifest, ExerciseManifest, LessonManifest, SchedulerOptions, UnitType,
     },
     filter_manager::{FilterManager, LocalFilterManager},
@@ -206,7 +206,7 @@ impl SchedulerData {
     pub fn unit_passes_filter(
         &self,
         unit_id: &Ustr,
-        metadata_filter: Option<&MetadataFilter>,
+        metadata_filter: Option<&KeyValueFilter>,
     ) -> Result<bool> {
         // All units pass if there is no filter.
         if metadata_filter.is_none() {
@@ -224,10 +224,10 @@ impl SchedulerData {
             UnitType::Course => {
                 // Retrieve the course manifest and check if the course passes the filter.
                 let course_manifest = self.get_course_manifest(unit_id)?;
-                Ok(UnitFilter::course_passes_metadata_filter(
-                    metadata_filter.as_ref().unwrap(),
-                    &course_manifest,
-                ))
+                Ok(metadata_filter
+                    .as_ref()
+                    .unwrap()
+                    .apply_to_course(&course_manifest))
             }
             UnitType::Lesson => {
                 // Retrieve the lesson and course manifests and check if the lesson passes the
@@ -235,11 +235,10 @@ impl SchedulerData {
                 let course_manifest =
                     self.get_course_manifest(&self.get_lesson_course(unit_id).unwrap_or_default())?;
                 let lesson_manifest = self.get_lesson_manifest(unit_id)?;
-                Ok(UnitFilter::lesson_passes_metadata_filter(
-                    metadata_filter.as_ref().unwrap(),
-                    &course_manifest,
-                    &lesson_manifest,
-                ))
+                Ok(metadata_filter
+                    .as_ref()
+                    .unwrap()
+                    .apply_to_lesson(&course_manifest, &lesson_manifest))
             }
         }
     }
@@ -303,8 +302,8 @@ mod test {
     use crate::{
         data::{
             filter::{
-                FilterOp, MetadataFilter, SavedFilter, SessionPart, StudySession, StudySessionData,
-                UnitFilter,
+                FilterType, KeyValueFilter, SavedFilter, SessionPart, StudySession,
+                StudySessionData, UnitFilter,
             },
             UnitType,
         },
@@ -397,10 +396,10 @@ mod test {
         let temp_dir = tempfile::tempdir()?;
         let library = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
         let scheduler_data = library.get_scheduler_data();
-        let metadata_filter = MetadataFilter {
-            course_filter: None,
-            lesson_filter: None,
-            op: FilterOp::Any,
+        let metadata_filter = KeyValueFilter::CourseFilter {
+            key: "key".into(),
+            value: "value".into(),
+            filter_type: FilterType::Include,
         };
         assert!(scheduler_data
             .unit_passes_filter(&Ustr::from("0::0::0"), Some(&metadata_filter))

@@ -198,92 +198,6 @@ public struct TranscriptionConfig: Codable {
 }
 
 
-/// Generated type representing the anonymous struct variant `BasicFilter` of the `KeyValueFilter` Rust enum
-public struct KeyValueFilterBasicFilterInner: Codable {
-	public let key: String
-	public let value: String
-	public let filter_type: FilterType
-
-	public init(key: String, value: String, filter_type: FilterType) {
-		self.key = key
-		self.value = value
-		self.filter_type = filter_type
-	}
-}
-
-/// Generated type representing the anonymous struct variant `CombinedFilter` of the `KeyValueFilter` Rust enum
-public struct KeyValueFilterCombinedFilterInner: Codable {
-	public let op: FilterOp
-	public let filters: [KeyValueFilter]
-
-	public init(op: FilterOp, filters: [KeyValueFilter]) {
-		self.op = op
-		self.filters = filters
-	}
-}
-public indirect enum KeyValueFilter: Codable {
-	case basicFilter(KeyValueFilterBasicFilterInner)
-	case combinedFilter(KeyValueFilterCombinedFilterInner)
-
-	enum CodingKeys: String, CodingKey, Codable {
-		case basicFilter = "BasicFilter",
-			combinedFilter = "CombinedFilter"
-	}
-
-	private enum ContainerCodingKeys: String, CodingKey {
-		case type, content
-	}
-
-	public init(from decoder: Decoder) throws {
-		let container = try decoder.container(keyedBy: ContainerCodingKeys.self)
-		if let type = try? container.decode(CodingKeys.self, forKey: .type) {
-			switch type {
-			case .basicFilter:
-				if let content = try? container.decode(KeyValueFilterBasicFilterInner.self, forKey: .content) {
-					self = .basicFilter(content)
-					return
-				}
-			case .combinedFilter:
-				if let content = try? container.decode(KeyValueFilterCombinedFilterInner.self, forKey: .content) {
-					self = .combinedFilter(content)
-					return
-				}
-			}
-		}
-		throw DecodingError.typeMismatch(KeyValueFilter.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for KeyValueFilter"))
-	}
-
-	public func encode(to encoder: Encoder) throws {
-		var container = encoder.container(keyedBy: ContainerCodingKeys.self)
-		switch self {
-		case .basicFilter(let content):
-			try container.encode(CodingKeys.basicFilter, forKey: .type)
-			try container.encode(content, forKey: .content)
-		case .combinedFilter(let content):
-			try container.encode(CodingKeys.combinedFilter, forKey: .type)
-			try container.encode(content, forKey: .content)
-		}
-	}
-}
-
-public enum FilterOp: String, Codable {
-	case all = "All"
-	case any = "Any"
-}
-
-public struct MetadataFilter: Codable {
-	public let course_filter: KeyValueFilter?
-	public let lesson_filter: KeyValueFilter?
-	public let op: FilterOp
-
-	public init(course_filter: KeyValueFilter?, lesson_filter: KeyValueFilter?, op: FilterOp) {
-		self.course_filter = course_filter
-		self.lesson_filter = lesson_filter
-		self.op = op
-	}
-}
-
-
 /// Generated type representing the anonymous struct variant `CourseFilter` of the `UnitFilter` Rust enum
 public struct UnitFilterCourseFilterInner: Codable {
 	public let course_ids: [String]
@@ -304,9 +218,9 @@ public struct UnitFilterLessonFilterInner: Codable {
 
 /// Generated type representing the anonymous struct variant `MetadataFilter` of the `UnitFilter` Rust enum
 public struct UnitFilterMetadataFilterInner: Codable {
-	public let filter: MetadataFilter
+	public let filter: KeyValueFilter
 
-	public init(filter: MetadataFilter) {
+	public init(filter: KeyValueFilter) {
 		self.filter = filter
 	}
 }
@@ -996,9 +910,106 @@ public enum TranscriptionLink: Codable {
 	}
 }
 
+public enum FilterOp: String, Codable {
+	case all = "All"
+	case any = "Any"
+}
+
 public enum FilterType: String, Codable {
 	case include = "Include"
 	case exclude = "Exclude"
+}
+
+
+/// Generated type representing the anonymous struct variant `CourseFilter` of the `KeyValueFilter` Rust enum
+public struct KeyValueFilterCourseFilterInner: Codable {
+	public let key: String
+	public let value: String
+	public let filter_type: FilterType
+
+	public init(key: String, value: String, filter_type: FilterType) {
+		self.key = key
+		self.value = value
+		self.filter_type = filter_type
+	}
+}
+
+/// Generated type representing the anonymous struct variant `LessonFilter` of the `KeyValueFilter` Rust enum
+public struct KeyValueFilterLessonFilterInner: Codable {
+	public let key: String
+	public let value: String
+	public let filter_type: FilterType
+
+	public init(key: String, value: String, filter_type: FilterType) {
+		self.key = key
+		self.value = value
+		self.filter_type = filter_type
+	}
+}
+
+/// Generated type representing the anonymous struct variant `CombinedFilter` of the `KeyValueFilter` Rust enum
+public struct KeyValueFilterCombinedFilterInner: Codable {
+	public let op: FilterOp
+	public let filters: [KeyValueFilter]
+
+	public init(op: FilterOp, filters: [KeyValueFilter]) {
+		self.op = op
+		self.filters = filters
+	}
+}
+public indirect enum KeyValueFilter: Codable {
+	case courseFilter(KeyValueFilterCourseFilterInner)
+	case lessonFilter(KeyValueFilterLessonFilterInner)
+	case combinedFilter(KeyValueFilterCombinedFilterInner)
+
+	enum CodingKeys: String, CodingKey, Codable {
+		case courseFilter = "CourseFilter",
+			lessonFilter = "LessonFilter",
+			combinedFilter = "CombinedFilter"
+	}
+
+	private enum ContainerCodingKeys: String, CodingKey {
+		case type, content
+	}
+
+	public init(from decoder: Decoder) throws {
+		let container = try decoder.container(keyedBy: ContainerCodingKeys.self)
+		if let type = try? container.decode(CodingKeys.self, forKey: .type) {
+			switch type {
+			case .courseFilter:
+				if let content = try? container.decode(KeyValueFilterCourseFilterInner.self, forKey: .content) {
+					self = .courseFilter(content)
+					return
+				}
+			case .lessonFilter:
+				if let content = try? container.decode(KeyValueFilterLessonFilterInner.self, forKey: .content) {
+					self = .lessonFilter(content)
+					return
+				}
+			case .combinedFilter:
+				if let content = try? container.decode(KeyValueFilterCombinedFilterInner.self, forKey: .content) {
+					self = .combinedFilter(content)
+					return
+				}
+			}
+		}
+		throw DecodingError.typeMismatch(KeyValueFilter.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for KeyValueFilter"))
+	}
+
+	public func encode(to encoder: Encoder) throws {
+		var container = encoder.container(keyedBy: ContainerCodingKeys.self)
+		switch self {
+		case .courseFilter(let content):
+			try container.encode(CodingKeys.courseFilter, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .lessonFilter(let content):
+			try container.encode(CodingKeys.lessonFilter, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .combinedFilter(let content):
+			try container.encode(CodingKeys.combinedFilter, forKey: .type)
+			try container.encode(content, forKey: .content)
+		}
+	}
 }
 
 public enum ExerciseFilter: Codable {
