@@ -587,7 +587,6 @@ mod test {
         // Test with no preferences.
         let user_preferences = UserPreferences {
             scheduler: None,
-            improvisation: None,
             transcription: None,
             ignored_paths: vec![],
         };
@@ -599,7 +598,6 @@ mod test {
             scheduler: Some(SchedulerPreferences {
                 batch_size: Some(10),
             }),
-            improvisation: None,
             transcription: None,
             ignored_paths: vec![],
         };

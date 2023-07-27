@@ -14,30 +14,6 @@ public struct Instrument: Codable {
 	}
 }
 
-public struct ImprovisationConfig: Codable {
-	public let improvisation_dependencies: [String]?
-	public let rhythm_only: Bool?
-	public let passage_directory: String
-	public let file_extensions: [String]
-
-	public init(improvisation_dependencies: [String]?, rhythm_only: Bool?, passage_directory: String, file_extensions: [String]) {
-		self.improvisation_dependencies = improvisation_dependencies
-		self.rhythm_only = rhythm_only
-		self.passage_directory = passage_directory
-		self.file_extensions = file_extensions
-	}
-}
-
-public struct ImprovisationPreferences: Codable {
-	public let instruments: [Instrument]?
-	public let rhythm_instruments: [Instrument]?
-
-	public init(instruments: [Instrument]?, rhythm_instruments: [Instrument]?) {
-		self.instruments = instruments
-		self.rhythm_instruments = rhythm_instruments
-	}
-}
-
 public struct KnowledgeBaseConfig: Codable {
 	public init() {}
 }
@@ -539,14 +515,12 @@ public enum BasicAsset: Codable {
 }
 
 public enum CourseGenerator: Codable {
-	case improvisation(ImprovisationConfig)
 	case knowledgeBase(KnowledgeBaseConfig)
 	case musicPiece(MusicPieceConfig)
 	case transcription(TranscriptionConfig)
 
 	enum CodingKeys: String, CodingKey, Codable {
-		case improvisation = "Improvisation",
-			knowledgeBase = "KnowledgeBase",
+		case knowledgeBase = "KnowledgeBase",
 			musicPiece = "MusicPiece",
 			transcription = "Transcription"
 	}
@@ -559,11 +533,6 @@ public enum CourseGenerator: Codable {
 		let container = try decoder.container(keyedBy: ContainerCodingKeys.self)
 		if let type = try? container.decode(CodingKeys.self, forKey: .type) {
 			switch type {
-			case .improvisation:
-				if let content = try? container.decode(ImprovisationConfig.self, forKey: .content) {
-					self = .improvisation(content)
-					return
-				}
 			case .knowledgeBase:
 				if let content = try? container.decode(KnowledgeBaseConfig.self, forKey: .content) {
 					self = .knowledgeBase(content)
@@ -587,9 +556,6 @@ public enum CourseGenerator: Codable {
 	public func encode(to encoder: Encoder) throws {
 		var container = encoder.container(keyedBy: ContainerCodingKeys.self)
 		switch self {
-		case .improvisation(let content):
-			try container.encode(CodingKeys.improvisation, forKey: .type)
-			try container.encode(content, forKey: .content)
 		case .knowledgeBase(let content):
 			try container.encode(CodingKeys.knowledgeBase, forKey: .type)
 			try container.encode(content, forKey: .content)
@@ -862,13 +828,11 @@ public struct RepositoryMetadata: Codable {
 }
 
 public struct UserPreferences: Codable {
-	public let improvisation: ImprovisationPreferences?
 	public let transcription: TranscriptionPreferences?
 	public let scheduler: SchedulerPreferences?
 	public let ignored_paths: [String]?
 
-	public init(improvisation: ImprovisationPreferences?, transcription: TranscriptionPreferences?, scheduler: SchedulerPreferences?, ignored_paths: [String]?) {
-		self.improvisation = improvisation
+	public init(transcription: TranscriptionPreferences?, scheduler: SchedulerPreferences?, ignored_paths: [String]?) {
 		self.transcription = transcription
 		self.scheduler = scheduler
 		self.ignored_paths = ignored_paths

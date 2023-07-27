@@ -5,20 +5,6 @@ data class Instrument (
 )
 
 @Serializable
-data class ImprovisationConfig (
-	val improvisation_dependencies: List<String>? = null,
-	val rhythm_only: Boolean? = null,
-	val passage_directory: String,
-	val file_extensions: List<String>
-)
-
-@Serializable
-data class ImprovisationPreferences (
-	val instruments: List<Instrument>? = null,
-	val rhythm_instruments: List<Instrument>? = null
-)
-
-@Serializable
 object KnowledgeBaseConfig
 
 @Serializable
@@ -228,9 +214,6 @@ sealed class BasicAsset {
 @Serializable
 sealed class CourseGenerator {
 	@Serializable
-	@SerialName("Improvisation")
-	data class Improvisation(val content: ImprovisationConfig): CourseGenerator()
-	@Serializable
 	@SerialName("KnowledgeBase")
 	data class KnowledgeBase(val content: KnowledgeBaseConfig): CourseGenerator()
 	@Serializable
@@ -362,7 +345,6 @@ data class RepositoryMetadata (
 
 @Serializable
 data class UserPreferences (
-	val improvisation: ImprovisationPreferences? = null,
 	val transcription: TranscriptionPreferences? = null,
 	val scheduler: SchedulerPreferences? = null,
 	val ignored_paths: List<String>? = null

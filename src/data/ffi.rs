@@ -172,7 +172,6 @@ impl From<data::BasicAsset> for BasicAsset {
 #[serde(deny_unknown_fields)]
 #[serde(tag = "type", content = "content")]
 pub enum CourseGenerator {
-    Improvisation(ImprovisationConfig),
     KnowledgeBase(KnowledgeBaseConfig),
     MusicPiece(MusicPieceConfig),
     Transcription(TranscriptionConfig),
@@ -181,7 +180,6 @@ pub enum CourseGenerator {
 impl From<CourseGenerator> for data::CourseGenerator {
     fn from(generator: CourseGenerator) -> Self {
         match generator {
-            CourseGenerator::Improvisation(config) => Self::Improvisation(config.into()),
             CourseGenerator::KnowledgeBase(config) => Self::KnowledgeBase(config.into()),
             CourseGenerator::MusicPiece(config) => Self::MusicPiece(config.into()),
             CourseGenerator::Transcription(config) => Self::Transcription(config.into()),
@@ -192,7 +190,6 @@ impl From<CourseGenerator> for data::CourseGenerator {
 impl From<data::CourseGenerator> for CourseGenerator {
     fn from(generator: data::CourseGenerator) -> Self {
         match generator {
-            data::CourseGenerator::Improvisation(config) => Self::Improvisation(config.into()),
             data::CourseGenerator::KnowledgeBase(config) => Self::KnowledgeBase(config.into()),
             data::CourseGenerator::MusicPiece(config) => Self::MusicPiece(config.into()),
             data::CourseGenerator::Transcription(config) => Self::Transcription(config.into()),
@@ -642,8 +639,6 @@ impl From<data::RepositoryMetadata> for RepositoryMetadata {
 #[serde(deny_unknown_fields)]
 pub struct UserPreferences {
     #[serde(default)]
-    pub improvisation: Option<ImprovisationPreferences>,
-    #[serde(default)]
     pub transcription: Option<TranscriptionPreferences>,
     #[serde(default)]
     pub scheduler: Option<SchedulerPreferences>,
@@ -654,7 +649,6 @@ pub struct UserPreferences {
 impl From<UserPreferences> for data::UserPreferences {
     fn from(preferences: UserPreferences) -> Self {
         Self {
-            improvisation: preferences.improvisation.map(Into::into),
             transcription: preferences.transcription.map(Into::into),
             scheduler: preferences.scheduler.map(Into::into),
             ignored_paths: preferences.ignored_paths,
@@ -665,7 +659,6 @@ impl From<UserPreferences> for data::UserPreferences {
 impl From<data::UserPreferences> for UserPreferences {
     fn from(preferences: data::UserPreferences) -> Self {
         Self {
-            improvisation: preferences.improvisation.map(Into::into),
             transcription: preferences.transcription.map(Into::into),
             scheduler: preferences.scheduler.map(Into::into),
             ignored_paths: preferences.ignored_paths,

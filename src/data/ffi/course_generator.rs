@@ -6,7 +6,6 @@ use typeshare::typeshare;
 use ustr::Ustr;
 
 use crate::data::course_generator;
-use crate::data::course_generator::improvisation;
 use crate::data::course_generator::knowledge_base;
 use crate::data::course_generator::music_piece;
 use crate::data::course_generator::transcription;
@@ -37,87 +36,6 @@ impl From<course_generator::Instrument> for Instrument {
         Self {
             name: instrument.name,
             id: instrument.id,
-        }
-    }
-}
-
-#[typeshare]
-#[allow(missing_docs)]
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct ImprovisationConfig {
-    #[serde(default)]
-    #[typeshare(serialized_as = "Vec<String>")]
-    pub improvisation_dependencies: Vec<Ustr>,
-    #[serde(default)]
-    pub rhythm_only: bool,
-    pub passage_directory: String,
-    pub file_extensions: Vec<String>,
-}
-
-impl From<ImprovisationConfig> for improvisation::ImprovisationConfig {
-    fn from(config: ImprovisationConfig) -> Self {
-        Self {
-            improvisation_dependencies: config.improvisation_dependencies,
-            rhythm_only: config.rhythm_only,
-            passage_directory: config.passage_directory,
-            file_extensions: config.file_extensions,
-        }
-    }
-}
-
-impl From<improvisation::ImprovisationConfig> for ImprovisationConfig {
-    fn from(config: improvisation::ImprovisationConfig) -> Self {
-        Self {
-            improvisation_dependencies: config.improvisation_dependencies,
-            rhythm_only: config.rhythm_only,
-            passage_directory: config.passage_directory,
-            file_extensions: config.file_extensions,
-        }
-    }
-}
-
-#[typeshare]
-#[allow(missing_docs)]
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct ImprovisationPreferences {
-    #[serde(default)]
-    pub instruments: Vec<Instrument>,
-    #[serde(default)]
-    pub rhythm_instruments: Vec<Instrument>,
-}
-
-impl From<ImprovisationPreferences> for improvisation::ImprovisationPreferences {
-    fn from(preferences: ImprovisationPreferences) -> Self {
-        Self {
-            instruments: preferences
-                .instruments
-                .into_iter()
-                .map(Into::into)
-                .collect(),
-            rhythm_instruments: preferences
-                .rhythm_instruments
-                .into_iter()
-                .map(Into::into)
-                .collect(),
-        }
-    }
-}
-
-impl From<improvisation::ImprovisationPreferences> for ImprovisationPreferences {
-    fn from(preferences: improvisation::ImprovisationPreferences) -> Self {
-        Self {
-            instruments: preferences
-                .instruments
-                .into_iter()
-                .map(Into::into)
-                .collect(),
-            rhythm_instruments: preferences
-                .rhythm_instruments
-                .into_iter()
-                .map(Into::into)
-                .collect(),
         }
     }
 }
