@@ -70,7 +70,12 @@ impl From<filter::FilterType> for FilterType {
 #[serde(deny_unknown_fields)]
 #[serde(tag = "type", content = "content")]
 pub enum KeyValueFilter {
-    BasicFilter {
+    CourseFilter {
+        key: String,
+        value: String,
+        filter_type: FilterType,
+    },
+    LessonFilter {
         key: String,
         value: String,
         filter_type: FilterType,
@@ -84,11 +89,20 @@ pub enum KeyValueFilter {
 impl From<KeyValueFilter> for filter::KeyValueFilter {
     fn from(filter: KeyValueFilter) -> Self {
         match filter {
-            KeyValueFilter::BasicFilter {
+            KeyValueFilter::CourseFilter {
                 key,
                 value,
                 filter_type,
-            } => Self::BasicFilter {
+            } => Self::CourseFilter {
+                key,
+                value,
+                filter_type: filter_type.into(),
+            },
+            KeyValueFilter::LessonFilter {
+                key,
+                value,
+                filter_type,
+            } => Self::LessonFilter {
                 key,
                 value,
                 filter_type: filter_type.into(),
@@ -104,11 +118,20 @@ impl From<KeyValueFilter> for filter::KeyValueFilter {
 impl From<filter::KeyValueFilter> for KeyValueFilter {
     fn from(filter: filter::KeyValueFilter) -> Self {
         match filter {
-            filter::KeyValueFilter::BasicFilter {
+            filter::KeyValueFilter::CourseFilter {
                 key,
                 value,
                 filter_type,
-            } => Self::BasicFilter {
+            } => Self::CourseFilter {
+                key,
+                value,
+                filter_type: filter_type.into(),
+            },
+            filter::KeyValueFilter::LessonFilter {
+                key,
+                value,
+                filter_type,
+            } => Self::LessonFilter {
                 key,
                 value,
                 filter_type: filter_type.into(),
@@ -117,38 +140,6 @@ impl From<filter::KeyValueFilter> for KeyValueFilter {
                 op: op.into(),
                 filters: filters.into_iter().map(Into::into).collect(),
             },
-        }
-    }
-}
-
-#[typeshare]
-#[allow(missing_docs)]
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct MetadataFilter {
-    #[serde(default)]
-    pub course_filter: Option<KeyValueFilter>,
-    #[serde(default)]
-    pub lesson_filter: Option<KeyValueFilter>,
-    pub op: FilterOp,
-}
-
-impl From<MetadataFilter> for filter::MetadataFilter {
-    fn from(filter: MetadataFilter) -> Self {
-        Self {
-            course_filter: filter.course_filter.map(Into::into),
-            lesson_filter: filter.lesson_filter.map(Into::into),
-            op: filter.op.into(),
-        }
-    }
-}
-
-impl From<filter::MetadataFilter> for MetadataFilter {
-    fn from(filter: filter::MetadataFilter) -> Self {
-        Self {
-            course_filter: filter.course_filter.map(Into::into),
-            lesson_filter: filter.lesson_filter.map(Into::into),
-            op: filter.op.into(),
         }
     }
 }
@@ -168,7 +159,7 @@ pub enum UnitFilter {
         lesson_ids: Vec<Ustr>,
     },
     MetadataFilter {
-        filter: MetadataFilter,
+        filter: KeyValueFilter,
     },
     ReviewListFilter,
     Dependents {

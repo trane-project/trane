@@ -64,28 +64,6 @@ export interface TranscriptionConfig {
 	skip_advanced_lessons?: boolean;
 }
 
-export type KeyValueFilter = 
-	| { type: "BasicFilter", content: {
-	key: string;
-	value: string;
-	filter_type: FilterType;
-}}
-	| { type: "CombinedFilter", content: {
-	op: FilterOp;
-	filters: KeyValueFilter[];
-}};
-
-export enum FilterOp {
-	All = "All",
-	Any = "Any",
-}
-
-export interface MetadataFilter {
-	course_filter?: KeyValueFilter;
-	lesson_filter?: KeyValueFilter;
-	op: FilterOp;
-}
-
 export type UnitFilter = 
 	| { type: "CourseFilter", content: {
 	course_ids: string[];
@@ -94,7 +72,7 @@ export type UnitFilter =
 	lesson_ids: string[];
 }}
 	| { type: "MetadataFilter", content: {
-	filter: MetadataFilter;
+	filter: KeyValueFilter;
 }}
 	| { type: "ReviewListFilter", content?: undefined }
 	| { type: "Dependents", content: {
@@ -250,10 +228,31 @@ export interface UserPreferences {
 export type TranscriptionLink = 
 	| { type: "YouTube", content: string };
 
+export enum FilterOp {
+	All = "All",
+	Any = "Any",
+}
+
 export enum FilterType {
 	Include = "Include",
 	Exclude = "Exclude",
 }
+
+export type KeyValueFilter = 
+	| { type: "CourseFilter", content: {
+	key: string;
+	value: string;
+	filter_type: FilterType;
+}}
+	| { type: "LessonFilter", content: {
+	key: string;
+	value: string;
+	filter_type: FilterType;
+}}
+	| { type: "CombinedFilter", content: {
+	op: FilterOp;
+	filters: KeyValueFilter[];
+}};
 
 export type ExerciseFilter = 
 	| { type: "UnitFilter", content: UnitFilter }

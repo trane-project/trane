@@ -31,7 +31,7 @@ use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
     data::{
-        filter::{ExerciseFilter, MetadataFilter, UnitFilter},
+        filter::{ExerciseFilter, KeyValueFilter, UnitFilter},
         ExerciseManifest, MasteryScore, SchedulerOptions, UnitType,
     },
     error::ExerciseSchedulerError,
@@ -210,7 +210,7 @@ impl DepthFirstScheduler {
         &self,
         course_id: &Ustr,
         depth: usize,
-        metadata_filter: Option<&MetadataFilter>,
+        metadata_filter: Option<&KeyValueFilter>,
     ) -> Result<Vec<Ustr>> {
         Ok(self
             .data
@@ -230,7 +230,7 @@ impl DepthFirstScheduler {
     //@<lp-example-1
     /// Returns an initial stack with all the starting units in the graph that are used to search
     /// the entire graph.
-    fn get_initial_stack(&self, metadata_filter: Option<&MetadataFilter>) -> Vec<StackItem> {
+    fn get_initial_stack(&self, metadata_filter: Option<&KeyValueFilter>) -> Vec<StackItem> {
         // First get all the starting units and then all of their starting lessons.
         let starting_units = self.get_all_starting_units();
         let mut initial_stack: Vec<StackItem> = vec![];
@@ -328,7 +328,7 @@ impl DepthFirstScheduler {
         &self,
         dependency_id: &Ustr,
         depth: usize,
-        metadata_filter: Option<&MetadataFilter>,
+        metadata_filter: Option<&KeyValueFilter>,
     ) -> bool {
         // Dependencies which do not pass the metadata filter are considered as satisfied, so the
         // search can continue past them.
@@ -372,7 +372,7 @@ impl DepthFirstScheduler {
         &self,
         unit_id: &Ustr,
         depth: usize,
-        metadata_filter: Option<&MetadataFilter>,
+        metadata_filter: Option<&KeyValueFilter>,
     ) -> bool {
         self.data
             .unit_graph
@@ -389,7 +389,7 @@ impl DepthFirstScheduler {
         &self,
         unit_id: &Ustr,
         depth: usize,
-        metadata_filter: Option<&MetadataFilter>,
+        metadata_filter: Option<&KeyValueFilter>,
     ) -> Vec<Ustr> {
         self.data
             .get_all_dependents(unit_id)
@@ -404,7 +404,7 @@ impl DepthFirstScheduler {
     fn get_candidates_from_graph(
         &self,
         initial_stack: Vec<StackItem>,
-        metadata_filter: Option<&MetadataFilter>,
+        metadata_filter: Option<&KeyValueFilter>,
     ) -> Result<Vec<Candidate>> {
         // Initialize the stack with every starting lesson, which are those units with no
         // dependencies that are needed to reach all the units in the graph.

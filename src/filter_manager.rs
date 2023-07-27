@@ -92,9 +92,7 @@ mod test {
     use ustr::Ustr;
 
     use crate::{
-        data::filter::{
-            FilterOp, FilterType, KeyValueFilter, MetadataFilter, SavedFilter, UnitFilter,
-        },
+        data::filter::{FilterOp, FilterType, KeyValueFilter, SavedFilter, UnitFilter},
         filter_manager::FilterManager,
     };
 
@@ -114,28 +112,30 @@ mod test {
                 id: "filter2".to_string(),
                 description: "Filter 2".to_string(),
                 filter: UnitFilter::MetadataFilter {
-                    filter: MetadataFilter {
+                    filter: KeyValueFilter::CombinedFilter {
                         op: FilterOp::All,
-                        lesson_filter: Some(KeyValueFilter::BasicFilter {
-                            key: "key1".to_string(),
-                            value: "value1".to_string(),
-                            filter_type: FilterType::Include,
-                        }),
-                        course_filter: Some(KeyValueFilter::CombinedFilter {
-                            op: FilterOp::Any,
-                            filters: vec![
-                                KeyValueFilter::BasicFilter {
-                                    key: "key2".to_string(),
-                                    value: "value2".to_string(),
-                                    filter_type: FilterType::Include,
-                                },
-                                KeyValueFilter::BasicFilter {
-                                    key: "key3".to_string(),
-                                    value: "value3".to_string(),
-                                    filter_type: FilterType::Include,
-                                },
-                            ],
-                        }),
+                        filters: vec![
+                            KeyValueFilter::LessonFilter {
+                                key: "key1".to_string(),
+                                value: "value1".to_string(),
+                                filter_type: FilterType::Include,
+                            },
+                            KeyValueFilter::CombinedFilter {
+                                op: FilterOp::Any,
+                                filters: vec![
+                                    KeyValueFilter::CourseFilter {
+                                        key: "key2".to_string(),
+                                        value: "value2".to_string(),
+                                        filter_type: FilterType::Include,
+                                    },
+                                    KeyValueFilter::CourseFilter {
+                                        key: "key3".to_string(),
+                                        value: "value3".to_string(),
+                                        filter_type: FilterType::Include,
+                                    },
+                                ],
+                            },
+                        ],
                     },
                 },
             },

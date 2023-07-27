@@ -38,8 +38,8 @@ use trane::{
     course_library::CourseLibrary,
     data::{
         filter::{
-            ExerciseFilter, FilterOp, FilterType, KeyValueFilter, MetadataFilter, SessionPart,
-            StudySession, StudySessionData, UnitFilter,
+            ExerciseFilter, FilterOp, FilterType, KeyValueFilter, SessionPart, StudySession,
+            StudySessionData, UnitFilter,
         },
         MasteryScore, SchedulerOptions, UserPreferences,
     },
@@ -928,18 +928,20 @@ fn scheduler_respects_metadata_filter_op_all() -> Result<()> {
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
     let filter = UnitFilter::MetadataFilter {
-        filter: MetadataFilter {
+        filter: KeyValueFilter::CombinedFilter {
             op: FilterOp::All,
-            course_filter: Some(KeyValueFilter::BasicFilter {
-                filter_type: FilterType::Include,
-                key: "course_key_1".to_string(),
-                value: "course_key_1:value_2".to_string(),
-            }),
-            lesson_filter: Some(KeyValueFilter::BasicFilter {
-                filter_type: FilterType::Include,
-                key: "lesson_key_2".to_string(),
-                value: "lesson_key_2:value_4".to_string(),
-            }),
+            filters: vec![
+                KeyValueFilter::CourseFilter {
+                    filter_type: FilterType::Include,
+                    key: "course_key_1".to_string(),
+                    value: "course_key_1:value_2".to_string(),
+                },
+                KeyValueFilter::LessonFilter {
+                    filter_type: FilterType::Include,
+                    key: "lesson_key_2".to_string(),
+                    value: "lesson_key_2:value_4".to_string(),
+                },
+            ],
         },
     };
     simulation.run_simulation(
@@ -989,18 +991,20 @@ fn scheduler_respects_metadata_filter_op_any() -> Result<()> {
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
     let filter = UnitFilter::MetadataFilter {
-        filter: MetadataFilter {
+        filter: KeyValueFilter::CombinedFilter {
             op: FilterOp::Any,
-            course_filter: Some(KeyValueFilter::BasicFilter {
-                filter_type: FilterType::Include,
-                key: "course_key_1".to_string(),
-                value: "course_key_1:value_2".to_string(),
-            }),
-            lesson_filter: Some(KeyValueFilter::BasicFilter {
-                filter_type: FilterType::Include,
-                key: "lesson_key_2".to_string(),
-                value: "lesson_key_2:value_4".to_string(),
-            }),
+            filters: vec![
+                KeyValueFilter::CourseFilter {
+                    filter_type: FilterType::Include,
+                    key: "course_key_1".to_string(),
+                    value: "course_key_1:value_2".to_string(),
+                },
+                KeyValueFilter::LessonFilter {
+                    filter_type: FilterType::Include,
+                    key: "lesson_key_2".to_string(),
+                    value: "lesson_key_2:value_4".to_string(),
+                },
+            ],
         },
     };
     simulation.run_simulation(
@@ -1051,14 +1055,10 @@ fn scheduler_respects_lesson_metadata_filter() -> Result<()> {
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
     let filter = UnitFilter::MetadataFilter {
-        filter: MetadataFilter {
-            op: FilterOp::All,
-            course_filter: None,
-            lesson_filter: Some(KeyValueFilter::BasicFilter {
-                filter_type: FilterType::Include,
-                key: "lesson_key_2".to_string(),
-                value: "lesson_key_2:value_4".to_string(),
-            }),
+        filter: KeyValueFilter::LessonFilter {
+            filter_type: FilterType::Include,
+            key: "lesson_key_2".to_string(),
+            value: "lesson_key_2:value_4".to_string(),
         },
     };
     simulation.run_simulation(
@@ -1107,14 +1107,10 @@ fn scheduler_respects_course_metadata_filter() -> Result<()> {
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
     let filter = UnitFilter::MetadataFilter {
-        filter: MetadataFilter {
-            op: FilterOp::All,
-            course_filter: Some(KeyValueFilter::BasicFilter {
-                filter_type: FilterType::Include,
-                key: "course_key_1".to_string(),
-                value: "course_key_1:value_2".to_string(),
-            }),
-            lesson_filter: None,
+        filter: KeyValueFilter::CourseFilter {
+            filter_type: FilterType::Include,
+            key: "course_key_1".to_string(),
+            value: "course_key_1:value_2".to_string(),
         },
     };
     simulation.run_simulation(
@@ -1160,18 +1156,20 @@ fn scheduler_respects_metadata_filter_and_blacklist() -> Result<()> {
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
     let filter = UnitFilter::MetadataFilter {
-        filter: MetadataFilter {
+        filter: KeyValueFilter::CombinedFilter {
             op: FilterOp::All,
-            course_filter: Some(KeyValueFilter::BasicFilter {
-                filter_type: FilterType::Include,
-                key: "course_key_1".to_string(),
-                value: "course_key_1:value_2".to_string(),
-            }),
-            lesson_filter: Some(KeyValueFilter::BasicFilter {
-                filter_type: FilterType::Include,
-                key: "lesson_key_2".to_string(),
-                value: "lesson_key_2:value_4".to_string(),
-            }),
+            filters: vec![
+                KeyValueFilter::CourseFilter {
+                    filter_type: FilterType::Include,
+                    key: "course_key_1".to_string(),
+                    value: "course_key_1:value_2".to_string(),
+                },
+                KeyValueFilter::LessonFilter {
+                    filter_type: FilterType::Include,
+                    key: "lesson_key_2".to_string(),
+                    value: "lesson_key_2:value_4".to_string(),
+                },
+            ],
         },
     };
     let blacklist = vec![TestId(2, None, None)];
@@ -1207,7 +1205,7 @@ fn scheduler_respects_metadata_filter_and_blacklist() -> Result<()> {
     Ok(())
 }
 
-/// Verify that exercises in the review list are scheduled when using the review list filter.
+/// Verifies that exercises in the review list are scheduled when using the review list filter.
 #[test]
 fn schedule_exercises_in_review_list() -> Result<()> {
     // Initialize test course library.

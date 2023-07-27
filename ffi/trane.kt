@@ -82,46 +82,6 @@ data class TranscriptionConfig (
 	val skip_advanced_lessons: Boolean? = null
 )
 
-/// Generated type representing the anonymous struct variant `BasicFilter` of the `KeyValueFilter` Rust enum
-@Serializable
-data class KeyValueFilterBasicFilterInner (
-	val key: String,
-	val value: String,
-	val filter_type: FilterType
-)
-
-/// Generated type representing the anonymous struct variant `CombinedFilter` of the `KeyValueFilter` Rust enum
-@Serializable
-data class KeyValueFilterCombinedFilterInner (
-	val op: FilterOp,
-	val filters: List<KeyValueFilter>
-)
-
-@Serializable
-sealed class KeyValueFilter {
-	@Serializable
-	@SerialName("BasicFilter")
-	data class BasicFilter(val content: KeyValueFilterBasicFilterInner): KeyValueFilter()
-	@Serializable
-	@SerialName("CombinedFilter")
-	data class CombinedFilter(val content: KeyValueFilterCombinedFilterInner): KeyValueFilter()
-}
-
-@Serializable
-enum class FilterOp(val string: String) {
-	@SerialName("All")
-	All("All"),
-	@SerialName("Any")
-	Any("Any"),
-}
-
-@Serializable
-data class MetadataFilter (
-	val course_filter: KeyValueFilter? = null,
-	val lesson_filter: KeyValueFilter? = null,
-	val op: FilterOp
-)
-
 /// Generated type representing the anonymous struct variant `CourseFilter` of the `UnitFilter` Rust enum
 @Serializable
 data class UnitFilterCourseFilterInner (
@@ -137,7 +97,7 @@ data class UnitFilterLessonFilterInner (
 /// Generated type representing the anonymous struct variant `MetadataFilter` of the `UnitFilter` Rust enum
 @Serializable
 data class UnitFilterMetadataFilterInner (
-	val filter: MetadataFilter
+	val filter: KeyValueFilter
 )
 
 /// Generated type representing the anonymous struct variant `Dependents` of the `UnitFilter` Rust enum
@@ -416,11 +376,55 @@ sealed class TranscriptionLink {
 }
 
 @Serializable
+enum class FilterOp(val string: String) {
+	@SerialName("All")
+	All("All"),
+	@SerialName("Any")
+	Any("Any"),
+}
+
+@Serializable
 enum class FilterType(val string: String) {
 	@SerialName("Include")
 	Include("Include"),
 	@SerialName("Exclude")
 	Exclude("Exclude"),
+}
+
+/// Generated type representing the anonymous struct variant `CourseFilter` of the `KeyValueFilter` Rust enum
+@Serializable
+data class KeyValueFilterCourseFilterInner (
+	val key: String,
+	val value: String,
+	val filter_type: FilterType
+)
+
+/// Generated type representing the anonymous struct variant `LessonFilter` of the `KeyValueFilter` Rust enum
+@Serializable
+data class KeyValueFilterLessonFilterInner (
+	val key: String,
+	val value: String,
+	val filter_type: FilterType
+)
+
+/// Generated type representing the anonymous struct variant `CombinedFilter` of the `KeyValueFilter` Rust enum
+@Serializable
+data class KeyValueFilterCombinedFilterInner (
+	val op: FilterOp,
+	val filters: List<KeyValueFilter>
+)
+
+@Serializable
+sealed class KeyValueFilter {
+	@Serializable
+	@SerialName("CourseFilter")
+	data class CourseFilter(val content: KeyValueFilterCourseFilterInner): KeyValueFilter()
+	@Serializable
+	@SerialName("LessonFilter")
+	data class LessonFilter(val content: KeyValueFilterLessonFilterInner): KeyValueFilter()
+	@Serializable
+	@SerialName("CombinedFilter")
+	data class CombinedFilter(val content: KeyValueFilterCombinedFilterInner): KeyValueFilter()
 }
 
 @Serializable
