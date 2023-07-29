@@ -1670,6 +1670,26 @@ fn get_matching_exercises() -> Result<()> {
     Ok(())
 }
 
+/// Verifies matching all units with the given prefix.
+#[test]
+fn get_matching_units() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+
+    // The test will use the ID of course 0 as the prefix.
+    let prefix = TestId(0, None, None).to_ustr();
+
+    // Get all the units that match the prefix. The 23 units are the course, the two lessons, and
+    // the ten exercises in each lesson.
+    let matching_units = trane.get_matching_prefix(&prefix, None);
+    assert_eq!(matching_units.len(), 23);
+    assert!(matching_units.contains(&prefix));
+    assert!(matching_units.contains(&TestId(0, Some(0), None).to_ustr()));
+    assert!(matching_units.contains(&TestId(0, Some(0), Some(0)).to_ustr()));
+    Ok(())
+}
+
 /// Verifies searching for courses in the course library works.
 #[test]
 fn course_library_search_courses() -> Result<()> {
