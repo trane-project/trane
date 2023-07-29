@@ -40,6 +40,9 @@ pub trait PracticeStats {
     /// Deletes all the exercise trials except for the last `num_scores` with the aim of keeping the
     /// storage size under check.
     fn trim_scores(&mut self, num_scores: usize) -> Result<(), PracticeStatsError>;
+
+    /// Remvoves all the scores from the units that match the given prefix.
+    fn remove_scores_with_prefix(&mut self, prefix: &str) -> Result<(), PracticeStatsError>;
 }
 
 /// An implementation of [PracticeStats] backed by SQLite.
@@ -126,7 +129,7 @@ impl PracticeStatsDB {
         let connection = self.pool.get()?;
         let mut stmt = connection.prepare_cached(
             "SELECT score, timestamp from practice_stats WHERE unit_uid = (
-                SELECT unit_uid FROM uids WHERE unit_id = ?1)
+                SELECT unit_uid FROM uids WHERE unit_id = $1)
                 ORDER BY timestamp DESC LIMIT ?2;",
         )?; // grcov-excl-line
 
@@ -153,13 +156,13 @@ impl PracticeStatsDB {
         // Update the mapping of unit ID to unique integer ID.
         let connection = self.pool.get()?;
         let mut uid_stmt =
-            connection.prepare_cached("INSERT OR IGNORE INTO uids(unit_id) VALUES (?1);")?; // grcov-excl-line
+            connection.prepare_cached("INSERT OR IGNORE INTO uids(unit_id) VALUES ($1);")?; // grcov-excl-line
         uid_stmt.execute(params![exercise_id.as_str()])?;
 
         // Insert the exercise trial into the database.
         let mut stmt = connection.prepare_cached(
             "INSERT INTO practice_stats (unit_uid, score, timestamp) VALUES (
-                (SELECT unit_uid FROM uids WHERE unit_id = ?1), ?2, ?3);",
+                (SELECT unit_uid FROM uids WHERE unit_id = $1), $2, $3);",
         )?; // grcov-excl-line
         stmt.execute(params![
             exercise_id.as_str(),
@@ -182,8 +185,8 @@ impl PracticeStatsDB {
         // Delete the oldest trials for each UID but keep the most recent `num_scores` trials.
         for uid in uids {
             let mut stmt = connection.prepare_cached(
-                "DELETE FROM practice_stats WHERE unit_uid = ?1 AND timestamp NOT IN (
-                    SELECT timestamp FROM practice_stats WHERE unit_uid = ?1
+                "DELETE FROM practice_stats WHERE unit_uid = $1 AND timestamp NOT IN (
+                    SELECT timestamp FROM practice_stats WHERE unit_uid = $1
                     ORDER BY timestamp DESC LIMIT ?2);",
             )?; // grcov-excl-line
             let _ = stmt.execute(params![uid, num_scores])?;
@@ -191,6 +194,26 @@ impl PracticeStatsDB {
 
         // Call the `VACUUM` command to reclaim the space freed by the deleted trials.
         connection.execute_batch("VACUUM;")?;
+        Ok(())
+    }
+
+    /// Helper function to remove all the scores from units that match the given prefix.
+    fn remove_scores_with_prefix_helper(&mut self, prefix: &str) -> Result<()> {
+        // Get all the UIDs for the units that match the prefix.
+        let connection = self.pool.get()?;
+        let mut uid_stmt =
+            connection.prepare_cached("SELECT unit_uid FROM uids WHERE unit_id LIKE $1;")?;
+        let uids = uid_stmt
+            .query_map(params![format!("{}%", prefix)], |row| row.get(0))?
+            .map(|r| r.with_context(|| "failed to retrieve UIDs from practice stats DB"))
+            .collect::<Result<Vec<i64>, _>>()?; // grcov-excl-line
+
+        // Delete all the trials for those units.
+        for uid in uids {
+            let mut stmt =
+                connection.prepare_cached("DELETE FROM practice_stats WHERE unit_uid = $1;")?;
+            let _ = stmt.execute(params![uid])?;
+        }
         Ok(())
     }
 }
@@ -218,6 +241,11 @@ impl PracticeStats for PracticeStatsDB {
     fn trim_scores(&mut self, num_scores: usize) -> Result<(), PracticeStatsError> {
         self.trim_scores_helper(num_scores)
             .map_err(PracticeStatsError::TrimScores)
+    }
+
+    fn remove_scores_with_prefix(&mut self, prefix: &str) -> Result<(), PracticeStatsError> {
+        self.remove_scores_with_prefix_helper(prefix)
+            .map_err(|e| PracticeStatsError::RemovePrefix(prefix.to_string(), e))
     }
 }
 
@@ -337,6 +365,46 @@ mod test {
         assert_scores(vec![5.0, 4.0, 3.0], scores);
         let scores = stats.get_scores(&exercise2_id, 10)?;
         assert_scores(vec![3.0, 1.0, 1.0], scores);
+        Ok(())
+    }
+
+    /// Verifies removing the trials for units that match the given prefix.
+    #[test]
+    fn remove_scores_with_prefix() -> Result<()> {
+        let mut stats = new_tests_stats()?;
+        let exercise1_id = Ustr::from("exercise1");
+        stats.record_exercise_score(&exercise1_id, MasteryScore::Three, 1)?;
+        stats.record_exercise_score(&exercise1_id, MasteryScore::Four, 2)?;
+        stats.record_exercise_score(&exercise1_id, MasteryScore::Five, 3)?;
+
+        let exercise2_id = Ustr::from("exercise2");
+        stats.record_exercise_score(&exercise2_id, MasteryScore::One, 1)?;
+        stats.record_exercise_score(&exercise2_id, MasteryScore::One, 2)?;
+        stats.record_exercise_score(&exercise2_id, MasteryScore::Three, 3)?;
+
+        let exercise3_id = Ustr::from("exercise3");
+        stats.record_exercise_score(&exercise3_id, MasteryScore::One, 1)?;
+        stats.record_exercise_score(&exercise3_id, MasteryScore::One, 2)?;
+        stats.record_exercise_score(&exercise3_id, MasteryScore::Three, 3)?;
+
+        // Remove the prefix "exercise1".
+        stats.remove_scores_with_prefix("exercise1")?;
+        let scores = stats.get_scores(&exercise1_id, 10)?;
+        assert_scores(vec![], scores);
+        let scores = stats.get_scores(&exercise2_id, 10)?;
+        assert_scores(vec![3.0, 1.0, 1.0], scores);
+        let scores = stats.get_scores(&exercise3_id, 10)?;
+        assert_scores(vec![3.0, 1.0, 1.0], scores);
+
+        // Remove the prefix "exercise". All the scores should be removed.
+        stats.remove_scores_with_prefix("exercise")?;
+        let scores = stats.get_scores(&exercise1_id, 10)?;
+        assert_scores(vec![], scores);
+        let scores = stats.get_scores(&exercise2_id, 10)?;
+        assert_scores(vec![], scores);
+        let scores = stats.get_scores(&exercise3_id, 10)?;
+        assert_scores(vec![], scores);
+
         Ok(())
     }
 }

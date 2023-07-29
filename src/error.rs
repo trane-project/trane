@@ -56,6 +56,9 @@ pub enum PracticeStatsError {
 
     #[error("cannot trim scores: {0}")]
     TrimScores(#[source] anyhow::Error),
+
+    #[error("cannot remove scores from units matching prefix {0}: {1}")]
+    RemovePrefix(String, #[source] anyhow::Error),
 }
 
 /// An error returned when dealing with git repositories contianing courses.
