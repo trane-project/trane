@@ -391,6 +391,12 @@ impl PracticeStats for Trane {
     fn trim_scores(&mut self, num_scores: usize) -> Result<(), PracticeStatsError> {
         self.practice_stats.write().trim_scores(num_scores)
     }
+
+    fn remove_scores_with_prefix(&mut self, prefix: &str) -> Result<(), PracticeStatsError> {
+        self.practice_stats
+            .write()
+            .remove_scores_with_prefix(prefix)
+    }
 }
 
 impl RepositoryManager for Trane {
