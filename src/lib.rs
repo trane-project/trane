@@ -303,6 +303,12 @@ impl CourseLibrary for Trane {
         self.course_library.read().get_all_exercise_ids()
     }
 
+    fn get_matching_prefix(&self, prefix: &str, unit_type: Option<UnitType>) -> UstrSet {
+        self.course_library
+            .read()
+            .get_matching_prefix(prefix, unit_type)
+    }
+
     fn search(&self, query: &str) -> Result<Vec<Ustr>, CourseLibraryError> {
         self.course_library.read().search(query)
     }

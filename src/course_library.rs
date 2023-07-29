@@ -21,7 +21,7 @@ use tantivy::{
     schema::{Field, Schema, STORED, TEXT},
     Index, IndexReader, IndexWriter, ReloadPolicy,
 };
-use ustr::{Ustr, UstrMap};
+use ustr::{Ustr, UstrMap, UstrSet};
 use walkdir::WalkDir;
 
 use crate::{
@@ -78,6 +78,10 @@ pub trait CourseLibrary {
 
     /// Returns the IDs of all exercises in the given course sorted alphabetically.
     fn get_all_exercise_ids(&self) -> Vec<Ustr>;
+
+    /// Returns the set of units whose ID starts with the given prefix and are of the given type.
+    /// If `unit_type` is `None`, then all unit types are considered.
+    fn get_matching_prefix(&self, prefix: &str, unit_type: Option<UnitType>) -> UstrSet;
 
     /// Returns the IDs of all the units which match the given query.
     fn search(&self, query: &str) -> Result<Vec<Ustr>, CourseLibraryError>;
@@ -691,6 +695,52 @@ impl CourseLibrary for LocalCourseLibrary {
         let mut exercises = self.exercise_map.keys().cloned().collect::<Vec<Ustr>>();
         exercises.sort();
         exercises
+    }
+
+    fn get_matching_prefix(&self, prefix: &str, unit_type: Option<UnitType>) -> UstrSet {
+        match unit_type {
+            Some(UnitType::Course) => self
+                .course_map
+                .iter()
+                .filter_map(|(id, _)| {
+                    if id.starts_with(prefix) {
+                        Some(*id)
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+            Some(UnitType::Lesson) => self
+                .lesson_map
+                .iter()
+                .filter_map(|(id, _)| {
+                    if id.starts_with(prefix) {
+                        Some(*id)
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+            Some(UnitType::Exercise) => self
+                .exercise_map
+                .iter()
+                .filter_map(|(id, _)| {
+                    if id.starts_with(prefix) {
+                        Some(*id)
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+            None => self
+                .course_map
+                .keys()
+                .chain(self.lesson_map.keys())
+                .chain(self.exercise_map.keys())
+                .filter(|id| id.starts_with(prefix))
+                .cloned()
+                .collect(),
+        }
     }
 
     fn search(&self, query: &str) -> Result<Vec<Ustr>, CourseLibraryError> {
