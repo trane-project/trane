@@ -214,6 +214,9 @@ impl PracticeStatsDB {
                 connection.prepare_cached("DELETE FROM practice_stats WHERE unit_uid = $1;")?;
             let _ = stmt.execute(params![uid])?;
         }
+
+        // Call the `VACUUM` command to reclaim the space freed by the deleted trials.
+        connection.execute_batch("VACUUM;")?;
         Ok(())
     }
 }
