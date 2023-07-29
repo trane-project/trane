@@ -161,6 +161,9 @@ impl BlacklistDB {
             // Update the cache.
             self.cache.write().insert(unit_id.into(), false);
         } // grcov-excl-line
+
+        // Call the `VACUUM` command to reclaim the space freed by the deleted entries.
+        connection.execute_batch("VACUUM;")?;
         Ok(())
     }
 
