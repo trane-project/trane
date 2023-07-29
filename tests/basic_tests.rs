@@ -41,7 +41,7 @@ use trane::{
             ExerciseFilter, FilterOp, FilterType, KeyValueFilter, SessionPart, StudySession,
             StudySessionData, UnitFilter,
         },
-        MasteryScore, SchedulerOptions, UserPreferences,
+        MasteryScore, SchedulerOptions, UnitType, UserPreferences,
     },
     review_list::ReviewList,
     scheduler::ExerciseScheduler,
@@ -1616,6 +1616,57 @@ fn schedule_study_session() -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+/// Verifies matching the courses with the given prefix.
+#[test]
+fn get_matching_courses() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+
+    // The test will use the ID of course 0 as the prefix.
+    let prefix = TestId(0, None, None).to_ustr();
+
+    // Get all the courses that match the prefix.
+    let matching_courses = trane.get_matching_prefix(&prefix, Some(UnitType::Course));
+    assert_eq!(matching_courses.len(), 1);
+    assert!(matching_courses.contains(&prefix));
+    Ok(())
+}
+
+/// Verifies matching the lessons with the given prefix.
+#[test]
+fn get_matching_lessons() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+
+    // The test will use the ID of lesson 0::0 as the prefix.
+    let prefix = TestId(0, Some(0), None).to_ustr();
+
+    // Get all the lessons that match the prefix.
+    let matching_lessons = trane.get_matching_prefix(&prefix, Some(UnitType::Lesson));
+    assert_eq!(matching_lessons.len(), 1);
+    assert!(matching_lessons.contains(&prefix));
+    Ok(())
+}
+
+/// Verifies matching the exercises with the given prefix.
+#[test]
+fn get_matching_exercises() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let trane = init_test_simulation(&temp_dir.path(), &BASIC_LIBRARY)?;
+
+    // The test will use the ID of exercise 0::0::0 as the prefix.
+    let prefix = TestId(0, Some(0), Some(0)).to_ustr();
+
+    // Get all the exercises that match the prefix.
+    let matching_exercises = trane.get_matching_prefix(&prefix, Some(UnitType::Exercise));
+    assert_eq!(matching_exercises.len(), 1);
+    assert!(matching_exercises.contains(&prefix));
     Ok(())
 }
 
