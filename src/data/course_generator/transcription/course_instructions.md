@@ -1,60 +1,78 @@
 # Transcription Course Instructions
 
-This course is designed to help you learn how to transcribe passages of music onto your instrument.
-It is similar to the improvisation course, but instead of providing the music sheet for the passage,
-a passage in a recorded piece of music is provided. The aim of the exercises is not to notate the
-music but to learn how to extract the musical elements of the passage into your preferred
-instruments and ingrain them in your playing by using them as a basis for improvisation.
+This course is designed to help you learn how to transcribe passages of music onto your ear and your
+instrument(s). The aim of the exercises is not to notate the music, but to learn how to extract the
+musical elements of the passage into your preferred instruments, and ingrain them in your playing.
+Students that wish to notate the music are free to do so, but it is not required to make progress in
+the course.
+
+The goal of these courses is to present a similar experience to the apprenticeship model on which
+traditional African music and jazz was taught. In this model, the master shows the apprentice a
+musical passage, and the apprentice must learn how to reproduce it. Unlike a school or academy,
+graduation from the apprenticeship model is not based on completing a fixed curriculum, but on
+actual mastery of the material.
 
 ## How to use the course
 
 The questions in the course refer you to the passage that you must transcribe. Due to copyright
 laws, an audio file of the passage is not provided. Instead, you are given the passage as the
 information about the track (artist, album, and track number) and the start and end timestamps of
-the passage. There is the option to give an optional external link, which could contain a link to
-the YouTube video of the track, for example.
+the passage (which could just say to play over the entire song). There is the option to give an
+optional external link, containing a link to the YouTube video of the track, for example.
 
-You then get a copy of the track through your own means, find the passage in the track and proceed
-according to the stage you are in. The stages are described below.
+You then get a copy of the track through your own means, load the track into your preferred music
+player (see the section on tools for the recommended player), and find the passage in the track. You
+then proceed according to the stage indicated by the exercises.
 
-## Stages
+## Lessons
 
-The course is divided in several stages, each of which will help you become familiar with a
+The course is divided in several lessons, each of which will help you become familiar with a
 different aspect of the material.
 
 ### Singing
 
-This is the first stage of the course. In this stage, you must listen to each passage repeatedly
-until you can audiate it clearly in your mind. Then, you must sing the passage. For complex
-passages, it is ok to focus on a single piece of the passage at a time. For example, you might sing
-the drum part one time, the bass line another time, and so on.
-
-You are not required to use solfège syllables or numbers nor to notate the passage, although you are
-free to do so if you wish.
+First listen to the musical passage until you can audiate it clearly in your head. Then sing over
+the passage. At this stage it's not required to be accurate as possible. Rather, learn to sing the
+main elements of the passage and experiment with different melodies over it. The goal is to learn to
+navigate the context implied by the passage.
 
 ### Transcription
 
-This stage is meant to get you to extract the passage or some part of it onto your preferred
-instruments and use that as a basis for improvisation. This step is not about accurately reproducing
-the passage nor notating it, but about learning to extract its musical elements onto your instrument
-and ingrain them in your playing. For example, you might become interested in playing with the
-drumming in one session and with the harmonies played by a piano in another.
+With the basic context implied by the passage now internalized in your ear, try to play over
+it using your instrument. The goal at this point is not to accurately reproduce the passage,
+but rather about learning to navigate that context and use it as a basis for improvisation.
+You can focus on different elements or sections each time you practice.
 
-The stage depends on sufficiently mastering the singing stage.
+The lesson depends on sufficiently mastering the singing lesson.
 
 ### Advanced Singing
 
-This stage is the same as the singing stage, but you have to transpose the passage up or down by a
-random number of semitones each time you do the exercise.
+ At this stage, you can sing and play over the context implied by the passage, and sing it with more
+detail and precision in a variety of keys. It's at this point that you can engage in what is
+traditionally called transcription.
 
-The stage depends on sufficiently mastering the singing stage.
+Play over the passage using your instrument, and try to reproduce it in more detail than in the
+basic transcription lesson. You should also transpose the passage up or down a random number of
+semitones. You should still use the passage as a basis for improvisation, but the focus is much
+narrower than in the basic transcription lesson, and the actual music played in the passage take
+precedence over the context implied by it.
+
+The lesson depends on sufficiently mastering the singing lesson.
 
 ### Advanced Transcription
 
-This stage is the same as the transcription stage, but you have to transpose the passage up or down
-by a random number of semitones each time you do the exercise.
+At this stage, you can sing and play over the context implied by the passage, and sing it with more
+detail and precision in a variety of keys. It's at this point that you can engage in what is
+traditionally called transcription.
 
-The stage depends on sufficiently mastering the advanced singing stage.
+Play over the passage using your instrument, and try to reproduce it in more detail than in the
+basic transcription lesson. You should also transpose the passage up or down a random number of
+semitones. You should still use the passage as a basis for improvisation, but the focus is much
+narrower than in the basic transcription lesson, and the actual music played in the passage take
+precedence over the context implied by it.
+
+The lesson depends on sufficiently mastering the advanced singing lesson and the transcription
+lesson.
 
 ## Tools
 
