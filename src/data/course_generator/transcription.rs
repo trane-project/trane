@@ -28,6 +28,7 @@ use crate::data::{
 };
 use constants::*;
 
+//@<transcription-link
 /// A link to an external resource for a transcription asset.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -44,7 +45,9 @@ impl TranscriptionLink {
         }
     }
 }
+//>@transcription-link
 
+//@<transcription-asset
 /// An asset used for the transcription course generator.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -75,6 +78,7 @@ pub enum TranscriptionAsset {
         external_link: Option<TranscriptionLink>,
     },
 }
+//>@transcription-asset
 
 impl TranscriptionAsset {
     /// Returns the short ID of the asset, which wil be used to generate the exercise IDs.
@@ -85,6 +89,7 @@ impl TranscriptionAsset {
     }
 }
 
+//@<transcription-passages
 /// A collection of passages from a track that can be used for a transcription course.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -97,6 +102,7 @@ pub struct TranscriptionPassages {
     /// them from a vector because reordering the passages would change the resulting exercise IDs.
     pub intervals: HashMap<usize, (String, String)>,
 }
+//>@transcription-passages
 
 impl TranscriptionPassages {
     /// Generates the exercise assets for these passages with the given description.
@@ -155,15 +161,20 @@ impl TranscriptionPassages {
     }
 }
 
+//@<transcription-preferences
 /// Settings for generating a new transcription course that are specific to a user.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct TranscriptionPreferences {
-    /// The list of instruments the user wants to practice.
+    /// The list of instruments the user wants to practice. Note that changing the instrument ID
+    /// will change the IDs of the exercises and lose your progress, so it should be chosen
+    /// carefully before you start practicing.
     #[serde(default)]
     pub instruments: Vec<Instrument>,
 }
+//>@transcription-preferences
 
+//@<transcription-config
 /// The configuration used to generate a transcription course.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -201,6 +212,7 @@ pub struct TranscriptionConfig {
     #[serde(default)]
     pub skip_advanced_lessons: bool,
 }
+//>@transcription-config
 
 impl TranscriptionConfig {
     /// Returns the ID for a given exercise given the lesson ID and the exercise index.
