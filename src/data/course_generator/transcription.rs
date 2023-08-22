@@ -645,7 +645,7 @@ impl TranscriptionConfig {
         &self,
         course_manifest: &CourseManifest,
         preferences: &TranscriptionPreferences,
-        passages: Vec<TranscriptionPassages>,
+        passages: &[TranscriptionPassages],
     ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
         let mut skip_singing_lessons = false;
         let mut skip_advanced_lessons = false;
@@ -656,39 +656,72 @@ impl TranscriptionConfig {
 
         if skip_advanced_lessons {
             Ok(vec![
-                vec![self.generate_singing_lesson(
-                    course_manifest,
-                    &passages,
-                    skip_singing_lessons,
-                )],
-                self.generate_transcription_lessons(course_manifest, preferences, &passages),
+                vec![self.generate_singing_lesson(course_manifest, passages, skip_singing_lessons)],
+                self.generate_transcription_lessons(course_manifest, preferences, passages),
             ]
             .into_iter()
             .flatten()
             .collect())
         } else {
             Ok(vec![
-                vec![self.generate_singing_lesson(
-                    course_manifest,
-                    &passages,
-                    skip_singing_lessons,
-                )],
+                vec![self.generate_singing_lesson(course_manifest, passages, skip_singing_lessons)],
                 vec![self.generate_advanced_singing_lesson(
                     course_manifest,
-                    &passages,
+                    passages,
                     skip_singing_lessons,
                 )],
-                self.generate_transcription_lessons(course_manifest, preferences, &passages),
+                self.generate_transcription_lessons(course_manifest, preferences, passages),
                 self.generate_advanced_transcription_lessons(
                     course_manifest,
                     preferences,
-                    &passages,
+                    passages,
                 ),
             ]
             .into_iter()
             .flatten()
             .collect())
         }
+    }
+
+    /// Takes the current course metadata as input and returns updated metadata with information
+    /// about the transcription course.
+    fn generate_course_metadata(
+        metadata: &Option<BTreeMap<String, Vec<String>>>,
+        passages: &[TranscriptionPassages],
+    ) -> BTreeMap<String, Vec<String>> {
+        // Insert metadata to indicate this is a transcription course.
+        let mut metadata = metadata.clone().unwrap_or_default();
+        metadata.insert(COURSE_METADATA.to_string(), vec!["true".to_string()]);
+
+        // Insert metadata to add all the artists from the passages.
+        passages.iter().for_each(|passages| {
+            if let TranscriptionAsset::Track {
+                artist_name: Some(artist_name),
+                ..
+            } = &passages.asset
+            {
+                metadata
+                    .entry(ARTIST_METADATA.to_string())
+                    .or_default()
+                    .push(artist_name.clone());
+            }
+        });
+
+        // Do the same with all the albums.
+        passages.iter().for_each(|passages| {
+            if let TranscriptionAsset::Track {
+                album_name: Some(album_name),
+                ..
+            } = &passages.asset
+            {
+                metadata
+                    .entry(ALBUM_METADATA.to_string())
+                    .or_default()
+                    .push(album_name.clone());
+            }
+        });
+
+        metadata
     }
 }
 
@@ -711,11 +744,10 @@ impl GenerateManifests for TranscriptionConfig {
         // the lesson and exercise manifests.
         let mut passages = self.open_passage_directory(course_root)?;
         passages.extend(self.inlined_passages.clone());
-        let lessons = self.generate_lesson_manifests(course_manifest, preferences, passages)?;
+        let lessons = self.generate_lesson_manifests(course_manifest, preferences, &passages)?;
 
         // Update the course's metadata and instructions.
-        let mut metadata = course_manifest.metadata.clone().unwrap_or_default();
-        metadata.insert(COURSE_METADATA.to_string(), vec!["true".to_string()]);
+        let metadata = Self::generate_course_metadata(&course_manifest.metadata, &passages);
         let instructions = if course_manifest.course_instructions.is_none() {
             Some(BasicAsset::InlinedUniqueAsset {
                 content: *COURSE_INSTRUCTIONS,
@@ -1003,6 +1035,112 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that the instructions for the course are not replaced if they are already set.
+    #[test]
+    fn do_not_replace_existing_instructions() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        fs::create_dir(temp_dir.path().join("passages"))?;
+        let course_generator = CourseGenerator::Transcription(TranscriptionConfig {
+            transcription_dependencies: vec![],
+            passage_directory: "passages".to_string(),
+            inlined_passages: vec![],
+            skip_singing_lessons: false,
+            skip_advanced_lessons: false,
+        });
+
+        let course_manifest = CourseManifest {
+            id: Ustr::from("testID"),
+            name: "Test".to_string(),
+            description: None,
+            dependencies: vec![],
+            authors: None,
+            metadata: None,
+            course_instructions: Some(BasicAsset::InlinedAsset {
+                content: "test".to_string(),
+            }),
+            course_material: None,
+            generator_config: Some(course_generator.clone()),
+        };
+        let preferences = UserPreferences::default();
+        let generated_course =
+            course_generator.generate_manifests(temp_dir.path(), &course_manifest, &preferences)?;
+        assert!(generated_course.updated_instructions.is_none());
+        Ok(())
+    }
+
+    /// Verifies that the artists and albums are added to the metadata.
+    #[test]
+    fn add_artist_and_album_metadata() -> Result<()> {
+        // Create a course with a couple of tracks with artist and album names.
+        let temp_dir = tempfile::tempdir()?;
+        fs::create_dir(temp_dir.path().join("passages"))?;
+        let course_generator = CourseGenerator::Transcription(TranscriptionConfig {
+            transcription_dependencies: vec![],
+            passage_directory: "passages".to_string(),
+            inlined_passages: vec![
+                TranscriptionPassages {
+                    asset: TranscriptionAsset::Track {
+                        short_id: "track1".into(),
+                        track_name: "Track 1".into(),
+                        artist_name: Some("Artist 1".into()),
+                        album_name: Some("Album 1".into()),
+                        duration: None,
+                        external_link: None,
+                    },
+                    intervals: HashMap::new(),
+                },
+                TranscriptionPassages {
+                    asset: TranscriptionAsset::Track {
+                        short_id: "track2".into(),
+                        track_name: "Track 2".into(),
+                        artist_name: Some("Artist 2".into()),
+                        album_name: Some("Album 2".into()),
+                        duration: None,
+                        external_link: None,
+                    },
+                    intervals: HashMap::new(),
+                },
+            ],
+            skip_singing_lessons: false,
+            skip_advanced_lessons: false,
+        });
+        let course_manifest = CourseManifest {
+            id: Ustr::from("testID"),
+            name: "Test".to_string(),
+            description: None,
+            dependencies: vec![],
+            authors: None,
+            metadata: None,
+            course_instructions: Some(BasicAsset::InlinedAsset {
+                content: "test".to_string(),
+            }),
+            course_material: None,
+            generator_config: Some(course_generator.clone()),
+        };
+
+        // Create the course and verifies the metadata is correct.
+        let preferences = UserPreferences::default();
+        let generated_course =
+            course_generator.generate_manifests(temp_dir.path(), &course_manifest, &preferences)?;
+        assert_eq!(
+            generated_course
+                .updated_metadata
+                .as_ref()
+                .unwrap()
+                .get(ARTIST_METADATA),
+            Some(&vec!["Artist 1".to_string(), "Artist 2".to_string()])
+        );
+        assert_eq!(
+            generated_course
+                .updated_metadata
+                .as_ref()
+                .unwrap()
+                .get(ALBUM_METADATA),
+            Some(&vec!["Album 1".to_string(), "Album 2".to_string()])
+        );
+        Ok(())
+    }
+
     /// Verifies cloning a transcription asset. Done so that the auto-generated trait implementation
     /// is included in the code coverage reports.
     #[test]
@@ -1036,38 +1174,5 @@ mod test {
         };
         let passages_clone = passages.clone();
         assert_eq!(passages, passages_clone);
-    }
-
-    /// Verifies that the instructions for the course are not replaced if they are already set.
-    #[test]
-    fn do_not_replace_existing_instructions() -> Result<()> {
-        let temp_dir = tempfile::tempdir()?;
-        fs::create_dir(temp_dir.path().join("passages"))?;
-        let course_generator = CourseGenerator::Transcription(TranscriptionConfig {
-            transcription_dependencies: vec![],
-            passage_directory: "passages".to_string(),
-            inlined_passages: vec![],
-            skip_singing_lessons: false,
-            skip_advanced_lessons: false,
-        });
-
-        let course_manifest = CourseManifest {
-            id: Ustr::from("testID"),
-            name: "Test".to_string(),
-            description: None,
-            dependencies: vec![],
-            authors: None,
-            metadata: None,
-            course_instructions: Some(BasicAsset::InlinedAsset {
-                content: "test".to_string(),
-            }),
-            course_material: None,
-            generator_config: Some(course_generator.clone()),
-        };
-        let preferences = UserPreferences::default();
-        let generated_course =
-            course_generator.generate_manifests(temp_dir.path(), &course_manifest, &preferences)?;
-        assert!(generated_course.updated_instructions.is_none());
-        Ok(())
     }
 }

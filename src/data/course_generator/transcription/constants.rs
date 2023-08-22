@@ -47,6 +47,12 @@ pub const COURSE_METADATA: &str = "transcription_course";
 /// "true".
 pub const LESSON_METADATA: &str = "transcription_lesson";
 
+/// The metadata key indicating the artists included in the transcription course.
+pub const ARTIST_METADATA: &str = "transcription_artist";
+
+/// The metadata key indicating the album included in the transcription course.
+pub const ALBUM_METADATA: &str = "transcription_album";
+
 /// The metadata key indicating the instrument of the transcription lesson.
 pub const INSTRUMENT_METADATA: &str = "instrument";
 
