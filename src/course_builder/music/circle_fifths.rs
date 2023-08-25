@@ -78,10 +78,7 @@ impl CircleFifthsCourse {
 
         let note = note.unwrap();
         let mut lessons = vec![self.generate_lesson_builder(note, note.clockwise())?];
-        lessons.extend(
-            self.generate_counter_clockwise(note.counter_clockwise())?
-                .into_iter(),
-        );
+        lessons.extend(self.generate_counter_clockwise(note.counter_clockwise())?);
         Ok(lessons)
     }
 
@@ -94,7 +91,7 @@ impl CircleFifthsCourse {
 
         let note = note.unwrap();
         let mut lessons = vec![self.generate_lesson_builder(note, note.counter_clockwise())?];
-        lessons.extend(self.generate_clockwise(note.clockwise())?.into_iter());
+        lessons.extend(self.generate_clockwise(note.clockwise())?);
         Ok(lessons)
     }
 
@@ -102,13 +99,10 @@ impl CircleFifthsCourse {
     /// the circle of fifths in both directions.
     fn generate_lesson_builders(&self) -> Result<Vec<LessonBuilder>> {
         let mut lessons = vec![self.generate_lesson_builder(Note::C, None)?];
-        lessons.extend(
-            self.generate_counter_clockwise(Note::C.counter_clockwise())?
-                .into_iter(),
-        );
-        lessons.extend(self.generate_clockwise(Note::C.clockwise())?.into_iter());
+        lessons.extend(self.generate_counter_clockwise(Note::C.counter_clockwise())?);
+        lessons.extend(self.generate_clockwise(Note::C.clockwise())?);
         if let Some(generator) = &self.extra_lessons_generator {
-            lessons.extend(generator()?.into_iter());
+            lessons.extend(generator()?);
         }
         Ok(lessons)
     }

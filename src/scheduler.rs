@@ -409,7 +409,7 @@ impl DepthFirstScheduler {
         // Initialize the stack with every starting lesson, which are those units with no
         // dependencies that are needed to reach all the units in the graph.
         let mut stack: Vec<StackItem> = Vec::new();
-        stack.extend(initial_stack.into_iter());
+        stack.extend(initial_stack);
 
         // Initialize the list of candidates and the set of visited units.
         let max_candidates = self.data.options.batch_size * MAX_CANDIDATE_FACTOR;
