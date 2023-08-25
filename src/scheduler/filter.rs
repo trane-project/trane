@@ -79,7 +79,7 @@ impl CandidateFilter {
         lesson_frequency
     }
 
-    /// Takes a list of candidates and randomly selects `num_selected` candidates among them. The
+    /// Takes a list of candidates and randomly selects `num_to_select` candidates among them. The
     /// probabilities of selecting a candidate are weighted based on the following:
     /// 1. The candidate's score. A higher score is assigned less weight to present scores with
     ///    lower scores among those in the same mastery window.
