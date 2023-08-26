@@ -870,7 +870,7 @@ impl Default for SchedulerOptions {
                 range: (4.5, 5.0),
             },
             passing_score: PassingScoreOptions::default(),
-            num_trials: 20,
+            num_trials: 10,
         }
     }
 }
