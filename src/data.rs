@@ -844,7 +844,7 @@ impl SchedulerOptions {
 impl Default for SchedulerOptions {
     /// Returns the default scheduler options.
     fn default() -> Self {
-        // Consider an exercise to be new if it's score is less than 0.1. In reality, all such
+        // Consider an exercise to be new if its score is less than 0.1. In reality, all such
         // exercises will have a score of 0.0, but we add a small margin to make this window act
         // like all the others.
         SchedulerOptions {
