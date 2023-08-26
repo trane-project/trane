@@ -230,6 +230,15 @@ mod test {
         assert_eq!(adjusted_score, score / 2.0);
     }
 
+    /// Verifies that the minimum weight is returned if the trial index is outside the bounds of the
+    /// list.
+    #[test]
+    fn weight_outside_bounds() {
+        let num_trials = 3;
+        let trial_index = 4;
+        assert_eq!(SimpleScorer::weight(num_trials, trial_index), MIN_WEIGHT);
+    }
+
     /// Verifies that the weight is adjusted based on the index of the score.
     #[test]
     fn weight_adjusted_by_index() {
