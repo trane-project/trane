@@ -267,11 +267,11 @@ impl CandidateFilter {
         final_candidates.extend(new_selected);
 
         // Go through the remainders and add them to the list of final candidates if there's still
-        // space left in the batch. Add the remainder from the current, new, target, easy, and
+        // space left in the batch. Add the remainder from the new, current, target, easy, and
         // mastered windows, in that order. Limit the number of too easy or too hard exercises to
         // avoid creating unbalanced batches.
-        Self::add_remainder(batch_size, &mut final_candidates, current_remainder, None);
         Self::add_remainder(batch_size, &mut final_candidates, new_remainder, None);
+        Self::add_remainder(batch_size, &mut final_candidates, current_remainder, None);
         Self::add_remainder(
             batch_size,
             &mut final_candidates,
