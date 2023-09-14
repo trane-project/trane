@@ -22,6 +22,9 @@ pub const LESSON_SUFFIX: &str = ".lesson";
 /// The name of the file containing the dependencies of a lesson.
 pub const LESSON_DEPENDENCIES_FILE: &str = "lesson.dependencies.json";
 
+/// The name of the file containing the courses or lessons that a lesson supersedes.
+pub const LESSON_SUPERSEDED_FILE: &str = "lesson.superseded.json";
+
 /// The name of the file containing the name of a lesson.
 pub const LESSON_NAME_FILE: &str = "lesson.name.json";
 
@@ -63,6 +66,9 @@ pub enum KnowledgeBaseFile {
 
     /// The file containing the dependencies of the lesson.
     LessonDependencies,
+
+    /// The file containing the courses or lessons that the lesson supersedes.
+    LessonSuperseded,
 
     /// The file containing the metadata of the lesson.
     LessonMetadata,
@@ -107,6 +113,7 @@ impl TryFrom<&str> for KnowledgeBaseFile {
     fn try_from(file_name: &str) -> Result<Self> {
         match file_name {
             LESSON_DEPENDENCIES_FILE => Ok(KnowledgeBaseFile::LessonDependencies),
+            LESSON_SUPERSEDED_FILE => Ok(KnowledgeBaseFile::LessonSuperseded),
             LESSON_NAME_FILE => Ok(KnowledgeBaseFile::LessonName),
             LESSON_DESCRIPTION_FILE => Ok(KnowledgeBaseFile::LessonDescription),
             LESSON_METADATA_FILE => Ok(KnowledgeBaseFile::LessonMetadata),
@@ -314,7 +321,12 @@ pub struct KnowledgeBaseLesson {
     /// ID of one of the other lessons in the course. If Trane finds a dependency with a short ID,
     /// it will automatically generate the full lesson ID. Not setting this value will indicate that
     /// the lesson has no dependencies.
-    pub dependencies: Option<Vec<Ustr>>,
+    pub dependencies: Vec<Ustr>,
+
+    /// The IDs of all courses or lessons that this lesson supersedes. Like the dependencies, the
+    /// values can be full lesson IDs or the short ID of one of the other lessons in the course. The
+    /// same resolution rules apply.
+    pub superseded: Vec<Ustr>,
 
     /// The name of the lesson to be presented to the user.
     pub name: Option<String>,
@@ -365,7 +377,8 @@ impl KnowledgeBaseLesson {
         let mut lesson = Self {
             short_id: short_lesson_id,
             course_id: course_manifest.id,
-            dependencies: None,
+            dependencies: vec![],
+            superseded: vec![],
             name: None,
             description: None,
             metadata: None,
@@ -379,7 +392,11 @@ impl KnowledgeBaseLesson {
             match lesson_file {
                 KnowledgeBaseFile::LessonDependencies => {
                     let path = lesson_root.join(LESSON_DEPENDENCIES_FILE);
-                    lesson.dependencies = Some(KnowledgeBaseFile::open(&path)?)
+                    lesson.dependencies = KnowledgeBaseFile::open(&path)?;
+                }
+                KnowledgeBaseFile::LessonSuperseded => {
+                    let path = lesson_root.join(LESSON_SUPERSEDED_FILE);
+                    lesson.superseded = KnowledgeBaseFile::open(&path)?;
                 }
                 KnowledgeBaseFile::LessonName => {
                     let path = lesson_root.join(LESSON_NAME_FILE);
@@ -464,7 +481,8 @@ impl From<KnowledgeBaseLesson> for LessonManifest {
         Self {
             id: format!("{}::{}", lesson.course_id, lesson.short_id).into(),
             course_id: lesson.course_id,
-            dependencies: lesson.dependencies.unwrap_or_default(),
+            dependencies: lesson.dependencies,
+            superseded: lesson.superseded,
             name: lesson.name.unwrap_or(format!("Lesson {}", lesson.short_id)),
             description: lesson.description,
             metadata: lesson.metadata,
@@ -494,30 +512,43 @@ impl From<KnowledgeBaseLesson> for LessonManifest {
 pub struct KnowledgeBaseConfig {}
 
 impl KnowledgeBaseConfig {
-    // Checks if the dependencies refer to another lesson in the course by its short ID and updates
-    // them to refer to the full lesson ID.
-    fn convert_to_full_dependencies(
+    // Checks if the dependencies and the superseded units refer to another lesson in the course by
+    // its short ID and updates them to refer to the full lesson ID.
+    fn convert_to_full_ids(
         course_manifest: &CourseManifest,
         short_ids: HashSet<Ustr>,
         lessons: &mut UstrMap<(KnowledgeBaseLesson, Vec<KnowledgeBaseExercise>)>,
     ) {
         lessons.iter_mut().for_each(|(_, lesson)| {
-            if let Some(dependencies) = &lesson.0.dependencies {
-                let updated_dependencies = dependencies
-                    .iter()
-                    .map(|dependency| {
-                        if short_ids.contains(dependency) {
-                            // The dependency is a short ID, so we need to update it to the full ID.
-                            format!("{}::{}", course_manifest.id, dependency).into()
-                        } else {
-                            // The dependency is already a full ID, so we can just add it to the
-                            // list.
-                            *dependency
-                        }
-                    })
-                    .collect();
-                lesson.0.dependencies = Some(updated_dependencies);
-            }
+            // Update dependencies.
+            let updated_dependencies = lesson
+                .0
+                .dependencies
+                .iter()
+                .map(|unit_id| {
+                    if short_ids.contains(unit_id) {
+                        format!("{}::{}", course_manifest.id, unit_id).into()
+                    } else {
+                        *unit_id
+                    }
+                })
+                .collect();
+            lesson.0.dependencies = updated_dependencies;
+
+            // Update superseded lessons or courses.
+            let updated_superseded = lesson
+                .0
+                .superseded
+                .iter()
+                .map(|unit_id| {
+                    if short_ids.contains(unit_id) {
+                        format!("{}::{}", course_manifest.id, unit_id).into()
+                    } else {
+                        *unit_id
+                    }
+                })
+                .collect();
+            lesson.0.superseded = updated_superseded;
         });
     }
 }
@@ -556,7 +587,7 @@ impl GenerateManifests for KnowledgeBaseConfig {
 
         // Convert all the dependencies to full lesson IDs.
         let short_ids: HashSet<Ustr> = lessons.keys().cloned().collect();
-        KnowledgeBaseConfig::convert_to_full_dependencies(course_manifest, short_ids, &mut lessons);
+        KnowledgeBaseConfig::convert_to_full_ids(course_manifest, short_ids, &mut lessons);
 
         // Generate the manifests for all the lessons and exercises.
         let manifests: Vec<(LessonManifest, Vec<ExerciseManifest>)> = lessons
@@ -639,6 +670,10 @@ mod test {
             KnowledgeBaseFile::try_from(LESSON_DEPENDENCIES_FILE).unwrap(),
         );
         assert_eq!(
+            KnowledgeBaseFile::LessonSuperseded,
+            KnowledgeBaseFile::try_from(LESSON_SUPERSEDED_FILE).unwrap(),
+        );
+        assert_eq!(
             KnowledgeBaseFile::LessonDescription,
             KnowledgeBaseFile::try_from(LESSON_DESCRIPTION_FILE).unwrap(),
         );
@@ -696,7 +731,8 @@ mod test {
             course_id: "course1".into(),
             name: Some("Name".into()),
             description: Some("Description".into()),
-            dependencies: Some(vec!["lesson2".into()]),
+            dependencies: vec!["lesson2".into()],
+            superseded: vec!["lesson0".into()],
             metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
             has_instructions: true,
             has_material: true,
@@ -707,6 +743,7 @@ mod test {
             name: "Name".into(),
             description: Some("Description".into()),
             dependencies: vec!["lesson2".into()],
+            superseded: vec!["lesson0".into()],
             lesson_instructions: Some(BasicAsset::MarkdownAsset {
                 path: LESSON_INSTRUCTIONS_FILE.into(),
             }),
@@ -748,14 +785,16 @@ mod test {
         assert_eq!(actual_manifest, expected_manifest);
     }
 
-    // Verifies that dependencies referenced by their short IDs are converted to full IDs.
+    // Verifies that dependencies or superseded units referenced by their short IDs are converted
+    // to full IDs.
     #[test]
-    fn convert_to_full_dependencies() {
+    fn convert_to_full_ids() {
         // Create an example course manifest.
         let course_manifest = CourseManifest {
             id: "course1".into(),
             name: "Course 1".into(),
             dependencies: vec![],
+            superseded: vec![],
             description: Some("Description".into()),
             authors: None,
             metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
@@ -772,7 +811,8 @@ mod test {
             course_id: "course1".into(),
             name: Some("Name".into()),
             description: Some("Description".into()),
-            dependencies: Some(vec!["lesson2".into(), "other::lesson1".into()]),
+            dependencies: vec!["lesson2".into(), "other::lesson1".into()],
+            superseded: vec!["lesson0".into(), "other::lesson0".into()],
             metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
             has_instructions: false,
             has_material: false,
@@ -791,8 +831,9 @@ mod test {
         lesson_map.insert("lesson1".into(), (lesson, vec![exercise]));
 
         // Convert the short IDs to full IDs.
-        let short_ids = HashSet::from_iter(vec!["lesson1".into(), "lesson2".into()]);
-        KnowledgeBaseConfig::convert_to_full_dependencies(
+        let short_ids =
+            HashSet::from_iter(vec!["lesson0".into(), "lesson1".into(), "lesson2".into()]);
+        KnowledgeBaseConfig::convert_to_full_ids(
             &course_manifest,
             short_ids.clone(),
             &mut lesson_map,
@@ -800,7 +841,11 @@ mod test {
 
         assert_eq!(
             lesson_map.get(&short_lesson_id).unwrap().0.dependencies,
-            Some(vec!["course1::lesson2".into(), "other::lesson1".into()])
+            vec![Ustr::from("course1::lesson2"), "other::lesson1".into()]
+        );
+        assert_eq!(
+            lesson_map.get(&short_lesson_id).unwrap().0.superseded,
+            vec![Ustr::from("course1::lesson0"), "other::lesson0".into()]
         );
     }
 
@@ -865,6 +910,10 @@ mod test {
         let dependencies_path = lesson_dir.join(LESSON_DEPENDENCIES_FILE);
         write_json(&dependencies, &dependencies_path)?;
 
+        let superseded: Vec<Ustr> = vec!["lesson0".into()];
+        let superseded_path = lesson_dir.join(LESSON_SUPERSEDED_FILE);
+        write_json(&superseded, &superseded_path)?;
+
         let metadata: BTreeMap<String, Vec<String>> =
             BTreeMap::from([("key".into(), vec!["value".into()])]);
         let metadata_path = lesson_dir.join(LESSON_METADATA_FILE);
@@ -904,6 +953,7 @@ mod test {
             id: "course1".into(),
             name: "Course 1".into(),
             dependencies: vec![],
+            superseded: vec![],
             description: Some("Description".into()),
             authors: None,
             metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
@@ -919,7 +969,8 @@ mod test {
         // Verify the lesson.
         assert_eq!(lesson.name, Some(name.into()));
         assert_eq!(lesson.description, Some(description.into()));
-        assert_eq!(lesson.dependencies, Some(dependencies));
+        assert_eq!(lesson.dependencies, dependencies);
+        assert_eq!(lesson.superseded, superseded);
         assert_eq!(lesson.metadata, Some(metadata));
         assert!(lesson.has_instructions);
         assert!(lesson.has_material);

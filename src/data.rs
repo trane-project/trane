@@ -293,6 +293,13 @@ pub struct CourseManifest {
     #[serde(default)]
     pub dependencies: Vec<Ustr>,
 
+    /// The IDs of the courses or lessons that this course supersedes. If this course is mastered,
+    /// then exercises from the superseded courses or lessons will no longer be shown to the
+    /// student.
+    #[builder(default)]
+    #[serde(default)]
+    pub superseded: Vec<Ustr>,
+
     /// An optional description of the course.
     #[builder(default)]
     #[serde(default)]
@@ -391,6 +398,13 @@ pub struct LessonManifest {
     #[builder(default)]
     #[serde(default)]
     pub dependencies: Vec<Ustr>,
+
+    ///The IDs of the courses or lessons that this lesson supersedes. If this lesson is mastered,
+    /// then exercises from the superseded courses or lessons will no longer be shown to the
+    /// student.
+    #[builder(default)]
+    #[serde(default)]
+    pub superseded: Vec<Ustr>,
 
     /// The ID of the course to which the lesson belongs.
     #[builder(setter(into))]

@@ -55,6 +55,7 @@ lazy_static! {
         TestCourse {
             id: TestId(0, None, None),
             dependencies: vec![],
+            superseded: vec![],
             metadata: BTreeMap::from([
                 (
                     "course_key_1".to_string(),
@@ -69,6 +70,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(0, Some(0), None),
                     dependencies: vec![],
+                    superseded: vec![],
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
@@ -84,6 +86,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(0, Some(1), None),
                     dependencies: vec![TestId(0, Some(0), None)],
+                    superseded: vec![],
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
@@ -101,6 +104,7 @@ lazy_static! {
         TestCourse {
             id: TestId(1, None, None),
             dependencies: vec![TestId(0, None, None)],
+            superseded: vec![],
             metadata: BTreeMap::from([
                 (
                     "course_key_1".to_string(),
@@ -115,6 +119,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(1, Some(0), None),
                     dependencies: vec![],
+                    superseded: vec![],
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
@@ -130,6 +135,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(1, Some(1), None),
                     dependencies: vec![TestId(1, Some(0), None)],
+                    superseded: vec![],
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
@@ -147,6 +153,7 @@ lazy_static! {
         TestCourse {
             id: TestId(2, None, None),
             dependencies: vec![TestId(0, None, None)],
+            superseded: vec![],
             metadata: BTreeMap::from([
                 (
                     "course_key_1".to_string(),
@@ -161,6 +168,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(2, Some(0), None),
                     dependencies: vec![],
+                    superseded: vec![],
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
@@ -176,6 +184,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(2, Some(1), None),
                     dependencies: vec![TestId(2, Some(0), None)],
+                    superseded: vec![],
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
@@ -191,6 +200,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(2, Some(2), None),
                     dependencies: vec![TestId(2, Some(1), None)],
+                    superseded: vec![],
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
@@ -208,6 +218,7 @@ lazy_static! {
         TestCourse {
             id: TestId(4, None, None),
             dependencies: vec![],
+            superseded: vec![],
             metadata: BTreeMap::from([
                 (
                     "course_key_1".to_string(),
@@ -222,6 +233,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(4, Some(0), None),
                     dependencies: vec![],
+                    superseded: vec![],
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
@@ -237,6 +249,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(4, Some(1), None),
                     dependencies: vec![TestId(4, Some(0), None)],
+                    superseded: vec![],
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
@@ -252,6 +265,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(4, Some(2), None),
                     dependencies: vec![TestId(4, Some(0), None)],
+                    superseded: vec![],
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
@@ -267,6 +281,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(4, Some(3), None),
                     dependencies: vec![TestId(4, Some(2), None)],
+                    superseded: vec![],
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
@@ -288,6 +303,7 @@ lazy_static! {
                 TestId(3, None, None),
                 TestId(4, None, None)
             ],
+            superseded: vec![],
             metadata: BTreeMap::from([
                 (
                     "course_key_1".to_string(),
@@ -302,6 +318,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(5, Some(0), None),
                     dependencies: vec![TestId(4, Some(1), None)],
+                    superseded: vec![],
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
@@ -321,6 +338,7 @@ lazy_static! {
                         // Depends on a missing lesson.
                         TestId(3, Some(3), None),
                     ],
+                    superseded: vec![],
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
@@ -338,6 +356,7 @@ lazy_static! {
         TestCourse {
             id: TestId(6, None, None),
             dependencies: vec![TestId(3, None, None)],
+            superseded: vec![],
             metadata: BTreeMap::from([
                 (
                     "course_key_1".to_string(),
@@ -352,6 +371,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(6, Some(0), None),
                     dependencies: vec![],
+                    superseded: vec![],
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
@@ -367,6 +387,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(6, Some(1), None),
                     dependencies: vec![TestId(6, Some(0), None)],
+                    superseded: vec![],
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
@@ -384,6 +405,7 @@ lazy_static! {
         TestCourse {
             id: TestId(7, None, None),
             dependencies: vec![],
+            superseded: vec![],
             metadata: BTreeMap::from([
                 (
                     "course_key_1".to_string(),
@@ -398,6 +420,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(7, Some(0), None),
                     dependencies: vec![TestId(0, None, None)],
+                    superseded: vec![],
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
@@ -413,10 +436,11 @@ lazy_static! {
                 TestLesson {
                     id: TestId(7, Some(1), None),
                     dependencies: vec![
-                            TestId(0, Some(0), None),
-                            // Depends on a missing lesson.
-                            TestId(6, Some(11), None),
-                        ],
+                        TestId(0, Some(0), None),
+                        // Depends on a missing lesson.
+                        TestId(6, Some(11), None),
+                    ],
+                    superseded: vec![],
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
@@ -432,6 +456,7 @@ lazy_static! {
                 TestLesson {
                     id: TestId(7, Some(2), None),
                     dependencies: vec![TestId(7, Some(1), None)],
+                    superseded: vec![],
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
@@ -450,6 +475,7 @@ lazy_static! {
         TestCourse {
             id: TestId(8, None, None),
             dependencies: vec![TestId(7, None, None)],
+            superseded: vec![],
             metadata: BTreeMap::from([
                 (
                     "course_key_1".to_string(),

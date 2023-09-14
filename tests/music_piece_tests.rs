@@ -136,6 +136,7 @@ fn music_piece_builder(
             id: course_id,
             name: format!("Course {}", course_id),
             dependencies: vec![],
+            superseded: vec![],
             description: None,
             authors: None,
             metadata: None,
