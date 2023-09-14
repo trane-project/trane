@@ -272,6 +272,7 @@ impl TranscriptionConfig {
             name: format!("{} - Singing", course_manifest.name),
             description: Some(SINGING_DESCRIPTION.to_string()),
             dependencies,
+            superseded: vec![],
             metadata: Some(BTreeMap::from([
                 (LESSON_METADATA.to_string(), vec!["singing".to_string()]),
                 (INSTRUMENT_METADATA.to_string(), vec!["voice".to_string()]),
@@ -345,6 +346,7 @@ impl TranscriptionConfig {
             name: format!("{} - Advanced Singing", course_manifest.name),
             description: Some(ADVANCED_SINGING_DESCRIPTION.to_string()),
             dependencies: vec![Self::singing_lesson_id(&course_manifest.id)],
+            superseded: vec![],
             metadata: Some(BTreeMap::from([
                 (
                     LESSON_METADATA.to_string(),
@@ -440,6 +442,7 @@ impl TranscriptionConfig {
             ),
             description: Some(TRANSCRIPTION_DESCRIPTION.to_string()),
             dependencies,
+            superseded: vec![],
             metadata: Some(BTreeMap::from([
                 (
                     LESSON_METADATA.to_string(),
@@ -545,6 +548,7 @@ impl TranscriptionConfig {
                 Self::transcription_lesson_id(&course_manifest.id, instrument),
                 Self::advanced_singing_lesson_id(&course_manifest.id),
             ],
+            superseded: vec![],
             metadata: Some(BTreeMap::from([
                 (
                     LESSON_METADATA.to_string(),
@@ -1053,6 +1057,7 @@ mod test {
             name: "Test".to_string(),
             description: None,
             dependencies: vec![],
+            superseded: vec![],
             authors: None,
             metadata: None,
             course_instructions: Some(BasicAsset::InlinedAsset {
@@ -1109,6 +1114,7 @@ mod test {
             name: "Test".to_string(),
             description: None,
             dependencies: vec![],
+            superseded: vec![],
             authors: None,
             metadata: None,
             course_instructions: Some(BasicAsset::InlinedAsset {

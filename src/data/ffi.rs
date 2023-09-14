@@ -210,6 +210,9 @@ pub struct CourseManifest {
     #[typeshare(serialized_as = "Vec<String>")]
     pub dependencies: Vec<Ustr>,
     #[serde(default)]
+    #[typeshare(serialized_as = "Vec<String>")]
+    pub superseded: Vec<Ustr>,
+    #[serde(default)]
     pub description: Option<String>,
     #[serde(default)]
     pub authors: Option<Vec<String>>,
@@ -230,6 +233,7 @@ impl From<CourseManifest> for data::CourseManifest {
             id: manifest.id,
             name: manifest.name,
             dependencies: manifest.dependencies,
+            superseded: manifest.superseded,
             description: manifest.description,
             authors: manifest.authors,
             metadata: manifest.metadata,
@@ -246,6 +250,7 @@ impl From<data::CourseManifest> for CourseManifest {
             id: manifest.id,
             name: manifest.name,
             dependencies: manifest.dependencies,
+            superseded: manifest.superseded,
             description: manifest.description,
             authors: manifest.authors,
             metadata: manifest.metadata,
@@ -266,6 +271,9 @@ pub struct LessonManifest {
     #[serde(default)]
     #[typeshare(serialized_as = "Vec<String>")]
     pub dependencies: Vec<Ustr>,
+    #[serde(default)]
+    #[typeshare(serialized_as = "Vec<String>")]
+    pub superseded: Vec<Ustr>,
     #[typeshare(serialized_as = "String")]
     pub course_id: Ustr,
     #[serde(default)]
@@ -286,6 +294,7 @@ impl From<LessonManifest> for data::LessonManifest {
         Self {
             id: manifest.id,
             dependencies: manifest.dependencies,
+            superseded: manifest.superseded,
             course_id: manifest.course_id,
             name: manifest.name,
             description: manifest.description,
@@ -301,6 +310,7 @@ impl From<data::LessonManifest> for LessonManifest {
         Self {
             id: manifest.id,
             dependencies: manifest.dependencies,
+            superseded: manifest.superseded,
             course_id: manifest.course_id,
             name: manifest.name,
             description: manifest.description,

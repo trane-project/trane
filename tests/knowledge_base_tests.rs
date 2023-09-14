@@ -96,10 +96,11 @@ fn knowledge_base_builder(
                 lesson: KnowledgeBaseLesson {
                     short_id: lesson_id,
                     course_id: course_manifest.id,
-                    dependencies: Some(generate_lesson_dependencies(
+                    dependencies: generate_lesson_dependencies(
                         lesson_index,
                         &mut rand::thread_rng(),
-                    )),
+                    ),
+                    superseded: vec![],
                     name: None,
                     description: None,
                     metadata: None,
@@ -148,6 +149,7 @@ fn all_exercises_visited() -> Result<()> {
             name: "Course 1".into(),
             description: None,
             dependencies: vec![],
+            superseded: vec![],
             authors: None,
             metadata: None,
             course_material: None,
@@ -164,6 +166,7 @@ fn all_exercises_visited() -> Result<()> {
             name: "Course 2".into(),
             description: None,
             dependencies: vec!["course1".into()],
+            superseded: vec![],
             authors: None,
             metadata: None,
             course_material: None,

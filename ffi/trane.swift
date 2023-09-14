@@ -573,6 +573,7 @@ public struct CourseManifest: Codable {
 	public let id: String
 	public let name: String?
 	public let dependencies: [String]?
+	public let superseded: [String]?
 	public let description: String?
 	public let authors: [String]?
 	public let metadata: [String: [String]]?
@@ -580,10 +581,11 @@ public struct CourseManifest: Codable {
 	public let course_instructions: BasicAsset?
 	public let generator_config: CourseGenerator?
 
-	public init(id: String, name: String?, dependencies: [String]?, description: String?, authors: [String]?, metadata: [String: [String]]?, course_material: BasicAsset?, course_instructions: BasicAsset?, generator_config: CourseGenerator?) {
+	public init(id: String, name: String?, dependencies: [String]?, superseded: [String]?, description: String?, authors: [String]?, metadata: [String: [String]]?, course_material: BasicAsset?, course_instructions: BasicAsset?, generator_config: CourseGenerator?) {
 		self.id = id
 		self.name = name
 		self.dependencies = dependencies
+		self.superseded = superseded
 		self.description = description
 		self.authors = authors
 		self.metadata = metadata
@@ -596,6 +598,7 @@ public struct CourseManifest: Codable {
 public struct LessonManifest: Codable {
 	public let id: String
 	public let dependencies: [String]?
+	public let superseded: [String]?
 	public let course_id: String
 	public let name: String?
 	public let description: String?
@@ -603,9 +606,10 @@ public struct LessonManifest: Codable {
 	public let lesson_material: BasicAsset?
 	public let lesson_instructions: BasicAsset?
 
-	public init(id: String, dependencies: [String]?, course_id: String, name: String?, description: String?, metadata: [String: [String]]?, lesson_material: BasicAsset?, lesson_instructions: BasicAsset?) {
+	public init(id: String, dependencies: [String]?, superseded: [String]?, course_id: String, name: String?, description: String?, metadata: [String: [String]]?, lesson_material: BasicAsset?, lesson_instructions: BasicAsset?) {
 		self.id = id
 		self.dependencies = dependencies
+		self.superseded = superseded
 		self.course_id = course_id
 		self.name = name
 		self.description = description

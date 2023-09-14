@@ -126,6 +126,7 @@ export interface CourseManifest {
 	id: string;
 	name?: string;
 	dependencies?: string[];
+	superseded?: string[];
 	description?: string;
 	authors?: string[];
 	metadata?: Record<string, string[]>;
@@ -137,6 +138,7 @@ export interface CourseManifest {
 export interface LessonManifest {
 	id: string;
 	dependencies?: string[];
+	superseded?: string[];
 	course_id: string;
 	name?: string;
 	description?: string;

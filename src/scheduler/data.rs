@@ -319,6 +319,7 @@ mod test {
             TestCourse {
                 id: TestId(0, None, None),
                 dependencies: vec![],
+                superseded: vec![],
                 metadata: BTreeMap::from([
                     (
                         "course_key_1".to_string(),
@@ -333,6 +334,7 @@ mod test {
                     TestLesson {
                         id: TestId(0, Some(0), None),
                         dependencies: vec![],
+                        superseded: vec![],
                         metadata: BTreeMap::from([
                             (
                                 "lesson_key_1".to_string(),
@@ -348,6 +350,7 @@ mod test {
                     TestLesson {
                         id: TestId(0, Some(1), None),
                         dependencies: vec![TestId(0, Some(0), None)],
+                        superseded: vec![],
                         metadata: BTreeMap::from([
                             (
                                 "lesson_key_1".to_string(),

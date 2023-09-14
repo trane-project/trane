@@ -110,11 +110,17 @@ impl LessonBuilder {
             let mut description_file = File::create(description_path)?;
             description_file.write_all(description_json.as_bytes())?;
         }
-        if let Some(dependencies) = &self.lesson.dependencies {
-            let dependencies_json = serde_json::to_string_pretty(dependencies)?;
+        if !self.lesson.dependencies.is_empty() {
+            let dependencies_json = serde_json::to_string_pretty(&self.lesson.dependencies)?;
             let dependencies_path = lesson_directory.join(LESSON_DEPENDENCIES_FILE);
             let mut dependencies_file = File::create(dependencies_path)?;
             dependencies_file.write_all(dependencies_json.as_bytes())?;
+        }
+        if !self.lesson.superseded.is_empty() {
+            let superseded_json = serde_json::to_string_pretty(&self.lesson.superseded)?;
+            let superseded_path = lesson_directory.join(LESSON_SUPERSEDED_FILE);
+            let mut superseded_file = File::create(superseded_path)?;
+            superseded_file.write_all(superseded_json.as_bytes())?;
         }
         if let Some(metadata) = &self.lesson.metadata {
             let metadata_json = serde_json::to_string_pretty(metadata)?;
@@ -254,6 +260,10 @@ pub struct SimpleKnowledgeBaseLesson {
     #[serde(default)]
     pub dependencies: Vec<Ustr>,
 
+    /// The courses or lessons that this lesson supersedes.
+    #[serde(default)]
+    pub superseded: Vec<Ustr>,
+
     /// The simple exercises in the lesson.
     #[serde(default)]
     pub exercises: Vec<SimpleKnowledgeBaseExercise>,
@@ -294,11 +304,6 @@ impl SimpleKnowledgeBaseLesson {
             .collect::<Result<Vec<_>>>()?;
 
         // Generate the lesson builder.
-        let dependencies = if self.dependencies.is_empty() {
-            None
-        } else {
-            Some(self.dependencies.clone())
-        };
         let has_instructions = self
             .additional_files
             .iter()
@@ -311,7 +316,8 @@ impl SimpleKnowledgeBaseLesson {
             lesson: KnowledgeBaseLesson {
                 short_id: self.short_id,
                 course_id,
-                dependencies,
+                dependencies: self.dependencies.clone(),
+                superseded: self.superseded.clone(),
                 name: None,
                 description: None,
                 metadata: self.metadata.clone(),
@@ -448,7 +454,8 @@ mod test {
                 course_id: "course1".into(),
                 name: Some("Lesson 1".to_string()),
                 description: Some("Lesson 1 description".to_string()),
-                dependencies: Some(vec!["lesson2".into()]),
+                dependencies: vec!["lesson2".into()],
+                superseded: vec!["lesson0".into()],
                 metadata: Some(BTreeMap::from([(
                     "key".to_string(),
                     vec!["value".to_string()],
@@ -480,6 +487,7 @@ mod test {
                 id: "course1".into(),
                 name: "Course 1".into(),
                 dependencies: vec![],
+                superseded: vec![],
                 description: None,
                 authors: None,
                 metadata: None,
@@ -588,6 +596,7 @@ mod test {
                 id: "course1".into(),
                 name: "Course 1".into(),
                 dependencies: vec![],
+                superseded: vec![],
                 description: None,
                 authors: None,
                 metadata: None,
@@ -599,6 +608,7 @@ mod test {
                 SimpleKnowledgeBaseLesson {
                     short_id: "1".into(),
                     dependencies: vec![],
+                    superseded: vec![],
                     exercises: vec![
                         SimpleKnowledgeBaseExercise {
                             short_id: "1".into(),
@@ -617,6 +627,7 @@ mod test {
                 SimpleKnowledgeBaseLesson {
                     short_id: "2".into(),
                     dependencies: vec!["1".into()],
+                    superseded: vec!["0".into()],
                     exercises: vec![
                         SimpleKnowledgeBaseExercise {
                             short_id: "1".into(),
@@ -677,6 +688,8 @@ mod test {
         );
         let dependencies_file = lesson_dir.join(LESSON_DEPENDENCIES_FILE);
         assert!(!dependencies_file.exists());
+        let superseced_file = lesson_dir.join(LESSON_SUPERSEDED_FILE);
+        assert!(!superseced_file.exists());
         let instructions_file = lesson_dir.join(LESSON_INSTRUCTIONS_FILE);
         assert!(!instructions_file.exists());
         let material_file = lesson_dir.join(LESSON_MATERIAL_FILE);
@@ -708,6 +721,12 @@ mod test {
         assert_eq!(
             KnowledgeBaseFile::open::<Vec<String>>(&dependencies_file)?,
             vec!["1".to_string()]
+        );
+        let superseced_file = lesson_dir.join(LESSON_SUPERSEDED_FILE);
+        assert!(superseced_file.exists());
+        assert_eq!(
+            KnowledgeBaseFile::open::<Vec<String>>(&superseced_file)?,
+            vec!["0".to_string()]
         );
         let instructions_file = lesson_dir.join(LESSON_INSTRUCTIONS_FILE);
         assert!(instructions_file.exists());
@@ -742,6 +761,7 @@ mod test {
                 id: "course1".into(),
                 name: "Course 1".into(),
                 dependencies: vec![],
+                superseded: vec![],
                 description: None,
                 authors: None,
                 metadata: None,
@@ -753,6 +773,7 @@ mod test {
                 SimpleKnowledgeBaseLesson {
                     short_id: "1".into(),
                     dependencies: vec![],
+                    superseded: vec![],
                     exercises: vec![SimpleKnowledgeBaseExercise {
                         short_id: "1".into(),
                         front: vec!["Lesson 1, Exercise 1 front".into()],
@@ -764,6 +785,7 @@ mod test {
                 SimpleKnowledgeBaseLesson {
                     short_id: "1".into(),
                     dependencies: vec![],
+                    superseded: vec![],
                     exercises: vec![SimpleKnowledgeBaseExercise {
                         short_id: "1".into(),
                         front: vec!["Lesson 2, Exercise 1 front".into()],
@@ -790,6 +812,7 @@ mod test {
                 id: "course1".into(),
                 name: "Course 1".into(),
                 dependencies: vec![],
+                superseded: vec![],
                 description: None,
                 authors: None,
                 metadata: None,
@@ -800,6 +823,7 @@ mod test {
             lessons: vec![SimpleKnowledgeBaseLesson {
                 short_id: "1".into(),
                 dependencies: vec![],
+                superseded: vec![],
                 exercises: vec![
                     SimpleKnowledgeBaseExercise {
                         short_id: "1".into(),
@@ -832,6 +856,7 @@ mod test {
                 id: "course1".into(),
                 name: "Course 1".into(),
                 dependencies: vec![],
+                superseded: vec![],
                 description: None,
                 authors: None,
                 metadata: None,
@@ -842,6 +867,7 @@ mod test {
             lessons: vec![SimpleKnowledgeBaseLesson {
                 short_id: "".into(),
                 dependencies: vec![],
+                superseded: vec![],
                 exercises: vec![SimpleKnowledgeBaseExercise {
                     short_id: "1".into(),
                     front: vec!["Lesson 1, Exercise 1 front".into()],
@@ -867,6 +893,7 @@ mod test {
                 id: "course1".into(),
                 name: "Course 1".into(),
                 dependencies: vec![],
+                superseded: vec![],
                 description: None,
                 authors: None,
                 metadata: None,
@@ -877,6 +904,7 @@ mod test {
             lessons: vec![SimpleKnowledgeBaseLesson {
                 short_id: "1".into(),
                 dependencies: vec![],
+                superseded: vec![],
                 exercises: vec![SimpleKnowledgeBaseExercise {
                     short_id: "".into(),
                     front: vec!["Lesson 1, Exercise 1 front".into()],

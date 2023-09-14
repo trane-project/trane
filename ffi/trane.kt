@@ -229,6 +229,7 @@ data class CourseManifest (
 	val id: String,
 	val name: String? = null,
 	val dependencies: List<String>? = null,
+	val superseded: List<String>? = null,
 	val description: String? = null,
 	val authors: List<String>? = null,
 	val metadata: HashMap<String, List<String>>? = null,
@@ -241,6 +242,7 @@ data class CourseManifest (
 data class LessonManifest (
 	val id: String,
 	val dependencies: List<String>? = null,
+	val superseded: List<String>? = null,
 	val course_id: String,
 	val name: String? = null,
 	val description: String? = null,
