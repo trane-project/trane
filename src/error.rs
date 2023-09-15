@@ -99,6 +99,9 @@ pub enum ReviewListError {
 #[derive(Debug, Error)]
 #[allow(missing_docs)]
 pub enum UnitGraphError {
+    #[error("cannot add dependencies for unit {0} of type {1} to the unit graph: {2}")]
+    AddDependencies(Ustr, UnitType, #[source] anyhow::Error),
+
     #[error("cannot add unit {0} of type {1} to the unit graph: {2}")]
     AddUnit(Ustr, UnitType, #[source] anyhow::Error),
 

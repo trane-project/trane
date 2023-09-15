@@ -467,7 +467,7 @@ impl UnitGraph for Trane {
         unit_id: &Ustr,
         unit_type: UnitType,
         dependencies: &[Ustr],
-    ) -> Result<()> {
+    ) -> Result<(), UnitGraphError> {
         self.unit_graph
             .write()
             .add_dependencies(unit_id, unit_type, dependencies)

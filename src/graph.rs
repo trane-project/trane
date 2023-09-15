@@ -66,7 +66,7 @@ pub trait UnitGraph {
         unit_id: &Ustr,
         unit_type: UnitType,
         dependencies: &[Ustr],
-    ) -> Result<()>;
+    ) -> Result<(), UnitGraphError>;
 
     /// Returns the type of the given unit.
     fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType>;
@@ -273,6 +273,50 @@ impl InMemoryUnitGraph {
         Ok(())
     }
 
+    /// Helper function to add dependencies to a unit.
+    fn add_dependencies_helper(
+        &mut self,
+        unit_id: &Ustr,
+        unit_type: UnitType,
+        dependencies: &[Ustr],
+    ) -> Result<()> {
+        // Perform some sanity checks on the unit type and dependencies.
+        ensure!(
+            unit_type != UnitType::Exercise,
+            "exercise {} cannot have dependencies",
+            unit_id,
+        );
+        ensure!(
+            dependencies.iter().all(|dep| dep != unit_id),
+            "unit {} cannot depend on itself",
+            unit_id,
+        );
+
+        // Verify that the unit was added before trying to list its dependencies.
+        ensure!(
+            self.type_map.contains_key(unit_id),
+            "unit {} of type {:?} must be explicitly added before adding dependencies",
+            unit_id,
+            unit_type,
+        );
+
+        // Update the dependency sinks and dependency map.
+        self.update_dependency_sinks(unit_id, dependencies);
+        self.dependency_graph
+            .entry(*unit_id)
+            .or_insert_with(UstrSet::default)
+            .extend(dependencies);
+
+        // For each dependency, insert the equivalent dependent relationship.
+        for dependency_id in dependencies {
+            self.dependent_graph
+                .entry(*dependency_id)
+                .or_insert_with(UstrSet::default)
+                .insert(*unit_id);
+        }
+        Ok(())
+    }
+
     /// Helper function to check for cycles in the dependency graph.
     fn check_cycles_helper(&self) -> Result<()> {
         // Perform a depth-first search of the dependency graph from each unit. Return an error if
@@ -358,42 +402,9 @@ impl UnitGraph for InMemoryUnitGraph {
         unit_id: &Ustr,
         unit_type: UnitType,
         dependencies: &[Ustr],
-    ) -> Result<()> {
-        // Perform some sanity checks on the unit type and dependencies.
-        ensure!(
-            unit_type != UnitType::Exercise,
-            "exercise {} cannot have dependencies",
-            unit_id,
-        );
-        ensure!(
-            dependencies.iter().all(|dep| dep != unit_id),
-            "unit {} cannot depend on itself",
-            unit_id,
-        );
-
-        // Verify that the unit was added before trying to list its dependencies.
-        ensure!(
-            self.type_map.contains_key(unit_id),
-            "unit {} of type {:?} must be explicitly added before adding dependencies",
-            unit_id,
-            unit_type,
-        );
-
-        // Update the dependency sinks and dependency map.
-        self.update_dependency_sinks(unit_id, dependencies);
-        self.dependency_graph
-            .entry(*unit_id)
-            .or_insert_with(UstrSet::default)
-            .extend(dependencies);
-
-        // For each dependency, insert the equivalent dependent relationship.
-        for dependency_id in dependencies {
-            self.dependent_graph
-                .entry(*dependency_id)
-                .or_insert_with(UstrSet::default)
-                .insert(*unit_id);
-        }
-        Ok(())
+    ) -> Result<(), UnitGraphError> {
+        self.add_dependencies_helper(unit_id, unit_type.clone(), dependencies)
+            .map_err(|e| UnitGraphError::AddDependencies(*unit_id, unit_type, e))
     }
 
     fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType> {
