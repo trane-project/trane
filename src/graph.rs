@@ -68,6 +68,9 @@ pub trait UnitGraph {
         dependencies: &[Ustr],
     ) -> Result<(), UnitGraphError>;
 
+    /// Adds the list of superseded units for the given unit to the graph.
+    fn add_superseded(&mut self, unit_id: &Ustr, superseded: &[Ustr]);
+
     /// Returns the type of the given unit.
     fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType>;
 
@@ -108,6 +111,12 @@ pub trait UnitGraph {
     /// added as dependency sinks so that the scheduler can reach their dependents, which are part
     /// of the library.
     fn get_dependency_sinks(&self) -> UstrSet;
+
+    /// Returns the lessons and courses that are superseded by the given lesson or course.
+    fn get_superseded(&self, unit_id: &Ustr) -> Option<UstrSet>;
+
+    /// Returns the lessons and courses that supersede the given lesson or course.
+    fn get_superseded_by(&self, unit_id: &Ustr) -> Option<UstrSet>;
 
     /// Performs a cycle check on the graph, done currently when opening the Trane library to
     /// prevent any infinite traversal of the graph and immediately inform the user of the issue.
@@ -158,6 +167,12 @@ pub struct InMemoryUnitGraph {
 
     /// The set of all dependency sinks in the graph.
     dependency_sinks: UstrSet,
+
+    /// The mapping of a unit to the units it supersedes.
+    superseded_graph: UstrMap<UstrSet>,
+
+    /// The mapping of a unit to the units that supersede it.
+    superseded_by_graph: UstrMap<UstrSet>,
 }
 
 impl InMemoryUnitGraph {
@@ -407,6 +422,23 @@ impl UnitGraph for InMemoryUnitGraph {
             .map_err(|e| UnitGraphError::AddDependencies(*unit_id, unit_type, e))
     }
 
+    fn add_superseded(&mut self, unit_id: &Ustr, superseded: &[Ustr]) {
+        // Update the superseded map.
+        self.update_dependency_sinks(unit_id, superseded);
+        self.superseded_graph
+            .entry(*unit_id)
+            .or_insert_with(UstrSet::default)
+            .extend(superseded);
+
+        // For each superseded, insert the equivalent superseded by relationship.
+        for superseded_id in superseded {
+            self.superseded_by_graph
+                .entry(*superseded_id)
+                .or_insert_with(UstrSet::default)
+                .insert(*unit_id);
+        }
+    }
+
     fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType> {
         self.type_map.get(unit_id).cloned()
     }
@@ -465,6 +497,14 @@ impl UnitGraph for InMemoryUnitGraph {
 
     fn get_dependency_sinks(&self) -> UstrSet {
         self.dependency_sinks.clone()
+    }
+
+    fn get_superseded(&self, unit_id: &Ustr) -> Option<UstrSet> {
+        self.superseded_graph.get(unit_id).cloned()
+    }
+
+    fn get_superseded_by(&self, unit_id: &Ustr) -> Option<UstrSet> {
+        self.superseded_by_graph.get(unit_id).cloned()
     }
 
     fn check_cycles(&self) -> Result<(), UnitGraphError> {

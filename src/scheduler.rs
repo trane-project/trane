@@ -117,6 +117,9 @@ struct Candidate {
     // The ID of the exercise's lesson.
     lesson_id: Ustr,
 
+    // The ID of the exercise's course.
+    course_id: Ustr,
+
     /// The depth of this unit from the starting unit. That is, the number of hops the graph search
     /// needed to reach this exercise.
     depth: f32,
@@ -306,6 +309,7 @@ impl DepthFirstScheduler {
             .map(|(exercise_id, score)| Candidate {
                 exercise_id,
                 lesson_id: item.unit_id, // It's assumed that the item is a lesson.
+                course_id,
                 depth: (item.depth + 1) as f32,
                 score: *score,
                 frequency: self.data.get_exercise_frequency(&exercise_id),
@@ -355,6 +359,23 @@ impl DepthFirstScheduler {
             .unwrap_or_default();
         if self.data.blacklisted(&course_id).unwrap_or(false) {
             return true;
+        }
+
+        // If this unit is superseded by others, then it is considered as satisfied if all the
+        // scores of the superseding units are equal or greater than the passing score.
+        let superseded_by = self.data.get_superseded_by(dependency_id);
+        if let Some(superseded_by) = superseded_by {
+            // The depth of the superseding units is not known, but it is assumed that it's greater
+            // than the depth of the current unit, so one level is added.
+            if superseded_by.iter().all(|id| {
+                self.score_cache
+                    .get_unit_score(id)
+                    .unwrap_or_default()
+                    .unwrap_or_default()
+                    > self.data.options.passing_score.compute_score(depth + 1)
+            }) {
+                return true;
+            }
         }
 
         // Finally, dependencies with a score equal or greater than the passing score are considered
@@ -672,18 +693,25 @@ impl DepthFirstScheduler {
                     candidates.extend(self.get_candidates_from_lesson(unit_id)?);
                 }
                 UnitType::Exercise => {
-                    // Retrieve the exercise's lesson.
+                    // Retrieve the exercise's lesson and course.
                     let lesson_id = self
                         .data
                         .unit_graph
                         .read()
                         .get_exercise_lesson(unit_id)
                         .unwrap_or_default();
+                    let course_id = self
+                        .data
+                        .unit_graph
+                        .read()
+                        .get_lesson_course(&lesson_id)
+                        .unwrap_or_default();
 
                     // If the unit is an exercise, directly add it to the list of candidates.
                     candidates.push(Candidate {
                         exercise_id: *unit_id,
                         lesson_id,
+                        course_id,
                         depth: 0.0,
                         score: self
                             .score_cache

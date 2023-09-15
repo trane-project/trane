@@ -114,6 +114,18 @@ impl SchedulerData {
             .collect();
     }
 
+    /// Returns all the units superseded by the unit with the given ID.
+    #[inline(always)]
+    pub fn get_superseded(&self, unit_id: &Ustr) -> Option<UstrSet> {
+        return self.unit_graph.read().get_superseded(unit_id);
+    }
+
+    /// Returns all the units that supersede the unit with the given ID.
+    #[inline(always)]
+    pub fn get_superseded_by(&self, unit_id: &Ustr) -> Option<UstrSet> {
+        return self.unit_graph.read().get_superseded_by(unit_id);
+    }
+
     /// Returns all the dependencies of the unit with the given ID at the given depth.
     pub fn get_dependencies_at_depth(&self, unit_id: &Ustr, depth: usize) -> Vec<Ustr> {
         // Search for the dependencies at the given depth.

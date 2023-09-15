@@ -213,17 +213,59 @@ impl CandidateFilter {
         batch_size
     }
 
+    /// Removes the candidates that belong to a lesson or course that has been superseded by another
+    /// lesson or course in the list of candidates.
+    fn remove_superseded_exercises(&self, candidates: &[Candidate]) -> Vec<Candidate> {
+        // TODO: this is wrong. If the superseded unit is not in the list of candidates, then
+        // the filtering will not happen correctly.
+
+        // Generate a set of all the superseded lessons and courses.
+        let mut all_superseded = UstrSet::default();
+        for candidate in candidates {
+            if let Some(superseded) = self.data.get_superseded(&candidate.lesson_id) {
+                all_superseded.extend(superseded);
+            }
+            if let Some(superseded) = self.data.get_superseded(&candidate.course_id) {
+                all_superseded.extend(superseded);
+            }
+        }
+
+        if all_superseded.is_empty() {
+            return candidates.to_vec();
+        }
+        println!("all superseded: {:?}", all_superseded);
+
+        // Filter out the candidates that belong to a superseded lesson or course.
+        candidates
+            .iter()
+            .filter(|c| {
+                let result = !all_superseded.contains(&c.lesson_id)
+                    && !all_superseded.contains(&c.course_id);
+                if !result {
+                    println!(
+                        "filtering out {} {} {}",
+                        c.exercise_id, c.lesson_id, c.course_id
+                    );
+                }
+                result
+            })
+            .cloned()
+            .collect()
+    }
+
     /// Takes a list of exercises and filters them so that the end result is a list of exercise
     /// manifests which fit the mastery windows defined in the scheduler options.
     pub fn filter_candidates(
         &self,
         candidates: Vec<Candidate>,
     ) -> Result<Vec<(Ustr, ExerciseManifest)>> {
+        // Remove exercises from any superseded lesson or course.
+        let candidates = self.remove_superseded_exercises(&candidates);
+
+        // Find the candidates that fit in each window.
         let options = &self.data.options;
         let batch_size = Self::dynamic_batch_size(options.batch_size, candidates.len());
         let batch_size_float = batch_size as f32;
-
-        // Find the candidates that fit in each window.
         let mastered_candidates =
             Self::candidates_in_window(&candidates, &options.mastered_window_opts);
         let easy_candidates = Self::candidates_in_window(&candidates, &options.easy_window_opts);
@@ -328,6 +370,7 @@ mod test {
             Candidate {
                 exercise_id: Ustr::from("exercise1"),
                 lesson_id: Ustr::from("lesson1"),
+                course_id: Ustr::from("course1"),
                 depth: 0.0,
                 score: 0.0,
                 frequency: 0.0,
@@ -335,6 +378,7 @@ mod test {
             Candidate {
                 exercise_id: Ustr::from("exercise2"),
                 lesson_id: Ustr::from("lesson1"),
+                course_id: Ustr::from("course1"),
                 depth: 0.0,
                 score: 0.0,
                 frequency: 0.0,
@@ -342,6 +386,7 @@ mod test {
             Candidate {
                 exercise_id: Ustr::from("exercise3"),
                 lesson_id: Ustr::from("lesson2"),
+                course_id: Ustr::from("course1"),
                 depth: 0.0,
                 score: 0.0,
                 frequency: 0.0,
@@ -349,6 +394,7 @@ mod test {
             Candidate {
                 exercise_id: Ustr::from("exercise4"),
                 lesson_id: Ustr::from(""),
+                course_id: Ustr::from("course1"),
                 depth: 0.0,
                 score: 0.0,
                 frequency: 0.0,
