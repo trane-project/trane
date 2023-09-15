@@ -726,8 +726,84 @@ impl DepthFirstScheduler {
         Ok(candidates)
     }
 
+    /// Removes the candidates that belong to a lesson or course that has been superseded by another
+    /// lesson or course in the list of candidates.
+    fn remove_superseded_exercises(&self, candidates: Vec<Candidate>) -> Vec<Candidate> {
+        // Generate a map of all the lessons and courses that supersede other units. The value is
+        // the maximum depth at which a candidate from the superseded unit was found.
+        let mut all_superseded_by: UstrMap<usize> = UstrMap::default();
+        for candidate in &candidates {
+            let superseded_by = self.data.get_superseded_by(&candidate.lesson_id);
+            if let Some(superseded_by) = superseded_by {
+                for id in superseded_by {
+                    let depth = all_superseded_by
+                        .entry(id)
+                        .or_insert(candidate.depth as usize);
+                    *depth = (*depth).max(candidate.depth as usize);
+                }
+            }
+            let superseded_by = self.data.get_superseded_by(&candidate.course_id);
+            if let Some(superseded_by) = superseded_by {
+                for id in superseded_by {
+                    let depth = all_superseded_by
+                        .entry(id)
+                        .or_insert(candidate.depth as usize);
+                    *depth = (*depth).max(candidate.depth as usize);
+                }
+            }
+        }
+
+        // Filter out the superseding lessons and courses that do not have a passing score.
+        all_superseded_by = all_superseded_by
+            .into_iter()
+            .filter(|(id, depth)| {
+                let score = self.score_cache
+                    .get_unit_score(id)
+                    .unwrap_or_default()
+                    .unwrap_or_default();
+                println!("score: {}", score);
+                score > self.data.options.passing_score.compute_score(depth + 1)
+            })
+            .collect();
+
+        if all_superseded_by.is_empty() {
+            return candidates;
+        }
+        println!("all superseded by: {:?}", all_superseded_by);
+
+        // Filter out the candidates that belong to a superseded lesson or course.
+        candidates
+            .into_iter()
+            .filter(|c| {
+                // Get the list of lessons and courses that supersede the current candidate.
+                let superseded_by: Vec<Ustr> = self
+                    .data
+                    .get_superseded_by(&c.lesson_id)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .chain(
+                        self.data
+                            .get_superseded_by(&c.course_id)
+                            .unwrap_or_default()
+                            .into_iter(),
+                    )
+                    .collect();
+
+                // Check if all the superseding units are in the list of valid supersiding units.
+                if superseded_by.is_empty() {
+                    true
+                } else {
+                    !superseded_by
+                        .iter()
+                        .all(|id| all_superseded_by.contains_key(&id))
+                }
+            })
+            .collect()
+    }
+
     /// Retrieves an initial batch of candidates based on the given filter.
     fn get_initial_candidates(&self, filter: Option<ExerciseFilter>) -> Result<Vec<Candidate>> {
+        // Retrieve an intial list of candidates based on the type of the filter.
         let candidates = match filter {
             None => {
                 // If the filter is empty, retrieve candidates from the entire graph. This mode is
@@ -788,6 +864,10 @@ impl DepthFirstScheduler {
                 }
             },
         };
+
+        // Remove the candidates that belong to a lesson or course that has been superseded before
+        // passing the final list to the filter.
+        let candidates = self.remove_superseded_exercises(candidates);
         Ok(candidates)
     }
 }

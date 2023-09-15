@@ -27,7 +27,7 @@
 //! student, that bad scores cause progress to stall, that the blacklist and unit filters are
 //! respected.
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, thread};
 
 use anyhow::{Ok, Result};
 use chrono::{Duration, Utc};
@@ -43,6 +43,7 @@ use trane::{
         },
         MasteryScore, SchedulerOptions, UnitType, UserPreferences,
     },
+    practice_stats::PracticeStats,
     review_list::ReviewList,
     scheduler::ExerciseScheduler,
     testutil::*,
@@ -1404,11 +1405,11 @@ fn scheduler_respects_superseded_lessons() -> Result<()> {
     }
 
     // Run the simulation again with no lesson filter.
-    println!("relevant section");
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
     simulation.run_simulation(&mut trane, &vec![], None)?;
 
     // None of the exercises in the superseded lesson should have been scheduled.
+    println!("do not schedule superseded lesson");
     for exercise_id in &exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
         if exercise_id.exercise_in_lesson(&superseded_lesson_id) {
@@ -1419,6 +1420,9 @@ fn scheduler_respects_superseded_lessons() -> Result<()> {
             );
         }
     }
+
+    // wait for one second to make sure the timestamps are different.
+    thread::sleep(Duration::seconds(3).to_std()?);
 
     // Run the simulation again, but this time give a score of 1 to all exercises in the superseding
     // lesson.
@@ -1431,9 +1435,16 @@ fn scheduler_respects_superseded_lessons() -> Result<()> {
         })),
     )?;
 
+    let scores = trane.get_scores(&TestId(4, Some(3), Some(0)).to_ustr(), 10)?;
+    println!("scores: {:?}", scores);
+
     // Run the simulation again with no lesson filter and giving a score of 5 to all exercises.
+    println!("schedule superseded lesson");
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
     simulation.run_simulation(&mut trane, &vec![], None)?;
+
+    // wait for one second to make sure the timestamps are different.
+    thread::sleep(Duration::seconds(1).to_std()?);
 
     // This time around, all the exercises in the superseded lesson should have been scheduled.
     for exercise_id in &exercise_ids {

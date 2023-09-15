@@ -41,7 +41,7 @@ pub trait PracticeStats {
     /// storage size under check.
     fn trim_scores(&mut self, num_scores: usize) -> Result<(), PracticeStatsError>;
 
-    /// Remvoves all the scores from the units that match the given prefix.
+    /// Removes all the scores from the units that match the given prefix.
     fn remove_scores_with_prefix(&mut self, prefix: &str) -> Result<(), PracticeStatsError>;
 }
 
