@@ -306,7 +306,7 @@ pub trait UnitGraphFFI {
         unit_id: &Ustr,
         unit_type: UnitType,
         dependencies: &[Ustr],
-    ) -> Result<()>;
+    ) -> Result<(), UnitGraphError>;
     fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType>;
     fn get_course_lessons(&self, course_id: &Ustr) -> Option<UstrSet>;
     fn update_starting_lessons(&mut self);
@@ -336,7 +336,7 @@ impl UnitGraphFFI for TraneFFI {
         unit_id: &Ustr,
         unit_type: UnitType,
         dependencies: &[Ustr],
-    ) -> Result<()> {
+    ) -> Result<(), UnitGraphError> {
         self.trane
             .add_dependencies(unit_id, unit_type.into(), dependencies)
     }
