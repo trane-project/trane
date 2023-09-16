@@ -766,8 +766,9 @@ pub struct MasteryWindow {
 impl MasteryWindow {
     /// Returns whether the given score falls within this window.
     pub fn in_window(&self, score: f32) -> bool {
-        // Handle the special case of the window containing the maximum score.
-        if self.range.1 >= 5.0 && score == 5.0 {
+        // Handle the special case of the window containing the maximum score. Scores greater than
+        // 5.0 are allowed because float comparison is not exact.
+        if self.range.1 >= 5.0 && score >= 5.0 {
             return true;
         }
 

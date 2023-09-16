@@ -27,7 +27,7 @@
 //! student, that bad scores cause progress to stall, that the blacklist and unit filters are
 //! respected.
 
-use std::{collections::BTreeMap, thread};
+use std::collections::BTreeMap;
 
 use anyhow::{Ok, Result};
 use chrono::{Duration, Utc};
@@ -43,7 +43,6 @@ use trane::{
         },
         MasteryScore, SchedulerOptions, UnitType, UserPreferences,
     },
-    practice_stats::PracticeStats,
     review_list::ReviewList,
     scheduler::ExerciseScheduler,
     testutil::*,
@@ -612,7 +611,7 @@ fn avoid_scheduling_courses_in_blacklist() -> Result<()> {
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
-    let course_blacklist = vec![TestId(0, None, None), TestId(5, None, None)];
+    let course_blacklist = vec![TestId(0, None, None), TestId(4, None, None)];
     simulation.run_simulation(&mut trane, &course_blacklist, None)?;
 
     // Every exercise ID should be in `simulation.answer_history` except for those which belong to
@@ -651,7 +650,7 @@ fn avoid_scheduling_lessons_in_blacklist() -> Result<()> {
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
-    let lesson_blacklist = vec![TestId(0, Some(1), None), TestId(4, Some(0), None)];
+    let lesson_blacklist = vec![TestId(0, Some(1), None), TestId(4, Some(1), None)];
     simulation.run_simulation(&mut trane, &lesson_blacklist, None)?;
 
     // Every exercise ID should be in `simulation.answer_history` except for those which belong to
@@ -690,16 +689,16 @@ fn avoid_scheduling_exercises_in_blacklist() -> Result<()> {
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
     let exercise_blacklist = vec![
-        TestId(2, Some(1), Some(0)),
-        TestId(2, Some(1), Some(1)),
-        TestId(2, Some(1), Some(2)),
-        TestId(2, Some(1), Some(3)),
-        TestId(2, Some(1), Some(4)),
-        TestId(2, Some(1), Some(5)),
-        TestId(2, Some(1), Some(6)),
-        TestId(2, Some(1), Some(7)),
-        TestId(2, Some(1), Some(8)),
-        TestId(2, Some(1), Some(9)),
+        TestId(4, Some(1), Some(0)),
+        TestId(4, Some(1), Some(1)),
+        TestId(4, Some(1), Some(2)),
+        TestId(4, Some(1), Some(3)),
+        TestId(4, Some(1), Some(4)),
+        TestId(4, Some(1), Some(5)),
+        TestId(4, Some(1), Some(6)),
+        TestId(4, Some(1), Some(7)),
+        TestId(4, Some(1), Some(8)),
+        TestId(4, Some(1), Some(9)),
     ];
     simulation.run_simulation(&mut trane, &exercise_blacklist, None)?;
 
@@ -1361,7 +1360,6 @@ fn scheduler_respects_superseded_courses() -> Result<()> {
             assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         }
     }
-
     Ok(())
 }
 
@@ -1409,7 +1407,6 @@ fn scheduler_respects_superseded_lessons() -> Result<()> {
     simulation.run_simulation(&mut trane, &vec![], None)?;
 
     // None of the exercises in the superseded lesson should have been scheduled.
-    println!("do not schedule superseded lesson");
     for exercise_id in &exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
         if exercise_id.exercise_in_lesson(&superseded_lesson_id) {
@@ -1420,9 +1417,6 @@ fn scheduler_respects_superseded_lessons() -> Result<()> {
             );
         }
     }
-
-    // wait for one second to make sure the timestamps are different.
-    thread::sleep(Duration::seconds(3).to_std()?);
 
     // Run the simulation again, but this time give a score of 1 to all exercises in the superseding
     // lesson.
@@ -1435,21 +1429,14 @@ fn scheduler_respects_superseded_lessons() -> Result<()> {
         })),
     )?;
 
-    let scores = trane.get_scores(&TestId(4, Some(3), Some(0)).to_ustr(), 10)?;
-    println!("scores: {:?}", scores);
-
     // Run the simulation again with no lesson filter and giving a score of 5 to all exercises.
-    println!("schedule superseded lesson");
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
     simulation.run_simulation(&mut trane, &vec![], None)?;
-
-    // wait for one second to make sure the timestamps are different.
-    thread::sleep(Duration::seconds(1).to_std()?);
 
     // This time around, all the exercises in the superseded lesson should have been scheduled.
     for exercise_id in &exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
-        if exercise_id.exercise_in_course(&superseded_lesson_id) {
+        if exercise_id.exercise_in_lesson(&superseded_lesson_id) {
             assert!(
                 simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should have been scheduled",
@@ -1458,7 +1445,6 @@ fn scheduler_respects_superseded_lessons() -> Result<()> {
             assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
         }
     }
-
     Ok(())
 }
 
@@ -2043,7 +2029,6 @@ fn ignored_paths() -> Result<()> {
 
     // Verify the courses in the list are ignored.
     let exercise_ids = trane.get_all_exercise_ids();
-    println!("{:?}", exercise_ids);
     assert!(!exercise_ids.is_empty());
     assert!(exercise_ids.iter().all(|id| !id.starts_with("0::")));
     assert!(exercise_ids.iter().all(|id| !id.starts_with("5::")));

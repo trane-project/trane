@@ -757,11 +757,11 @@ impl DepthFirstScheduler {
         all_superseded_by = all_superseded_by
             .into_iter()
             .filter(|(id, depth)| {
-                let score = self.score_cache
+                let score = self
+                    .score_cache
                     .get_unit_score(id)
                     .unwrap_or_default()
                     .unwrap_or_default();
-                println!("score: {}", score);
                 score > self.data.options.passing_score.compute_score(depth + 1)
             })
             .collect();
@@ -769,7 +769,6 @@ impl DepthFirstScheduler {
         if all_superseded_by.is_empty() {
             return candidates;
         }
-        println!("all superseded by: {:?}", all_superseded_by);
 
         // Filter out the candidates that belong to a superseded lesson or course.
         candidates
@@ -803,7 +802,7 @@ impl DepthFirstScheduler {
 
     /// Retrieves an initial batch of candidates based on the given filter.
     fn get_initial_candidates(&self, filter: Option<ExerciseFilter>) -> Result<Vec<Candidate>> {
-        // Retrieve an intial list of candidates based on the type of the filter.
+        // Retrieve an initial list of candidates based on the type of the filter.
         let candidates = match filter {
             None => {
                 // If the filter is empty, retrieve candidates from the entire graph. This mode is

@@ -38,7 +38,7 @@ const MAX_DEPTH_WEIGHT: f32 = 100.0;
 const MAX_FREQUENCY_WEIGHT: f32 = 200.0;
 
 /// The maximum weight that depends on the frequency of the lesson. The weight will be divided
-/// equally among all of the exercises from the same lesson.
+/// equally among all the exercises from the same lesson.
 const MAX_LESSON_FREQUENCY_WEIGHT: f32 = 100.0;
 
 /// The batch size will be adjusted if there are not enough candidates (at least three times the
@@ -223,7 +223,7 @@ impl CandidateFilter {
         let options = &self.data.options;
         let batch_size = Self::dynamic_batch_size(options.batch_size, candidates.len());
         let batch_size_float = batch_size as f32;
-        
+
         // Find the candidates that fit in each window.
         let mastered_candidates =
             Self::candidates_in_window(&candidates, &options.mastered_window_opts);
@@ -262,7 +262,7 @@ impl CandidateFilter {
             Self::select_candidates(target_candidates, num_target);
         final_candidates.extend(target_selected);
 
-        // Add elementes from the new window.
+        // Add elements from the new window.
         let num_new = (batch_size_float * options.new_window_opts.percentage).max(1.0) as usize;
         let (new_selected, new_remainder) = Self::select_candidates(new_candidates, num_new);
         final_candidates.extend(new_selected);
