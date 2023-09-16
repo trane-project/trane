@@ -274,7 +274,8 @@ impl LocalCourseLibrary {
             course_manifest.id,
         );
 
-        // Add the lesson and the dependencies explicitly listed in the lesson manifest.
+        // Add the lesson, the dependencies, and the superseded units explicitly listed in the
+        // lesson manifest.
         self.unit_graph
             .write()
             .add_lesson(&lesson_manifest.id, &lesson_manifest.course_id)?;
@@ -283,6 +284,9 @@ impl LocalCourseLibrary {
             UnitType::Lesson,
             &lesson_manifest.dependencies,
         )?;
+        self.unit_graph
+            .write()
+            .add_superseded(&lesson_manifest.id, &lesson_manifest.superseded);
 
         // Add the generated exercises to the lesson.
         if let Some(exercises) = generated_exercises {
@@ -352,13 +356,17 @@ impl LocalCourseLibrary {
     ) -> Result<()> {
         ensure!(!course_manifest.id.is_empty(), "ID in manifest is empty",);
 
-        // Add the course and the dependencies explicitly listed in the manifest.
+        // Add the course, the dependencies, and the superseded units explicitly listed in the
+        // manifest.
         self.unit_graph.write().add_course(&course_manifest.id)?;
         self.unit_graph.write().add_dependencies(
             &course_manifest.id,
             UnitType::Course,
             &course_manifest.dependencies,
         )?;
+        self.unit_graph
+            .write()
+            .add_superseded(&course_manifest.id, &course_manifest.superseded);
 
         // If the course has a generator config, generate the lessons and exercises and add them to
         // the library.

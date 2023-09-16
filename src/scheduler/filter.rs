@@ -38,7 +38,7 @@ const MAX_DEPTH_WEIGHT: f32 = 100.0;
 const MAX_FREQUENCY_WEIGHT: f32 = 200.0;
 
 /// The maximum weight that depends on the frequency of the lesson. The weight will be divided
-/// equally among all of the exercises from the same lesson.
+/// equally among all the exercises from the same lesson.
 const MAX_LESSON_FREQUENCY_WEIGHT: f32 = 100.0;
 
 /// The batch size will be adjusted if there are not enough candidates (at least three times the
@@ -219,6 +219,7 @@ impl CandidateFilter {
         &self,
         candidates: Vec<Candidate>,
     ) -> Result<Vec<(Ustr, ExerciseManifest)>> {
+        // Find the batch size to use.
         let options = &self.data.options;
         let batch_size = Self::dynamic_batch_size(options.batch_size, candidates.len());
         let batch_size_float = batch_size as f32;
@@ -261,7 +262,7 @@ impl CandidateFilter {
             Self::select_candidates(target_candidates, num_target);
         final_candidates.extend(target_selected);
 
-        // Add elementes from the new window.
+        // Add elements from the new window.
         let num_new = (batch_size_float * options.new_window_opts.percentage).max(1.0) as usize;
         let (new_selected, new_remainder) = Self::select_candidates(new_candidates, num_new);
         final_candidates.extend(new_selected);
@@ -328,6 +329,7 @@ mod test {
             Candidate {
                 exercise_id: Ustr::from("exercise1"),
                 lesson_id: Ustr::from("lesson1"),
+                course_id: Ustr::from("course1"),
                 depth: 0.0,
                 score: 0.0,
                 frequency: 0.0,
@@ -335,6 +337,7 @@ mod test {
             Candidate {
                 exercise_id: Ustr::from("exercise2"),
                 lesson_id: Ustr::from("lesson1"),
+                course_id: Ustr::from("course1"),
                 depth: 0.0,
                 score: 0.0,
                 frequency: 0.0,
@@ -342,6 +345,7 @@ mod test {
             Candidate {
                 exercise_id: Ustr::from("exercise3"),
                 lesson_id: Ustr::from("lesson2"),
+                course_id: Ustr::from("course1"),
                 depth: 0.0,
                 score: 0.0,
                 frequency: 0.0,
@@ -349,6 +353,7 @@ mod test {
             Candidate {
                 exercise_id: Ustr::from("exercise4"),
                 lesson_id: Ustr::from(""),
+                course_id: Ustr::from("course1"),
                 depth: 0.0,
                 score: 0.0,
                 frequency: 0.0,

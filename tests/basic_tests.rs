@@ -1859,7 +1859,6 @@ fn ignored_paths() -> Result<()> {
 
     // Verify the courses in the list are ignored.
     let exercise_ids = trane.get_all_exercise_ids();
-    println!("{:?}", exercise_ids);
     assert!(!exercise_ids.is_empty());
     assert!(exercise_ids.iter().all(|id| !id.starts_with("0::")));
     assert!(exercise_ids.iter().all(|id| !id.starts_with("5::")));

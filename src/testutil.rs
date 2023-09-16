@@ -154,6 +154,7 @@ impl TestLesson {
         let metadata_clone = self.metadata.clone();
         let id_clone = self.id.clone();
         let dependencies_clone = self.dependencies.clone();
+        let superseded_clone = self.superseded.clone();
         Ok(LessonBuilder {
             directory_name: format!("lesson_{}", self.id.1.unwrap()),
             manifest_closure: Box::new(move |m| {
@@ -164,6 +165,7 @@ impl TestLesson {
                     .name(format!("Lesson {lesson_id}"))
                     .description(Some(format!("Description for lesson {lesson_id}")))
                     .dependencies(dependencies_clone.iter().map(|id| id.to_ustr()).collect())
+                    .superseded(superseded_clone.iter().map(|id| id.to_ustr()).collect())
                     .metadata(Some(metadata_clone.clone()))
                     .clone()
             }),

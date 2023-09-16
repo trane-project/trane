@@ -68,6 +68,9 @@ pub trait UnitGraph {
         dependencies: &[Ustr],
     ) -> Result<(), UnitGraphError>;
 
+    /// Adds the list of superseded units for the given unit to the graph.
+    fn add_superseded(&mut self, unit_id: &Ustr, superseded: &[Ustr]);
+
     /// Returns the type of the given unit.
     fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType>;
 
@@ -108,6 +111,12 @@ pub trait UnitGraph {
     /// added as dependency sinks so that the scheduler can reach their dependents, which are part
     /// of the library.
     fn get_dependency_sinks(&self) -> UstrSet;
+
+    /// Returns the lessons and courses that are superseded by the given lesson or course.
+    fn get_superseded(&self, unit_id: &Ustr) -> Option<UstrSet>;
+
+    /// Returns the lessons and courses that supersede the given lesson or course.
+    fn get_superseded_by(&self, unit_id: &Ustr) -> Option<UstrSet>;
 
     /// Performs a cycle check on the graph, done currently when opening the Trane library to
     /// prevent any infinite traversal of the graph and immediately inform the user of the issue.
@@ -158,6 +167,12 @@ pub struct InMemoryUnitGraph {
 
     /// The set of all dependency sinks in the graph.
     dependency_sinks: UstrSet,
+
+    /// The mapping of a unit to the units it supersedes.
+    superseded_graph: UstrMap<UstrSet>,
+
+    /// The mapping of a unit to the units that supersede it.
+    superseded_by_graph: UstrMap<UstrSet>,
 }
 
 impl InMemoryUnitGraph {
@@ -377,6 +392,62 @@ impl InMemoryUnitGraph {
                 }
             }
         }
+
+        // Do the same with the graph of superseded units.
+        let mut visited = UstrSet::default();
+        for unit_id in self.superseded_graph.keys() {
+            // The node has been visited, so it can be skipped.
+            if visited.contains(unit_id) {
+                continue;
+            }
+
+            // The stacks store a path of traversed units and is initialized with the current unit.
+            let mut stack: Vec<Vec<Ustr>> = Vec::new();
+            stack.push(vec![*unit_id]);
+
+            // Run a depth-first search and stop if a cycle is found or the graph is exhausted.
+            while let Some(path) = stack.pop() {
+                // Update the set of visited nodes.
+                let current_id = *path.last().unwrap_or(&Ustr::default());
+                if visited.contains(&current_id) {
+                    continue;
+                } else {
+                    visited.insert(current_id);
+                }
+
+                // Get the  of the current node, check that the superseded and reverse graphs agree
+                // with each other, and generate new paths to add to the stack.
+                if let Some(superseded) = self.get_superseded(&current_id) {
+                    for superseded_id in superseded {
+                        let superseded_by = self.get_superseded_by(&superseded_id);
+                        let mut missing_superseded_by = superseded_by.is_none();
+                        if let Some(superseded_by) = superseded_by {
+                            if !superseded_by.contains(&current_id) {
+                                missing_superseded_by = true;
+                            }
+                        }
+                        if missing_superseded_by {
+                            bail!(
+                                "unit {} lists unit {} as a superseded unit but the superseded by \
+                                relationship does not exist",
+                                current_id,
+                                superseded_id
+                            );
+                        }
+
+                        // Check for repeated nodes in the path.
+                        if path.contains(&superseded_id) {
+                            bail!("cycle in superseded graph detected");
+                        }
+
+                        // Add a new path to the stack.
+                        let mut new_path = path.clone();
+                        new_path.push(superseded_id);
+                        stack.push(new_path);
+                    }
+                }
+            }
+        }
         Ok(())
     }
 }
@@ -405,6 +476,23 @@ impl UnitGraph for InMemoryUnitGraph {
     ) -> Result<(), UnitGraphError> {
         self.add_dependencies_helper(unit_id, unit_type.clone(), dependencies)
             .map_err(|e| UnitGraphError::AddDependencies(*unit_id, unit_type, e))
+    }
+
+    fn add_superseded(&mut self, unit_id: &Ustr, superseded: &[Ustr]) {
+        // Update the superseded map.
+        self.update_dependency_sinks(unit_id, superseded);
+        self.superseded_graph
+            .entry(*unit_id)
+            .or_insert_with(UstrSet::default)
+            .extend(superseded);
+
+        // For each superseded, insert the equivalent superseded by relationship.
+        for superseded_id in superseded {
+            self.superseded_by_graph
+                .entry(*superseded_id)
+                .or_insert_with(UstrSet::default)
+                .insert(*unit_id);
+        }
     }
 
     fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType> {
@@ -465,6 +553,14 @@ impl UnitGraph for InMemoryUnitGraph {
 
     fn get_dependency_sinks(&self) -> UstrSet {
         self.dependency_sinks.clone()
+    }
+
+    fn get_superseded(&self, unit_id: &Ustr) -> Option<UstrSet> {
+        self.superseded_graph.get(unit_id).cloned()
+    }
+
+    fn get_superseded_by(&self, unit_id: &Ustr) -> Option<UstrSet> {
+        self.superseded_by_graph.get(unit_id).cloned()
     }
 
     fn check_cycles(&self) -> Result<(), UnitGraphError> {
@@ -699,33 +795,6 @@ mod test {
         Ok(())
     }
 
-    /// Verifies that a cycle in the dependencies is detected and causes an error.
-    #[test]
-    fn dependencies_cycle() -> Result<()> {
-        let mut graph = InMemoryUnitGraph::default();
-        let course1_id = Ustr::from("course1");
-        let course2_id = Ustr::from("course2");
-        let course3_id = Ustr::from("course3");
-        let course4_id = Ustr::from("course4");
-        let course5_id = Ustr::from("course5");
-        graph.add_course(&course1_id)?;
-        graph.add_course(&course2_id)?;
-        graph.add_course(&course3_id)?;
-        graph.add_course(&course4_id)?;
-        graph.add_course(&course5_id)?;
-        graph.add_dependencies(&course1_id, UnitType::Course, &vec![])?;
-        graph.add_dependencies(&course2_id, UnitType::Course, &vec![course1_id.clone()])?;
-        graph.add_dependencies(&course3_id, UnitType::Course, &vec![course1_id.clone()])?;
-        graph.add_dependencies(&course4_id, UnitType::Course, &vec![course2_id.clone()])?;
-        graph.add_dependencies(&course5_id, UnitType::Course, &vec![course3_id.clone()])?;
-
-        // Add a cycle, which should be detected when calling `check_cycles`.
-        graph.add_dependencies(&course1_id, UnitType::Course, &vec![course5_id.clone()])?;
-        assert!(graph.check_cycles().is_err());
-
-        Ok(())
-    }
-
     /// Verifies generating a DOT graph.
     #[test]
     fn generate_dot_graph() -> Result<()> {
@@ -812,6 +881,52 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that a cycle in the dependencies is detected and causes an error.
+    #[test]
+    fn dependencies_cycle() -> Result<()> {
+        let mut graph = InMemoryUnitGraph::default();
+        let course1_id = Ustr::from("course1");
+        let course2_id = Ustr::from("course2");
+        let course3_id = Ustr::from("course3");
+        let course4_id = Ustr::from("course4");
+        let course5_id = Ustr::from("course5");
+        graph.add_course(&course1_id)?;
+        graph.add_course(&course2_id)?;
+        graph.add_course(&course3_id)?;
+        graph.add_course(&course4_id)?;
+        graph.add_course(&course5_id)?;
+        graph.add_dependencies(&course1_id, UnitType::Course, &vec![])?;
+        graph.add_dependencies(&course2_id, UnitType::Course, &vec![course1_id.clone()])?;
+        graph.add_dependencies(&course3_id, UnitType::Course, &vec![course1_id.clone()])?;
+        graph.add_dependencies(&course4_id, UnitType::Course, &vec![course2_id.clone()])?;
+        graph.add_dependencies(&course5_id, UnitType::Course, &vec![course3_id.clone()])?;
+
+        // Add a cycle, which should be detected when calling `check_cycles`.
+        graph.add_dependencies(&course1_id, UnitType::Course, &vec![course5_id.clone()])?;
+        assert!(graph.check_cycles().is_err());
+
+        Ok(())
+    }
+
+    /// Verifies that a cycle in the superseded graph is detected and causes an error.
+    #[test]
+    fn superseded_cycle() -> Result<()> {
+        // Add a cycle, which should be detected when calling `check_cycles`.
+        let mut graph = InMemoryUnitGraph::default();
+        let course1_id = Ustr::from("course1");
+        let course2_id = Ustr::from("course2");
+        let course3_id = Ustr::from("course3");
+        let course4_id = Ustr::from("course4");
+        let course5_id = Ustr::from("course5");
+        graph.add_superseded(&course2_id, &vec![course1_id.clone()]);
+        graph.add_superseded(&course3_id, &vec![course1_id.clone()]);
+        graph.add_superseded(&course4_id, &vec![course2_id.clone()]);
+        graph.add_superseded(&course5_id, &vec![course3_id.clone()]);
+        graph.add_superseded(&course1_id, &vec![course5_id.clone()]);
+        assert!(graph.check_cycles().is_err());
+        Ok(())
+    }
+
     #[test]
     fn missing_dependent_relationship() -> Result<()> {
         let mut graph = InMemoryUnitGraph::default();
@@ -830,6 +945,25 @@ mod test {
             .insert(lesson1_id.clone(), UstrSet::default());
         assert!(graph.check_cycles().is_err());
         // Also check that the check fails if the dependents value is `None`.
+        graph.dependency_graph.remove(&lesson1_id);
+        assert!(graph.check_cycles().is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn missing_superseded_by_relationship() -> Result<()> {
+        let mut graph = InMemoryUnitGraph::default();
+        let lesson1_id = Ustr::from("lesson1_id");
+        let lesson2_id = Ustr::from("lesson2_id");
+        graph.add_superseded(&lesson2_id, &[lesson1_id.clone()]);
+
+        // Manually remove the superseded by relationship to trigger the check and make the cycle
+        // detection fail.
+        graph
+            .superseded_by_graph
+            .insert(lesson1_id.clone(), UstrSet::default());
+        assert!(graph.check_cycles().is_err());
+        // Also check that the check fails if the superseded by value is `None`.
         graph.dependency_graph.remove(&lesson1_id);
         assert!(graph.check_cycles().is_err());
         Ok(())

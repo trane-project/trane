@@ -473,6 +473,10 @@ impl UnitGraph for Trane {
             .add_dependencies(unit_id, unit_type, dependencies)
     }
 
+    fn add_superseded(&mut self, unit_id: &Ustr, superseded: &[Ustr]) {
+        self.unit_graph.write().add_superseded(unit_id, superseded)
+    }
+
     fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType> {
         self.unit_graph.read().get_unit_type(unit_id)
     }
@@ -511,6 +515,14 @@ impl UnitGraph for Trane {
 
     fn get_dependency_sinks(&self) -> UstrSet {
         self.unit_graph.read().get_dependency_sinks()
+    }
+
+    fn get_superseded(&self, unit_id: &Ustr) -> Option<UstrSet> {
+        self.unit_graph.read().get_superseded(unit_id)
+    }
+
+    fn get_superseded_by(&self, unit_id: &Ustr) -> Option<UstrSet> {
+        self.unit_graph.read().get_superseded_by(unit_id)
     }
 
     fn check_cycles(&self) -> Result<(), UnitGraphError> {
