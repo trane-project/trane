@@ -461,7 +461,7 @@ mod test {
             )]),
         }));
 
-        // Define the study session data
+        // Define the data for the study session.
         let start_time = chrono::Utc::now();
         let session_data = StudySessionData {
             start_time,

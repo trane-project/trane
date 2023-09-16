@@ -754,17 +754,14 @@ impl DepthFirstScheduler {
         }
 
         // Filter out the superseding lessons and courses that do not have a passing score.
-        all_superseded_by = all_superseded_by
-            .into_iter()
-            .filter(|(id, depth)| {
-                let score = self
-                    .score_cache
-                    .get_unit_score(id)
-                    .unwrap_or_default()
-                    .unwrap_or_default();
-                score > self.data.options.passing_score.compute_score(depth + 1)
-            })
-            .collect();
+        all_superseded_by.retain(|id, &mut depth| {
+            let score = self
+                .score_cache
+                .get_unit_score(id)
+                .unwrap_or_default()
+                .unwrap_or_default();
+            score > self.data.options.passing_score.compute_score(depth + 1)
+        });
 
         if all_superseded_by.is_empty() {
             return candidates;
@@ -783,18 +780,17 @@ impl DepthFirstScheduler {
                     .chain(
                         self.data
                             .get_superseded_by(&c.course_id)
-                            .unwrap_or_default()
-                            .into_iter(),
+                            .unwrap_or_default(),
                     )
                     .collect();
 
-                // Check if all the superseding units are in the list of valid supersiding units.
+                // Check if all the superseding units are in the list of valid superseding units.
                 if superseded_by.is_empty() {
                     true
                 } else {
                     !superseded_by
                         .iter()
-                        .all(|id| all_superseded_by.contains_key(&id))
+                        .all(|id| all_superseded_by.contains_key(id))
                 }
             })
             .collect()
