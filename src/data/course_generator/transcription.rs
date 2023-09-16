@@ -346,7 +346,7 @@ impl TranscriptionConfig {
             name: format!("{} - Advanced Singing", course_manifest.name),
             description: Some(ADVANCED_SINGING_DESCRIPTION.to_string()),
             dependencies: vec![Self::singing_lesson_id(&course_manifest.id)],
-            superseded: vec![],
+            superseded: vec![Self::singing_lesson_id(&course_manifest.id)],
             metadata: Some(BTreeMap::from([
                 (
                     LESSON_METADATA.to_string(),
@@ -548,7 +548,10 @@ impl TranscriptionConfig {
                 Self::transcription_lesson_id(&course_manifest.id, instrument),
                 Self::advanced_singing_lesson_id(&course_manifest.id),
             ],
-            superseded: vec![],
+            superseded: vec![Self::transcription_lesson_id(
+                &course_manifest.id,
+                instrument,
+            )],
             metadata: Some(BTreeMap::from([
                 (
                     LESSON_METADATA.to_string(),

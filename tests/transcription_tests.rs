@@ -133,14 +133,19 @@ fn all_exercises_visited() -> Result<()> {
     );
     simulation.run_simulation(&mut trane, &vec![], None)?;
 
-    // Every exercise ID should be in `simulation.answer_history`.
+    // Every exercise in the advanced singing and advanced transcription lessons should be in
+    // `simulation.answer_history`. Most of the exercises in the singing and transcription lessons
+    // should be there as well, but since they are superseded by the advanced lessons, it' not
+    // guaranteed that all of them will be there.
     for exercise_id in exercise_ids {
-        assert!(
-            simulation.answer_history.contains_key(&exercise_id),
-            "exercise {:?} should have been scheduled",
-            exercise_id
-        );
-        assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        if exercise_id.contains("advanced_") {
+            assert!(
+                simulation.answer_history.contains_key(&exercise_id),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        }
     }
     Ok(())
 }
@@ -279,13 +284,6 @@ fn transcription_blocks_advanced_transcription_and_dependents() -> Result<()> {
                 "exercise {:?} should not have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
-        } else {
-            assert!(
-                simulation.answer_history.contains_key(&exercise_id),
-                "exercise {:?} should have been scheduled",
-                exercise_id
-            );
         }
     }
     Ok(())
@@ -358,14 +356,17 @@ fn skip_singing_lessons() -> Result<()> {
     );
     simulation.run_simulation(&mut trane, &vec![], None)?;
 
-    // Every exercise ID should be in `simulation.answer_history`.
+    // Every exercise from the advanced singing and advanced transcription lessons should be in the
+    // answer history. Exercises from the singing lesson should not be there.
     for exercise_id in &exercise_ids {
-        assert!(
-            simulation.answer_history.contains_key(&exercise_id),
-            "exercise {:?} should have been scheduled",
-            exercise_id
-        );
-        assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        if exercise_id.contains("advanced_") {
+            assert!(
+                simulation.answer_history.contains_key(&exercise_id),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        }
     }
 
     // No exercises from the singing lessons should be in the answer history.
