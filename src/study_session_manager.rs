@@ -32,7 +32,7 @@ impl LocalStudySessionManager {
         for entry in std::fs::read_dir(session_directory).with_context(|| {
             format!("Failed to read study session directory {session_directory}")
         })? {
-            // Try to read the file as a [StudySession].
+            // Try to read the file as a `StudySession`.
             let entry =
                 entry.with_context(|| "Failed to read file entry for saved study session")?;
             let file = File::open(entry.path()).with_context(|| {
@@ -49,7 +49,7 @@ impl LocalStudySessionManager {
                 )
             })?;
 
-            // Check for duplicate IDs before inserting the study session..
+            // Check for duplicate IDs before inserting the study session.
             if sessions.contains_key(&session.id) {
                 bail!("Found multiple study sessions with ID {}", session.id);
             }
@@ -116,7 +116,7 @@ mod test {
     fn write_sessions(sessions: Vec<StudySession>, dir: &Path) -> Result<()> {
         for session in sessions {
             // Give each file a unique name.
-            let timestamp_ns = chrono::Utc::now().timestamp_nanos();
+            let timestamp_ns = chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0);
             let session_path = dir.join(format!("{}_{}.json", session.id, timestamp_ns));
             let session_json = serde_json::to_string(&session)?;
             std::fs::write(session_path, session_json)?;
