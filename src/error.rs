@@ -5,7 +5,7 @@ use ustr::Ustr;
 
 use crate::data::UnitType;
 
-// grcov-excl-start: This file contains only error definitions so it's safe to exclude it from the
+// grcov-excl-start: This file contains only error definitions, so it's safe to exclude it from the
 // code coverage report.
 
 /// An error returned when dealing with the blacklist.
@@ -61,7 +61,7 @@ pub enum PracticeStatsError {
     RemovePrefix(String, #[source] anyhow::Error),
 }
 
-/// An error returned when dealing with git repositories contianing courses.
+/// An error returned when dealing with git repositories containing courses.
 #[derive(Debug, Error)]
 #[allow(missing_docs)]
 pub enum RepositoryManagerError {

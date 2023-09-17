@@ -26,7 +26,7 @@ pub trait Blacklist {
     /// list.
     fn remove_from_blacklist(&mut self, unit_id: &Ustr) -> Result<(), BlacklistError>;
 
-    /// Remvoves all the units that match the given prefix from the blacklist.
+    /// Removes all the units that match the given prefix from the blacklist.
     fn remove_prefix_from_blacklist(&mut self, prefix: &str) -> Result<(), BlacklistError>;
 
     /// Returns whether the given unit is in the blacklist and should be skipped during scheduling.
