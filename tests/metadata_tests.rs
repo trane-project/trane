@@ -319,55 +319,6 @@ lazy_static! {
                 },
             ],
         },
-        TestCourse {
-            id: TestId(6, None, None),
-            dependencies: vec![TestId(3, None, None)],
-            superseded: vec![],
-            metadata: BTreeMap::from([
-                (
-                    "course_key_1".to_string(),
-                    vec!["course_key_1:value_6".to_string()]
-                ),
-                (
-                    "course_key_2".to_string(),
-                    vec!["course_key_2:value_6".to_string()]
-                ),
-            ]),
-            lessons: vec![
-                TestLesson {
-                    id: TestId(6, Some(0), None),
-                    dependencies: vec![],
-                    superseded: vec![],
-                    metadata: BTreeMap::from([
-                        (
-                            "lesson_key_1".to_string(),
-                            vec!["lesson_key_1:value_6".to_string()]
-                        ),
-                        (
-                            "lesson_key_2".to_string(),
-                            vec!["lesson_key_2:value_6".to_string()]
-                        ),
-                    ]),
-                    num_exercises: 10,
-                },
-                TestLesson {
-                    id: TestId(6, Some(1), None),
-                    dependencies: vec![TestId(6, Some(0), None)],
-                    superseded: vec![],
-                    metadata: BTreeMap::from([
-                        (
-                            "lesson_key_1".to_string(),
-                            vec!["lesson_key_1:value_7".to_string()]
-                        ),
-                        (
-                            "lesson_key_2".to_string(),
-                            vec!["lesson_key_2:value_7".to_string()]
-                        ),
-                    ]),
-                    num_exercises: 10,
-                },
-            ],
-        },
     ];
 }
 

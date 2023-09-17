@@ -456,7 +456,13 @@ impl DepthFirstScheduler {
             }
 
             // The logic past this point depends on the type of the unit.
-            let unit_type = self.data.get_unit_type(&curr_unit.unit_id)?;
+            let unit_type = self.data.get_unit_type(&curr_unit.unit_id);
+            if unit_type.is_none() {
+                // The type of the unit is unknown. This can happen when a unit depends on some
+                // unknown unit.
+                continue;
+            }
+            let unit_type = unit_type.unwrap();
 
             // Handle exercises. All of them should be skipped as the search only considers lessons
             // and courses.
@@ -610,7 +616,13 @@ impl DepthFirstScheduler {
             }
 
             // The logic past this point depends on the type of the unit.
-            let unit_type = self.data.get_unit_type(&curr_unit.unit_id)?;
+            let unit_type = self.data.get_unit_type(&curr_unit.unit_id);
+            if unit_type.is_none() {
+                // The type of the unit is unknown. This can happen when a unit depends on some
+                // unknown unit.
+                continue;
+            }
+            let unit_type = unit_type.unwrap();
 
             // Handle courses. They should be skipped, as all the courses that should be considered
             // were already handled when their starting lessons were added to the stack.
@@ -682,7 +694,7 @@ impl DepthFirstScheduler {
         let mut candidates = vec![];
         let review_list = self.data.review_list.read().get_review_list_entries()?;
         for unit_id in &review_list {
-            match self.data.get_unit_type(unit_id)? {
+            match self.data.get_unit_type_strict(unit_id)? {
                 UnitType::Course => {
                     // If the unit is a course, use the course scheduler to retrieve candidates.
                     let course_ids = vec![*unit_id];
