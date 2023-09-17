@@ -38,6 +38,7 @@ pub mod blacklist;
 pub mod course_builder;
 pub mod course_library;
 pub mod data;
+pub mod db_utils;
 pub mod error;
 pub mod ffi;
 pub mod filter_manager;

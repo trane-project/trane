@@ -7,12 +7,13 @@
 use anyhow::{Context, Ok, Result};
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
-use rusqlite::{params, Connection};
+use rusqlite::params;
 use rusqlite_migration::{Migrations, M};
 use ustr::Ustr;
 
 use crate::{
     data::{ExerciseTrial, MasteryScore},
+    db_utils,
     error::PracticeStatsError,
 };
 
@@ -107,16 +108,7 @@ impl PracticeStatsDB {
 
     /// A constructor taking the path to a database file.
     pub fn new_from_disk(db_path: &str) -> Result<PracticeStatsDB> {
-        let connection_manager = SqliteConnectionManager::file(db_path).with_init(
-            |connection: &mut Connection| -> Result<(), rusqlite::Error> {
-                // The following pragma statements are set to improve the read and write performance
-                // of SQLite. See the SQLite [docs](https://www.sqlite.org/pragma.html) for more
-                // information.
-                connection.pragma_update(None, "journal_mode", "WAL")?;
-                connection.pragma_update(None, "synchronous", "NORMAL")
-            },
-        );
-        Self::new(connection_manager)
+        Self::new(db_utils::new_connection_manager(db_path))
     }
 
     /// Helper function to retrieve scores from the database.
