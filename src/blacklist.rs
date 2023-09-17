@@ -11,11 +11,11 @@ use anyhow::Result;
 use parking_lot::RwLock;
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
-use rusqlite::{params, Connection};
+use rusqlite::params;
 use rusqlite_migration::{Migrations, M};
 use ustr::{Ustr, UstrMap};
 
-use crate::error::BlacklistError;
+use crate::{db_utils, error::BlacklistError};
 
 /// An interface to store and read the list of units which should be skipped during scheduling.
 pub trait Blacklist {
@@ -87,16 +87,7 @@ impl BlacklistDB {
 
     /// A constructor taking the path to the database file.
     pub fn new_from_disk(db_path: &str) -> Result<BlacklistDB> {
-        let connection_manager = SqliteConnectionManager::file(db_path).with_init(
-            |connection: &mut Connection| -> Result<(), rusqlite::Error> {
-                // The following pragma statements are set to improve the read and write performance
-                // of SQLite. See the SQLite [docs](https://www.sqlite.org/pragma.html) for more
-                // information.
-                connection.pragma_update(None, "journal_mode", "WAL")?;
-                connection.pragma_update(None, "synchronous", "NORMAL")
-            },
-        );
-        Self::new(connection_manager)
+        Self::new(db_utils::new_connection_manager(db_path))
     }
 
     /// Returns whether there's an entry for the given unit in the blacklist.
