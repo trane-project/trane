@@ -61,7 +61,13 @@ impl SchedulerData {
 
     /// Returns the type of the given unit.
     #[inline(always)]
-    pub fn get_unit_type(&self, unit_id: &Ustr) -> Result<UnitType> {
+    pub fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType> {
+        self.unit_graph.read().get_unit_type(unit_id)
+    }
+
+    /// Returns the type of the given unit. Returns an error if the type is not known.
+    #[inline(always)]
+    pub fn get_unit_type_strict(&self, unit_id: &Ustr) -> Result<UnitType> {
         self.unit_graph
             .read()
             .get_unit_type(unit_id)
@@ -226,7 +232,7 @@ impl SchedulerData {
         }
 
         // Decide how to handle the filter based on the unit type.
-        let unit_type = self.get_unit_type(unit_id)?;
+        let unit_type = self.get_unit_type_strict(unit_id)?;
         match unit_type {
             // Exercises do not have metadata, so this operation is not supported.
             UnitType::Exercise => Err(anyhow!(
@@ -388,17 +394,17 @@ mod test {
         let scheduler_data = library.get_scheduler_data();
 
         assert_eq!(
-            scheduler_data.get_unit_type(&Ustr::from("0"))?,
+            scheduler_data.get_unit_type_strict(&Ustr::from("0"))?,
             UnitType::Course
         );
         assert!(scheduler_data.unit_exists(&Ustr::from("0"))?);
         assert_eq!(
-            scheduler_data.get_unit_type(&Ustr::from("0::0"))?,
+            scheduler_data.get_unit_type_strict(&Ustr::from("0::0"))?,
             UnitType::Lesson
         );
         assert!(scheduler_data.unit_exists(&Ustr::from("0::0"))?);
         assert_eq!(
-            scheduler_data.get_unit_type(&Ustr::from("0::0::0"))?,
+            scheduler_data.get_unit_type_strict(&Ustr::from("0::0::0"))?,
             UnitType::Exercise
         );
         assert!(scheduler_data.unit_exists(&Ustr::from("0::0::0"))?);
