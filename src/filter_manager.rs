@@ -32,7 +32,7 @@ impl LocalFilterManager {
         for entry in std::fs::read_dir(filter_directory)
             .with_context(|| format!("Failed to read filter directory {filter_directory}"))?
         {
-            // Try to read the file as a [NamedFilter].
+            // Try to read the file as a `NamedFilter`.
             let entry = entry.with_context(|| "Failed to read file entry for saved filter")?;
             let file = File::open(entry.path()).with_context(|| {
                 format!(
@@ -146,7 +146,7 @@ mod test {
     fn write_filters(filters: Vec<SavedFilter>, dir: &Path) -> Result<()> {
         for filter in filters {
             // Give each file a unique name.
-            let timestamp_ns = chrono::Utc::now().timestamp_nanos();
+            let timestamp_ns = chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0);
             let filter_path = dir.join(format!("{}_{}.json", filter.id, timestamp_ns));
             let filter_json = serde_json::to_string(&filter)?;
             std::fs::write(filter_path, filter_json)?;
