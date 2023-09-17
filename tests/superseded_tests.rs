@@ -1,7 +1,6 @@
 //! End-to-end tests for verifying the correctness of Trane with superseded courses and lessons.
 //!
-//! The end-to-end tests in this file verify the functionality of Trane with superseded courses and
-//! lessons. For a more detailed explanation of the testing methodology, see the explanation in the
+//! For a more detailed explanation of the testing methodology, see the explanation in the
 //! basic_tests module.
 
 use std::collections::BTreeMap;
@@ -18,7 +17,8 @@ use trane::{
 };
 
 lazy_static! {
-    /// A simple set of courses to test the basic functionality of Trane.
+    /// A simple set of courses to verify that superseded courses and lessons are dealt with
+    /// correctly.
     static ref LIBRARY: Vec<TestCourse> = vec![
         TestCourse {
             id: TestId(0, None, None),
