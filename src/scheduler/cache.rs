@@ -7,7 +7,7 @@
 //>@lp-example-2
 
 use anyhow::{anyhow, Result};
-use parking_lot::RwLock;
+use std::cell::RefCell;
 use ustr::{Ustr, UstrMap};
 
 use crate::{
@@ -22,19 +22,19 @@ use crate::{
 /// A cache of unit scores used to improve the performance of computing them during scheduling.
 pub(super) struct ScoreCache {
     /// A mapping of exercise ID to cached score.
-    exercise_cache: RwLock<UstrMap<f32>>,
+    exercise_cache: RefCell<UstrMap<f32>>,
 
     /// A mapping of lesson ID to cached score.
-    lesson_cache: RwLock<UstrMap<Option<f32>>>,
+    lesson_cache: RefCell<UstrMap<Option<f32>>>,
 
     /// A mapping of course ID to cached score.
-    course_cache: RwLock<UstrMap<Option<f32>>>,
+    course_cache: RefCell<UstrMap<Option<f32>>>,
 
     /// The data used by the scheduler.
     data: SchedulerData,
 
     /// The options used to schedule exercises.
-    options: RwLock<SchedulerOptions>,
+    options: SchedulerOptions,
 
     /// The scorer used to compute the score of an exercise based on its previous trials.
     scorer: Box<dyn ExerciseScorer + Send + Sync>,
@@ -44,11 +44,11 @@ impl ScoreCache {
     /// Constructs a new score cache.
     pub(super) fn new(data: SchedulerData, options: SchedulerOptions) -> Self {
         Self {
-            exercise_cache: RwLock::new(UstrMap::default()),
-            lesson_cache: RwLock::new(UstrMap::default()),
-            course_cache: RwLock::new(UstrMap::default()),
+            exercise_cache: RefCell::new(UstrMap::default()),
+            lesson_cache: RefCell::new(UstrMap::default()),
+            course_cache: RefCell::new(UstrMap::default()),
             data,
-            options: RwLock::new(options),
+            options,
             scorer: Box::new(SimpleScorer {}),
         }
     }
@@ -58,19 +58,19 @@ impl ScoreCache {
         // Remove the unit from the exercise, lesson, and course caches. This is safe to do even
         // though the unit is at most in one cache because the different types of units are
         // disjoint.
-        self.exercise_cache.write().remove(unit_id);
-        self.lesson_cache.write().remove(unit_id);
-        self.course_cache.write().remove(unit_id);
+        self.exercise_cache.borrow_mut().remove(unit_id);
+        self.lesson_cache.borrow_mut().remove(unit_id);
+        self.course_cache.borrow_mut().remove(unit_id);
 
         // If the unit is an exercise, invalidate the cached score of its lesson and course. If the
         // unit is a lesson, invalidate the cached score of its course.
         if let Some(lesson_id) = self.data.unit_graph.read().get_exercise_lesson(unit_id) {
-            self.lesson_cache.write().remove(&lesson_id);
+            self.lesson_cache.borrow_mut().remove(&lesson_id);
             if let Some(course_id) = self.data.unit_graph.read().get_lesson_course(&lesson_id) {
-                self.course_cache.write().remove(&course_id);
+                self.course_cache.borrow_mut().remove(&course_id);
             }
         } else if let Some(course_id) = self.data.unit_graph.read().get_lesson_course(unit_id) {
-            self.course_cache.write().remove(&course_id);
+            self.course_cache.borrow_mut().remove(&course_id);
         }
     }
 
@@ -79,17 +79,17 @@ impl ScoreCache {
         // Remove the unit from the exercise and lesson caches. This is safe to do even though the
         // unit is at most in one cache because the caches are disjoint.
         self.exercise_cache
-            .write()
+            .borrow_mut()
             .retain(|unit_id, _| !unit_id.starts_with(prefix));
         self.lesson_cache
-            .write()
+            .borrow_mut()
             .retain(|unit_id, _| !unit_id.starts_with(prefix));
     }
 
     /// Returns the score for the given exercise.
     fn get_exercise_score(&self, exercise_id: &Ustr) -> Result<f32> {
         // Return the cached score if it exists.
-        let cached_score = self.exercise_cache.read().get(exercise_id).cloned();
+        let cached_score = self.exercise_cache.borrow().get(exercise_id).cloned();
         if let Some(score) = cached_score {
             return Ok(score);
         }
@@ -99,10 +99,10 @@ impl ScoreCache {
             .data
             .practice_stats
             .read()
-            .get_scores(exercise_id, self.options.read().num_trials)
+            .get_scores(exercise_id, self.options.num_trials)
             .unwrap_or_default();
         let score = self.scorer.score(&scores)?;
-        self.exercise_cache.write().insert(*exercise_id, score);
+        self.exercise_cache.borrow_mut().insert(*exercise_id, score);
         Ok(score)
     }
 
@@ -116,7 +116,7 @@ impl ScoreCache {
         }
 
         // Return the cached score if it exists.
-        let cached_score = self.lesson_cache.read().get(lesson_id).cloned();
+        let cached_score = self.lesson_cache.borrow().get(lesson_id).cloned();
         if let Some(score) = cached_score {
             return Ok(score);
         }
@@ -156,7 +156,7 @@ impl ScoreCache {
         // Update the cache with a valid score.
         if score.is_ok() {
             self.lesson_cache
-                .write()
+                .borrow_mut()
                 .insert(*lesson_id, *score.as_ref().unwrap());
         }
         score
@@ -171,7 +171,7 @@ impl ScoreCache {
         }
 
         // Return the cached score if it exists.
-        let cached_score = self.course_cache.read().get(course_id).cloned();
+        let cached_score = self.course_cache.borrow().get(course_id).cloned();
         if let Some(score) = cached_score {
             return Ok(score);
         }
@@ -216,7 +216,7 @@ impl ScoreCache {
         // Update the cache with a valid score.
         if score.is_ok() {
             self.course_cache
-                .write()
+                .borrow_mut()
                 .insert(*course_id, *score.as_ref().unwrap());
         }
         score
@@ -333,15 +333,21 @@ mod test {
         let cache = ScoreCache::new(scheduler_data, SchedulerOptions::default());
 
         // Insert some scores into the exercise and lesson caches.
-        cache.exercise_cache.write().insert(Ustr::from("a"), 5.0);
-        cache.exercise_cache.write().insert(Ustr::from("b::a"), 5.0);
+        cache
+            .exercise_cache
+            .borrow_mut()
+            .insert(Ustr::from("a"), 5.0);
+        cache
+            .exercise_cache
+            .borrow_mut()
+            .insert(Ustr::from("b::a"), 5.0);
         cache
             .lesson_cache
-            .write()
+            .borrow_mut()
             .insert(Ustr::from("a::a"), Some(5.0));
         cache
             .lesson_cache
-            .write()
+            .borrow_mut()
             .insert(Ustr::from("c::a"), Some(5.0));
 
         // Verify that the scores are present.
