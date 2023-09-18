@@ -68,7 +68,7 @@ pub trait CourseLibraryFFI {
     fn get_course_ids(&self) -> Vec<Ustr>;
     fn get_lesson_ids(&self, course_id: &Ustr) -> Option<Vec<Ustr>>;
     fn get_exercise_ids(&self, lesson_id: &Ustr) -> Option<Vec<Ustr>>;
-    fn get_all_exercise_ids(&self) -> Vec<Ustr>;
+    fn get_all_exercise_ids(&self, unit_id: Option<&Ustr>) -> Vec<Ustr>;
     fn search(&self, query: &str) -> Result<Vec<Ustr>, CourseLibraryError>;
     fn get_user_preferences(&self) -> UserPreferences;
 }
@@ -95,8 +95,8 @@ impl CourseLibraryFFI for TraneFFI {
     fn get_exercise_ids(&self, lesson_id: &Ustr) -> Option<Vec<Ustr>> {
         self.trane.get_exercise_ids(lesson_id)
     }
-    fn get_all_exercise_ids(&self) -> Vec<Ustr> {
-        self.trane.get_all_exercise_ids()
+    fn get_all_exercise_ids(&self, unit_id: Option<&Ustr>) -> Vec<Ustr> {
+        self.trane.get_all_exercise_ids(unit_id)
     }
     fn search(&self, query: &str) -> Result<Vec<Ustr>, CourseLibraryError> {
         self.trane.search(query)

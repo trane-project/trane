@@ -173,7 +173,7 @@ fn all_exercises_visited_simple_local() -> Result<()> {
     )?;
 
     // Run the simulation.
-    let exercise_ids = trane.get_all_exercise_ids();
+    let exercise_ids = trane.get_all_exercise_ids(None);
     assert!(exercise_ids.len() > 0);
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
@@ -214,7 +214,7 @@ fn all_exercises_visited_simple_soundslice() -> Result<()> {
     )?;
 
     // Run the simulation.
-    let exercise_ids = trane.get_all_exercise_ids();
+    let exercise_ids = trane.get_all_exercise_ids(None);
     assert!(exercise_ids.len() > 0);
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
@@ -251,7 +251,7 @@ fn all_exercises_visited_complex() -> Result<()> {
     )?;
 
     // Run the simulation.
-    let exercise_ids = trane.get_all_exercise_ids();
+    let exercise_ids = trane.get_all_exercise_ids(None);
     assert!(exercise_ids.len() > 0);
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
@@ -288,7 +288,7 @@ fn no_progress_complex() -> Result<()> {
     )?;
 
     // Run the simulation.
-    let exercise_ids = trane.get_all_exercise_ids();
+    let exercise_ids = trane.get_all_exercise_ids(None);
     assert!(exercise_ids.len() > 0);
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
@@ -324,7 +324,7 @@ fn no_progress_simple() -> Result<()> {
     )?;
 
     // Run the simulation.
-    let exercise_ids = trane.get_all_exercise_ids();
+    let exercise_ids = trane.get_all_exercise_ids(None);
     assert!(exercise_ids.len() > 0);
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,

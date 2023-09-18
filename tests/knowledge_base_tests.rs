@@ -183,7 +183,7 @@ fn all_exercises_visited() -> Result<()> {
         init_knowledge_base_simulation(&temp_dir.path(), &vec![course1_builder, course2_builder])?;
 
     // Run the simulation.
-    let exercise_ids = trane.get_all_exercise_ids();
+    let exercise_ids = trane.get_all_exercise_ids(None);
     assert!(exercise_ids.len() > 0);
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 10,
