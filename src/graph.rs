@@ -480,7 +480,9 @@ impl UnitGraph for InMemoryUnitGraph {
 
     fn add_superseded(&mut self, unit_id: &Ustr, superseded: &[Ustr]) {
         // Update the superseded map.
-        self.update_dependency_sinks(unit_id, superseded);
+        if superseded.is_empty() {
+            return;
+        }
         self.superseded_graph
             .entry(*unit_id)
             .or_insert_with(UstrSet::default)
