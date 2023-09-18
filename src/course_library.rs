@@ -550,8 +550,8 @@ impl LocalCourseLibrary {
             reader: None,
         };
 
-        // Initialize the search index writer with an initial arena size of 50 MB.
-        let mut index_writer = library.index.writer(50_000_000)?;
+        // Initialize the search index writer with an initial arena size of 150 MB.
+        let mut index_writer = library.index.writer(150_000_000)?;
 
         // Convert the list of paths to ignore into absolute paths.
         let absolute_root = library_root.canonicalize()?;

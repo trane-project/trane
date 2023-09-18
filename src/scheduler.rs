@@ -746,10 +746,14 @@ impl DepthFirstScheduler {
             if let Some(superseded_by) = superseded_by {
                 all_superseded_by.extend(superseded_by);
             }
+
             let superseded_by = self.data.get_superseded_by(&candidate.course_id);
             if let Some(superseded_by) = superseded_by {
                 all_superseded_by.extend(superseded_by);
             }
+        }
+        if all_superseded_by.is_empty() {
+            return candidates;
         }
 
         // Filter out the superseding lessons and courses with scores lower than the superseding
