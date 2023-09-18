@@ -668,7 +668,8 @@ impl GetUnitType for ExerciseManifest {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub enum PassingScoreOptions {
-    /// The score will be a fixed value.
+    /// The passing score will be a fixed value. A unit will be considered mastered if the average
+    /// score of all its exercises is greater than or equal to this value.
     ConstantScore(f32),
 
     /// The score will start at a fixed value and increase by a fixed amount based on the depth of
@@ -807,6 +808,11 @@ pub struct SchedulerOptions {
     /// The minimum average score of a unit required to move on to its dependents.
     pub passing_score: PassingScoreOptions,
 
+    /// The minimum score required to supersede a unit. If unit A is superseded by B, then the
+    /// exercises from unit A will not be shown once the score of unit B is greater than or equal to
+    /// this value.
+    pub superseding_score: f32,
+
     /// The number of trials to retrieve from the practice stats to compute an exercise's score.
     pub num_trials: usize,
 }
@@ -885,6 +891,7 @@ impl Default for SchedulerOptions {
                 range: (4.5, 5.0),
             },
             passing_score: PassingScoreOptions::default(),
+            superseding_score: 3.75,
             num_trials: 10,
         }
     }

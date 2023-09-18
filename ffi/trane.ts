@@ -195,6 +195,7 @@ export interface SchedulerOptions {
 	easy_window_opts: MasteryWindow;
 	mastered_window_opts: MasteryWindow;
 	passing_score: PassingScoreOptions;
+	superseding_score: number;
 	num_trials: number;
 }
 

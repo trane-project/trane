@@ -362,17 +362,15 @@ impl DepthFirstScheduler {
         }
 
         // If this unit is superseded by others, then it is considered as satisfied if all the
-        // scores of the superseding units are equal or greater than the passing score.
+        // scores of the superseding units are equal or greater than the superseding score.
         let superseded_by = self.data.get_superseded_by(dependency_id);
         if let Some(superseded_by) = superseded_by {
-            // The depth of the superseding units is not known, but it is assumed that it's greater
-            // than the depth of the current unit, so one level is added.
             if superseded_by.iter().all(|id| {
                 self.score_cache
                     .get_unit_score(id)
                     .unwrap_or_default()
                     .unwrap_or_default()
-                    > self.data.options.passing_score.compute_score(depth + 1)
+                    >= self.data.options.superseding_score
             }) {
                 return true;
             }
@@ -741,38 +739,28 @@ impl DepthFirstScheduler {
     /// Removes the candidates that belong to a lesson or course that has been superseded by another
     /// lesson or course in the list of candidates.
     fn remove_superseded_exercises(&self, candidates: Vec<Candidate>) -> Vec<Candidate> {
-        // Generate a map of all the lessons and courses that supersede other units. The value is
-        // the maximum depth at which a candidate from the superseded unit was found.
-        let mut all_superseded_by: UstrMap<usize> = UstrMap::default();
+        // Generate a set of all the lessons and courses that supersede other units.
+        let mut all_superseded_by = UstrSet::default();
         for candidate in &candidates {
             let superseded_by = self.data.get_superseded_by(&candidate.lesson_id);
             if let Some(superseded_by) = superseded_by {
-                for id in superseded_by {
-                    let depth = all_superseded_by
-                        .entry(id)
-                        .or_insert(candidate.depth as usize);
-                    *depth = (*depth).max(candidate.depth as usize);
-                }
+                all_superseded_by.extend(superseded_by);
             }
             let superseded_by = self.data.get_superseded_by(&candidate.course_id);
             if let Some(superseded_by) = superseded_by {
-                for id in superseded_by {
-                    let depth = all_superseded_by
-                        .entry(id)
-                        .or_insert(candidate.depth as usize);
-                    *depth = (*depth).max(candidate.depth as usize);
-                }
+                all_superseded_by.extend(superseded_by);
             }
         }
 
-        // Filter out the superseding lessons and courses that do not have a passing score.
-        all_superseded_by.retain(|id, &mut depth| {
+        // Filter out the superseding lessons and courses with scores lower than the superseding
+        // score.
+        all_superseded_by.retain(|id| {
             let score = self
                 .score_cache
                 .get_unit_score(id)
                 .unwrap_or_default()
                 .unwrap_or_default();
-            score > self.data.options.passing_score.compute_score(depth + 1)
+            score >= self.data.options.superseding_score
         });
 
         if all_superseded_by.is_empty() {
@@ -802,7 +790,7 @@ impl DepthFirstScheduler {
                 } else {
                     !superseded_by
                         .iter()
-                        .all(|id| all_superseded_by.contains_key(id))
+                        .all(|id| all_superseded_by.contains(id))
                 }
             })
             .collect()

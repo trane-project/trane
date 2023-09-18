@@ -799,9 +799,10 @@ public struct SchedulerOptions: Codable {
 	public let easy_window_opts: MasteryWindow
 	public let mastered_window_opts: MasteryWindow
 	public let passing_score: PassingScoreOptions
+	public let superseding_score: Float
 	public let num_trials: UInt32
 
-	public init(batch_size: UInt32, new_window_opts: MasteryWindow, target_window_opts: MasteryWindow, current_window_opts: MasteryWindow, easy_window_opts: MasteryWindow, mastered_window_opts: MasteryWindow, passing_score: PassingScoreOptions, num_trials: UInt32) {
+	public init(batch_size: UInt32, new_window_opts: MasteryWindow, target_window_opts: MasteryWindow, current_window_opts: MasteryWindow, easy_window_opts: MasteryWindow, mastered_window_opts: MasteryWindow, passing_score: PassingScoreOptions, superseding_score: Float, num_trials: UInt32) {
 		self.batch_size = batch_size
 		self.new_window_opts = new_window_opts
 		self.target_window_opts = target_window_opts
@@ -809,6 +810,7 @@ public struct SchedulerOptions: Codable {
 		self.easy_window_opts = easy_window_opts
 		self.mastered_window_opts = mastered_window_opts
 		self.passing_score = passing_score
+		self.superseding_score = superseding_score
 		self.num_trials = num_trials
 	}
 }

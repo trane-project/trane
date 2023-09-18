@@ -331,6 +331,7 @@ data class SchedulerOptions (
 	val easy_window_opts: MasteryWindow,
 	val mastered_window_opts: MasteryWindow,
 	val passing_score: PassingScoreOptions,
+	val superseding_score: Float,
 	val num_trials: UInt
 )
 

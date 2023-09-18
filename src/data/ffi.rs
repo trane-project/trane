@@ -556,6 +556,7 @@ pub struct SchedulerOptions {
     pub easy_window_opts: MasteryWindow,
     pub mastered_window_opts: MasteryWindow,
     pub passing_score: PassingScoreOptions,
+    pub superseding_score: f32,
     #[typeshare(serialized_as = "u32")]
     pub num_trials: usize,
 }
@@ -570,6 +571,7 @@ impl From<SchedulerOptions> for data::SchedulerOptions {
             easy_window_opts: options.easy_window_opts.into(),
             mastered_window_opts: options.mastered_window_opts.into(),
             passing_score: options.passing_score.into(),
+            superseding_score: options.superseding_score,
             num_trials: options.num_trials,
         }
     }
@@ -585,6 +587,7 @@ impl From<data::SchedulerOptions> for SchedulerOptions {
             easy_window_opts: options.easy_window_opts.into(),
             mastered_window_opts: options.mastered_window_opts.into(),
             passing_score: options.passing_score.into(),
+            superseding_score: options.superseding_score,
             num_trials: options.num_trials,
         }
     }
