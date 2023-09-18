@@ -305,6 +305,44 @@ fn get_unit_ids() -> Result<()> {
     Ok(())
 }
 
+/// A test that verifies retrieving all exercise IDs from the given unit.
+#[test]
+fn get_all_exercise_ids() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+
+    // Get all exercises from a course.
+    let exercise_ids = trane.get_all_exercise_ids(Some(&Ustr::from("0")));
+    assert!(!exercise_ids.is_empty());
+    for exercise_id in exercise_ids {
+        assert!(exercise_id.starts_with("0::"));
+    }
+
+    // Get all exercises from a lesson.
+    let exercise_ids = trane.get_all_exercise_ids(Some(&Ustr::from("0::0")));
+    assert!(!exercise_ids.is_empty());
+    for exercise_id in exercise_ids {
+        assert!(exercise_id.starts_with("0::0::"));
+    }
+
+    // Get all exercises from an exercise. This should return only the exercise itself.
+    let exercise_ids = trane.get_all_exercise_ids(Some(&Ustr::from("0::0::0")));
+    assert_eq!(exercise_ids.len(), 1);
+    assert_eq!(exercise_ids[0], Ustr::from("0::0::0"));
+
+    // Get all exercises from a non-existent unit. This should return an empty vector.
+    let exercise_ids = trane.get_all_exercise_ids(Some(&Ustr::from("0::0::100")));
+    assert!(exercise_ids.is_empty());
+
+    // Get all the exercises from the library.
+    let exercise_ids = trane.get_all_exercise_ids(None);
+    let expected_ids = all_test_exercises(&LIBRARY);
+    assert_eq!(exercise_ids.len(), expected_ids.len());
+
+    Ok(())
+}
+
 /// Verifies that all the exercises are scheduled with no blacklist or filter when the user gives a
 /// score of five to every exercise.
 #[test]
@@ -1085,7 +1123,7 @@ fn ignored_paths() -> Result<()> {
     let trane = init_simulation(&temp_dir.path(), &course_builders, Some(&user_preferences))?;
 
     // Verify the courses in the list are ignored.
-    let exercise_ids = trane.get_all_exercise_ids();
+    let exercise_ids = trane.get_all_exercise_ids(None);
     assert!(!exercise_ids.is_empty());
     assert!(exercise_ids.iter().all(|id| !id.starts_with("0::")));
     assert!(exercise_ids.iter().all(|id| !id.starts_with("5::")));

@@ -300,8 +300,8 @@ impl CourseLibrary for Trane {
         self.course_library.read().get_exercise_ids(lesson_id)
     }
 
-    fn get_all_exercise_ids(&self) -> Vec<Ustr> {
-        self.course_library.read().get_all_exercise_ids()
+    fn get_all_exercise_ids(&self, unit_id: Option<&Ustr>) -> Vec<Ustr> {
+        self.course_library.read().get_all_exercise_ids(unit_id)
     }
 
     fn get_matching_prefix(&self, prefix: &str, unit_type: Option<UnitType>) -> UstrSet {

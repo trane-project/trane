@@ -77,7 +77,7 @@ pub trait CourseLibrary {
     fn get_exercise_ids(&self, lesson_id: &Ustr) -> Option<Vec<Ustr>>;
 
     /// Returns the IDs of all exercises in the given course sorted alphabetically.
-    fn get_all_exercise_ids(&self) -> Vec<Ustr>;
+    fn get_all_exercise_ids(&self, unit_id: Option<&Ustr>) -> Vec<Ustr>;
 
     /// Returns the set of units whose ID starts with the given prefix and are of the given type.
     /// If `unit_type` is `None`, then all unit types are considered.
@@ -699,8 +699,41 @@ impl CourseLibrary for LocalCourseLibrary {
         Some(exercises)
     }
 
-    fn get_all_exercise_ids(&self) -> Vec<Ustr> {
-        let mut exercises = self.exercise_map.keys().cloned().collect::<Vec<Ustr>>();
+    fn get_all_exercise_ids(&self, unit_id: Option<&Ustr>) -> Vec<Ustr> {
+        let mut exercises = match unit_id {
+            Some(unit_id) => {
+                // Return the exercises according to the type of the unit.
+                let unit_type = self.unit_graph.read().get_unit_type(unit_id);
+                match unit_type {
+                    Some(UnitType::Course) => self
+                        .unit_graph
+                        .read()
+                        .get_course_lessons(unit_id)
+                        .unwrap_or_default()
+                        .into_iter()
+                        .flat_map(|lesson_id| {
+                            self.unit_graph
+                                .read()
+                                .get_lesson_exercises(&lesson_id)
+                                .unwrap_or_default()
+                        })
+                        .collect::<Vec<Ustr>>(),
+                    Some(UnitType::Lesson) => self
+                        .unit_graph
+                        .read()
+                        .get_lesson_exercises(unit_id)
+                        .unwrap_or_default()
+                        .into_iter()
+                        .collect::<Vec<Ustr>>(),
+                    Some(UnitType::Exercise) => vec![*unit_id],
+                    None => vec![],
+                }
+            }
+            // If none, return all the exercises in the library.
+            None => self.exercise_map.keys().cloned().collect::<Vec<Ustr>>(),
+        };
+
+        // Sort the exercises before returning them.
         exercises.sort();
         exercises
     }
