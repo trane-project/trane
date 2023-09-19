@@ -619,6 +619,9 @@ mod test {
             .blacklist
             .write()
             .add_to_blacklist(&Ustr::from("0::1"))?;
+        assert!(scheduler_data
+            .all_valid_exercises(&Ustr::from("0::1"))
+            .is_empty());
 
         // Get the valid exercises when the ID is a course.
         assert_eq!(
@@ -631,6 +634,9 @@ mod test {
             .blacklist
             .write()
             .add_to_blacklist(&Ustr::from("0"))?;
+        assert!(scheduler_data
+            .all_valid_exercises(&Ustr::from("0"))
+            .is_empty());
 
         Ok(())
     }
