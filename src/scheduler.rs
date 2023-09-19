@@ -375,9 +375,9 @@ impl DepthFirstScheduler {
         }
 
         // The dependency is considered as satisfied if it's been superseded by another unit.
-        let superseded_by = self.data.get_superseded_by(dependency_id);
-        if let Some(superseded_by) = superseded_by {
-            if self.is_superseded(dependency_id, &superseded_by) {
+        let superseding = self.data.get_superseding(dependency_id);
+        if let Some(superseding) = superseding {
+            if self.is_superseded(dependency_id, &superseding) {
                 return true;
             }
         }
@@ -752,10 +752,7 @@ impl DepthFirstScheduler {
         for c in &candidates {
             // Check if the exercise's course has been superseded.
             if !seen.contains(&c.course_id) {
-                let superseding_ids = self
-                    .data
-                    .get_superseded_by(&c.course_id)
-                    .unwrap_or_default();
+                let superseding_ids = self.data.get_superseding(&c.course_id).unwrap_or_default();
                 if self.is_superseded(&c.course_id, &superseding_ids) {
                     superseded.insert(c.course_id);
                 }
@@ -764,10 +761,7 @@ impl DepthFirstScheduler {
 
             // Check if the exercise's lesson has been superseded.
             if !seen.contains(&c.lesson_id) {
-                let superseding_ids = self
-                    .data
-                    .get_superseded_by(&c.lesson_id)
-                    .unwrap_or_default();
+                let superseding_ids = self.data.get_superseding(&c.lesson_id).unwrap_or_default();
                 if self.is_superseded(&c.lesson_id, &superseding_ids) {
                     superseded.insert(c.lesson_id);
                 }
