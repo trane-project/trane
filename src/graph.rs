@@ -116,7 +116,7 @@ pub trait UnitGraph {
     fn get_superseded(&self, unit_id: &Ustr) -> Option<UstrSet>;
 
     /// Returns the lessons and courses that supersede the given lesson or course.
-    fn get_superseded_by(&self, unit_id: &Ustr) -> Option<UstrSet>;
+    fn get_superseding(&self, unit_id: &Ustr) -> Option<UstrSet>;
 
     /// Performs a cycle check on the graph, done currently when opening the Trane library to
     /// prevent any infinite traversal of the graph and immediately inform the user of the issue.
@@ -172,7 +172,7 @@ pub struct InMemoryUnitGraph {
     superseded_graph: UstrMap<UstrSet>,
 
     /// The mapping of a unit to the units that supersede it.
-    superseded_by_graph: UstrMap<UstrSet>,
+    superseding_graph: UstrMap<UstrSet>,
 }
 
 impl InMemoryUnitGraph {
@@ -415,20 +415,20 @@ impl InMemoryUnitGraph {
                     visited.insert(current_id);
                 }
 
-                // Get the  of the current node, check that the superseded and reverse graphs agree
-                // with each other, and generate new paths to add to the stack.
+                // Get the  of the current node, check that the superseded and superseding graphs
+                // agree with each other, and generate new paths to add to the stack.
                 if let Some(superseded) = self.get_superseded(&current_id) {
                     for superseded_id in superseded {
-                        let superseded_by = self.get_superseded_by(&superseded_id);
-                        let mut missing_superseded_by = superseded_by.is_none();
-                        if let Some(superseded_by) = superseded_by {
-                            if !superseded_by.contains(&current_id) {
-                                missing_superseded_by = true;
+                        let superseding = self.get_superseding(&superseded_id);
+                        let mut missing_superseding = superseding.is_none();
+                        if let Some(superseding) = superseding {
+                            if !superseding.contains(&current_id) {
+                                missing_superseding = true;
                             }
                         }
-                        if missing_superseded_by {
+                        if missing_superseding {
                             bail!(
-                                "unit {} lists unit {} as a superseded unit but the superseded by \
+                                "unit {} lists unit {} as a superseded unit but the superseding \
                                 relationship does not exist",
                                 current_id,
                                 superseded_id
@@ -488,9 +488,9 @@ impl UnitGraph for InMemoryUnitGraph {
             .or_insert_with(UstrSet::default)
             .extend(superseded);
 
-        // For each superseded, insert the equivalent superseded by relationship.
+        // For each superseded, insert the equivalent superseding relationship.
         for superseded_id in superseded {
-            self.superseded_by_graph
+            self.superseding_graph
                 .entry(*superseded_id)
                 .or_insert_with(UstrSet::default)
                 .insert(*unit_id);
@@ -561,8 +561,8 @@ impl UnitGraph for InMemoryUnitGraph {
         self.superseded_graph.get(unit_id).cloned()
     }
 
-    fn get_superseded_by(&self, unit_id: &Ustr) -> Option<UstrSet> {
-        self.superseded_by_graph.get(unit_id).cloned()
+    fn get_superseding(&self, unit_id: &Ustr) -> Option<UstrSet> {
+        self.superseding_graph.get(unit_id).cloned()
     }
 
     fn check_cycles(&self) -> Result<(), UnitGraphError> {
@@ -953,19 +953,19 @@ mod test {
     }
 
     #[test]
-    fn missing_superseded_by_relationship() -> Result<()> {
+    fn missing_superseding_relationship() -> Result<()> {
         let mut graph = InMemoryUnitGraph::default();
         let lesson1_id = Ustr::from("lesson1_id");
         let lesson2_id = Ustr::from("lesson2_id");
         graph.add_superseded(&lesson2_id, &[lesson1_id.clone()]);
 
-        // Manually remove the superseded by relationship to trigger the check and make the cycle
+        // Manually remove the superseding relationship to trigger the check and make the cycle
         // detection fail.
         graph
-            .superseded_by_graph
+            .superseding_graph
             .insert(lesson1_id.clone(), UstrSet::default());
         assert!(graph.check_cycles().is_err());
-        // Also check that the check fails if the superseded by value is `None`.
+        // Also check that the check fails if the superseding value is `None`.
         graph.dependency_graph.remove(&lesson1_id);
         assert!(graph.check_cycles().is_err());
         Ok(())

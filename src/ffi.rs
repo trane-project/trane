@@ -307,6 +307,7 @@ pub trait UnitGraphFFI {
         unit_type: UnitType,
         dependencies: &[Ustr],
     ) -> Result<(), UnitGraphError>;
+    fn add_superseded(&mut self, unit_id: &Ustr, superseded: &[Ustr]);
     fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType>;
     fn get_course_lessons(&self, course_id: &Ustr) -> Option<UstrSet>;
     fn update_starting_lessons(&mut self);
@@ -317,6 +318,8 @@ pub trait UnitGraphFFI {
     fn get_dependencies(&self, unit_id: &Ustr) -> Option<UstrSet>;
     fn get_dependents(&self, unit_id: &Ustr) -> Option<UstrSet>;
     fn get_dependency_sinks(&self) -> UstrSet;
+    fn get_superseded(&self, unit_id: &Ustr) -> Option<UstrSet>;
+    fn get_superseding(&self, unit_id: &Ustr) -> Option<UstrSet>;
     fn check_cycles(&self) -> Result<(), UnitGraphError>;
     fn generate_dot_graph(&self) -> String;
 }
@@ -339,6 +342,9 @@ impl UnitGraphFFI for TraneFFI {
     ) -> Result<(), UnitGraphError> {
         self.trane
             .add_dependencies(unit_id, unit_type.into(), dependencies)
+    }
+    fn add_superseded(&mut self, unit_id: &Ustr, superseded: &[Ustr]) {
+        self.trane.add_superseded(unit_id, superseded)
     }
     fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType> {
         self.trane.get_unit_type(unit_id).map(Into::into)
@@ -369,6 +375,12 @@ impl UnitGraphFFI for TraneFFI {
     }
     fn get_dependency_sinks(&self) -> UstrSet {
         self.trane.get_dependency_sinks()
+    }
+    fn get_superseded(&self, unit_id: &Ustr) -> Option<UstrSet> {
+        self.trane.get_superseded(unit_id)
+    }
+    fn get_superseding(&self, unit_id: &Ustr) -> Option<UstrSet> {
+        self.trane.get_superseding(unit_id)
     }
     fn check_cycles(&self) -> Result<(), UnitGraphError> {
         self.trane.check_cycles()

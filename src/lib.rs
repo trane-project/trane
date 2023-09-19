@@ -522,8 +522,8 @@ impl UnitGraph for Trane {
         self.unit_graph.read().get_superseded(unit_id)
     }
 
-    fn get_superseded_by(&self, unit_id: &Ustr) -> Option<UstrSet> {
-        self.unit_graph.read().get_superseded_by(unit_id)
+    fn get_superseding(&self, unit_id: &Ustr) -> Option<UstrSet> {
+        self.unit_graph.read().get_superseding(unit_id)
     }
 
     fn check_cycles(&self) -> Result<(), UnitGraphError> {

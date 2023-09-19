@@ -120,7 +120,7 @@ impl SchedulerData {
             .collect();
     }
 
-    /// Returns all the units superseded by the unit with the given ID.
+    /// Returns all the units which are superseded by the unit with the given ID.
     #[inline(always)]
     pub fn get_superseded(&self, unit_id: &Ustr) -> Option<UstrSet> {
         return self.unit_graph.read().get_superseded(unit_id);
@@ -128,8 +128,8 @@ impl SchedulerData {
 
     /// Returns all the units that supersede the unit with the given ID.
     #[inline(always)]
-    pub fn get_superseded_by(&self, unit_id: &Ustr) -> Option<UstrSet> {
-        return self.unit_graph.read().get_superseded_by(unit_id);
+    pub fn get_superseding(&self, unit_id: &Ustr) -> Option<UstrSet> {
+        return self.unit_graph.read().get_superseding(unit_id);
     }
 
     /// Returns all the dependencies of the unit with the given ID at the given depth.
