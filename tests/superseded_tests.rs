@@ -133,7 +133,7 @@ fn scheduler_respects_superseded_courses() -> Result<()> {
     // Run the simulation again, but this time give a score of 1 to all exercises in the superseding
     // course.
     let mut simulation = TraneSimulation::new(
-        500,
+        1000,
         Box::new(|id| {
             if id.starts_with("1::") {
                 Some(MasteryScore::One)
@@ -202,7 +202,7 @@ fn scheduler_respects_superseded_lessons() -> Result<()> {
     // Run the simulation again, but this time give a score of 1 to all exercises in the superseding
     // lesson.
     let mut simulation = TraneSimulation::new(
-        500,
+        1000,
         Box::new(|id| {
             if id.starts_with("2::2::") {
                 Some(MasteryScore::One)
