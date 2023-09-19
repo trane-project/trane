@@ -138,14 +138,12 @@ fn all_exercises_visited() -> Result<()> {
     // should be there as well, but since they are superseded by the advanced lessons, it' not
     // guaranteed that all of them will be there.
     for exercise_id in exercise_ids {
-        if exercise_id.contains("advanced_") {
-            assert!(
-                simulation.answer_history.contains_key(&exercise_id),
-                "exercise {:?} should have been scheduled",
-                exercise_id
-            );
-            assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
-        }
+        assert!(
+            simulation.answer_history.contains_key(&exercise_id),
+            "exercise {:?} should have been scheduled",
+            exercise_id
+        );
+        assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
     }
     Ok(())
 }
@@ -274,7 +272,8 @@ fn transcription_blocks_advanced_transcription_and_dependents() -> Result<()> {
     );
     simulation.run_simulation(&mut trane, &vec![], None)?;
 
-    // Exercises from the advanced transcription lessons should not be in the answer history.
+    // Exercises from the advanced transcription lesson from the first and the transcription lesson
+    // from the dependent course should not be in the answer history.
     for exercise_id in exercise_ids {
         if exercise_id.contains("advanced_transcription")
             || exercise_id.contains("transcription_course_1::transcription")
@@ -284,6 +283,13 @@ fn transcription_blocks_advanced_transcription_and_dependents() -> Result<()> {
                 "exercise {:?} should not have been scheduled",
                 exercise_id
             );
+        } else {
+            assert!(
+                simulation.answer_history.contains_key(&exercise_id),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
         }
     }
     Ok(())
@@ -322,7 +328,7 @@ fn skip_advanced_lessons() -> Result<()> {
         assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
     }
 
-    // No exercises from the advanced lessons should be in the answer history.
+    // No exercises from the advanced lessons should have been generated.
     for exercise_id in exercise_ids {
         assert!(
             !exercise_id.contains("advanced_"),
@@ -356,20 +362,17 @@ fn skip_singing_lessons() -> Result<()> {
     );
     simulation.run_simulation(&mut trane, &vec![], None)?;
 
-    // Every exercise from the advanced singing and advanced transcription lessons should be in the
-    // answer history. Exercises from the singing lesson should not be there.
+    // Every exercise ID should be in `simulation.answer_history`.
     for exercise_id in &exercise_ids {
-        if exercise_id.contains("advanced_") {
-            assert!(
-                simulation.answer_history.contains_key(&exercise_id),
-                "exercise {:?} should have been scheduled",
-                exercise_id
-            );
-            assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
-        }
+        assert!(
+            simulation.answer_history.contains_key(&exercise_id),
+            "exercise {:?} should have been scheduled",
+            exercise_id
+        );
+        assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
     }
 
-    // No exercises from the singing lessons should be in the answer history.
+    // No exercises from the singing lessons should have been generated.
     for exercise_id in exercise_ids {
         assert!(
             !exercise_id.contains("singing"),

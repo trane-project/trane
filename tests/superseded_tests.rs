@@ -8,13 +8,7 @@ use std::collections::BTreeMap;
 use anyhow::{Ok, Result};
 use lazy_static::lazy_static;
 use tempfile::TempDir;
-use trane::{
-    data::{
-        filter::{ExerciseFilter, UnitFilter},
-        MasteryScore,
-    },
-    testutil::*,
-};
+use trane::{data::MasteryScore, testutil::*};
 
 lazy_static! {
     /// A simple set of courses to verify that superseded courses and lessons are dealt with
@@ -103,39 +97,24 @@ fn scheduler_respects_superseded_courses() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
 
-    // Run the simulation first giving a score of 5 to all exercises in the superseding course.
+    // Run the simulation first giving a score of 5 to all exercises.
     let superseded_course_id = TestId(0, None, None);
-    let superseding_course_id = TestId(1, None, None);
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
-    simulation.run_simulation(
-        &mut trane,
-        &vec![],
-        Some(ExerciseFilter::UnitFilter(UnitFilter::CourseFilter {
-            course_ids: vec![superseding_course_id.to_ustr()],
-        })),
-    )?;
+    simulation.run_simulation(&mut trane, &vec![], None)?;
 
-    // Every exercise ID in the superseding course should be in `simulation.answer_history`.
+    // Every exercise should be in `simulation.answer_history`.
     let exercise_ids = all_test_exercises(&LIBRARY);
     for exercise_id in &exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
-        if exercise_id.exercise_in_course(&superseding_course_id) {
-            assert!(
-                simulation.answer_history.contains_key(&exercise_ustr),
-                "exercise {:?} should have been scheduled",
-                exercise_id
-            );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
-        } else {
-            assert!(
-                !simulation.answer_history.contains_key(&exercise_ustr),
-                "exercise {:?} should not have been scheduled",
-                exercise_id
-            );
-        }
+        assert!(
+            simulation.answer_history.contains_key(&exercise_ustr),
+            "exercise {:?} should have been scheduled",
+            exercise_id
+        );
+        assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
     }
 
-    // Run the simulation again with no course filter.
+    // Run the simulation again to clear the simulation history.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
     simulation.run_simulation(&mut trane, &vec![], None)?;
 
@@ -153,17 +132,16 @@ fn scheduler_respects_superseded_courses() -> Result<()> {
 
     // Run the simulation again, but this time give a score of 1 to all exercises in the superseding
     // course.
-    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::One)));
-    simulation.run_simulation(
-        &mut trane,
-        &vec![],
-        Some(ExerciseFilter::UnitFilter(UnitFilter::CourseFilter {
-            course_ids: vec![superseding_course_id.to_ustr()],
-        })),
-    )?;
-
-    // Run the simulation again with no course filter and giving a score of 5 to all exercises.
-    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    let mut simulation = TraneSimulation::new(
+        500,
+        Box::new(|id| {
+            if id.starts_with("1::") {
+                Some(MasteryScore::One)
+            } else {
+                Some(MasteryScore::Five)
+            }
+        }),
+    );
     simulation.run_simulation(&mut trane, &vec![], None)?;
 
     // This time around, all the exercises in the superseded course should have been scheduled.
@@ -188,39 +166,24 @@ fn scheduler_respects_superseded_lessons() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
 
-    // Run the simulation first giving a score of 5 to all exercises in the superseding lesson.
+    // Run the simulation first giving a score of 5 to all exercises.
     let superseded_lesson_id = TestId(2, Some(0), None);
-    let superseding_lesson_id = TestId(2, Some(2), None);
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
-    simulation.run_simulation(
-        &mut trane,
-        &vec![],
-        Some(ExerciseFilter::UnitFilter(UnitFilter::LessonFilter {
-            lesson_ids: vec![superseding_lesson_id.to_ustr()],
-        })),
-    )?;
+    simulation.run_simulation(&mut trane, &vec![], None)?;
 
-    // Every exercise ID in the superseding lesson should be in `simulation.answer_history`.
+    // Every exercise should be in `simulation.answer_history`.
     let exercise_ids = all_test_exercises(&LIBRARY);
     for exercise_id in &exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
-        if exercise_id.exercise_in_lesson(&superseding_lesson_id) {
-            assert!(
-                simulation.answer_history.contains_key(&exercise_ustr),
-                "exercise {:?} should have been scheduled",
-                exercise_id
-            );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
-        } else {
-            assert!(
-                !simulation.answer_history.contains_key(&exercise_ustr),
-                "exercise {:?} should not have been scheduled",
-                exercise_id
-            );
-        }
+        assert!(
+            simulation.answer_history.contains_key(&exercise_ustr),
+            "exercise {:?} should have been scheduled",
+            exercise_id
+        );
+        assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
     }
 
-    // Run the simulation again with no lesson filter.
+    // Run the simulation again to clear the simulation history.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
     simulation.run_simulation(&mut trane, &vec![], None)?;
 
@@ -238,23 +201,22 @@ fn scheduler_respects_superseded_lessons() -> Result<()> {
 
     // Run the simulation again, but this time give a score of 1 to all exercises in the superseding
     // lesson.
-    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::One)));
-    simulation.run_simulation(
-        &mut trane,
-        &vec![],
-        Some(ExerciseFilter::UnitFilter(UnitFilter::LessonFilter {
-            lesson_ids: vec![superseding_lesson_id.to_ustr()],
-        })),
-    )?;
-
-    // Run the simulation again with no lesson filter and giving a score of 5 to all exercises.
-    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    let mut simulation = TraneSimulation::new(
+        500,
+        Box::new(|id| {
+            if id.starts_with("2::2::") {
+                Some(MasteryScore::One)
+            } else {
+                Some(MasteryScore::Five)
+            }
+        }),
+    );
     simulation.run_simulation(&mut trane, &vec![], None)?;
 
     // This time around, all the exercises in the superseded lesson should have been scheduled.
     for exercise_id in &exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
-        if exercise_id.exercise_in_lesson(&superseded_lesson_id) {
+        if exercise_id.exercise_in_course(&superseded_lesson_id) {
             assert!(
                 simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should have been scheduled",
