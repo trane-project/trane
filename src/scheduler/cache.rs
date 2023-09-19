@@ -242,6 +242,24 @@ impl ScoreCache {
             }, // grcov-excl-line
         }
     }
+
+    /// Returns whether all the exercises in the unit have valid scores.
+    pub(super) fn all_valid_exercises_have_scores(&self, unit_id: &Ustr) -> bool {
+        // Get all the valid exercises in the unit.
+        let valid_exercises = self.data.all_valid_exercises(unit_id);
+        if valid_exercises.is_empty() {
+            return true;
+        }
+
+        // All valid exercises must have a score greater than 0.0.
+        let scores: Vec<Result<f32>> = valid_exercises
+            .into_iter()
+            .map(|id| self.get_exercise_score(&id))
+            .collect();
+        scores
+            .into_iter()
+            .all(|score| score.is_ok() && score.unwrap() > 0.0)
+    }
 }
 
 #[cfg(test)]

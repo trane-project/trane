@@ -282,30 +282,22 @@ impl DepthFirstScheduler {
     /// Returns the list of candidates selected from the given lesson along with the average score.
     /// The average score is used to help decide whether to continue searching a path in the graph.
     fn get_candidates_from_lesson_helper(&self, item: &StackItem) -> Result<(Vec<Candidate>, f32)> {
-        //  Return an empty set of candidates if the lesson does not exist.
-        if !self.data.unit_exists(&item.unit_id).unwrap_or(false) {
-            return Ok((vec![], 0.0));
-        }
-
-        // Check whether the lesson or its course have been blacklisted.
-        if self.data.blacklisted(&item.unit_id).unwrap_or(false) {
+        // Retrieve the lesson's exercises and course ID.
+        let exercises = self.data.all_valid_exercises_in_lesson(&item.unit_id);
+        if exercises.is_empty() {
+            // Return early to avoid division by zero later on.
             return Ok((vec![], 0.0));
         }
         let course_id = self
             .data
             .get_lesson_course(&item.unit_id)
             .unwrap_or_default();
-        if self.data.blacklisted(&course_id).unwrap_or(false) {
-            return Ok((vec![], 0.0));
-        }
 
         // Generate a list of candidates from the lesson's exercises.
-        let exercises = self.data.get_lesson_exercises(&item.unit_id);
         let exercise_scores = self.get_exercise_scores(&exercises)?;
         let candidates = exercises
             .into_iter()
             .zip(exercise_scores.iter())
-            .filter(|(exercise_id, _)| !self.data.blacklisted(exercise_id).unwrap_or(false))
             .map(|(exercise_id, score)| Candidate {
                 exercise_id,
                 lesson_id: item.unit_id, // It's assumed that the item is a lesson.
@@ -317,13 +309,34 @@ impl DepthFirstScheduler {
             .collect::<Vec<Candidate>>();
 
         // Calculate the average score of the candidates.
-        let avg_score = if candidates.is_empty() {
-            // Return 0.0 to avoid division by zero.
-            0.0
-        } else {
-            candidates.iter().map(|c| c.score).sum::<f32>() / (candidates.len() as f32)
-        };
+        let avg_score = candidates.iter().map(|c| c.score).sum::<f32>() / (candidates.len() as f32);
         Ok((candidates, avg_score))
+    }
+
+    /// Returns whether the superseded unit can be considered as superseded by the superseding
+    /// units.
+    fn is_superseded(&self, superseded_id: &Ustr, superseding_ids: &UstrSet) -> bool {
+        // Units with no superseding units are not superseded.
+        if superseding_ids.is_empty() {
+            return false;
+        }
+
+        // All the exercises from the superseded unit must have been seen at least once.
+        if !self
+            .score_cache
+            .all_valid_exercises_have_scores(superseded_id)
+        {
+            return false;
+        }
+
+        // All the superseding units must have a score equal or greater than the superseding score.
+        superseding_ids.iter().all(|id| {
+            self.score_cache
+                .get_unit_score(id)
+                .unwrap_or_default()
+                .unwrap_or_default()
+                >= self.data.options.superseding_score
+        })
     }
 
     /// Returns whether the given dependency can be considered as satisfied. If all the dependencies
@@ -361,17 +374,10 @@ impl DepthFirstScheduler {
             return true;
         }
 
-        // If this unit is superseded by others, then it is considered as satisfied if all the
-        // scores of the superseding units are equal or greater than the superseding score.
+        // The dependency is considered as satisfied if it's been superseded by another unit.
         let superseded_by = self.data.get_superseded_by(dependency_id);
         if let Some(superseded_by) = superseded_by {
-            if superseded_by.iter().all(|id| {
-                self.score_cache
-                    .get_unit_score(id)
-                    .unwrap_or_default()
-                    .unwrap_or_default()
-                    >= self.data.options.superseding_score
-            }) {
+            if self.is_superseded(dependency_id, &superseded_by) {
                 return true;
             }
         }
@@ -739,64 +745,43 @@ impl DepthFirstScheduler {
     /// Removes the candidates that belong to a lesson or course that has been superseded by another
     /// lesson or course in the list of candidates.
     fn remove_superseded_exercises(&self, candidates: Vec<Candidate>) -> Vec<Candidate> {
-        // Generate a set of all the lessons and courses that supersede other units.
-        let mut all_superseded_by = UstrSet::default();
-        for candidate in &candidates {
-            let superseded_by = self.data.get_superseded_by(&candidate.lesson_id);
-            if let Some(superseded_by) = superseded_by {
-                all_superseded_by.extend(superseded_by);
+        // Compute the list of all the courses and lessons in the list of candidates that have been
+        // superseded.
+        let mut superseded = UstrSet::default();
+        let mut seen = UstrSet::default();
+        for c in &candidates {
+            // Check if the exercise's course has been superseded.
+            if !seen.contains(&c.course_id) {
+                let superseding_ids = self
+                    .data
+                    .get_superseded_by(&c.course_id)
+                    .unwrap_or_default();
+                if self.is_superseded(&c.course_id, &superseding_ids) {
+                    superseded.insert(c.course_id);
+                }
+                seen.insert(c.course_id);
             }
 
-            let superseded_by = self.data.get_superseded_by(&candidate.course_id);
-            if let Some(superseded_by) = superseded_by {
-                all_superseded_by.extend(superseded_by);
+            // Check if the exercise's lesson has been superseded.
+            if !seen.contains(&c.lesson_id) {
+                let superseding_ids = self
+                    .data
+                    .get_superseded_by(&c.lesson_id)
+                    .unwrap_or_default();
+                if self.is_superseded(&c.lesson_id, &superseding_ids) {
+                    superseded.insert(c.lesson_id);
+                }
+                seen.insert(c.lesson_id);
             }
-        }
-        if all_superseded_by.is_empty() {
-            return candidates;
-        }
-
-        // Filter out the superseding lessons and courses with scores lower than the superseding
-        // score.
-        all_superseded_by.retain(|id| {
-            let score = self
-                .score_cache
-                .get_unit_score(id)
-                .unwrap_or_default()
-                .unwrap_or_default();
-            score >= self.data.options.superseding_score
-        });
-
-        if all_superseded_by.is_empty() {
-            return candidates;
         }
 
         // Filter out the candidates that belong to a superseded lesson or course.
+        if superseded.is_empty() {
+            return candidates;
+        }
         candidates
             .into_iter()
-            .filter(|c| {
-                // Get the list of lessons and courses that supersede the current candidate.
-                let superseded_by: Vec<Ustr> = self
-                    .data
-                    .get_superseded_by(&c.lesson_id)
-                    .unwrap_or_default()
-                    .into_iter()
-                    .chain(
-                        self.data
-                            .get_superseded_by(&c.course_id)
-                            .unwrap_or_default(),
-                    )
-                    .collect();
-
-                // Check if all the superseding units are in the list of valid superseding units.
-                if superseded_by.is_empty() {
-                    true
-                } else {
-                    !superseded_by
-                        .iter()
-                        .all(|id| all_superseded_by.contains(id))
-                }
-            })
+            .filter(|c| !superseded.contains(&c.course_id) && !superseded.contains(&c.lesson_id))
             .collect()
     }
 

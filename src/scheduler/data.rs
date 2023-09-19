@@ -303,6 +303,62 @@ impl SchedulerData {
             }
         }
     }
+
+    /// Returns all the valid exercises in the given lesson.
+    pub fn all_valid_exercises_in_lesson(&self, lesson_id: &Ustr) -> Vec<Ustr> {
+        // If the lesson is blacklisted, return no exercises.
+        if self.blacklisted(lesson_id).unwrap_or(false) {
+            return vec![];
+        }
+
+        // If the course to which the lesson belongs is blacklisted, return no exercises.
+        let course_id = self.get_lesson_course(lesson_id).unwrap_or_default();
+        if self.blacklisted(&course_id).unwrap_or(false) {
+            return vec![];
+        }
+
+        // Get all exercises in the lesson and filter out the blacklisted ones.
+        let exercises = self.get_lesson_exercises(lesson_id);
+        exercises
+            .into_iter()
+            .filter(|exercise_id| !self.blacklisted(exercise_id).unwrap_or(false))
+            .collect()
+    }
+
+    /// Returns all the valid exercises in the given unit.
+    pub fn all_valid_exercises(&self, unit_id: &Ustr) -> Vec<Ustr> {
+        // First, get the type of the unit. Then get the exercises based on the unit type.
+        let unit_type = self.get_unit_type(unit_id);
+        match unit_type {
+            None => vec![],
+            Some(UnitType::Exercise) => {
+                // Return the exercise if it's not blacklisted.
+                if self.blacklisted(unit_id).unwrap_or(false) {
+                    vec![]
+                } else {
+                    vec![*unit_id]
+                }
+            }
+            Some(UnitType::Lesson) => self.all_valid_exercises_in_lesson(unit_id),
+            Some(UnitType::Course) => {
+                // If the course is blacklisted, return no exercises.
+                if self.blacklisted(unit_id).unwrap_or(false) {
+                    return vec![];
+                }
+
+                // Otherwise, get all the lessons and the valid exercises in each.
+                let lessons = self
+                    .unit_graph
+                    .read()
+                    .get_course_lessons(unit_id)
+                    .unwrap_or_default();
+                lessons
+                    .into_iter()
+                    .flat_map(|lesson_id| self.all_valid_exercises_in_lesson(&lesson_id))
+                    .collect()
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -318,6 +374,7 @@ mod test {
     use ustr::Ustr;
 
     use crate::{
+        blacklist::Blacklist,
         data::{
             filter::{
                 FilterType, KeyValueFilter, SavedFilter, SessionPart, StudySession,
@@ -519,6 +576,67 @@ mod test {
                 start_time
             )
             .is_err());
+
+        Ok(())
+    }
+
+    /// Verifies retrieving the valid exercises from a unit.
+    #[test]
+    fn all_valid_exercises() -> Result<()> {
+        // Generate a test library.
+        let temp_dir = tempfile::tempdir()?;
+        let library = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let scheduler_data = library.get_scheduler_data();
+
+        // Verify an empty list is returned when an unknown unit is passed.
+        assert!(scheduler_data
+            .all_valid_exercises(&Ustr::from("unknown"))
+            .is_empty());
+
+        // Get the valid exercises when the ID is an exercise.
+        assert_eq!(
+            scheduler_data.all_valid_exercises(&Ustr::from("0::0::0")),
+            vec![Ustr::from("0::0::0")]
+        );
+
+        // Blacklist that exercise and verify it's no longer valid.
+        scheduler_data
+            .blacklist
+            .write()
+            .add_to_blacklist(&Ustr::from("0::0::0"))?;
+        assert!(scheduler_data
+            .all_valid_exercises(&Ustr::from("0::0::0"))
+            .is_empty());
+
+        // Get the valid exercises when the ID is a lesson.
+        assert_eq!(
+            scheduler_data.all_valid_exercises(&Ustr::from("0::1")),
+            vec![Ustr::from("0::1::0"), Ustr::from("0::1::1")]
+        );
+
+        // Blacklist the lesson and verify the exercises are no longer valid.
+        scheduler_data
+            .blacklist
+            .write()
+            .add_to_blacklist(&Ustr::from("0::1"))?;
+        assert!(scheduler_data
+            .all_valid_exercises(&Ustr::from("0::1"))
+            .is_empty());
+
+        // Get the valid exercises when the ID is a course.
+        assert_eq!(
+            scheduler_data.all_valid_exercises(&Ustr::from("0")),
+            vec![Ustr::from("0::0::1"),]
+        );
+
+        // Blacklist the course and verify the exercises are no longer valid.
+        scheduler_data
+            .blacklist
+            .write()
+            .add_to_blacklist(&Ustr::from("0"))?;
+        assert!(scheduler_data
+            .all_valid_exercises(&Ustr::from("0"))
+            .is_empty());
 
         Ok(())
     }
