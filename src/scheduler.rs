@@ -292,10 +292,6 @@ impl DepthFirstScheduler {
             .data
             .get_lesson_course(&item.unit_id)
             .unwrap_or_default();
-        if course_id.is_empty() {
-            // Return an empty set of candidates if the course for the lesson is missing.
-            return Ok((vec![], 0.0));
-        }
 
         // Generate a list of candidates from the lesson's exercises.
         let exercise_scores = self.get_exercise_scores(&exercises)?;
