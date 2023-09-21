@@ -313,6 +313,35 @@ impl DepthFirstScheduler {
         Ok((candidates, avg_score))
     }
 
+    /// Recursively check if each superseding unit has itself been superseded by another unit and
+    /// replace them from the original set with those units.
+    fn replace_superseding(&self, superseding_ids: UstrSet) -> UstrSet {
+        let mut result = UstrSet::default();
+        superseding_ids.into_iter().for_each(|id| {
+            let superseding = self.data.get_superseding(&id);
+            if let Some(superseding) = superseding {
+                // The unit has some superseding units of its own. If the unit has been superseded
+                // by them, recursively call this function. Otherwise, add the unit to the result.
+                if self.is_superseded(&id, &superseding) {
+                    result.extend(self.replace_superseding(superseding));
+                } else {
+                    result.insert(id);
+                }
+            } else {
+                // The unit has no superseding units, so add it to the result.
+                result.insert(id);
+            }
+        });
+        result
+    }
+
+    /// Get the initial superseding units and then recursively replace them if they have been
+    /// superseded.
+    fn get_superseding_recursive(&self, unit_id: &Ustr) -> Option<UstrSet> {
+        let superseding_ids = self.data.get_superseding(unit_id);
+        superseding_ids.map(|ids| self.replace_superseding(ids))
+    }
+
     /// Returns whether the superseded unit can be considered as superseded by the superseding
     /// units.
     fn is_superseded(&self, superseded_id: &Ustr, superseding_ids: &UstrSet) -> bool {
@@ -375,7 +404,7 @@ impl DepthFirstScheduler {
         }
 
         // The dependency is considered as satisfied if it's been superseded by another unit.
-        let superseding = self.data.get_superseding(dependency_id);
+        let superseding = self.get_superseding_recursive(dependency_id);
         if let Some(superseding) = superseding {
             if self.is_superseded(dependency_id, &superseding) {
                 return true;
@@ -748,24 +777,21 @@ impl DepthFirstScheduler {
         // Compute the list of all the courses and lessons in the list of candidates that have been
         // superseded.
         let mut superseded = UstrSet::default();
-        let mut seen = UstrSet::default();
         for c in &candidates {
             // Check if the exercise's course has been superseded.
-            if !seen.contains(&c.course_id) {
-                let superseding_ids = self.data.get_superseding(&c.course_id).unwrap_or_default();
-                if self.is_superseded(&c.course_id, &superseding_ids) {
-                    superseded.insert(c.course_id);
-                }
-                seen.insert(c.course_id);
+            let superseding_ids = self
+                .get_superseding_recursive(&c.course_id)
+                .unwrap_or_default();
+            if self.is_superseded(&c.course_id, &superseding_ids) {
+                superseded.insert(c.course_id);
             }
 
             // Check if the exercise's lesson has been superseded.
-            if !seen.contains(&c.lesson_id) {
-                let superseding_ids = self.data.get_superseding(&c.lesson_id).unwrap_or_default();
-                if self.is_superseded(&c.lesson_id, &superseding_ids) {
-                    superseded.insert(c.lesson_id);
-                }
-                seen.insert(c.lesson_id);
+            let superseding_ids = self
+                .get_superseding_recursive(&c.lesson_id)
+                .unwrap_or_default();
+            if self.is_superseded(&c.lesson_id, &superseding_ids) {
+                superseded.insert(c.lesson_id);
             }
         }
 
