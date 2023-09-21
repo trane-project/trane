@@ -25,7 +25,6 @@ const INSTRUCTIONS: &str = indoc! {"
 //@<music-asset
 /// Represents a music asset to be practiced.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
 pub enum MusicAsset {
     /// A link to a SoundSlice.
     SoundSlice(String),
@@ -71,7 +70,6 @@ impl MusicAsset {
 //@<music-passage
 /// Represents a music passage to be practiced.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct MusicPassage {
     /// The start of the passage.
     pub start: String,
@@ -173,7 +171,6 @@ impl MusicPassage {
 //@<music-piece-config
 /// The config to create a course that teaches a piece of music.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct MusicPieceConfig {
     /// The asset containing the music to be practiced.
     pub music_asset: MusicAsset,
