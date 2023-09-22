@@ -16,7 +16,6 @@ use crate::data::course_generator::transcription;
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct Instrument {
     pub name: String,
     pub id: String,
@@ -43,7 +42,6 @@ impl From<course_generator::Instrument> for Instrument {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct KnowledgeBaseConfig {}
 
 impl From<KnowledgeBaseConfig> for knowledge_base::KnowledgeBaseConfig {
@@ -61,7 +59,6 @@ impl From<knowledge_base::KnowledgeBaseConfig> for KnowledgeBaseConfig {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
 #[serde(tag = "type", content = "content")]
 pub enum MusicAsset {
     SoundSlice(String),
@@ -89,7 +86,6 @@ impl From<music_piece::MusicAsset> for MusicAsset {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct MusicPassage {
     pub start: String,
     pub end: String,
@@ -128,7 +124,6 @@ impl From<music_piece::MusicPassage> for MusicPassage {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct MusicPieceConfig {
     pub music_asset: MusicAsset,
     pub passages: MusicPassage,
@@ -155,7 +150,6 @@ impl From<music_piece::MusicPieceConfig> for MusicPieceConfig {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
 #[serde(tag = "type", content = "content")]
 pub enum TranscriptionLink {
     YouTube(String),
@@ -180,7 +174,6 @@ impl From<transcription::TranscriptionLink> for TranscriptionLink {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
 #[serde(tag = "type", content = "content")]
 pub enum TranscriptionAsset {
     Track {
@@ -244,7 +237,6 @@ impl From<transcription::TranscriptionAsset> for TranscriptionAsset {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct TranscriptionPassages {
     pub asset: TranscriptionAsset,
     #[typeshare(serialized_as = "HashMap<u32, Vec<String>>")]
@@ -272,7 +264,6 @@ impl From<transcription::TranscriptionPassages> for TranscriptionPassages {
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct TranscriptionPreferences {
     #[serde(default)]
     pub instruments: Vec<Instrument>,
@@ -305,7 +296,6 @@ impl From<transcription::TranscriptionPreferences> for TranscriptionPreferences 
 #[typeshare]
 #[allow(missing_docs)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct TranscriptionConfig {
     #[serde(default)]
     #[typeshare(serialized_as = "Vec<String>")]
