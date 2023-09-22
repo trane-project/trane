@@ -128,9 +128,12 @@ struct Candidate {
     /// inclusive. This score will be computed from the previous trials of this exercise.
     score: f32,
 
+    /// The number of previous trials that have been recorded for this exercise.
+    num_trials: usize,
+
     /// The number of times this exercise has been scheduled during the run of this scheduler. This
     /// value will be used to assign more weight to exercises that have been scheduled less often.
-    frequency: f32,
+    frequency: usize,
 }
 
 /// An implementation of [ExerciseScheduler] based on depth-first search.
@@ -266,19 +269,6 @@ impl DepthFirstScheduler {
     }
     //>@lp-example-1
 
-    /// Gets the scores for the given exercises.
-    fn get_exercise_scores(&self, exercises: &[Ustr]) -> Result<Vec<f32>> {
-        exercises
-            .iter()
-            .map(|exercise_id| {
-                Ok(self
-                    .score_cache
-                    .get_unit_score(exercise_id)? // grcov-excl-line
-                    .unwrap_or_default())
-            })
-            .collect()
-    }
-
     /// Returns the list of candidates selected from the given lesson along with the average score.
     /// The average score is used to help decide whether to continue searching a path in the graph.
     fn get_candidates_from_lesson_helper(&self, item: &StackItem) -> Result<(Vec<Candidate>, f32)> {
@@ -294,19 +284,26 @@ impl DepthFirstScheduler {
             .unwrap_or_default();
 
         // Generate a list of candidates from the lesson's exercises.
-        let exercise_scores = self.get_exercise_scores(&exercises)?;
         let candidates = exercises
             .into_iter()
-            .zip(exercise_scores.iter())
-            .map(|(exercise_id, score)| Candidate {
-                exercise_id,
-                lesson_id: item.unit_id, // It's assumed that the item is a lesson.
-                course_id,
-                depth: (item.depth + 1) as f32,
-                score: *score,
-                frequency: self.data.get_exercise_frequency(&exercise_id),
+            .map(|exercise_id| {
+                Ok(Candidate {
+                    exercise_id,
+                    lesson_id: item.unit_id, // It's assumed that the item is a lesson.
+                    course_id,
+                    depth: (item.depth + 1) as f32,
+                    score: self
+                        .score_cache
+                        .get_unit_score(&exercise_id)? // grcov-excl-line
+                        .unwrap_or_default(),
+                    num_trials: self
+                        .score_cache
+                        .get_num_trials(&exercise_id)? // grcov-excl-line
+                        .unwrap_or_default(),
+                    frequency: self.data.get_exercise_frequency(&exercise_id),
+                })
             })
-            .collect::<Vec<Candidate>>();
+            .collect::<Result<Vec<Candidate>>>()?; // grcov-excl-line
 
         // Calculate the average score of the candidates.
         let avg_score = candidates.iter().map(|c| c.score).sum::<f32>() / (candidates.len() as f32);
@@ -762,7 +759,11 @@ impl DepthFirstScheduler {
                             .score_cache
                             .get_unit_score(unit_id)? // grcov-excl-line
                             .unwrap_or_default(),
-                        frequency: *self.data.frequency_map.read().get(unit_id).unwrap_or(&0.0),
+                        num_trials: self
+                            .score_cache
+                            .get_num_trials(unit_id)? // grcov-excl-line
+                            .unwrap_or_default(),
+                        frequency: *self.data.frequency_map.read().get(unit_id).unwrap_or(&0),
                     });
                 }
             }

@@ -19,10 +19,20 @@ use crate::{
     scorer::{ExerciseScorer, SimpleScorer},
 };
 
+/// Stores information about a cached score.
+#[derive(Clone)]
+pub(super) struct CachedScore {
+    /// The computed score.
+    score: f32,
+
+    /// The number of trials used to compute the score.
+    num_trials: usize,
+}
+
 /// A cache of unit scores used to improve the performance of computing them during scheduling.
 pub(super) struct ScoreCache {
     /// A mapping of exercise ID to cached score.
-    exercise_cache: RefCell<UstrMap<f32>>,
+    exercise_cache: RefCell<UstrMap<CachedScore>>,
 
     /// A mapping of lesson ID to cached score.
     lesson_cache: RefCell<UstrMap<Option<f32>>>,
@@ -90,8 +100,8 @@ impl ScoreCache {
     fn get_exercise_score(&self, exercise_id: &Ustr) -> Result<f32> {
         // Return the cached score if it exists.
         let cached_score = self.exercise_cache.borrow().get(exercise_id).cloned();
-        if let Some(score) = cached_score {
-            return Ok(score);
+        if let Some(cached_score) = cached_score {
+            return Ok(cached_score.score);
         }
 
         // Retrieve the exercise's previous trials and compute its score.
@@ -102,8 +112,31 @@ impl ScoreCache {
             .get_scores(exercise_id, self.options.num_trials)
             .unwrap_or_default();
         let score = self.scorer.score(&scores)?;
-        self.exercise_cache.borrow_mut().insert(*exercise_id, score);
+        self.exercise_cache.borrow_mut().insert(
+            *exercise_id,
+            CachedScore {
+                score,
+                num_trials: scores.len(),
+            },
+        );
         Ok(score)
+    }
+
+    /// Returns the number of trials that were considered when computing the score for the given
+    /// exercise.
+    pub(super) fn get_num_trials(&self, exercise_id: &Ustr) -> Result<Option<usize>> {
+        // Return the cached value if it exists.
+        let cached_score = self.exercise_cache.borrow().get(exercise_id).cloned();
+        if let Some(cached_score) = cached_score {
+            return Ok(Some(cached_score.num_trials));
+        }
+
+        // Compute the exercise's score, which should populate the cache.
+        self.get_exercise_score(exercise_id)?;
+
+        // Return the cached value.
+        let cached_score = self.exercise_cache.borrow().get(exercise_id).cloned();
+        Ok(cached_score.map(|s| s.num_trials))
     }
 
     /// Returns the average score of all the exercises in the given lesson.
@@ -269,7 +302,12 @@ mod test {
     use std::collections::BTreeMap;
     use ustr::Ustr;
 
-    use crate::{blacklist::Blacklist, data::SchedulerOptions, scheduler::ScoreCache, testutil::*};
+    use crate::{
+        blacklist::Blacklist,
+        data::{MasteryScore, SchedulerOptions},
+        scheduler::{cache::CachedScore, ExerciseScheduler, ScoreCache},
+        testutil::*,
+    };
 
     static NUM_EXERCISES: usize = 2;
 
@@ -351,14 +389,20 @@ mod test {
         let cache = ScoreCache::new(scheduler_data, SchedulerOptions::default());
 
         // Insert some scores into the exercise and lesson caches.
-        cache
-            .exercise_cache
-            .borrow_mut()
-            .insert(Ustr::from("a"), 5.0);
-        cache
-            .exercise_cache
-            .borrow_mut()
-            .insert(Ustr::from("b::a"), 5.0);
+        cache.exercise_cache.borrow_mut().insert(
+            Ustr::from("a"),
+            CachedScore {
+                score: 5.0,
+                num_trials: 1,
+            },
+        );
+        cache.exercise_cache.borrow_mut().insert(
+            Ustr::from("b::a"),
+            CachedScore {
+                score: 5.0,
+                num_trials: 1,
+            },
+        );
         cache
             .lesson_cache
             .borrow_mut()
@@ -386,6 +430,30 @@ mod test {
         cache.invalidate_cached_score(&Ustr::from("c::a"));
         assert_eq!(cache.get_exercise_score(&Ustr::from("b::a"))?, 0.0);
         assert_eq!(cache.get_lesson_score(&Ustr::from("c::a"))?, None);
+        Ok(())
+    }
+
+    /// Verifies that the number of trials are cached along the exercise scores.
+    #[test]
+    fn get_num_trials() -> Result<()> {
+        // Create a test library and send some scores.
+        let temp_dir = tempfile::tempdir()?;
+        let library = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let scheduler_data = library.get_scheduler_data();
+        let cache = ScoreCache::new(scheduler_data, SchedulerOptions::default());
+        let exercise_id = Ustr::from("0::0::0");
+        library.score_exercise(&exercise_id, MasteryScore::Four, 1)?;
+        library.score_exercise(&exercise_id, MasteryScore::Five, 2)?;
+
+        // Retrieve the number of trials twice. The second time should hit the cache.
+        assert_eq!(Some(2), cache.get_num_trials(&exercise_id)?);
+        assert_eq!(Some(2), cache.get_num_trials(&exercise_id)?);
+
+        // Add another score and invalidate the cache. The change in the number of trials should be
+        // reflected.
+        library.score_exercise(&exercise_id, MasteryScore::Four, 3)?;
+        cache.invalidate_cached_score(&exercise_id);
+        assert_eq!(Some(3), cache.get_num_trials(&exercise_id)?);
         Ok(())
     }
 }

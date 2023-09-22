@@ -11,6 +11,7 @@
 //!    score, and the frequency with which the exercise has been scheduled in the past.
 
 use anyhow::Result;
+use lazy_static::lazy_static;
 use rand::{prelude::SliceRandom, thread_rng};
 use ustr::{Ustr, UstrMap, UstrSet};
 
@@ -34,8 +35,51 @@ const DEPTH_WEIGHT_FACTOR: f32 = 5.0;
 const MAX_DEPTH_WEIGHT: f32 = 100.0;
 
 /// The part of the weight that depends on the frequency of the candidate will be capped at this
-/// value. Each time an exercise is scheduled, this portion of the weight is halved.
+/// value. Each time an exercise is scheduled, this portion of the weight is reduced by a factor.
 const MAX_FREQUENCY_WEIGHT: f32 = 200.0;
+
+/// The factor by which the weight is mulitiplied when the frequency is increased.
+const FREQUENCY_FACTOR: f32 = 0.5;
+
+/// The part of the weight that depends on the number of trials for that exercise will be capped at
+/// this value. Each time an exercise is scheduled, this portion of the weight is reduced by a
+/// factor.
+const MAX_NUM_TRIALS_WEIGHT: f32 = 200.0;
+
+/// The factor by which the weight is mulitiplied when the number of trials is increased.
+const NUM_TRIALS_FACTOR: f32 = 0.5;
+
+lazy_static! {
+    /// A list of precomputed weights based on frequency to save on computation time. Candidates
+    /// with higher frequencies than the capacity of this array are assigned a weight of zero.
+    static ref PRECOMPUTED_FREQUENCY_WEIGHTS: [f32; 10] = [
+        MAX_FREQUENCY_WEIGHT,
+        MAX_FREQUENCY_WEIGHT * FREQUENCY_FACTOR,
+        MAX_FREQUENCY_WEIGHT * FREQUENCY_FACTOR.powf(2.0),
+        MAX_FREQUENCY_WEIGHT * FREQUENCY_FACTOR.powf(3.0),
+        MAX_FREQUENCY_WEIGHT * FREQUENCY_FACTOR.powf(4.0),
+        MAX_FREQUENCY_WEIGHT * FREQUENCY_FACTOR.powf(5.0),
+        MAX_FREQUENCY_WEIGHT * FREQUENCY_FACTOR.powf(6.0),
+        MAX_FREQUENCY_WEIGHT * FREQUENCY_FACTOR.powf(7.0),
+        MAX_FREQUENCY_WEIGHT * FREQUENCY_FACTOR.powf(8.0),
+        MAX_FREQUENCY_WEIGHT * FREQUENCY_FACTOR.powf(9.0),
+    ];
+
+    /// A list of precomputed weights based on the number of trials to save on computation time.
+    /// Candidates with more trials than the capacity of this array are assigned a weight of zero.
+    static ref PRECOMPUTED_NUM_TRIALS_WEIGHTS: [f32; 10] = [
+        MAX_NUM_TRIALS_WEIGHT,
+        MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR,
+        MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR.powf(2.0),
+        MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR.powf(3.0),
+        MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR.powf(4.0),
+        MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR.powf(5.0),
+        MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR.powf(6.0),
+        MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR.powf(7.0),
+        MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR.powf(8.0),
+        MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR.powf(9.0),
+    ];
+}
 
 /// The maximum weight that depends on the frequency of the lesson. The weight will be divided
 /// equally among all the exercises from the same lesson.
@@ -128,7 +172,15 @@ impl CandidateFilter {
                 // Increase the weight based on the frequency with which the exercise has been
                 // scheduled. Exercises that have been scheduled more often are assigned less
                 // weight.
-                weight += MAX_FREQUENCY_WEIGHT / 2.0_f32.powf(c.frequency);
+                weight += PRECOMPUTED_FREQUENCY_WEIGHTS
+                    .get(c.frequency)
+                    .unwrap_or(&0.0);
+
+                // Increase the weight based on the number of trials for that exercise. Exercises
+                // with more trials are assigned less weight.
+                weight += PRECOMPUTED_NUM_TRIALS_WEIGHTS
+                    .get(c.num_trials)
+                    .unwrap_or(&0.0);
 
                 // Increase the weight based on the number of candidates in the same lesson. The
                 // more candidates there are in the same lesson, the less weight each candidate is
@@ -332,7 +384,8 @@ mod test {
                 course_id: Ustr::from("course1"),
                 depth: 0.0,
                 score: 0.0,
-                frequency: 0.0,
+                num_trials: 0,
+                frequency: 0,
             },
             Candidate {
                 exercise_id: Ustr::from("exercise2"),
@@ -340,7 +393,8 @@ mod test {
                 course_id: Ustr::from("course1"),
                 depth: 0.0,
                 score: 0.0,
-                frequency: 0.0,
+                num_trials: 0,
+                frequency: 0,
             },
             Candidate {
                 exercise_id: Ustr::from("exercise3"),
@@ -348,7 +402,8 @@ mod test {
                 course_id: Ustr::from("course1"),
                 depth: 0.0,
                 score: 0.0,
-                frequency: 0.0,
+                num_trials: 0,
+                frequency: 0,
             },
             Candidate {
                 exercise_id: Ustr::from("exercise4"),
@@ -356,7 +411,8 @@ mod test {
                 course_id: Ustr::from("course1"),
                 depth: 0.0,
                 score: 0.0,
-                frequency: 0.0,
+                num_trials: 0,
+                frequency: 0,
             },
         ];
 
