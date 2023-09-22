@@ -44,8 +44,8 @@ pub struct SchedulerData {
     pub filter_manager: Arc<RwLock<LocalFilterManager>>,
 
     /// A map storing the number of times an exercise has been scheduled during the lifetime of this
-    /// scheduler. The value is used to give more weight in the scorer to exercises that have been
-    /// scheduled less often.
+    /// scheduler. The value is used to give more weight during filtering to exercises that have
+    /// been scheduled less often.
     pub frequency_map: Arc<RwLock<UstrMap<f32>>>,
 }
 
