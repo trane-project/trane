@@ -294,16 +294,16 @@ impl DepthFirstScheduler {
                     depth: (item.depth + 1) as f32,
                     score: self
                         .score_cache
-                        .get_unit_score(&exercise_id)?
+                        .get_unit_score(&exercise_id)? // grcov-excl-line
                         .unwrap_or_default(),
                     num_trials: self
                         .score_cache
-                        .get_num_trials(&exercise_id)?
+                        .get_num_trials(&exercise_id)? // grcov-excl-line
                         .unwrap_or_default(),
                     frequency: self.data.get_exercise_frequency(&exercise_id),
                 })
             })
-            .collect::<Result<Vec<Candidate>>>()?;
+            .collect::<Result<Vec<Candidate>>>()?; // grcov-excl-line
 
         // Calculate the average score of the candidates.
         let avg_score = candidates.iter().map(|c| c.score).sum::<f32>() / (candidates.len() as f32);
@@ -761,7 +761,7 @@ impl DepthFirstScheduler {
                             .unwrap_or_default(),
                         num_trials: self
                             .score_cache
-                            .get_num_trials(unit_id)?
+                            .get_num_trials(unit_id)? // grcov-excl-line
                             .unwrap_or_default(),
                         frequency: *self.data.frequency_map.read().get(unit_id).unwrap_or(&0),
                     });
