@@ -43,6 +43,9 @@ const INITIAL_TERM_ADJUSTMENT_FACTOR: f32 = 0.025;
 /// The score of a trial diminishes by this factor after the initial term.
 const LONG_TERM_ADJUSTMENT_FACTOR: f32 = 0.01;
 
+/// The adjusted score is never less than this factor of the original score.
+const MIN_ADJUSTMENT_FACTOR: f32 = 0.66;
+
 /// A trait exposing a function to score an exercise based on the results of previous trials.
 pub trait ExerciseScorer {
     /// Returns a score (between 0.0 and 5.0) for the exercise based on the results and timestamps
@@ -91,11 +94,12 @@ impl SimpleScorer {
         // This is to simulate the fact that skills deteriorate faster during the first few days
         // after a trial but then settle into long-term memory.
         if num_days <= INITIAL_TERM_LENGTH {
-            (score - INITIAL_TERM_ADJUSTMENT_FACTOR * num_days).max(score / 2.0)
+            (score - INITIAL_TERM_ADJUSTMENT_FACTOR * num_days).max(score * MIN_ADJUSTMENT_FACTOR)
         } else {
             let long_term_days = num_days - INITIAL_TERM_LENGTH.max(0.0);
             let adjusted_score = score - INITIAL_TERM_ADJUSTMENT_FACTOR * INITIAL_TERM_LENGTH;
-            (adjusted_score - LONG_TERM_ADJUSTMENT_FACTOR * long_term_days).max(score / 2.0)
+            (adjusted_score - LONG_TERM_ADJUSTMENT_FACTOR * long_term_days)
+                .max(score * MIN_ADJUSTMENT_FACTOR)
         }
     }
 
@@ -223,11 +227,11 @@ mod test {
 
     /// Verifies that the adjusted score is never less than half of the original.
     #[test]
-    fn score_capped_at_half() {
+    fn score_capped_at_min() {
         let score = 4.0;
         let days = 1000.0;
         let adjusted_score = SimpleScorer::adjusted_score(score, days);
-        assert_eq!(adjusted_score, score / 2.0);
+        assert_eq!(adjusted_score, score * MIN_ADJUSTMENT_FACTOR);
     }
 
     /// Verifies that the minimum weight is returned if the trial index is outside the bounds of the
