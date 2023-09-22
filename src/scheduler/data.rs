@@ -46,7 +46,7 @@ pub struct SchedulerData {
     /// A map storing the number of times an exercise has been scheduled during the lifetime of this
     /// scheduler. The value is used to give more weight during filtering to exercises that have
     /// been scheduled less often.
-    pub frequency_map: Arc<RwLock<UstrMap<f32>>>,
+    pub frequency_map: Arc<RwLock<UstrMap<usize>>>,
 }
 
 impl SchedulerData {
@@ -265,18 +265,18 @@ impl SchedulerData {
     #[inline(always)]
     pub fn increment_exercise_frequency(&self, exercise_id: &Ustr) {
         let mut frequency_map = self.frequency_map.write();
-        let frequency = frequency_map.entry(*exercise_id).or_insert(0.0);
-        *frequency += 1.0;
+        let frequency = frequency_map.entry(*exercise_id).or_insert(0);
+        *frequency += 1;
     }
 
     /// Returns the frequency of the given exercise ID.
     #[inline(always)]
-    pub fn get_exercise_frequency(&self, exercise_id: &Ustr) -> f32 {
+    pub fn get_exercise_frequency(&self, exercise_id: &Ustr) -> usize {
         self.frequency_map
             .read()
             .get(exercise_id)
             .copied()
-            .unwrap_or(0.0)
+            .unwrap_or(0)
     }
 
     /// Returns the unit filter for the saved filter with the given ID. Returns an error if no
@@ -495,12 +495,12 @@ mod test {
 
         assert_eq!(
             scheduler_data.get_exercise_frequency(&Ustr::from("0::0::0")),
-            0.0
+            0
         );
         scheduler_data.increment_exercise_frequency(&Ustr::from("0::0::0"));
         assert_eq!(
             scheduler_data.get_exercise_frequency(&Ustr::from("0::0::0")),
-            1.0
+            1
         );
         Ok(())
     }
