@@ -23,16 +23,16 @@ use crate::{
 /// The initial weight of each candidate.
 const INITIAL_WEIGHT: f32 = 1.0;
 
-/// The part of the weight that depends on the score will be multiplied by this factor.
-const SCORE_WEIGHT_FACTOR: f32 = 20.0;
+/// The part of the weight that depends on the score will be the product of the difference between
+/// the score and the maximum score and this factor.
+const SCORE_WEIGHT_FACTOR: f32 = 40.0;
 
-/// The part of the weight that depends on the depth of the candidate will be multiplied by this
-/// factor.
+/// The part of the weight that depends on the depth of the candidate will be the product of the
+/// depth and this factor.
 const DEPTH_WEIGHT_FACTOR: f32 = 5.0;
 
-/// The part of the weight that depends on the depth of the path taken to reach the candidate will
-/// be capped at this value.
-const MAX_DEPTH_WEIGHT: f32 = 100.0;
+/// The part of the weight that depends on the depth of the candidate will be capped at this value.
+const MAX_DEPTH_WEIGHT: f32 = 200.0;
 
 /// The part of the weight that depends on the frequency of the candidate will be capped at this
 /// value. Each time an exercise is scheduled, this portion of the weight is reduced by a factor.
@@ -83,7 +83,7 @@ lazy_static! {
 
 /// The maximum weight that depends on the frequency of the lesson. The weight will be divided
 /// equally among all the exercises from the same lesson.
-const MAX_LESSON_FREQUENCY_WEIGHT: f32 = 100.0;
+const MAX_LESSON_FREQUENCY_WEIGHT: f32 = 200.0;
 
 /// The batch size will be adjusted if there are not enough candidates (at least three times the
 /// batch size) to create a batch of the size specified in the scheduler options. This value is the
