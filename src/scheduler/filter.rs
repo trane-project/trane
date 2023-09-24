@@ -125,6 +125,7 @@ impl CandidateFilter {
 
     /// Takes a list of candidates and randomly selects `num_to_select` candidates among them. The
     /// probabilities of selecting a candidate are weighted based on the following:
+    ///
     /// 1. The candidate's score. A higher score is assigned less weight to present scores with
     ///    lower scores among those in the same mastery window.
     /// 2. The number of hops taken by the graph search to find the candidate. A higher number of
@@ -133,9 +134,11 @@ impl CandidateFilter {
     /// 3. The frequency with which the candidate has been scheduled during the run of the
     ///    scheduler. A higher frequency is assigned less weight to avoid selecting the same
     ///    exercises too often.
-    /// 4. The number of candidates in the same lesson. The more candidates there are in the same
-    ///   lesson, the less weight each candidate is assigned to avoid selecting too many exercises
-    ///   from it.
+    /// 4. The number of trials for that exercise. A higher number of trials is assigned less weight
+    ///    to favor exercises that have been practiced fewer times.
+    /// 5. The number of candidates in the same lesson. The more candidates there are in the same
+    ///    lesson, the less weight each candidate is assigned to avoid selecting too many exercises
+    ///    from the same lesson.
     ///
     /// The function returns a tuple of the selected candidates and the remainder exercises. The
     /// remainder will be used to fill the batch in case there is space left after the first round
