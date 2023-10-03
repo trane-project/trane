@@ -215,8 +215,8 @@ impl CandidateFilter {
         remainder: Vec<Candidate>,
         max_added: Option<usize>,
     ) {
-        // The batch is already full, so there's nothing to do.
-        if final_candidates.len() >= batch_size {
+        // Do not fill batches past 3/4 of the batch size to avoid creating unbalanced batches.
+        if final_candidates.len() >= batch_size * 3 / 4 {
             return;
         }
 
