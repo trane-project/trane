@@ -8,7 +8,7 @@
 
 use anyhow::{anyhow, Result};
 use std::cell::RefCell;
-use ustr::{Ustr, UstrMap};
+use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
     blacklist::Blacklist,
@@ -139,19 +139,100 @@ impl ScoreCache {
         Ok(cached_score.map(|s| s.num_trials))
     }
 
-    /// Returns the average score of all the exercises in the given lesson.
-    fn get_lesson_score(&self, lesson_id: &Ustr) -> Result<Option<f32>> {
-        // Check if the unit is blacklisted. A blacklisted unit has no score.
-        let blacklist = self.data.blacklist.read();
-        let blacklisted = blacklist.blacklisted(lesson_id);
-        if blacklisted.unwrap_or(false) {
-            return Ok(None);
+    /// Returns whether all the exercises in the unit have valid scores.
+    pub(super) fn all_valid_exercises_have_scores(&self, unit_id: &Ustr) -> bool {
+        // Get all the valid exercises in the unit.
+        let valid_exercises = self.data.all_valid_exercises(unit_id);
+        if valid_exercises.is_empty() {
+            return true;
         }
 
+        // All valid exercises must have a score greater than 0.0.
+        let scores: Vec<Result<f32>> = valid_exercises
+            .into_iter()
+            .map(|id| self.get_exercise_score(&id))
+            .collect();
+        scores
+            .into_iter()
+            .all(|score| score.is_ok() && score.unwrap() > 0.0)
+    }
+
+    /// Returns whether the superseded unit can be considered as superseded by the superseding
+    /// units.
+    pub(super) fn is_superseded(&self, superseded_id: &Ustr, superseding_ids: &UstrSet) -> bool {
+        // Units with no superseding units are not superseded.
+        if superseding_ids.is_empty() {
+            return false;
+        }
+
+        // All the exercises from the superseded unit must have been seen at least once.
+        if !self.all_valid_exercises_have_scores(superseded_id) {
+            return false;
+        }
+
+        // All the superseding units must have a score equal or greater than the superseding score.
+        let scores = superseding_ids
+            .iter()
+            .map(|id| self.get_unit_score(id).unwrap_or_default())
+            .filter(|score| score.is_some())
+            .collect::<Vec<_>>();
+        scores
+            .iter()
+            .all(|score| score.unwrap() >= self.data.options.superseding_score)
+    }
+
+    /// Recursively check if each superseding unit has itself been superseded by another unit and
+    /// replace them from the original set with those units.
+    fn replace_superseding(&self, superseding_ids: UstrSet) -> UstrSet {
+        let mut result = UstrSet::default();
+        superseding_ids.into_iter().for_each(|id| {
+            let superseding = self.data.get_superseding(&id);
+            if let Some(superseding) = superseding {
+                // The unit has some superseding units of its own. If the unit has been superseded
+                // by them, recursively call this function. Otherwise, add the unit to the result.
+                if self.is_superseded(&id, &superseding) {
+                    result.extend(self.replace_superseding(superseding));
+                } else {
+                    result.insert(id);
+                }
+            } else {
+                // The unit has no superseding units, so add it to the result.
+                result.insert(id);
+            }
+        });
+        result
+    }
+
+    /// Get the initial superseding units and then recursively replace them if they have been
+    /// superseded.
+    pub(super) fn get_superseding_recursive(&self, unit_id: &Ustr) -> Option<UstrSet> {
+        let superseding_ids = self.data.get_superseding(unit_id);
+        superseding_ids.map(|ids| self.replace_superseding(ids))
+    }
+
+    /// Returns the average score of all the exercises in the given lesson.
+    fn get_lesson_score(&self, lesson_id: &Ustr) -> Result<Option<f32>> {
         // Return the cached score if it exists.
         let cached_score = self.lesson_cache.borrow().get(lesson_id).cloned();
         if let Some(score) = cached_score {
             return Ok(score);
+        }
+
+        // Check if the unit is blacklisted. A blacklisted unit has no score.
+        let blacklist = self.data.blacklist.read();
+        let blacklisted = blacklist.blacklisted(lesson_id);
+        if blacklisted.unwrap_or(false) {
+            self.lesson_cache.borrow_mut().insert(*lesson_id, None);
+            return Ok(None);
+        }
+
+        // Check if the lesson has been superseded. Superseded lessons have no score.
+        let superseding_ids = self.get_superseding_recursive(lesson_id);
+        if let Some(superseding_ids) = superseding_ids {
+            if self.is_superseded(lesson_id, &superseding_ids) {
+                self.lesson_cache.borrow_mut().insert(*lesson_id, None);
+                return Ok(None);
+            }
         }
 
         // Compute the average score of all the exercises in the lesson.
@@ -197,16 +278,26 @@ impl ScoreCache {
 
     /// Returns the average score of all the lesson scores in the given course.
     fn get_course_score(&self, course_id: &Ustr) -> Result<Option<f32>> {
-        // Check if the unit is blacklisted. A blacklisted course has no valid score.
-        let blacklisted = self.data.blacklist.read().blacklisted(course_id);
-        if blacklisted.unwrap_or(false) {
-            return Ok(None);
-        }
-
         // Return the cached score if it exists.
         let cached_score = self.course_cache.borrow().get(course_id).cloned();
         if let Some(score) = cached_score {
             return Ok(score);
+        }
+
+        // Check if the unit is blacklisted. A blacklisted course has no valid score.
+        let blacklisted = self.data.blacklist.read().blacklisted(course_id);
+        if blacklisted.unwrap_or(false) {
+            self.course_cache.borrow_mut().insert(*course_id, None);
+            return Ok(None);
+        }
+
+        // Check if the course has been superseded. Superseded courses have no score.
+        let superseding_ids = self.get_superseding_recursive(course_id);
+        if let Some(superseding_ids) = superseding_ids {
+            if self.is_superseded(course_id, &superseding_ids) {
+                self.course_cache.borrow_mut().insert(*course_id, None);
+                return Ok(None);
+            }
         }
 
         // Compute the average score of all the lessons in the course.
@@ -274,24 +365,6 @@ impl ScoreCache {
                 Ok(score) => Ok(Some(score)),
             }, // grcov-excl-line
         }
-    }
-
-    /// Returns whether all the exercises in the unit have valid scores.
-    pub(super) fn all_valid_exercises_have_scores(&self, unit_id: &Ustr) -> bool {
-        // Get all the valid exercises in the unit.
-        let valid_exercises = self.data.all_valid_exercises(unit_id);
-        if valid_exercises.is_empty() {
-            return true;
-        }
-
-        // All valid exercises must have a score greater than 0.0.
-        let scores: Vec<Result<f32>> = valid_exercises
-            .into_iter()
-            .map(|id| self.get_exercise_score(&id))
-            .collect();
-        scores
-            .into_iter()
-            .all(|score| score.is_ok() && score.unwrap() > 0.0)
     }
 }
 

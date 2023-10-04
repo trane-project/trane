@@ -310,61 +310,6 @@ impl DepthFirstScheduler {
         Ok((candidates, avg_score))
     }
 
-    /// Recursively check if each superseding unit has itself been superseded by another unit and
-    /// replace them from the original set with those units.
-    fn replace_superseding(&self, superseding_ids: UstrSet) -> UstrSet {
-        let mut result = UstrSet::default();
-        superseding_ids.into_iter().for_each(|id| {
-            let superseding = self.data.get_superseding(&id);
-            if let Some(superseding) = superseding {
-                // The unit has some superseding units of its own. If the unit has been superseded
-                // by them, recursively call this function. Otherwise, add the unit to the result.
-                if self.is_superseded(&id, &superseding) {
-                    result.extend(self.replace_superseding(superseding));
-                } else {
-                    result.insert(id);
-                }
-            } else {
-                // The unit has no superseding units, so add it to the result.
-                result.insert(id);
-            }
-        });
-        result
-    }
-
-    /// Get the initial superseding units and then recursively replace them if they have been
-    /// superseded.
-    fn get_superseding_recursive(&self, unit_id: &Ustr) -> Option<UstrSet> {
-        let superseding_ids = self.data.get_superseding(unit_id);
-        superseding_ids.map(|ids| self.replace_superseding(ids))
-    }
-
-    /// Returns whether the superseded unit can be considered as superseded by the superseding
-    /// units.
-    fn is_superseded(&self, superseded_id: &Ustr, superseding_ids: &UstrSet) -> bool {
-        // Units with no superseding units are not superseded.
-        if superseding_ids.is_empty() {
-            return false;
-        }
-
-        // All the exercises from the superseded unit must have been seen at least once.
-        if !self
-            .score_cache
-            .all_valid_exercises_have_scores(superseded_id)
-        {
-            return false;
-        }
-
-        // All the superseding units must have a score equal or greater than the superseding score.
-        superseding_ids.iter().all(|id| {
-            self.score_cache
-                .get_unit_score(id)
-                .unwrap_or_default()
-                .unwrap_or_default()
-                >= self.data.options.superseding_score
-        })
-    }
-
     /// Returns whether the given dependency can be considered as satisfied. If all the dependencies
     /// of a unit are met, the search can continue with the unit.
     fn satisfied_dependency(
@@ -401,9 +346,9 @@ impl DepthFirstScheduler {
         }
 
         // The dependency is considered as satisfied if it's been superseded by another unit.
-        let superseding = self.get_superseding_recursive(dependency_id);
+        let superseding = self.score_cache.get_superseding_recursive(dependency_id);
         if let Some(superseding) = superseding {
-            if self.is_superseded(dependency_id, &superseding) {
+            if self.score_cache.is_superseded(dependency_id, &superseding) {
                 return true;
             }
         }
@@ -447,6 +392,68 @@ impl DepthFirstScheduler {
             .into_iter()
             .filter(|unit_id| self.all_satisfied_dependencies(unit_id, depth, metadata_filter))
             .collect()
+    }
+
+    // Returns whether the given course should be skipped during the search. If so, the valid
+    /// dependents of the course should be added to the stack.
+    fn skip_course(
+        &self,
+        course_id: &Ustr,
+        metadata_filter: Option<&KeyValueFilter>,
+        pending_course_lessons: &mut UstrMap<i64>,
+    ) -> bool {
+        // Check if the course is blacklisted.
+        let blacklisted = self.data.blacklisted(course_id).unwrap_or(false);
+
+        // Check if the course passes the metadata filter.
+        let passes_filter = self
+            .data
+            .unit_passes_filter(course_id, metadata_filter)
+            .unwrap_or(true);
+
+        // Check the number of pending lessons in the course.
+        let pending_lessons = pending_course_lessons
+            .entry(*course_id)
+            .or_insert_with(|| self.data.get_num_lessons_in_course(course_id));
+
+        // Check if the course has been superseded by another unit.
+        let superseding_units = self
+            .score_cache
+            .get_superseding_recursive(course_id)
+            .unwrap_or_default();
+        let is_superseded = self
+            .score_cache
+            .is_superseded(course_id, &superseding_units);
+
+        // The course should be skipped if the course is blacklisted, does not pass the filter, has
+        // no pending lessons, or if it' been superseded.
+        blacklisted || !passes_filter || *pending_lessons <= 0 || is_superseded
+    }
+
+    /// Returns whether the given lesson should be skipped during the search. If so, the valid
+    /// dependents of the lesson should be added to the stack.
+    fn skip_lesson(&self, lesson_id: &Ustr, metadata_filter: Option<&KeyValueFilter>) -> bool {
+        // Check if the lesson is blacklisted.
+        let blacklisted = self.data.blacklisted(lesson_id).unwrap_or(false);
+
+        // Check if the lesson passes the metadata filter.
+        let passes_filter = self
+            .data
+            .unit_passes_filter(lesson_id, metadata_filter)
+            .unwrap_or(true);
+
+        // Check if the lesson has been superseded by another unit.
+        let superseding_units = self
+            .score_cache
+            .get_superseding_recursive(lesson_id)
+            .unwrap_or_default();
+        let is_superseded = self
+            .score_cache
+            .is_superseded(lesson_id, &superseding_units);
+
+        // The lesson should be skipped if the lesson is blacklisted, does not pass the filter or if
+        // it' been superseded.
+        blacklisted || !passes_filter || is_superseded
     }
 
     /// Searches for candidates across the entire graph. An optional metadata filter can be used to
@@ -512,20 +519,13 @@ impl DepthFirstScheduler {
                     .unwrap_or_default();
                 Self::shuffle_to_stack(&curr_unit, starting_lessons, &mut stack);
 
-                // Retrieve the number of pending lessons in the course, whether the course passes
-                // the unit filter, and whether the course is blacklisted.
-                let pending_lessons = pending_course_lessons
-                    .entry(curr_unit.unit_id)
-                    .or_insert_with(|| self.data.get_num_lessons_in_course(&curr_unit.unit_id));
-                let passes_filter = self
-                    .data
-                    .unit_passes_filter(&curr_unit.unit_id, metadata_filter)
-                    .unwrap_or(true);
-                let blacklisted = self.data.blacklisted(&curr_unit.unit_id).unwrap_or(false);
-
-                if *pending_lessons <= 0 || !passes_filter || blacklisted {
-                    // The conditions to add the course dependents have been met. Add it to the
-                    // visited set, push its valid dependents onto the stack, and continue.
+                // The course can be skipped. Add it to the visited set, push its valid dependents
+                // onto the stack, and continue.
+                if self.skip_course(
+                    &curr_unit.unit_id,
+                    metadata_filter,
+                    &mut pending_course_lessons,
+                ) {
                     visited.insert(curr_unit.unit_id);
                     let valid_deps = self.get_valid_dependents(
                         &curr_unit.unit_id,
@@ -561,17 +561,10 @@ impl DepthFirstScheduler {
                 });
             }
 
-            // Retrieve the valid dependents of the lesson and whether the lesson passes the unit
-            // filter.
+            // Retrieve the valid dependents of the lesson, and directly skip the lesson if needed.
             let valid_deps =
                 self.get_valid_dependents(&curr_unit.unit_id, curr_unit.depth, metadata_filter);
-            let passes_filter = self
-                .data
-                .unit_passes_filter(&curr_unit.unit_id, metadata_filter)
-                .unwrap_or(true);
-            if !passes_filter {
-                // If the lesson does not pass the metadata filter, push its valid dependents and
-                // continue with the search.
+            if self.skip_lesson(&curr_unit.unit_id, metadata_filter) {
                 Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
                 continue;
             }
@@ -581,11 +574,9 @@ impl DepthFirstScheduler {
             let num_candidates = candidates.len();
             all_candidates.extend(candidates);
 
-            // The average score is considered valid only if at least one candidate was retrieved
-            // from the lesson. This would not be the case if the lesson is blacklisted, all the
-            // exercises are individually blacklisted, or the lesson is empty. If the score is
-            // valid, compare it to the passing score to decide whether the search should continue
-            // exploring past this lesson.
+            // The average score is considered valid only if at least one candidate was retrieved.
+            // Compare it against the passing score to decide whether the search should continue
+            // past this lesson.
             if num_candidates > 0
                 && avg_score
                     < self
@@ -676,6 +667,13 @@ impl DepthFirstScheduler {
                 continue;
             }
 
+            // Retrieve the valid dependents of the lesson, and directly skip the lesson if needed.
+            let valid_deps = self.get_valid_dependents(&curr_unit.unit_id, curr_unit.depth, None);
+            if self.skip_lesson(&curr_unit.unit_id, None) {
+                Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
+                continue;
+            }
+
             // Retrieve the candidates from the lesson and add them to the list of candidates.
             let (candidates, avg_score) = self.get_candidates_from_lesson_helper(&curr_unit)?;
             let num_candidates = candidates.len();
@@ -701,7 +699,6 @@ impl DepthFirstScheduler {
             }
 
             // Add the lesson's valid dependents to the stack.
-            let valid_deps = self.get_valid_dependents(&curr_unit.unit_id, curr_unit.depth, None);
             Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
         }
 
@@ -781,17 +778,25 @@ impl DepthFirstScheduler {
         for c in &candidates {
             // Check if the exercise's course has been superseded.
             let superseding_ids = self
+                .score_cache
                 .get_superseding_recursive(&c.course_id)
                 .unwrap_or_default();
-            if self.is_superseded(&c.course_id, &superseding_ids) {
+            if self
+                .score_cache
+                .is_superseded(&c.course_id, &superseding_ids)
+            {
                 superseded.insert(c.course_id);
             }
 
             // Check if the exercise's lesson has been superseded.
             let superseding_ids = self
+                .score_cache
                 .get_superseding_recursive(&c.lesson_id)
                 .unwrap_or_default();
-            if self.is_superseded(&c.lesson_id, &superseding_ids) {
+            if self
+                .score_cache
+                .is_superseded(&c.lesson_id, &superseding_ids)
+            {
                 superseded.insert(c.lesson_id);
             }
         }
