@@ -9,7 +9,14 @@ use std::collections::BTreeMap;
 use anyhow::{Ok, Result};
 use lazy_static::lazy_static;
 use tempfile::TempDir;
-use trane::{blacklist::Blacklist, data::MasteryScore, testutil::*};
+use trane::{
+    blacklist::Blacklist,
+    data::{
+        filter::{ExerciseFilter, UnitFilter},
+        MasteryScore,
+    },
+    testutil::*,
+};
 
 lazy_static! {
     /// A simple set of courses to verify that blacklisting works correctly.
@@ -173,6 +180,56 @@ fn avoid_scheduling_lessons_in_blacklist() -> Result<()> {
             .iter()
             .any(|lesson_id| exercise_id.exercise_in_lesson(&lesson_id))
         {
+            assert!(
+                simulation.answer_history.contains_key(&exercise_ustr),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
+            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+        } else {
+            assert!(
+                !simulation.answer_history.contains_key(&exercise_ustr),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Verifies that the course filter ignores exercises from blacklisted lessons.
+#[test]
+fn avoid_scheduling_lessons_in_blacklist_with_course_filter() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+
+    // Run the simulation.
+    let lesson_blacklist = vec![TestId(0, Some(1), None), TestId(3, Some(0), None)];
+    let selected_courses = vec![TestId(0, None, None), TestId(3, None, None)];
+    let course_filter = UnitFilter::CourseFilter {
+        course_ids: selected_courses.iter().map(|id| id.to_ustr()).collect(),
+    };
+    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    simulation.run_simulation(
+        &mut trane,
+        &lesson_blacklist,
+        Some(ExerciseFilter::UnitFilter(course_filter)),
+    )?;
+
+    // Every exercise ID in the selected courses should be in `simulation.answer_history` except for
+    // those in the blacklisted lesson.
+    let exercise_ids = all_test_exercises(&LIBRARY);
+    for exercise_id in exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
+        let in_blacklisted_lesson = lesson_blacklist
+            .iter()
+            .any(|lesson_id| exercise_id.exercise_in_lesson(&lesson_id));
+        let in_selected_course = selected_courses
+            .iter()
+            .any(|course_id| exercise_id.exercise_in_course(&course_id));
+
+        if in_selected_course && !in_blacklisted_lesson {
             assert!(
                 simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should have been scheduled",

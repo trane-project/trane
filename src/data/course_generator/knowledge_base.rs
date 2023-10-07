@@ -156,12 +156,12 @@ impl TryFrom<&str> for KnowledgeBaseFile {
 /// `e.front.md` and `e.back.md` in a course with ID `a::b::c` inside a lesson directory named
 /// `d.lesson` will generate and exercise with ID `a::b::c::d::e`.
 ///
-/// Each the optional fields mirror one of the fields in the
-/// [ExerciseManifest](crate::data::ExerciseManifest) and their values can be set by writing a JSON
-/// file inside the lesson directory with the name `<SHORT_EXERCISE_ID>.<PROPERTY_NAME>.json`. This
-/// file should contain a JSON serialization of the desired value. For example, to set the
-/// exercise's name for an exercise with a short ID value of `ex1`, one would write a file named
-/// `ex1.name.json` containing a JSON string with the desired name.
+/// Each the optional fields mirror one of the fields in the [ExerciseManifest] and their values can
+/// be set by writing a JSON file inside the lesson directory with the name
+/// `<SHORT_EXERCISE_ID>.<PROPERTY_NAME>.json`. This file should contain a JSON serialization of the
+/// desired value. For example, to set the exercise's name for an exercise with a short ID value of
+/// `ex1`, one would write a file named `ex1.name.json` containing a JSON string with the desired
+/// name.
 ///
 /// Trane will ignore any markdown files that do not match the exercise name pattern or that do not
 /// have a matching pair of front and back files.
@@ -296,12 +296,12 @@ impl From<KnowledgeBaseExercise> for ExerciseManifest {
 /// contains a directory of name `d.lesson` will generate the manifest for a lesson with ID
 /// `a::b::c::d`.
 ///
-/// All the optional fields mirror one of the fields in the
-/// [LessonManifest](crate::data::LessonManifest) and their values can be set by writing a JSON file
-/// inside the lesson directory with the name `lesson.<PROPERTY_NAME>.json`. This file should
-/// contain a JSON serialization of the desired value. For example, to set the lesson's dependencies
-/// one would write a file named `lesson.dependencies.json` containing a JSON array of strings, each
-/// of them the ID of a dependency.
+/// All the optional fields mirror one of the fields in the [LessonManifest] and their values can be
+/// set by writing a JSON file inside the lesson directory with the name
+/// `lesson.<PROPERTY_NAME>.json`. This file should contain a JSON serialization of the desired
+/// value. For example, to set the lesson's dependencies one would write a file named
+/// `lesson.dependencies.json` containing a JSON array of strings, each of them the ID of a
+/// dependency.
 ///
 /// The material and instructions of the lesson do not follow this convention. Instead, the files
 /// `lesson.instructoins.md` and `lesson.material.md` contain the instructions and material of the
@@ -505,8 +505,8 @@ impl From<KnowledgeBaseLesson> for LessonManifest {
 }
 
 /// The configuration for a knowledge base course. Currently, this is an empty struct, but it is
-/// added for consistency with other course generators and to implement the
-/// [GenerateManifests](crate::data::GenerateManifests) trait.
+/// added for consistency with other course generators and to implement the [GenerateManifests]
+/// trait.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct KnowledgeBaseConfig {}
 

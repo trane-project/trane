@@ -384,7 +384,6 @@ mod test {
             Candidate {
                 exercise_id: Ustr::from("exercise1"),
                 lesson_id: Ustr::from("lesson1"),
-                course_id: Ustr::from("course1"),
                 depth: 0.0,
                 score: 0.0,
                 num_trials: 0,
@@ -393,7 +392,6 @@ mod test {
             Candidate {
                 exercise_id: Ustr::from("exercise2"),
                 lesson_id: Ustr::from("lesson1"),
-                course_id: Ustr::from("course1"),
                 depth: 0.0,
                 score: 0.0,
                 num_trials: 0,
@@ -402,7 +400,6 @@ mod test {
             Candidate {
                 exercise_id: Ustr::from("exercise3"),
                 lesson_id: Ustr::from("lesson2"),
-                course_id: Ustr::from("course1"),
                 depth: 0.0,
                 score: 0.0,
                 num_trials: 0,
@@ -411,7 +408,6 @@ mod test {
             Candidate {
                 exercise_id: Ustr::from("exercise4"),
                 lesson_id: Ustr::from(""),
-                course_id: Ustr::from("course1"),
                 depth: 0.0,
                 score: 0.0,
                 num_trials: 0,

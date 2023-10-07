@@ -175,8 +175,7 @@ pub struct TranscriptionPreferences {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct TranscriptionConfig {
     /// The dependencies on other transcription courses. Specifying these dependencies here instead
-    /// of the [CourseManifest](crate::data::CourseManifest) allows Trane to generate more
-    /// fine-grained dependencies.
+    /// of the [CourseManifest] allows Trane to generate more fine-grained dependencies.
     #[serde(default)]
     pub transcription_dependencies: Vec<Ustr>,
 
