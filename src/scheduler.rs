@@ -117,9 +117,6 @@ struct Candidate {
     // The ID of the exercise's lesson.
     lesson_id: Ustr,
 
-    // The ID of the exercise's course.
-    course_id: Ustr,
-
     /// The depth of this unit from the starting unit. That is, the number of hops the graph search
     /// needed to reach this exercise.
     depth: f32,
@@ -272,16 +269,12 @@ impl DepthFirstScheduler {
     /// Returns the list of candidates selected from the given lesson along with the average score.
     /// The average score is used to help decide whether to continue searching a path in the graph.
     fn get_candidates_from_lesson_helper(&self, item: &StackItem) -> Result<(Vec<Candidate>, f32)> {
-        // Retrieve the lesson's exercises and course ID.
+        // Retrieve the lesson's exercises.
         let exercises = self.data.all_valid_exercises_in_lesson(&item.unit_id);
         if exercises.is_empty() {
             // Return early to avoid division by zero later on.
             return Ok((vec![], 0.0));
         }
-        let course_id = self
-            .data
-            .get_lesson_course(&item.unit_id)
-            .unwrap_or_default();
 
         // Generate a list of candidates from the lesson's exercises.
         let candidates = exercises
@@ -290,7 +283,6 @@ impl DepthFirstScheduler {
                 Ok(Candidate {
                     exercise_id,
                     lesson_id: item.unit_id, // It's assumed that the item is a lesson.
-                    course_id,
                     depth: (item.depth + 1) as f32,
                     score: self
                         .score_cache
@@ -447,13 +439,23 @@ impl DepthFirstScheduler {
             .score_cache
             .get_superseding_recursive(lesson_id)
             .unwrap_or_default();
-        let is_superseded = self
+        let is_lesson_superseded = self
             .score_cache
             .is_superseded(lesson_id, &superseding_units);
 
-        // The lesson should be skipped if the lesson is blacklisted, does not pass the filter or if
-        // it' been superseded.
-        blacklisted || !passes_filter || is_superseded
+        // Check if the lesson's course has been superseded by another unit.
+        let course_id = self.data.get_lesson_course(lesson_id).unwrap_or_default();
+        let superseding_units = self
+            .score_cache
+            .get_superseding_recursive(&course_id)
+            .unwrap_or_default();
+        let is_course_superseded = self
+            .score_cache
+            .is_superseded(&course_id, &superseding_units);
+
+        // The lesson should be skipped if it is blacklisted, does not pass the filter or if it or
+        // its course have been superseded.
+        blacklisted || !passes_filter || is_lesson_superseded || is_course_superseded
     }
 
     /// Searches for candidates across the entire graph. An optional metadata filter can be used to
@@ -732,25 +734,18 @@ impl DepthFirstScheduler {
                     candidates.extend(self.get_candidates_from_lesson(unit_id)?);
                 }
                 UnitType::Exercise => {
-                    // Retrieve the exercise's lesson and course.
+                    // Retrieve the exercise's lesson ID.
                     let lesson_id = self
                         .data
                         .unit_graph
                         .read()
                         .get_exercise_lesson(unit_id)
                         .unwrap_or_default();
-                    let course_id = self
-                        .data
-                        .unit_graph
-                        .read()
-                        .get_lesson_course(&lesson_id)
-                        .unwrap_or_default();
 
                     // If the unit is an exercise, directly add it to the list of candidates.
                     candidates.push(Candidate {
                         exercise_id: *unit_id,
                         lesson_id,
-                        course_id,
                         depth: 0.0,
                         score: self
                             .score_cache
@@ -767,48 +762,6 @@ impl DepthFirstScheduler {
         }
 
         Ok(candidates)
-    }
-
-    /// Removes the candidates that belong to a lesson or course that has been superseded by another
-    /// lesson or course in the list of candidates.
-    fn remove_superseded_exercises(&self, candidates: Vec<Candidate>) -> Vec<Candidate> {
-        // Compute the list of all the courses and lessons in the list of candidates that have been
-        // superseded.
-        let mut superseded = UstrSet::default();
-        for c in &candidates {
-            // Check if the exercise's course has been superseded.
-            let superseding_ids = self
-                .score_cache
-                .get_superseding_recursive(&c.course_id)
-                .unwrap_or_default();
-            if self
-                .score_cache
-                .is_superseded(&c.course_id, &superseding_ids)
-            {
-                superseded.insert(c.course_id);
-            }
-
-            // Check if the exercise's lesson has been superseded.
-            let superseding_ids = self
-                .score_cache
-                .get_superseding_recursive(&c.lesson_id)
-                .unwrap_or_default();
-            if self
-                .score_cache
-                .is_superseded(&c.lesson_id, &superseding_ids)
-            {
-                superseded.insert(c.lesson_id);
-            }
-        }
-
-        // Filter out the candidates that belong to a superseded lesson or course.
-        if superseded.is_empty() {
-            return candidates;
-        }
-        candidates
-            .into_iter()
-            .filter(|c| !superseded.contains(&c.course_id) && !superseded.contains(&c.lesson_id))
-            .collect()
     }
 
     /// Retrieves an initial batch of candidates based on the given filter.
@@ -875,9 +828,6 @@ impl DepthFirstScheduler {
             },
         };
 
-        // Remove the candidates that belong to a lesson or course that has been superseded before
-        // passing the final list to the filter.
-        let candidates = self.remove_superseded_exercises(candidates);
         Ok(candidates)
     }
 }

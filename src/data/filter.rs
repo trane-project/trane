@@ -288,9 +288,8 @@ pub struct SavedFilter {
 //>@saved-filter
 
 /// A part of a study session. Contains the criteria used to filter the exercises during a section
-/// of the study session along with the duration in minutes. The filter can either be a
-/// [UnitFilter](crate::data::filter::UnitFilter) defined inline or a reference to a
-/// [SavedFilter](crate::data::filter::SavedFilter).
+/// of the study session along with the duration in minutes. The filter can either be a [UnitFilter]
+/// defined inline or a reference to a [SavedFilter].
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum SessionPart {
     /// A part of the study session that uses a filter defined inline.

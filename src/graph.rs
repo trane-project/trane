@@ -261,7 +261,7 @@ impl InMemoryUnitGraph {
         self.lesson_course_map.insert(*lesson_id, *course_id);
         self.course_lesson_map
             .entry(*course_id)
-            .or_insert_with(UstrSet::default)
+            .or_default()
             .insert(*lesson_id);
         Ok(())
     }
@@ -282,7 +282,7 @@ impl InMemoryUnitGraph {
         // Update the map of exercise to lesson and lesson to exercises.
         self.lesson_exercise_map
             .entry(*lesson_id)
-            .or_insert_with(UstrSet::default)
+            .or_default()
             .insert(*exercise_id);
         self.exercise_lesson_map.insert(*exercise_id, *lesson_id);
         Ok(())
@@ -319,14 +319,14 @@ impl InMemoryUnitGraph {
         self.update_dependency_sinks(unit_id, dependencies);
         self.dependency_graph
             .entry(*unit_id)
-            .or_insert_with(UstrSet::default)
+            .or_default()
             .extend(dependencies);
 
         // For each dependency, insert the equivalent dependent relationship.
         for dependency_id in dependencies {
             self.dependent_graph
                 .entry(*dependency_id)
-                .or_insert_with(UstrSet::default)
+                .or_default()
                 .insert(*unit_id);
         }
         Ok(())
@@ -485,14 +485,14 @@ impl UnitGraph for InMemoryUnitGraph {
         }
         self.superseded_graph
             .entry(*unit_id)
-            .or_insert_with(UstrSet::default)
+            .or_default()
             .extend(superseded);
 
         // For each superseded, insert the equivalent superseding relationship.
         for superseded_id in superseded {
             self.superseding_graph
                 .entry(*superseded_id)
-                .or_insert_with(UstrSet::default)
+                .or_default()
                 .insert(*unit_id);
         }
     }
