@@ -131,10 +131,9 @@ impl ScoreCache {
             return Ok(Some(cached_score.num_trials));
         }
 
-        // Compute the exercise's score, which should populate the cache.
+        // Compute the exercise's score, which populates the cache. Then, retrieve the number of
+        // trials from the cache.
         self.get_exercise_score(exercise_id)?;
-
-        // Return the cached value.
         let cached_score = self.exercise_cache.borrow().get(exercise_id).cloned();
         Ok(cached_score.map(|s| s.num_trials))
     }
