@@ -490,7 +490,7 @@ mod test {
         library.score_exercise(&Ustr::from("1::1::0"), MasteryScore::Five, 1)?;
         library.score_exercise(&Ustr::from("1::1::1"), MasteryScore::Five, 1)?;
 
-        // Get the scores for course 1::0 twice. Once to populate the cache and once to retrieve the
+        // Get the scores for lesson 1::0 twice. Once to populate the cache and once to retrieve the
         // cached value.
         assert_eq!(cache.get_lesson_score(&Ustr::from("1::0"))?, None);
         assert_eq!(cache.get_lesson_score(&Ustr::from("1::0"))?, None);
