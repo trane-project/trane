@@ -38,13 +38,13 @@ lazy_static! {
 const INITIAL_TERM_LENGTH: f32 = 10.0;
 
 /// The score of a trial diminishes by this factor during the initial term.
-const INITIAL_TERM_ADJUSTMENT_FACTOR: f32 = 0.025;
+const INITIAL_TERM_ADJUSTMENT_FACTOR: f32 = 0.01;
 
 /// The score of a trial diminishes by this factor after the initial term.
-const LONG_TERM_ADJUSTMENT_FACTOR: f32 = 0.01;
+const LONG_TERM_ADJUSTMENT_FACTOR: f32 = 0.005;
 
 /// The adjusted score is never less than this factor of the original score.
-const MIN_ADJUSTMENT_FACTOR: f32 = 0.66;
+const MIN_ADJUSTMENT_FACTOR: f32 = 0.75;
 
 /// A trait exposing a function to score an exercise based on the results of previous trials.
 pub trait ExerciseScorer {
@@ -269,15 +269,15 @@ mod test {
         let days = 1.0;
         let adjusted_score = SimpleScorer::adjusted_score(score, days);
 
-        assert_eq!(
-            adjusted_score,
-            SCORER
+        let diff = (adjusted_score
+            - SCORER
                 .score(&vec![ExerciseTrial {
                     score: score,
-                    timestamp: generate_timestamp(days as i64)
+                    timestamp: generate_timestamp(days as i64),
                 }])
-                .unwrap()
-        );
+                .unwrap())
+        .abs();
+        assert!(diff < 1e-6,);
     }
 
     /// Verifies the expected score for an exercise with multiple trials.
