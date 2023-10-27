@@ -390,47 +390,42 @@ mod test {
                 id: TestId(0, None, None),
                 dependencies: vec![],
                 superseded: vec![],
-                metadata: BTreeMap::from([
-                    (
-                        "course_key_1".to_string(),
-                        vec!["course_key_1:value_1".to_string()]
-                    ),
-                    (
-                        "course_key_2".to_string(),
-                        vec!["course_key_2:value_1".to_string()]
-                    ),
-                ]),
+                metadata: BTreeMap::default(),
                 lessons: vec![
                     TestLesson {
                         id: TestId(0, Some(0), None),
                         dependencies: vec![],
                         superseded: vec![],
-                        metadata: BTreeMap::from([
-                            (
-                                "lesson_key_1".to_string(),
-                                vec!["lesson_key_1:value_1".to_string()]
-                            ),
-                            (
-                                "lesson_key_2".to_string(),
-                                vec!["lesson_key_2:value_1".to_string()]
-                            ),
-                        ]),
+                        metadata: BTreeMap::default(),
                         num_exercises: NUM_EXERCISES,
                     },
                     TestLesson {
                         id: TestId(0, Some(1), None),
                         dependencies: vec![TestId(0, Some(0), None)],
                         superseded: vec![],
-                        metadata: BTreeMap::from([
-                            (
-                                "lesson_key_1".to_string(),
-                                vec!["lesson_key_1:value_2".to_string()]
-                            ),
-                            (
-                                "lesson_key_2".to_string(),
-                                vec!["lesson_key_2:value_2".to_string()]
-                            ),
-                        ]),
+                        metadata: BTreeMap::default(),
+                        num_exercises: NUM_EXERCISES,
+                    },
+                ],
+            },
+            TestCourse {
+                id: TestId(1, None, None),
+                dependencies: vec![TestId(0, None, None)],
+                superseded: vec![TestId(0, None, None)],
+                metadata: BTreeMap::default(),
+                lessons: vec![
+                    TestLesson {
+                        id: TestId(1, Some(0), None),
+                        dependencies: vec![],
+                        superseded: vec![],
+                        metadata: BTreeMap::default(),
+                        num_exercises: NUM_EXERCISES,
+                    },
+                    TestLesson {
+                        id: TestId(1, Some(1), None),
+                        dependencies: vec![TestId(1, Some(0), None)],
+                        superseded: vec![TestId(1, Some(0), None)],
+                        metadata: BTreeMap::default(),
                         num_exercises: NUM_EXERCISES,
                     },
                 ],
@@ -449,6 +444,56 @@ mod test {
         let course_id = Ustr::from("0");
         library.add_to_blacklist(&course_id)?;
         assert_eq!(cache.get_course_score(&course_id)?, None);
+        Ok(())
+    }
+
+    /// Verifies that the score of a superseded course is None and is correctly cached.
+    #[test]
+    fn superseded_course_score_cached() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let library = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let scheduler_data = library.get_scheduler_data();
+        let cache = ScoreCache::new(scheduler_data, SchedulerOptions::default());
+
+        // Insert scores for every exercise to ensure course 0 has been superseded.
+        library.score_exercise(&Ustr::from("0::0::0"), MasteryScore::Five, 1)?;
+        library.score_exercise(&Ustr::from("0::0::1"), MasteryScore::Five, 1)?;
+        library.score_exercise(&Ustr::from("0::1::0"), MasteryScore::Five, 1)?;
+        library.score_exercise(&Ustr::from("0::1::1"), MasteryScore::Five, 1)?;
+        library.score_exercise(&Ustr::from("1::0::0"), MasteryScore::Five, 1)?;
+        library.score_exercise(&Ustr::from("1::0::1"), MasteryScore::Five, 1)?;
+        library.score_exercise(&Ustr::from("1::1::0"), MasteryScore::Five, 1)?;
+        library.score_exercise(&Ustr::from("1::1::1"), MasteryScore::Five, 1)?;
+
+        // Get the scores for course 0 twice. Once to populate the cache and once to retrieve the
+        // cached value.
+        assert_eq!(cache.get_course_score(&Ustr::from("0"))?, None);
+        assert_eq!(cache.get_course_score(&Ustr::from("0"))?, None);
+        Ok(())
+    }
+
+    /// Verifies that the score of a superseded lesson is None and is correctly cached.
+    #[test]
+    fn superseded_course_lesson_cached() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let library = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let scheduler_data = library.get_scheduler_data();
+        let cache = ScoreCache::new(scheduler_data, SchedulerOptions::default());
+
+        // Insert scores for every exercise to ensure lesson 1::0 has been superseded.
+        library.score_exercise(&Ustr::from("0::0::0"), MasteryScore::Five, 1)?;
+        library.score_exercise(&Ustr::from("0::0::1"), MasteryScore::Five, 1)?;
+        library.score_exercise(&Ustr::from("0::1::0"), MasteryScore::Five, 1)?;
+        library.score_exercise(&Ustr::from("0::1::1"), MasteryScore::Five, 1)?;
+        library.score_exercise(&Ustr::from("1::0::0"), MasteryScore::Five, 1)?;
+        library.score_exercise(&Ustr::from("1::0::1"), MasteryScore::Five, 1)?;
+        library.score_exercise(&Ustr::from("1::1::0"), MasteryScore::Five, 1)?;
+        library.score_exercise(&Ustr::from("1::1::1"), MasteryScore::Five, 1)?;
+
+        // Get the scores for lesson 1::0 twice. Once to populate the cache and once to retrieve the
+        // cached value.
+        assert_eq!(cache.get_lesson_score(&Ustr::from("1::0"))?, None);
+        assert_eq!(cache.get_lesson_score(&Ustr::from("1::0"))?, None);
         Ok(())
     }
 
