@@ -267,10 +267,8 @@ impl ScoreCache {
         };
 
         // Update the cache with a valid score.
-        if score.is_ok() {
-            self.lesson_cache
-                .borrow_mut()
-                .insert(*lesson_id, *score.as_ref().unwrap());
+        if let Ok(score) = score {
+            self.lesson_cache.borrow_mut().insert(*lesson_id, score);
         }
         score
     }
@@ -337,10 +335,8 @@ impl ScoreCache {
         };
 
         // Update the cache with a valid score.
-        if score.is_ok() {
-            self.course_cache
-                .borrow_mut()
-                .insert(*course_id, *score.as_ref().unwrap());
+        if let Ok(score) = score {
+            self.course_cache.borrow_mut().insert(*course_id, score);
         }
         score
     }
