@@ -103,11 +103,11 @@ impl ExerciseBuilder {
         }
 
         // Verify that all paths mentioned in the manifest are valid.
-        ensure! {
+        ensure!(
             manifest.verify_paths(exercise_directory)?,
             "cannot verify files mentioned in the manifest for exercise {}",
             manifest.id,
-        };
+        );
         Ok(())
     }
 }
@@ -167,11 +167,11 @@ impl LessonBuilder {
         }
 
         // Verify that all paths mentioned in the manifest are valid.
-        ensure! {
+        ensure!(
             manifest.verify_paths(lesson_directory)?,
             "cannot verify files mentioned in the manifest for lesson {}",
             manifest.id,
-        };
+        );
         Ok(())
     }
 }
@@ -226,11 +226,12 @@ impl CourseBuilder {
         }
 
         // Verify that all paths mentioned in the manifest are valid.
-        ensure! {
-            self.course_manifest.verify_paths(course_directory.as_path())?,
+        ensure!(
+            self.course_manifest
+                .verify_paths(course_directory.as_path())?,
             "cannot verify files mentioned in the manifest for course {}",
             self.course_manifest.id,
-        };
+        );
         Ok(())
     }
 }
