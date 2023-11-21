@@ -8,29 +8,21 @@ on:
 jobs:
   test:
     name: Test Suite
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        rust: [stable]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
 
       - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
-          toolchain: ${{ matrix.rust }}
-          override: true
+          toolchain: 1.73.0
 
-      - uses: Swatinem/rust-cache@v2
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
 
       - name: Run cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --release
+        run: cargo test --release
 
   lints:
     name: Lints
@@ -42,31 +34,23 @@ jobs:
           submodules: true
 
       - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          components: rustfmt, clippy
+          toolchain: 1.73.0
 
-      - uses: Swatinem/rust-cache@v2
+      - name: Install extra components
+        run: rustup component add clippy rust-docs rustfmt 
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
 
       - name: Run cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+        run: cargo fmt --all -- --check
 
       - name: Run cargo clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings
+        run: cargo clippy -- -D warnings
 
       - name: Run rustdoc lints
-        uses: actions-rs/cargo@v1
         env:
           RUSTDOCFLAGS: "-D missing_docs -D rustdoc::missing_doc_code_examples"
-        with:
-          command: doc
-          args: --workspace --all-features --no-deps --document-private-items
+        run: cargo doc --workspace --all-features --no-deps --document-private-items
