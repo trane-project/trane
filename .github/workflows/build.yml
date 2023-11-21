@@ -37,7 +37,10 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.73.0
-  
+
+      - name: Install extra components
+        run: rustup component add clippy rust-docs rustfmt 
+
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
 
