@@ -518,7 +518,7 @@ impl KnowledgeBaseConfig {
         short_ids: &HashSet<Ustr>,
         lessons: &mut UstrMap<(KnowledgeBaseLesson, Vec<KnowledgeBaseExercise>)>,
     ) {
-        for (_, lesson) in lessons {
+        for lesson in lessons.values_mut() {
             // Update dependencies.
             let updated_dependencies = lesson
                 .0
