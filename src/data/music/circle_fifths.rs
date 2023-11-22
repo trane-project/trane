@@ -5,6 +5,7 @@ use crate::data::music::notes::Note;
 // grcov-excl-start: These functions return constant values, so there's no need to test them.
 impl Note {
     /// Returns all the notes in the circle of fifths.
+    #[must_use]
     pub fn all_keys(include_enharmonic: bool) -> Vec<Note> {
         if include_enharmonic {
             vec![
@@ -49,6 +50,7 @@ impl Note {
     }
 
     /// Returns the note obtained by moving clockwise through the circle of fifths.
+    #[must_use]
     pub fn clockwise(&self) -> Option<Note> {
         match *self {
             Note::C => Some(Note::G),
@@ -58,7 +60,6 @@ impl Note {
             Note::E => Some(Note::B),
             Note::B => Some(Note::F_SHARP),
             Note::F_SHARP => Some(Note::C_SHARP),
-            Note::C_SHARP => None,
 
             Note::F => Some(Note::C),
             Note::B_FLAT => Some(Note::F),
@@ -67,11 +68,13 @@ impl Note {
             Note::D_FLAT => Some(Note::A_FLAT),
             Note::G_FLAT => Some(Note::D_FLAT),
             Note::C_FLAT => Some(Note::G_FLAT),
+
             _ => None,
         }
     }
 
     /// Returns the note obtained by moving counter-clockwise through the circle of fifths.
+    #[must_use]
     pub fn counter_clockwise(&self) -> Option<Note> {
         match *self {
             Note::C => Some(Note::F),
@@ -81,7 +84,6 @@ impl Note {
             Note::A_FLAT => Some(Note::D_FLAT),
             Note::D_FLAT => Some(Note::G_FLAT),
             Note::G_FLAT => Some(Note::C_FLAT),
-            Note::C_FLAT => None,
 
             Note::G => Some(Note::C),
             Note::D => Some(Note::G),
@@ -90,20 +92,20 @@ impl Note {
             Note::B => Some(Note::E),
             Note::F_SHARP => Some(Note::B),
             Note::C_SHARP => Some(Note::F_SHARP),
+
             _ => None,
         }
     }
 
     /// Returns the previous key in the circle of fifths, that is, the key with one fewer sharp or
     /// flat.
+    #[must_use]
     pub fn previous_key_in_circle(&self) -> Option<Note> {
         match *self {
-            // The key of C is always the first key in the circle of fifths from which traversal
-            // should start, so it has no previous key.
-            Note::C => None,
+            // Both G and F lead back to C.
+            Note::G | Note::F => Some(Note::C),
 
             // The keys with at least one sharp.
-            Note::G => Some(Note::C),
             Note::D => Some(Note::G),
             Note::A => Some(Note::D),
             Note::E => Some(Note::A),
@@ -112,7 +114,6 @@ impl Note {
             Note::C_SHARP => Some(Note::F_SHARP),
 
             // The keys with at least one flat.
-            Note::F => Some(Note::C),
             Note::B_FLAT => Some(Note::F),
             Note::E_FLAT => Some(Note::B_FLAT),
             Note::A_FLAT => Some(Note::E_FLAT),
@@ -127,6 +128,7 @@ impl Note {
 
     /// Returns the last keys accessible by traversing the circle of fifths in clockwise and
     /// counter-clockwise directions.
+    #[must_use]
     pub fn last_keys_in_circle(include_enharmonic: bool) -> Vec<Note> {
         if include_enharmonic {
             vec![Note::C_SHARP, Note::C_FLAT]

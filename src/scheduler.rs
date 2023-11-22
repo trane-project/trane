@@ -133,7 +133,7 @@ struct Candidate {
     frequency: usize,
 }
 
-/// An implementation of [ExerciseScheduler] based on depth-first search.
+/// An implementation of [`ExerciseScheduler`] based on depth-first search.
 pub struct DepthFirstScheduler {
     /// The external data used by the scheduler. Contains pointers to the graph, blacklist, and
     /// course library and provides convenient functions.
@@ -151,6 +151,7 @@ pub struct DepthFirstScheduler {
 
 impl DepthFirstScheduler {
     /// Creates a new scheduler.
+    #[must_use]
     pub fn new(data: SchedulerData) -> Self {
         Self {
             data: data.clone(),
@@ -392,7 +393,7 @@ impl DepthFirstScheduler {
         &self,
         course_id: &Ustr,
         metadata_filter: Option<&KeyValueFilter>,
-        pending_course_lessons: &mut UstrMap<i64>,
+        pending_course_lessons: &mut UstrMap<usize>,
     ) -> bool {
         // Check if the course is blacklisted.
         let blacklisted = self.data.blacklisted(course_id).unwrap_or(false);
@@ -419,7 +420,7 @@ impl DepthFirstScheduler {
 
         // The course should be skipped if the course is blacklisted, does not pass the filter, has
         // no pending lessons, or if it' been superseded.
-        blacklisted || !passes_filter || *pending_lessons <= 0 || is_superseded
+        blacklisted || !passes_filter || *pending_lessons == 0 || is_superseded
     }
 
     /// Returns whether the given lesson should be skipped during the search. If so, the valid
@@ -485,7 +486,7 @@ impl DepthFirstScheduler {
         // To get past this limitation, the search will only add the course dependents until all of
         // its lessons have been visited and mastered. This value is tracked by the
         // `pending_course_lessons` map.
-        let mut pending_course_lessons: UstrMap<i64> = UstrMap::default();
+        let mut pending_course_lessons: UstrMap<usize> = UstrMap::default();
 
         // Perform a depth-first search of the graph.
         while let Some(curr_unit) = stack.pop() {
@@ -554,7 +555,7 @@ impl DepthFirstScheduler {
             *pending_lessons -= 1;
 
             // Check whether there are pending lessons.
-            if *pending_lessons <= 0 {
+            if *pending_lessons == 0 {
                 // Once all the lessons in the course have been visited, re-add the course to the
                 // stack, so the search can continue exploring its dependents.
                 stack.push(StackItem {
@@ -634,9 +635,8 @@ impl DepthFirstScheduler {
             // Continue if the unit has been visited and update the list of visited units.
             if visited.contains(&curr_unit.unit_id) {
                 continue;
-            } else {
-                visited.insert(curr_unit.unit_id);
             }
+            visited.insert(curr_unit.unit_id);
 
             // The logic past this point depends on the type of the unit.
             let unit_type = self.data.get_unit_type(&curr_unit.unit_id);
@@ -846,7 +846,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
         // into a final batch of exercises.
         let final_candidates = self
             .filter
-            .filter_candidates(initial_candidates)
+            .filter_candidates(&initial_candidates)
             .map_err(ExerciseSchedulerError::GetExerciseBatch)?; // grcov-excl-line
 
         // Increment the frequency of the exercises in the batch. These exercises will have a lower

@@ -1,9 +1,10 @@
-//! Contains utilities for working with SQLite databases.
+//! Contains utilities for working with `SQLite` databases.
 
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::Connection;
 
-/// Returns a new connection manager with the appropriate SQLite pragmas.
+/// Returns a new connection manager with the appropriate `SQLite` pragmas.
+#[must_use]
 pub fn new_connection_manager(db_path: &str) -> SqliteConnectionManager {
     SqliteConnectionManager::file(db_path).with_init(
         |connection: &mut Connection| -> Result<(), rusqlite::Error> {

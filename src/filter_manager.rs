@@ -19,7 +19,7 @@ pub trait FilterManager {
     fn list_filters(&self) -> Vec<(String, String)>;
 }
 
-/// An implementation of [FilterManager] backed by the local file system.
+/// An implementation of [`FilterManager`] backed by the local file system.
 pub struct LocalFilterManager {
     /// A map of filter IDs to filters.
     pub filters: HashMap<String, SavedFilter>,

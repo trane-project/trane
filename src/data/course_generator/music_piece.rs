@@ -36,6 +36,7 @@ pub enum MusicAsset {
 
 impl MusicAsset {
     /// Generates an exercise asset from this music asset.
+    #[must_use]
     pub fn generate_exercise_asset(&self, start: &str, end: &str) -> ExerciseAsset {
         match self {
             MusicAsset::SoundSlice(url) => {
@@ -88,7 +89,7 @@ pub struct MusicPassage {
 
 impl MusicPassage {
     /// Generates the lesson ID for this course and passage, identified by the given path.
-    fn generate_lesson_id(course_manifest: &CourseManifest, passage_path: Vec<usize>) -> Ustr {
+    fn generate_lesson_id(course_manifest: &CourseManifest, passage_path: &[usize]) -> Ustr {
         let lesson_id = passage_path
             .iter()
             .map(|index| format!("{index}"))
@@ -106,10 +107,11 @@ impl MusicPassage {
 
     /// Generates the lesson and exercise manifests for this passage, recursively doing so if the
     /// dependencies are not empty.
+    #[must_use]
     pub fn generate_lesson_helper(
         &self,
         course_manifest: &CourseManifest,
-        passage_path: Vec<usize>,
+        passage_path: &[usize],
         music_asset: &MusicAsset,
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Recursively generate the dependency lessons and IDs.
@@ -117,16 +119,13 @@ impl MusicPassage {
         let mut dependency_ids = vec![];
         for (index, sub_passage) in &self.sub_passages {
             // Create the dependency path.
-            let dependency_path = Self::new_path(&passage_path, *index);
+            let dependency_path = Self::new_path(passage_path, *index);
 
             // Generate the dependency ID and lessons.
-            dependency_ids.push(Self::generate_lesson_id(
-                course_manifest,
-                dependency_path.clone(),
-            ));
+            dependency_ids.push(Self::generate_lesson_id(course_manifest, &dependency_path));
             lessons.append(&mut sub_passage.generate_lesson_helper(
                 course_manifest,
-                dependency_path,
+                &dependency_path,
                 music_asset,
             ));
         }
@@ -158,13 +157,14 @@ impl MusicPassage {
     }
 
     /// Generates the lesson and exercise manifests for this passage.
+    #[must_use]
     pub fn generate_lessons(
         &self,
         course_manifest: &CourseManifest,
         music_asset: &MusicAsset,
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         // Use a starting path of [0].
-        self.generate_lesson_helper(course_manifest, vec![0], music_asset)
+        self.generate_lesson_helper(course_manifest, &[0], music_asset)
     }
 }
 
@@ -276,15 +276,15 @@ mod test {
             generator_config: None,
         };
         assert_eq!(
-            MusicPassage::generate_lesson_id(&course_manifest, vec![0]),
+            MusicPassage::generate_lesson_id(&course_manifest, &[0]),
             "course::0"
         );
         assert_eq!(
-            MusicPassage::generate_lesson_id(&course_manifest, vec![0, 1]),
+            MusicPassage::generate_lesson_id(&course_manifest, &[0, 1]),
             "course::0::1"
         );
         assert_eq!(
-            MusicPassage::generate_lesson_id(&course_manifest, vec![0, 1, 2]),
+            MusicPassage::generate_lesson_id(&course_manifest, &[0, 1, 2]),
             "course::0::1::2"
         );
     }
@@ -292,9 +292,9 @@ mod test {
     // Verifies the paths for the sub-passages are created correctly.
     #[test]
     fn new_path() {
-        assert_eq!(MusicPassage::new_path(&vec![0], 1), vec![0, 1]);
-        assert_eq!(MusicPassage::new_path(&vec![0, 1], 2), vec![0, 1, 2]);
-        assert_eq!(MusicPassage::new_path(&vec![0, 1, 2], 3), vec![0, 1, 2, 3]);
+        assert_eq!(MusicPassage::new_path(&[0], 1), vec![0, 1]);
+        assert_eq!(MusicPassage::new_path(&[0, 1], 2), vec![0, 1, 2]);
+        assert_eq!(MusicPassage::new_path(&[0, 1, 2], 3), vec![0, 1, 2, 3]);
     }
 
     // Verifies generating lessons for a music piece course.

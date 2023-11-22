@@ -39,32 +39,38 @@ pub struct TestId(pub usize, pub Option<usize>, pub Option<usize>);
 impl TestId {
     /// Returns whether the exercise ID is part of the given lesson.
     #[allow(dead_code)]
+    #[must_use]
     pub fn exercise_in_lesson(&self, lesson: &TestId) -> bool {
         self.0 == lesson.0 && self.1 == lesson.1 && self.2.is_some()
     }
 
     /// Returns whether the exercise ID is part of the given course.
     #[allow(dead_code)]
+    #[must_use]
     pub fn exercise_in_course(&self, course: &TestId) -> bool {
         self.0 == course.0 && self.1.is_some() && self.2.is_some()
     }
 
     /// Coverts the test ID to a `Ustr` value.
+    #[must_use]
     pub fn to_ustr(&self) -> Ustr {
         Ustr::from(&self.to_string())
     }
 
     /// Returns whether the test ID belongs to a course.
+    #[must_use]
     pub fn is_course(&self) -> bool {
         self.1.is_none() && self.2.is_none()
     }
 
     /// Returns whether the test ID belongs to a lesson.
+    #[must_use]
     pub fn is_lesson(&self) -> bool {
         self.1.is_some() && self.2.is_none()
     }
 
     /// Returns whether the test ID belongs to an exercise.
+    #[must_use]
     pub fn is_exercise(&self) -> bool {
         self.1.is_some() && self.2.is_some()
     }
@@ -164,8 +170,8 @@ impl TestLesson {
                     .id(lesson_id)
                     .name(format!("Lesson {lesson_id}"))
                     .description(Some(format!("Description for lesson {lesson_id}")))
-                    .dependencies(dependencies_clone.iter().map(|id| id.to_ustr()).collect())
-                    .superseded(superseded_clone.iter().map(|id| id.to_ustr()).collect())
+                    .dependencies(dependencies_clone.iter().map(TestId::to_ustr).collect())
+                    .superseded(superseded_clone.iter().map(TestId::to_ustr).collect())
                     .metadata(Some(metadata_clone.clone()))
                     .clone()
             }),
@@ -228,7 +234,7 @@ impl TestCourse {
         let lesson_builders = self
             .lessons
             .iter()
-            .map(|lesson| lesson.lesson_builder())
+            .map(TestLesson::lesson_builder)
             .collect::<Result<Vec<_>>>()?;
 
         // Generate the course builder.
@@ -238,8 +244,8 @@ impl TestCourse {
             course_manifest: CourseManifest {
                 id: course_id,
                 name: format!("Course {course_id}"),
-                dependencies: self.dependencies.iter().map(|id| id.to_ustr()).collect(),
-                superseded: self.superseded.iter().map(|id| id.to_ustr()).collect(),
+                dependencies: self.dependencies.iter().map(TestId::to_ustr).collect(),
+                superseded: self.superseded.iter().map(TestId::to_ustr).collect(),
                 description: Some(format!("Description for course {course_id}")),
                 authors: None,
                 metadata: Some(self.metadata.clone()),
@@ -292,6 +298,7 @@ impl TestCourse {
 }
 
 /// Returns the test IDs for all the exercises in the given courses.
+#[must_use]
 pub fn all_test_exercises(courses: &Vec<TestCourse>) -> Vec<TestId> {
     // Collect the exercise test IDs from each course.
     let mut exercises = vec![];
@@ -364,6 +371,7 @@ impl RandomCourseLibrary {
     }
 
     /// Generates the entire randomized course library.
+    #[must_use]
     pub fn generate_library(&self) -> Vec<TestCourse> {
         let mut courses = vec![];
         let mut rng = rand::thread_rng();
@@ -419,6 +427,7 @@ pub struct TraneSimulation {
 
 impl TraneSimulation {
     /// Constructs a new simulation object.
+    #[must_use]
     pub fn new(num_questions: usize, answer_closure: AnswerClosure) -> Self {
         Self {
             num_exercises: num_questions,
@@ -432,7 +441,7 @@ impl TraneSimulation {
         &mut self,
         trane: &mut Trane,
         blacklist: &Vec<TestId>,
-        filter: Option<ExerciseFilter>,
+        filter: &Option<ExerciseFilter>,
     ) -> Result<()> {
         // Update the blacklist.
         for unit_id in blacklist {
@@ -529,17 +538,18 @@ pub fn assert_simulation_scores(
     let empty_scores = vec![];
     let simulation_scores = simulation_scores.get(exercise_id).unwrap_or(&empty_scores);
     let most_recent_scores = simulation_scores.iter().rev().take(trane_scores.len());
-    let _: Vec<()> = most_recent_scores
-        .zip(trane_scores.iter())
-        .map(|(simulation_score, trial)| {
-            let float_score = simulation_score.float_score();
-            assert_eq!(
-                trial.score, float_score,
+    let _: Vec<()> =
+        most_recent_scores
+            .zip(trane_scores.iter())
+            .map(|(simulation_score, trial)| {
+                let float_score = simulation_score.float_score();
+                assert!(
+                (trial.score - float_score).abs() < f32::EPSILON,
                 "Score from Trane ({}) does not match score from simulation ({}) for exercise {}",
                 trial.score, float_score, exercise_id,
             );
-        })
-        .collect();
+            })
+            .collect();
     Ok(())
 }
 
@@ -850,7 +860,7 @@ mod test {
 
         // Run the simulation answering all exercises with the maximum score.
         let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
-        simulation.run_simulation(&mut trane, &vec![], None)?;
+        simulation.run_simulation(&mut trane, &vec![], &None)?;
 
         // Every exercise ID should be in `simulation.answer_history`.
         let exercise_ids = all_test_exercises(&TEST_LIBRARY);

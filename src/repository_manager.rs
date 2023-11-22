@@ -43,8 +43,8 @@ pub trait RepositoryManager {
     fn list_repos(&self) -> Vec<RepositoryMetadata>;
 }
 
-/// An implementation of [RepositoryManager] backed by the local file system. All repositories will
-/// be downloaded to the `managed_courses` directory in the root of the Trane library.
+/// An implementation of [`RepositoryManager`] backed by the local file system. All repositories
+/// will be downloaded to the `managed_courses` directory in the root of the Trane library.
 pub struct LocalRepositoryManager {
     /// A map of repository IDs to its metadata.
     repositories: HashMap<String, RepositoryMetadata>,
@@ -58,10 +58,10 @@ pub struct LocalRepositoryManager {
 
 impl LocalRepositoryManager {
     /// Returns the default ID for the repository based on the URL.
-    fn id_from_url(url: Url) -> Result<String> {
+    fn id_from_url(url: &Url) -> Result<String> {
         Ok(url
             .path_segments()
-            .and_then(|segments| segments.last())
+            .and_then(Iterator::last)
             .ok_or_else(|| anyhow!("invalid repository URL"))? // grcov-excl-line
             .trim_end_matches(".git")
             .into())
@@ -182,7 +182,7 @@ impl LocalRepositoryManager {
         let repo_id = if let Some(repo_id) = repo_id {
             repo_id
         } else {
-            Self::id_from_url(parsed_url)?
+            Self::id_from_url(&parsed_url)?
         };
 
         // Check that no other repository has the same ID.
@@ -216,7 +216,7 @@ impl LocalRepositoryManager {
         fs::remove_dir_all(clone_dir.clone()).with_context(|| {
             format!("cannot remove repository directory {}", clone_dir.display())
         })?;
-        let repo_metadata_path = self.metadata_directory.join(format!("{}.json", repo_id));
+        let repo_metadata_path = self.metadata_directory.join(format!("{repo_id}.json"));
         fs::remove_file(repo_metadata_path).with_context(|| "cannot remove repository metadata")?;
         Ok(())
     }

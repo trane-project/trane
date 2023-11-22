@@ -39,7 +39,7 @@ pub enum Accidental {
 impl ToString for Accidental {
     fn to_string(&self) -> String {
         match &self {
-            Accidental::Natural => "".to_string(),
+            Accidental::Natural => String::new(),
             Accidental::Flat => "♭".to_string(),
             Accidental::Sharp => "♯".to_string(),
         }
@@ -76,9 +76,10 @@ impl Note {
 
     /// Returns a representation of the note without Unicode characters for use in directory names
     /// and other contexts where Unicode is harder or impossible to use.
+    #[must_use]
     pub fn to_ascii_string(&self) -> String {
         let accidental = match self.1 {
-            Accidental::Natural => "".to_string(),
+            Accidental::Natural => String::new(),
             Accidental::Flat => "_flat".to_string(),
             Accidental::Sharp => "_sharp".to_string(),
         };

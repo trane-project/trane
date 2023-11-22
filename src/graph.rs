@@ -24,12 +24,12 @@
 //! 2. The reverse relationship. Thus, we say that B is a dependent of A.
 //!
 //! The graph also provides a number of operations to manipulate the graph, which are only used when
-//! reading the Trane library (see [course_library](crate::course_library)), and another few to
+//! reading the Trane library (see [`course_library`](crate::course_library)), and another few to
 //! derive information from the graph ("which are the lessons in a course?" for example). The graph
 //! is not in any way responsible for how the exercises are scheduled (see
-//! [scheduler](crate::scheduler)) nor it stores any information about a student's practice (see
-//! [practice_stats](crate::practice_stats)) or preferences (see [blacklist](crate::blacklist),
-//! [filter_manager](crate::filter_manager) and [review_list](crate::review_list)).
+//! [`scheduler`](crate::scheduler)) nor it stores any information about a student's practice (see
+//! [`practice_stats`](crate::practice_stats)) or preferences (see [`blacklist`](crate::blacklist),
+//! [`filter_manager`](crate::filter_manager) and [`review_list`](crate::review_list)).
 
 use anyhow::{anyhow, bail, ensure, Result};
 use std::fmt::Write;
@@ -136,7 +136,7 @@ pub trait UnitGraph {
     fn generate_dot_graph(&self) -> String;
 }
 
-/// An implementation of [UnitGraph] describing the units and relationships as an adjacency list
+/// An implementation of [`UnitGraph`] describing the units and relationships as an adjacency list
 /// stored in hash maps. All of it is stored in memory, as the memory benchmarks show that less than
 /// 20 MB of memory are used even when opening a large Trane library.
 #[derive(Default)]
@@ -292,12 +292,12 @@ impl InMemoryUnitGraph {
     fn add_dependencies_helper(
         &mut self,
         unit_id: &Ustr,
-        unit_type: UnitType,
+        unit_type: &UnitType,
         dependencies: &[Ustr],
     ) -> Result<()> {
         // Perform some sanity checks on the unit type and dependencies.
         ensure!(
-            unit_type != UnitType::Exercise,
+            *unit_type != UnitType::Exercise,
             "exercise {} cannot have dependencies",
             unit_id,
         );
@@ -353,9 +353,8 @@ impl InMemoryUnitGraph {
                 let current_id = *path.last().unwrap_or(&Ustr::default());
                 if visited.contains(&current_id) {
                     continue;
-                } else {
-                    visited.insert(current_id);
                 }
+                visited.insert(current_id);
 
                 // Get the dependencies of the current node, check that the dependency and dependent
                 // graph agree with each other, and generate new paths to add to the stack.
@@ -411,9 +410,8 @@ impl InMemoryUnitGraph {
                 let current_id = *path.last().unwrap_or(&Ustr::default());
                 if visited.contains(&current_id) {
                     continue;
-                } else {
-                    visited.insert(current_id);
                 }
+                visited.insert(current_id);
 
                 // Get the  of the current node, check that the superseded and superseding graphs
                 // agree with each other, and generate new paths to add to the stack.
@@ -474,7 +472,7 @@ impl UnitGraph for InMemoryUnitGraph {
         unit_type: UnitType,
         dependencies: &[Ustr],
     ) -> Result<(), UnitGraphError> {
-        self.add_dependencies_helper(unit_id, unit_type.clone(), dependencies)
+        self.add_dependencies_helper(unit_id, &unit_type, dependencies)
             .map_err(|e| UnitGraphError::AddDependencies(*unit_id, unit_type, e))
     }
 
@@ -534,7 +532,7 @@ impl UnitGraph for InMemoryUnitGraph {
     }
 
     fn get_lesson_course(&self, lesson_id: &Ustr) -> Option<Ustr> {
-        self.lesson_course_map.get(lesson_id).cloned()
+        self.lesson_course_map.get(lesson_id).copied()
     }
 
     fn get_lesson_exercises(&self, lesson_id: &Ustr) -> Option<UstrSet> {
@@ -542,7 +540,7 @@ impl UnitGraph for InMemoryUnitGraph {
     }
 
     fn get_exercise_lesson(&self, exercise_id: &Ustr) -> Option<Ustr> {
-        self.exercise_lesson_map.get(exercise_id).cloned()
+        self.exercise_lesson_map.get(exercise_id).copied()
     }
 
     fn get_dependencies(&self, unit_id: &Ustr) -> Option<UstrSet> {
@@ -573,7 +571,7 @@ impl UnitGraph for InMemoryUnitGraph {
     fn generate_dot_graph(&self) -> String {
         // Initialize the output with the first line of the file.
         let mut output = String::from("digraph dependent_graph {\n");
-        let mut courses = self.course_lesson_map.keys().cloned().collect::<Vec<_>>();
+        let mut courses = self.course_lesson_map.keys().copied().collect::<Vec<_>>();
         courses.sort();
 
         // Add each course to the DOT graph.

@@ -80,16 +80,16 @@ impl KeyValueFilter {
         metadata: &BTreeMap<String, Vec<String>>,
         key: &str,
         value: &str,
-        filter_type: FilterType,
+        filter_type: &FilterType,
     ) -> bool {
         // Check whether the key-value pair is present in the metadata.
-        let contains_metadata = if !metadata.contains_key(key) {
-            false
-        } else {
+        let contains_metadata = if metadata.contains_key(key) {
             metadata
                 .get(key)
                 .unwrap_or(&Vec::new())
                 .contains(&value.to_string())
+        } else {
+            false
         };
 
         // Decide whether the filter passes based on its type.
@@ -111,7 +111,7 @@ impl KeyValueFilter {
                 filter_type,
             } => {
                 // Compare the course's metadata against the filter.
-                KeyValueFilter::passes_filter(course_metadata, key, value, filter_type.clone())
+                KeyValueFilter::passes_filter(course_metadata, key, value, filter_type)
             }
             KeyValueFilter::LessonFilter { .. } => {
                 // Return false because this filter is not applicable to courses. The course will be
@@ -185,7 +185,7 @@ impl KeyValueFilter {
                 filter_type,
             } => {
                 // Compare the course's metadata against the filter.
-                KeyValueFilter::passes_filter(course_metadata, key, value, filter_type.clone())
+                KeyValueFilter::passes_filter(course_metadata, key, value, filter_type)
             }
             KeyValueFilter::LessonFilter {
                 key,
@@ -193,7 +193,7 @@ impl KeyValueFilter {
                 filter_type,
             } => {
                 // Compare the lesson's metadata against the filter.
-                KeyValueFilter::passes_filter(lesson_metadata, key, value, filter_type.clone())
+                KeyValueFilter::passes_filter(lesson_metadata, key, value, filter_type)
             }
             KeyValueFilter::CombinedFilter { op, filters } => {
                 // Combine the filters using the given logical operation.
@@ -256,6 +256,7 @@ pub enum UnitFilter {
 
 impl UnitFilter {
     /// Returns whether the course with the given ID passes the course filter.
+    #[must_use]
     pub fn passes_course_filter(&self, course_id: &Ustr) -> bool {
         match self {
             UnitFilter::CourseFilter { course_ids } => course_ids.contains(course_id),
@@ -264,6 +265,7 @@ impl UnitFilter {
     }
 
     /// Returns whether the lesson with the given ID passes the lesson filter.
+    #[must_use]
     pub fn passes_lesson_filter(&self, lesson_id: &Ustr) -> bool {
         match self {
             UnitFilter::LessonFilter { lesson_ids } => lesson_ids.contains(lesson_id),
@@ -288,8 +290,8 @@ pub struct SavedFilter {
 //>@saved-filter
 
 /// A part of a study session. Contains the criteria used to filter the exercises during a section
-/// of the study session along with the duration in minutes. The filter can either be a [UnitFilter]
-/// defined inline or a reference to a [SavedFilter].
+/// of the study session along with the duration in minutes. The filter can either be a
+/// [`UnitFilter`] defined inline or a reference to a [`SavedFilter`].
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum SessionPart {
     /// A part of the study session that uses a filter defined inline.
@@ -318,11 +320,12 @@ pub enum SessionPart {
 
 impl SessionPart {
     /// Returns the duration of the study part.
+    #[must_use]
     pub fn duration(&self) -> u32 {
         match self {
-            SessionPart::UnitFilter { duration, .. } => *duration,
-            SessionPart::SavedFilter { duration, .. } => *duration,
-            SessionPart::NoFilter { duration, .. } => *duration,
+            SessionPart::UnitFilter { duration, .. }
+            | SessionPart::SavedFilter { duration, .. }
+            | SessionPart::NoFilter { duration, .. } => *duration,
         }
     }
 }
@@ -357,6 +360,7 @@ pub struct StudySessionData {
 
 impl StudySessionData {
     /// Returns the study session part that should be practiced at the given time.
+    #[must_use]
     pub fn get_part(&self, time: DateTime<Utc>) -> SessionPart {
         // Return a dummy part with no filter if the session has no parts.
         if self.definition.parts.is_empty() {

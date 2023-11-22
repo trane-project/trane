@@ -1,4 +1,4 @@
-//! FFI types for the data::filter module.
+//! FFI types for the `data::filter` module.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

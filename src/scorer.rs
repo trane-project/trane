@@ -62,7 +62,7 @@ pub struct SimpleScorer {}
 
 impl SimpleScorer {
     /// Returns the weight of the score based the index of the trial in the list.
-    #[inline(always)]
+    #[inline]
     fn weight(num_trials: usize, trial_index: usize) -> f32 {
         // If the index is outside the bounds of the list, return the min weight.
         if trial_index >= num_trials {
@@ -81,7 +81,7 @@ impl SimpleScorer {
 
     /// Returns the adjusted score based on the number of days since the trial. The score decreases
     /// with each passing day to account for skills deteriorating over time.
-    #[inline(always)]
+    #[inline]
     fn adjusted_score(score: f32, num_days: f32) -> f32 {
         // If there's an issue with calculating the number of days since the trial, return
         // the score as is.
@@ -104,7 +104,7 @@ impl SimpleScorer {
     }
 
     /// Returns the weighted average of the scores.
-    #[inline(always)]
+    #[inline]
     fn weighted_average(scores: &[f32], weights: &[f32]) -> f32 {
         // weighted average = (cross product of scores and their weights) / (sum of weights)
         let cross_product: f32 = scores.iter().zip(weights.iter()).map(|(s, w)| s * *w).sum();
@@ -163,12 +163,12 @@ impl ExerciseScorer for SimpleScorer {
     }
 }
 
-/// An implementation of [Send] for [SimpleScorer]. This implementation is safe because
-/// [SimpleScorer] stores no state.
+/// An implementation of [Send] for [`SimpleScorer`]. This implementation is safe because
+/// [`SimpleScorer`] stores no state.
 unsafe impl Send for SimpleScorer {}
 
-/// An implementation of [Sync] for [SimpleScorer]. This implementation is safe because
-/// [SimpleScorer] stores no state.
+/// An implementation of [Sync] for [`SimpleScorer`]. This implementation is safe because
+/// [`SimpleScorer`] stores no state.
 unsafe impl Sync for SimpleScorer {}
 
 #[cfg(test)]

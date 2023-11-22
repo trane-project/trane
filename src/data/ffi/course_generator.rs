@@ -1,4 +1,4 @@
-//! FFI types for the data::course_generator module.
+//! FFI types for the `data::course_generator` module.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

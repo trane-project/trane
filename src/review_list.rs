@@ -26,7 +26,7 @@ pub trait ReviewList {
     fn get_review_list_entries(&self) -> Result<Vec<Ustr>, ReviewListError>;
 }
 
-/// An implementation of [ReviewList] backed by SQLite.
+/// An implementation of [`ReviewList`] backed by `SQLite`.
 pub struct ReviewListDB {
     /// A pool of connections to the database.
     pool: Pool<SqliteConnectionManager>,
