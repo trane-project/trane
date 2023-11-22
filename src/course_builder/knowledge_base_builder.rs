@@ -211,10 +211,10 @@ impl SimpleKnowledgeBaseExercise {
 
         // Generate the asset builders for the front and back of the card.
         let front_file = format!("{}{}", self.short_id, EXERCISE_FRONT_SUFFIX);
-        let back_file = if !self.back.is_empty() {
-            Some(format!("{}{}", self.short_id, EXERCISE_BACK_SUFFIX))
-        } else {
+        let back_file = if self.back.is_empty() {
             None
+        } else {
+            Some(format!("{}{}", self.short_id, EXERCISE_BACK_SUFFIX))
         };
 
         let mut asset_builders = vec![AssetBuilder {
@@ -225,7 +225,7 @@ impl SimpleKnowledgeBaseExercise {
             asset_builders.push(AssetBuilder {
                 file_name: back_file.clone().unwrap(),
                 contents: self.back.join("\n"),
-            })
+            });
         }
 
         // Generate the exercise builder.

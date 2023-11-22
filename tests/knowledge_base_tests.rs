@@ -189,7 +189,7 @@ fn all_exercises_visited() -> Result<()> {
         exercise_ids.len() * 10,
         Box::new(|_| Some(MasteryScore::Five)),
     );
-    simulation.run_simulation(&mut trane, &vec![], None)?;
+    simulation.run_simulation(&mut trane, &vec![], &None)?;
 
     // Find all the exercises in the simulation history. All exercises should be visited.
     let visited_exercises = simulation.answer_history.keys().collect::<Vec<_>>();

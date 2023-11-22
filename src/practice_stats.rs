@@ -46,7 +46,7 @@ pub trait PracticeStats {
     fn remove_scores_with_prefix(&mut self, prefix: &str) -> Result<(), PracticeStatsError>;
 }
 
-/// An implementation of [PracticeStats] backed by SQLite.
+/// An implementation of [`PracticeStats`] backed by `SQLite`.
 pub struct PracticeStatsDB {
     /// A pool of connections to the database.
     pool: Pool<SqliteConnectionManager>,
@@ -97,7 +97,7 @@ impl PracticeStatsDB {
             .with_context(|| "failed to initialize practice stats DB") //grcov-excl-line
     }
 
-    /// A constructor taking a SQLite connection manager.
+    /// A constructor taking a `SQLite` connection manager.
     fn new(connection_manager: SqliteConnectionManager) -> Result<PracticeStatsDB> {
         // Create a connection pool and initialize the database.
         let pool = Pool::new(connection_manager)?;
@@ -142,7 +142,7 @@ impl PracticeStatsDB {
     fn record_exercise_score_helper(
         &mut self,
         exercise_id: &Ustr,
-        score: MasteryScore,
+        score: &MasteryScore,
         timestamp: i64,
     ) -> Result<()> {
         // Update the mapping of unit ID to unique integer ID.
@@ -229,7 +229,7 @@ impl PracticeStats for PracticeStatsDB {
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<(), PracticeStatsError> {
-        self.record_exercise_score_helper(exercise_id, score, timestamp)
+        self.record_exercise_score_helper(exercise_id, &score, timestamp)
             .map_err(|e| PracticeStatsError::RecordScore(*exercise_id, e))
     }
 

@@ -19,7 +19,7 @@ pub trait StudySessionManager {
     fn list_study_sessions(&self) -> Vec<(String, String)>;
 }
 
-/// An implementation of [StudySessionManager] backed by the local file system.
+/// An implementation of [`StudySessionManager`] backed by the local file system.
 pub struct LocalStudySessionManager {
     /// A map of session IDs to sessions.
     pub sessions: HashMap<String, StudySession>,

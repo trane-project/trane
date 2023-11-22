@@ -35,12 +35,12 @@ impl TraneMantraMiner {
             // pakma yangchen drubpar gyi
             // I shall meditate on noble Sarasvatī.
             preparation: Some(
-                indoc! {r#"
+                indoc! {r"
                     namo, lama chok sum nyurma pal
                     güpé kyab chi khanyam dro
                     lamé changchub chok tob chir
                     pakma yangchen drubpar gyi
-                "#}
+                "}
                 .to_string(),
             ),
             // The instructions of the sadhana state that the preparation should be repeated three
@@ -95,12 +95,12 @@ impl TraneMantraMiner {
             // dé yi sa la göpar shok
             // Reach her state of perfection too.
             conclusion: Some(
-                indoc! {r#"
+                indoc! {r"
                     gewa di yi nyurdu dak
                     drayang lhamo drub gyur né
                     drowa chik kyang malüpa
                     dé yi sa la göpar shok
-                "#}
+                "}
                 .to_string(),
             ),
             // The sadhana does not ask the conclusion to be repeated but do so for the sake of

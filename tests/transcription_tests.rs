@@ -131,7 +131,7 @@ fn all_exercises_visited() -> Result<()> {
         exercise_ids.len() * 5,
         Box::new(|_| Some(MasteryScore::Five)),
     );
-    simulation.run_simulation(&mut trane, &vec![], None)?;
+    simulation.run_simulation(&mut trane, &vec![], &None)?;
 
     // Every exercise in the advanced singing and advanced transcription lessons should be in
     // `simulation.answer_history`. Most of the exercises in the singing and transcription lessons
@@ -169,7 +169,7 @@ fn no_progress_past_singing_lessons() -> Result<()> {
         exercise_ids.len() * 5,
         Box::new(|_| Some(MasteryScore::One)),
     );
-    simulation.run_simulation(&mut trane, &vec![], None)?;
+    simulation.run_simulation(&mut trane, &vec![], &None)?;
 
     // Only exercises from the singing lessons of the first are in the answer history.
     for exercise_id in exercise_ids {
@@ -219,7 +219,7 @@ fn advanced_singing_blocks_advanced_transcription() -> Result<()> {
             }
         }),
     );
-    simulation.run_simulation(&mut trane, &vec![], None)?;
+    simulation.run_simulation(&mut trane, &vec![], &None)?;
 
     // Exercises from the advanced transcription lessons should not be in the answer history.
     for exercise_id in exercise_ids {
@@ -270,7 +270,7 @@ fn transcription_blocks_advanced_transcription_and_dependents() -> Result<()> {
             }
         }),
     );
-    simulation.run_simulation(&mut trane, &vec![], None)?;
+    simulation.run_simulation(&mut trane, &vec![], &None)?;
 
     // Exercises from the advanced transcription lesson from the first and the transcription lesson
     // from the dependent course should not be in the answer history.
@@ -316,7 +316,7 @@ fn skip_advanced_lessons() -> Result<()> {
         exercise_ids.len() * 5,
         Box::new(|_| Some(MasteryScore::Five)),
     );
-    simulation.run_simulation(&mut trane, &vec![], None)?;
+    simulation.run_simulation(&mut trane, &vec![], &None)?;
 
     // Every exercise ID should be in `simulation.answer_history`.
     for exercise_id in &exercise_ids {
@@ -360,7 +360,7 @@ fn skip_singing_lessons() -> Result<()> {
         exercise_ids.len() * 5,
         Box::new(|_| Some(MasteryScore::Five)),
     );
-    simulation.run_simulation(&mut trane, &vec![], None)?;
+    simulation.run_simulation(&mut trane, &vec![], &None)?;
 
     // Every exercise ID should be in `simulation.answer_history`.
     for exercise_id in &exercise_ids {

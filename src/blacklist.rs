@@ -36,7 +36,7 @@ pub trait Blacklist {
     fn get_blacklist_entries(&self) -> Result<Vec<Ustr>, BlacklistError>;
 }
 
-/// An implementation of [Blacklist] backed by SQLite.
+/// An implementation of [Blacklist] backed by `SQLite`.
 pub struct BlacklistDB {
     /// A cache of the blacklist entries used to avoid unnecessary queries to the database.
     cache: RwLock<UstrMap<bool>>,
@@ -91,24 +91,24 @@ impl BlacklistDB {
     }
 
     /// Returns whether there's an entry for the given unit in the blacklist.
-    #[inline(always)]
-    fn has_entry(&self, unit_id: &Ustr) -> Result<bool, BlacklistError> {
+    #[inline]
+    fn has_entry(&self, unit_id: &Ustr) -> bool {
         let mut cache = self.cache.write();
         if let Some(has_entry) = cache.get(unit_id) {
-            Ok(*has_entry)
+            *has_entry
         } else {
             // Because the cache was initialized with all the entries in the blacklist, and it's
             // kept updated, it's safe to assume that the entry is not in the blacklist and update
             // the cache accordingly.
             cache.insert(*unit_id, false);
-            Ok(false)
+            false
         }
     }
 
     /// Helper function to add a unit to the blacklist.
     fn add_to_blacklist_helper(&mut self, unit_id: &Ustr) -> Result<()> {
         // Check the cache first to avoid unnecessary queries.
-        let has_entry = self.has_entry(unit_id)?;
+        let has_entry = self.has_entry(unit_id);
         if has_entry {
             return Ok(());
         }
@@ -191,9 +191,9 @@ impl Blacklist for BlacklistDB {
             .map_err(|e| BlacklistError::RemovePrefix(prefix.into(), e))
     }
 
-    #[inline(always)]
+    #[inline]
     fn blacklisted(&self, unit_id: &Ustr) -> Result<bool, BlacklistError> {
-        self.has_entry(unit_id)
+        Ok(self.has_entry(unit_id))
     }
 
     fn get_blacklist_entries(&self) -> Result<Vec<Ustr>, BlacklistError> {

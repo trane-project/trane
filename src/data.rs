@@ -58,6 +58,7 @@ pub enum MasteryScore {
 
 impl MasteryScore {
     /// Assigns a float value to each of the values of `MasteryScore`.
+    #[must_use]
     pub fn float_score(&self) -> f32 {
         match *self {
             Self::One => 1.0,
@@ -99,7 +100,7 @@ pub enum UnitType {
 }
 
 impl std::fmt::Display for UnitType {
-    /// Implements the [Display](std::fmt::Display) trait for [UnitType].
+    /// Implements the [Display](std::fmt::Display) trait for [`UnitType`].
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Exercise => "Exercise".fmt(f),
@@ -186,8 +187,9 @@ impl NormalizePaths for BasicAsset {
                 let abs_path = normalize_path(working_dir, path)?;
                 Ok(BasicAsset::MarkdownAsset { path: abs_path })
             }
-            BasicAsset::InlinedAsset { .. } => Ok(self.clone()),
-            BasicAsset::InlinedUniqueAsset { .. } => Ok(self.clone()),
+            BasicAsset::InlinedAsset { .. } | BasicAsset::InlinedUniqueAsset { .. } => {
+                Ok(self.clone())
+            }
         }
     }
 }
@@ -199,8 +201,7 @@ impl VerifyPaths for BasicAsset {
                 let abs_path = working_dir.join(Path::new(path));
                 Ok(abs_path.exists())
             }
-            BasicAsset::InlinedAsset { .. } => Ok(true),
-            BasicAsset::InlinedUniqueAsset { .. } => Ok(true),
+            BasicAsset::InlinedAsset { .. } | BasicAsset::InlinedUniqueAsset { .. } => Ok(true),
         }
     }
 }
@@ -340,7 +341,7 @@ impl NormalizePaths for CourseManifest {
         match &self.course_instructions {
             None => (),
             Some(asset) => {
-                clone.course_instructions = Some(asset.normalize_paths(working_directory)?)
+                clone.course_instructions = Some(asset.normalize_paths(working_directory)?);
             }
         }
         match &self.course_material {
@@ -692,6 +693,7 @@ impl Default for PassingScoreOptions {
 
 impl PassingScoreOptions {
     /// Computes the passing score for a unit at the given depth.
+    #[must_use]
     pub fn compute_score(&self, depth: usize) -> f32 {
         match self {
             PassingScoreOptions::ConstantScore(score) => score.min(5.0),
@@ -754,6 +756,7 @@ pub struct MasteryWindow {
 
 impl MasteryWindow {
     /// Returns whether the given score falls within this window.
+    #[must_use]
     pub fn in_window(&self, score: f32) -> bool {
         // Handle the special case of the window containing the maximum score. Scores greater than
         // 5.0 are allowed because float comparison is not exact.
@@ -805,6 +808,11 @@ pub struct SchedulerOptions {
 }
 
 impl SchedulerOptions {
+    #[must_use]
+    fn float_equals(f1: f32, f2: f32) -> bool {
+        (f1 - f2).abs() < f32::EPSILON
+    }
+
     /// Verifies that the scheduler options are valid.
     pub fn verify(&self) -> Result<()> {
         // The batch size must be greater than 0.
@@ -813,13 +821,14 @@ impl SchedulerOptions {
         }
 
         // The sum of the percentages of the mastery windows must be 1.0.
-        if self.mastered_window_opts.percentage
-            + self.easy_window_opts.percentage
-            + self.current_window_opts.percentage
-            + self.target_window_opts.percentage
-            + self.new_window_opts.percentage
-            != 1.0
-        {
+        if !Self::float_equals(
+            self.mastered_window_opts.percentage
+                + self.easy_window_opts.percentage
+                + self.current_window_opts.percentage
+                + self.target_window_opts.percentage
+                + self.new_window_opts.percentage,
+            1.0,
+        ) {
             bail!(
                 "invalid scheduler options: the sum of the percentages of the mastery windows \
                 must be 1.0"
@@ -827,21 +836,29 @@ impl SchedulerOptions {
         }
 
         // The new window's range must start at 0.0.
-        if self.new_window_opts.range.0 != 0.0 {
+        if !Self::float_equals(self.new_window_opts.range.0, 0.0) {
             bail!("invalid scheduler options: the new window's range must start at 0.0");
         }
 
         // The mastered window's range must end at 5.0.
-        if self.mastered_window_opts.range.1 != 5.0 {
+        if !Self::float_equals(self.mastered_window_opts.range.1, 5.0) {
             bail!("invalid scheduler options: the mastered window's range must end at 5.0");
         }
 
         // There must be no gaps in the mastery windows.
-        if self.new_window_opts.range.1 != self.target_window_opts.range.0
-            || self.target_window_opts.range.1 != self.current_window_opts.range.0
-            || self.current_window_opts.range.1 != self.easy_window_opts.range.0
-            || self.easy_window_opts.range.1 != self.mastered_window_opts.range.0
-        {
+        if !Self::float_equals(
+            self.new_window_opts.range.1,
+            self.target_window_opts.range.0,
+        ) || !Self::float_equals(
+            self.target_window_opts.range.1,
+            self.current_window_opts.range.0,
+        ) || !Self::float_equals(
+            self.current_window_opts.range.1,
+            self.easy_window_opts.range.0,
+        ) || !Self::float_equals(
+            self.easy_window_opts.range.1,
+            self.mastered_window_opts.range.0,
+        ) {
             bail!("invalid scheduler options: there must be no gaps in the mastery windows");
         }
 

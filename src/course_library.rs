@@ -98,7 +98,7 @@ pub(crate) trait GetUnitGraph {
     fn get_unit_graph(&self) -> Arc<RwLock<InMemoryUnitGraph>>;
 }
 
-/// An implementation of [CourseLibrary] backed by the local file system. The courses in this
+/// An implementation of [`CourseLibrary`] backed by the local file system. The courses in this
 /// library are those directories located anywhere under the given root directory that match the
 /// following structure:
 ///
@@ -261,7 +261,7 @@ impl LocalCourseLibrary {
         &mut self,
         lesson_root: &Path,
         course_manifest: &CourseManifest,
-        lesson_manifest: LessonManifest,
+        lesson_manifest: &LessonManifest,
         index_writer: &mut IndexWriter,
         generated_exercises: Option<&Vec<ExerciseManifest>>,
     ) -> Result<()> {
@@ -293,7 +293,7 @@ impl LocalCourseLibrary {
             for exercise_manifest in exercises {
                 let exercise_manifest = &exercise_manifest.normalize_paths(lesson_root)?;
                 self.process_exercise_manifest(
-                    &lesson_manifest,
+                    lesson_manifest,
                     exercise_manifest.clone(),
                     index_writer,
                 )?; // grcov-excl-line
@@ -325,7 +325,7 @@ impl LocalCourseLibrary {
                     exercise_manifest = exercise_manifest
                         .normalize_paths(exercise_dir_entry.path().parent().unwrap())?;
                     self.process_exercise_manifest(
-                        &lesson_manifest,
+                        lesson_manifest,
                         exercise_manifest,
                         index_writer,
                     )?; // grcov-excl-line
@@ -381,7 +381,7 @@ impl LocalCourseLibrary {
                 self.process_lesson_manifest(
                     course_root,
                     &course_manifest,
-                    lesson_manifest,
+                    &lesson_manifest,
                     index_writer,
                     Some(&exercise_manifests),
                 )?; // grcov-excl-line
@@ -423,7 +423,7 @@ impl LocalCourseLibrary {
                     self.process_lesson_manifest(
                         lesson_dir_entry.path().parent().unwrap(),
                         &course_manifest,
-                        lesson_manifest,
+                        &lesson_manifest,
                         index_writer,
                         None,
                     )?; // grcov-excl-line
@@ -560,7 +560,7 @@ impl LocalCourseLibrary {
             .ignored_paths
             .iter()
             .map(|path| {
-                let mut absolute_path = absolute_root.to_path_buf();
+                let mut absolute_path = absolute_root.clone();
                 absolute_path.push(path);
                 absolute_path
             })
@@ -672,7 +672,7 @@ impl CourseLibrary for LocalCourseLibrary {
     }
 
     fn get_course_ids(&self) -> Vec<Ustr> {
-        let mut courses = self.course_map.keys().cloned().collect::<Vec<Ustr>>();
+        let mut courses = self.course_map.keys().copied().collect::<Vec<Ustr>>();
         courses.sort();
         courses
     }
@@ -730,7 +730,7 @@ impl CourseLibrary for LocalCourseLibrary {
                 }
             }
             // If none, return all the exercises in the library.
-            None => self.exercise_map.keys().cloned().collect::<Vec<Ustr>>(),
+            None => self.exercise_map.keys().copied().collect::<Vec<Ustr>>(),
         };
 
         // Sort the exercises before returning them.
@@ -779,7 +779,7 @@ impl CourseLibrary for LocalCourseLibrary {
                 .chain(self.lesson_map.keys())
                 .chain(self.exercise_map.keys())
                 .filter(|id| id.starts_with(prefix))
-                .cloned()
+                .copied()
                 .collect(),
         }
     }

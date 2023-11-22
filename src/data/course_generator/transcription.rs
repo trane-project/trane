@@ -38,6 +38,7 @@ pub enum TranscriptionLink {
 
 impl TranscriptionLink {
     /// Returns the URL of the link.
+    #[must_use]
     pub fn url(&self) -> &str {
         match self {
             TranscriptionLink::YouTube(url) => url,
@@ -80,6 +81,7 @@ pub enum TranscriptionAsset {
 
 impl TranscriptionAsset {
     /// Returns the short ID of the asset, which wil be used to generate the exercise IDs.
+    #[must_use]
     pub fn short_id(&self) -> &str {
         match self {
             TranscriptionAsset::Track { short_id, .. } => short_id,
@@ -115,7 +117,7 @@ impl TranscriptionPassages {
                 "\nTranscribe the passage using the instrument: {}.\n",
                 instrument.name
             ),
-            None => "".into(),
+            None => String::new(),
         };
         match &self.asset {
             TranscriptionAsset::Track {
@@ -139,7 +141,7 @@ impl TranscriptionPassages {
                     {}",
                     description, track_name, artist_name.as_deref().unwrap_or(""),
                     album_name.as_deref().unwrap_or(""), duration.as_deref().unwrap_or(""),
-                    external_link.as_ref().map(|l| l.url()).unwrap_or(""), start, end,
+                    external_link.as_ref().map_or("", |l| l.url()), start, end,
                     instrument_instruction
                 }
                 .into(),
@@ -210,18 +212,17 @@ pub struct TranscriptionConfig {
 
 impl TranscriptionConfig {
     /// Returns the ID for a given exercise given the lesson ID and the exercise index.
-    fn exercise_id(lesson_id: &Ustr, asset_id: &str, passage_id: usize) -> Ustr {
+    fn exercise_id(lesson_id: Ustr, asset_id: &str, passage_id: usize) -> Ustr {
         Ustr::from(&format!("{lesson_id}::{asset_id}::{passage_id}"))
     }
 
     /// Returns the ID of the singing lesson for the given course.
-    fn singing_lesson_id(course_id: &Ustr) -> Ustr {
+    fn singing_lesson_id(course_id: Ustr) -> Ustr {
         Ustr::from(&format!("{course_id}::singing"))
     }
 
     /// Generates the singing exercises for the given passages.
     fn generate_singing_exercises(
-        &self,
         course_manifest: &CourseManifest,
         lesson_id: Ustr,
         passages: &TranscriptionPassages,
@@ -230,7 +231,7 @@ impl TranscriptionConfig {
             .intervals
             .iter()
             .map(|(passage_id, (start, end))| ExerciseManifest {
-                id: Self::exercise_id(&lesson_id, passages.asset.short_id(), *passage_id),
+                id: Self::exercise_id(lesson_id, passages.asset.short_id(), *passage_id),
                 lesson_id,
                 course_id: course_manifest.id,
                 name: format!("{} - Singing", course_manifest.name),
@@ -261,7 +262,7 @@ impl TranscriptionConfig {
             .map(|id| format!("{id}::singing").into())
             .collect();
         let lesson_manifest = LessonManifest {
-            id: Self::singing_lesson_id(&course_manifest.id),
+            id: Self::singing_lesson_id(course_manifest.id),
             course_id: course_manifest.id,
             name: format!("{} - Singing", course_manifest.name),
             description: Some(SINGING_DESCRIPTION.to_string()),
@@ -288,20 +289,19 @@ impl TranscriptionConfig {
         let exercises = passages
             .iter()
             .flat_map(|passages| {
-                self.generate_singing_exercises(course_manifest, lesson_manifest.id, passages)
+                Self::generate_singing_exercises(course_manifest, lesson_manifest.id, passages)
             })
             .collect::<Vec<_>>();
         (lesson_manifest, exercises)
     }
 
     /// Returns the ID of the singing lesson for the given course.
-    fn advanced_singing_lesson_id(course_id: &Ustr) -> Ustr {
+    fn advanced_singing_lesson_id(course_id: Ustr) -> Ustr {
         Ustr::from(&format!("{course_id}::advanced_singing"))
     }
 
     /// Generates the advanced singing exercises for the given passages.
     fn generate_advanced_singing_exercises(
-        &self,
         course_manifest: &CourseManifest,
         lesson_id: Ustr,
         passages: &TranscriptionPassages,
@@ -310,7 +310,7 @@ impl TranscriptionConfig {
             .intervals
             .iter()
             .map(|(passage_id, (start, end))| ExerciseManifest {
-                id: Self::exercise_id(&lesson_id, passages.asset.short_id(), *passage_id),
+                id: Self::exercise_id(lesson_id, passages.asset.short_id(), *passage_id),
                 lesson_id,
                 course_id: course_manifest.id,
                 name: format!("{} - Advanced Singing", course_manifest.name),
@@ -328,19 +328,18 @@ impl TranscriptionConfig {
 
     /// Generates the lesson and exercise manifests for the advanced singing lesson.
     fn generate_advanced_singing_lesson(
-        &self,
         course_manifest: &CourseManifest,
         passages: &[TranscriptionPassages],
         skip_singing_lessons: bool,
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Generate the lesson manifest. The lesson depends on the singing lesson.
         let lesson_manifest = LessonManifest {
-            id: Self::advanced_singing_lesson_id(&course_manifest.id),
+            id: Self::advanced_singing_lesson_id(course_manifest.id),
             course_id: course_manifest.id,
             name: format!("{} - Advanced Singing", course_manifest.name),
             description: Some(ADVANCED_SINGING_DESCRIPTION.to_string()),
-            dependencies: vec![Self::singing_lesson_id(&course_manifest.id)],
-            superseded: vec![Self::singing_lesson_id(&course_manifest.id)],
+            dependencies: vec![Self::singing_lesson_id(course_manifest.id)],
+            superseded: vec![Self::singing_lesson_id(course_manifest.id)],
             metadata: Some(BTreeMap::from([
                 (
                     LESSON_METADATA.to_string(),
@@ -365,7 +364,7 @@ impl TranscriptionConfig {
         let exercises = passages
             .iter()
             .flat_map(|passages| {
-                self.generate_advanced_singing_exercises(
+                Self::generate_advanced_singing_exercises(
                     course_manifest,
                     lesson_manifest.id,
                     passages,
@@ -376,13 +375,12 @@ impl TranscriptionConfig {
     }
 
     /// Returns the ID of the transcription lesson for the given course and instrument.
-    fn transcription_lesson_id(course_id: &Ustr, instrument: &Instrument) -> Ustr {
+    fn transcription_lesson_id(course_id: Ustr, instrument: &Instrument) -> Ustr {
         format!("{}::transcription::{}", course_id, instrument.id).into()
     }
 
     /// Generates the transcription exercises for the given passages.
     fn generate_transcription_exercises(
-        &self,
         course_manifest: &CourseManifest,
         lesson_id: Ustr,
         passages: &TranscriptionPassages,
@@ -392,7 +390,7 @@ impl TranscriptionConfig {
             .intervals
             .iter()
             .map(|(passage_id, (start, end))| ExerciseManifest {
-                id: Self::exercise_id(&lesson_id, passages.asset.short_id(), *passage_id),
+                id: Self::exercise_id(lesson_id, passages.asset.short_id(), *passage_id),
                 lesson_id,
                 course_id: course_manifest.id,
                 name: format!(
@@ -426,9 +424,9 @@ impl TranscriptionConfig {
             .iter()
             .map(|id| format!("{id}::transcription::{}", instrument.id).into())
             .collect();
-        dependencies.push(Self::singing_lesson_id(&course_manifest.id));
+        dependencies.push(Self::singing_lesson_id(course_manifest.id));
         let lesson_manifest = LessonManifest {
-            id: Self::transcription_lesson_id(&course_manifest.id, instrument),
+            id: Self::transcription_lesson_id(course_manifest.id, instrument),
             course_id: course_manifest.id,
             name: format!(
                 "{} - Transcription - {}",
@@ -457,7 +455,7 @@ impl TranscriptionConfig {
         let exercises = passages
             .iter()
             .flat_map(|passages| {
-                self.generate_transcription_exercises(
+                Self::generate_transcription_exercises(
                     course_manifest,
                     lesson_manifest.id,
                     passages,
@@ -485,13 +483,12 @@ impl TranscriptionConfig {
     }
 
     /// Returns the ID of the advanced transcription lesson for the given course and instrument.
-    fn advanced_transcription_lesson_id(course_id: &Ustr, instrument: &Instrument) -> Ustr {
+    fn advanced_transcription_lesson_id(course_id: Ustr, instrument: &Instrument) -> Ustr {
         format!("{}::advanced_transcription::{}", course_id, instrument.id).into()
     }
 
     /// Generates the advanced transcription exercises for the given passages.
     fn generate_advanced_transcription_exercises(
-        &self,
         course_manifest: &CourseManifest,
         lesson_id: Ustr,
         passages: &TranscriptionPassages,
@@ -501,7 +498,7 @@ impl TranscriptionConfig {
             .intervals
             .iter()
             .map(|(passage_id, (start, end))| ExerciseManifest {
-                id: Self::exercise_id(&lesson_id, passages.asset.short_id(), *passage_id),
+                id: Self::exercise_id(lesson_id, passages.asset.short_id(), *passage_id),
                 lesson_id,
                 course_id: course_manifest.id,
                 name: format!(
@@ -523,7 +520,6 @@ impl TranscriptionConfig {
     /// Generates the lesson and exercise manifests for the advanced transcription lesson with the
     /// given instrument.
     fn generate_advanced_transcription_lesson(
-        &self,
         course_manifest: &CourseManifest,
         passages: &[TranscriptionPassages],
         instrument: &Instrument,
@@ -531,7 +527,7 @@ impl TranscriptionConfig {
         // Generate the lesson manifest. The lesson depends on the advanced singing lesson and the
         // transcription lesson for the instrument.
         let lesson_manifest = LessonManifest {
-            id: Self::advanced_transcription_lesson_id(&course_manifest.id, instrument),
+            id: Self::advanced_transcription_lesson_id(course_manifest.id, instrument),
             course_id: course_manifest.id,
             name: format!(
                 "{} - Advanced Transcription - {}",
@@ -539,11 +535,11 @@ impl TranscriptionConfig {
             ),
             description: Some(ADVANCED_TRANSCRIPTION_DESCRIPTION.to_string()),
             dependencies: vec![
-                Self::transcription_lesson_id(&course_manifest.id, instrument),
-                Self::advanced_singing_lesson_id(&course_manifest.id),
+                Self::transcription_lesson_id(course_manifest.id, instrument),
+                Self::advanced_singing_lesson_id(course_manifest.id),
             ],
             superseded: vec![Self::transcription_lesson_id(
-                &course_manifest.id,
+                course_manifest.id,
                 instrument,
             )],
             metadata: Some(BTreeMap::from([
@@ -566,7 +562,7 @@ impl TranscriptionConfig {
         let exercises = passages
             .iter()
             .flat_map(|passages| {
-                self.generate_advanced_transcription_exercises(
+                Self::generate_advanced_transcription_exercises(
                     course_manifest,
                     lesson_manifest.id,
                     passages,
@@ -579,7 +575,6 @@ impl TranscriptionConfig {
 
     /// Generates the lesson and exercise manifests for the advanced transcription lessons.
     fn generate_advanced_transcription_lessons(
-        &self,
         course_manifest: &CourseManifest,
         preferences: &TranscriptionPreferences,
         passages: &[TranscriptionPassages],
@@ -588,7 +583,7 @@ impl TranscriptionConfig {
             .instruments
             .iter()
             .map(|instrument| {
-                self.generate_advanced_transcription_lesson(course_manifest, passages, instrument)
+                Self::generate_advanced_transcription_lesson(course_manifest, passages, instrument)
             })
             .collect()
     }
@@ -623,19 +618,21 @@ impl TranscriptionConfig {
                 .to_string();
 
             // Ignore any non-JSON files.
-            if !file_name.ends_with(".json") {
+            if !Path::new(&file_name)
+                .extension()
+                .map_or(false, |ext| ext.eq_ignore_ascii_case("json"))
+            {
                 continue;
             }
 
-            // Open the file and parse it as a [TranscriptionPassages] object. Check for duplicate
+            // Open the file and parse it as a `TranscriptionPassages` object. Check for duplicate
             // short IDs.
             let passage = TranscriptionPassages::open(&path)?;
             let short_id = passage.asset.short_id();
             if seen_ids.contains(short_id) {
                 bail!("Duplicate passage ID: {}", short_id);
-            } else {
-                seen_ids.insert(short_id.to_string());
             }
+            seen_ids.insert(short_id.to_string());
             passages.push(passage);
         }
         Ok(passages)
@@ -647,7 +644,7 @@ impl TranscriptionConfig {
         course_manifest: &CourseManifest,
         preferences: &TranscriptionPreferences,
         passages: &[TranscriptionPassages],
-    ) -> Result<Vec<(LessonManifest, Vec<ExerciseManifest>)>> {
+    ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         let mut skip_singing_lessons = false;
         let mut skip_advanced_lessons = false;
         if let Some(CourseGenerator::Transcription(config)) = &course_manifest.generator_config {
@@ -656,23 +653,23 @@ impl TranscriptionConfig {
         }
 
         if skip_advanced_lessons {
-            Ok(vec![
+            vec![
                 vec![self.generate_singing_lesson(course_manifest, passages, skip_singing_lessons)],
                 self.generate_transcription_lessons(course_manifest, preferences, passages),
             ]
             .into_iter()
             .flatten()
-            .collect())
+            .collect()
         } else {
-            Ok(vec![
+            vec![
                 vec![self.generate_singing_lesson(course_manifest, passages, skip_singing_lessons)],
-                vec![self.generate_advanced_singing_lesson(
+                vec![Self::generate_advanced_singing_lesson(
                     course_manifest,
                     passages,
                     skip_singing_lessons,
                 )],
                 self.generate_transcription_lessons(course_manifest, preferences, passages),
-                self.generate_advanced_transcription_lessons(
+                Self::generate_advanced_transcription_lessons(
                     course_manifest,
                     preferences,
                     passages,
@@ -680,7 +677,7 @@ impl TranscriptionConfig {
             ]
             .into_iter()
             .flatten()
-            .collect())
+            .collect()
         }
     }
 
@@ -695,7 +692,7 @@ impl TranscriptionConfig {
         metadata.insert(COURSE_METADATA.to_string(), vec!["true".to_string()]);
 
         // Insert metadata to add all the artists from the passages.
-        passages.iter().for_each(|passages| {
+        for passages in passages {
             if let TranscriptionAsset::Track {
                 artist_name: Some(artist_name),
                 ..
@@ -706,10 +703,10 @@ impl TranscriptionConfig {
                     .or_default()
                     .push(artist_name.clone());
             }
-        });
+        }
 
         // Do the same with all the albums.
-        passages.iter().for_each(|passages| {
+        for passages in passages {
             if let TranscriptionAsset::Track {
                 album_name: Some(album_name),
                 ..
@@ -720,7 +717,7 @@ impl TranscriptionConfig {
                     .or_default()
                     .push(album_name.clone());
             }
-        });
+        }
 
         metadata
     }
@@ -745,7 +742,7 @@ impl GenerateManifests for TranscriptionConfig {
         // the lesson and exercise manifests.
         let mut passages = self.open_passage_directory(course_root)?;
         passages.extend(self.inlined_passages.clone());
-        let lessons = self.generate_lesson_manifests(course_manifest, preferences, &passages)?;
+        let lessons = self.generate_lesson_manifests(course_manifest, preferences, &passages);
 
         // Update the course's metadata and instructions.
         let metadata = Self::generate_course_metadata(&course_manifest.metadata, &passages);
@@ -782,7 +779,7 @@ mod test {
         let asset_id = "asset_id";
         let passage_id = 2;
         assert_eq!(
-            TranscriptionConfig::exercise_id(&lesson_id, &asset_id, passage_id),
+            TranscriptionConfig::exercise_id(lesson_id, &asset_id, passage_id),
             Ustr::from("lesson_id::asset_id::2")
         );
     }
@@ -792,7 +789,7 @@ mod test {
     fn singing_lesson_id() {
         let course_id = Ustr::from("course_id");
         assert_eq!(
-            TranscriptionConfig::singing_lesson_id(&course_id),
+            TranscriptionConfig::singing_lesson_id(course_id),
             Ustr::from("course_id::singing")
         );
     }
@@ -802,7 +799,7 @@ mod test {
     fn advanced_singing_lesson_id() {
         let course_id = Ustr::from("course_id");
         assert_eq!(
-            TranscriptionConfig::advanced_singing_lesson_id(&course_id),
+            TranscriptionConfig::advanced_singing_lesson_id(course_id),
             Ustr::from("course_id::advanced_singing")
         );
     }
@@ -816,7 +813,7 @@ mod test {
             id: "piano".into(),
         };
         assert_eq!(
-            TranscriptionConfig::transcription_lesson_id(&course_id, &instrument),
+            TranscriptionConfig::transcription_lesson_id(course_id, &instrument),
             Ustr::from("course_id::transcription::piano"),
         );
     }
@@ -830,7 +827,7 @@ mod test {
             id: "piano".into(),
         };
         assert_eq!(
-            TranscriptionConfig::advanced_transcription_lesson_id(&course_id, &instrument),
+            TranscriptionConfig::advanced_transcription_lesson_id(course_id, &instrument),
             Ustr::from("course_id::advanced_transcription::piano"),
         );
     }

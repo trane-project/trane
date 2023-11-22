@@ -272,7 +272,7 @@ impl CandidateFilter {
     /// manifests which fit the mastery windows defined in the scheduler options.
     pub fn filter_candidates(
         &self,
-        candidates: Vec<Candidate>,
+        candidates: &[Candidate],
     ) -> Result<Vec<(Ustr, ExerciseManifest)>> {
         // Find the batch size to use.
         let options = &self.data.options;
@@ -281,13 +281,12 @@ impl CandidateFilter {
 
         // Find the candidates that fit in each window.
         let mastered_candidates =
-            Self::candidates_in_window(&candidates, &options.mastered_window_opts);
-        let easy_candidates = Self::candidates_in_window(&candidates, &options.easy_window_opts);
+            Self::candidates_in_window(candidates, &options.mastered_window_opts);
+        let easy_candidates = Self::candidates_in_window(candidates, &options.easy_window_opts);
         let current_candidates =
-            Self::candidates_in_window(&candidates, &options.current_window_opts);
-        let target_candidates =
-            Self::candidates_in_window(&candidates, &options.target_window_opts);
-        let new_candidates = Self::candidates_in_window(&candidates, &options.new_window_opts);
+            Self::candidates_in_window(candidates, &options.current_window_opts);
+        let target_candidates = Self::candidates_in_window(candidates, &options.target_window_opts);
+        let new_candidates = Self::candidates_in_window(candidates, &options.new_window_opts);
 
         // Initialize the final list. For each window in descending order of mastery, add the
         // appropriate number of candidates to the final list.

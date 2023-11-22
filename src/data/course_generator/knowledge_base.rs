@@ -156,8 +156,8 @@ impl TryFrom<&str> for KnowledgeBaseFile {
 /// `e.front.md` and `e.back.md` in a course with ID `a::b::c` inside a lesson directory named
 /// `d.lesson` will generate and exercise with ID `a::b::c::d::e`.
 ///
-/// Each the optional fields mirror one of the fields in the [ExerciseManifest] and their values can
-/// be set by writing a JSON file inside the lesson directory with the name
+/// Each the optional fields mirror one of the fields in the [`ExerciseManifest`] and their values
+/// can be set by writing a JSON file inside the lesson directory with the name
 /// `<SHORT_EXERCISE_ID>.<PROPERTY_NAME>.json`. This file should contain a JSON serialization of the
 /// desired value. For example, to set the exercise's name for an exercise with a short ID value of
 /// `ex1`, one would write a file named `ex1.name.json` containing a JSON string with the desired
@@ -296,7 +296,7 @@ impl From<KnowledgeBaseExercise> for ExerciseManifest {
 /// contains a directory of name `d.lesson` will generate the manifest for a lesson with ID
 /// `a::b::c::d`.
 ///
-/// All the optional fields mirror one of the fields in the [LessonManifest] and their values can be
+/// All the optional fields mirror one of the fields in the [`LessonManifest`] and their values can be
 /// set by writing a JSON file inside the lesson directory with the name
 /// `lesson.<PROPERTY_NAME>.json`. This file should contain a JSON serialization of the desired
 /// value. For example, to set the lesson's dependencies one would write a file named
@@ -353,7 +353,7 @@ impl KnowledgeBaseLesson {
     // allowed, as it is not required to have one.
     fn filter_matching_exercises(exercise_files: &mut HashMap<String, Vec<KnowledgeBaseFile>>) {
         let mut to_remove = Vec::new();
-        for (short_id, files) in exercise_files.iter() {
+        for (short_id, files) in &*exercise_files {
             let has_front = files
                 .iter()
                 .any(|file| matches!(file, KnowledgeBaseFile::ExerciseFront(_)));
@@ -400,15 +400,15 @@ impl KnowledgeBaseLesson {
                 }
                 KnowledgeBaseFile::LessonName => {
                     let path = lesson_root.join(LESSON_NAME_FILE);
-                    lesson.name = Some(KnowledgeBaseFile::open(&path)?)
+                    lesson.name = Some(KnowledgeBaseFile::open(&path)?);
                 }
                 KnowledgeBaseFile::LessonDescription => {
                     let path = lesson_root.join(LESSON_DESCRIPTION_FILE);
-                    lesson.description = Some(KnowledgeBaseFile::open(&path)?)
+                    lesson.description = Some(KnowledgeBaseFile::open(&path)?);
                 }
                 KnowledgeBaseFile::LessonMetadata => {
                     let path = lesson_root.join(LESSON_METADATA_FILE);
-                    lesson.metadata = Some(KnowledgeBaseFile::open(&path)?)
+                    lesson.metadata = Some(KnowledgeBaseFile::open(&path)?);
                 }
                 KnowledgeBaseFile::LessonInstructions => lesson.has_instructions = true,
                 KnowledgeBaseFile::LessonMaterial => lesson.has_material = true,
@@ -505,7 +505,7 @@ impl From<KnowledgeBaseLesson> for LessonManifest {
 }
 
 /// The configuration for a knowledge base course. Currently, this is an empty struct, but it is
-/// added for consistency with other course generators and to implement the [GenerateManifests]
+/// added for consistency with other course generators and to implement the [`GenerateManifests`]
 /// trait.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct KnowledgeBaseConfig {}
@@ -515,10 +515,10 @@ impl KnowledgeBaseConfig {
     // its short ID and updates them to refer to the full lesson ID.
     fn convert_to_full_ids(
         course_manifest: &CourseManifest,
-        short_ids: HashSet<Ustr>,
+        short_ids: &HashSet<Ustr>,
         lessons: &mut UstrMap<(KnowledgeBaseLesson, Vec<KnowledgeBaseExercise>)>,
     ) {
-        lessons.iter_mut().for_each(|(_, lesson)| {
+        for lesson in lessons.values_mut() {
             // Update dependencies.
             let updated_dependencies = lesson
                 .0
@@ -548,7 +548,7 @@ impl KnowledgeBaseConfig {
                 })
                 .collect();
             lesson.0.superseded = updated_superseded;
-        });
+        }
     }
 }
 
@@ -585,8 +585,8 @@ impl GenerateManifests for KnowledgeBaseConfig {
         }
 
         // Convert all the dependencies to full lesson IDs.
-        let short_ids: HashSet<Ustr> = lessons.keys().cloned().collect();
-        KnowledgeBaseConfig::convert_to_full_ids(course_manifest, short_ids, &mut lessons);
+        let short_ids: HashSet<Ustr> = lessons.keys().copied().collect();
+        KnowledgeBaseConfig::convert_to_full_ids(course_manifest, &short_ids, &mut lessons);
 
         // Generate the manifests for all the lessons and exercises.
         let manifests: Vec<(LessonManifest, Vec<ExerciseManifest>)> = lessons
@@ -832,11 +832,7 @@ mod test {
         // Convert the short IDs to full IDs.
         let short_ids =
             HashSet::from_iter(vec!["lesson0".into(), "lesson1".into(), "lesson2".into()]);
-        KnowledgeBaseConfig::convert_to_full_ids(
-            &course_manifest,
-            short_ids.clone(),
-            &mut lesson_map,
-        );
+        KnowledgeBaseConfig::convert_to_full_ids(&course_manifest, &short_ids, &mut lesson_map);
 
         assert_eq!(
             lesson_map.get(&short_lesson_id).unwrap().0.dependencies,

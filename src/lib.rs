@@ -19,19 +19,33 @@
 //!
 //@<lp-example-3
 //! Here's an overview of some of the most important modules in this crate and their purpose:
-//! - [data]: Contains the basic data structures used by Trane.
-//! - [graph]: Defines the graph used by Trane to list the units of material and the dependencies
+//! - [`data`]: Contains the basic data structures used by Trane.
+//! - [`graph`]: Defines the graph used by Trane to list the units of material and the dependencies
 //!   among them.
-//! - [course_library]: Reads a collection of courses, lessons, and exercises from the file system
+//! - [`course_library`]: Reads a collection of courses, lessons, and exercises from the file system
 //!   and provides basic utilities for working with them.
-//! - [scheduler]: Defines the algorithm used by Trane to select exercises to present to the user.
-//! - [practice_stats]: Stores the results of practice sessions for use in determining the next
+//! - [`scheduler`]: Defines the algorithm used by Trane to select exercises to present to the user.
+//! - [`practice_stats`]: Stores the results of practice sessions for use in determining the next
 //!   batch of exercises.
-//! - [blacklist]: Defines the list of units the student wishes to hide, either because their
+//! - [`blacklist`]: Defines the list of units the student wishes to hide, either because their
 //!   material has already been mastered or they do not wish to learn it.
-//! - [scorer]: Calculates a score for an exercise based on the results and timestamps of previous
+//! - [`scorer`]: Calculates a score for an exercise based on the results and timestamps of previous
 //!   trials.
 //>@lp-example-3
+
+// Allow pedantic warnings but disable some that are not useful.
+#![warn(clippy::pedantic)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::wildcard_imports)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::too_many_lines)]
+// Allow this one temporarily because fixing it requires changing the signatures of public
+// interfaces.
+#![allow(clippy::trivially_copy_pass_by_ref)]
 
 pub mod blacklist;
 pub mod course_builder;
@@ -76,13 +90,13 @@ use scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseScheduler};
 /// The path to the folder inside each course library containing the user data.
 pub const TRANE_CONFIG_DIR_PATH: &str = ".trane";
 
-/// The path to the SQLite database containing the results of previous exercise trials.
+/// The path to the `SQLite` database containing the results of previous exercise trials.
 pub const PRACTICE_STATS_PATH: &str = "practice_stats.db";
 
-/// The path to the SQLite database containing the list of units to ignore during scheduling.
+/// The path to the `SQLite` database containing the list of units to ignore during scheduling.
 pub const BLACKLIST_PATH: &str = "blacklist.db";
 
-/// The path to the SQLite database containing the list of units the student wishes to review.
+/// The path to the `SQLite` database containing the list of units the student wishes to review.
 pub const REVIEW_LIST_PATH: &str = "review_list.db";
 
 /// The path to the directory containing unit filters saved by the user.
@@ -336,11 +350,11 @@ impl ExerciseScheduler for Trane {
     }
 
     fn invalidate_cached_score(&self, unit_id: &Ustr) {
-        self.scheduler.invalidate_cached_score(unit_id)
+        self.scheduler.invalidate_cached_score(unit_id);
     }
 
     fn invalidate_cached_scores_with_prefix(&self, prefix: &str) {
-        self.scheduler.invalidate_cached_scores_with_prefix(prefix)
+        self.scheduler.invalidate_cached_scores_with_prefix(prefix);
     }
 
     fn get_scheduler_options(&self) -> SchedulerOptions {
@@ -348,11 +362,11 @@ impl ExerciseScheduler for Trane {
     }
 
     fn set_scheduler_options(&mut self, options: SchedulerOptions) {
-        self.scheduler.set_scheduler_options(options)
+        self.scheduler.set_scheduler_options(options);
     }
 
     fn reset_scheduler_options(&mut self) {
-        self.scheduler.reset_scheduler_options()
+        self.scheduler.reset_scheduler_options();
     }
 }
 
@@ -474,7 +488,7 @@ impl UnitGraph for Trane {
     }
 
     fn add_superseded(&mut self, unit_id: &Ustr, superseded: &[Ustr]) {
-        self.unit_graph.write().add_superseded(unit_id, superseded)
+        self.unit_graph.write().add_superseded(unit_id, superseded);
     }
 
     fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType> {
@@ -490,7 +504,7 @@ impl UnitGraph for Trane {
     }
 
     fn update_starting_lessons(&mut self) {
-        self.unit_graph.write().update_starting_lessons()
+        self.unit_graph.write().update_starting_lessons();
     }
 
     fn get_lesson_course(&self, lesson_id: &Ustr) -> Option<Ustr> {

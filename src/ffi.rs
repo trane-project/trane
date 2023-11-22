@@ -148,23 +148,23 @@ impl ExerciseSchedulerFFI for TraneFFI {
             .score_exercise(exercise_id, score.into(), timestamp)
     }
     fn invalidate_cached_score(&self, unit_id: &Ustr) {
-        self.trane.invalidate_cached_score(unit_id)
+        self.trane.invalidate_cached_score(unit_id);
     }
     fn invalidate_cached_scores_with_prefix(&self, prefix: &str) {
-        self.trane.invalidate_cached_scores_with_prefix(prefix)
+        self.trane.invalidate_cached_scores_with_prefix(prefix);
     }
     fn get_scheduler_options(&self) -> SchedulerOptions {
         self.trane.get_scheduler_options().into()
     }
     fn set_scheduler_options(&mut self, options: SchedulerOptions) {
-        self.trane.set_scheduler_options(options.into())
+        self.trane.set_scheduler_options(options.into());
     }
     fn reset_scheduler_options(&mut self) {
-        self.trane.reset_scheduler_options()
+        self.trane.reset_scheduler_options();
     }
 }
 
-/// The FFI version of the FilterManager trait.
+/// The FFI version of the `FilterManager` trait.
 #[allow(missing_docs)]
 pub trait FilterManagerFFI {
     fn get_filter(&self, id: &str) -> Option<SavedFilter>;
@@ -344,7 +344,7 @@ impl UnitGraphFFI for TraneFFI {
             .add_dependencies(unit_id, unit_type.into(), dependencies)
     }
     fn add_superseded(&mut self, unit_id: &Ustr, superseded: &[Ustr]) {
-        self.trane.add_superseded(unit_id, superseded)
+        self.trane.add_superseded(unit_id, superseded);
     }
     fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType> {
         self.trane.get_unit_type(unit_id).map(Into::into)
@@ -353,7 +353,7 @@ impl UnitGraphFFI for TraneFFI {
         self.trane.get_course_lessons(course_id)
     }
     fn update_starting_lessons(&mut self) {
-        self.trane.update_starting_lessons()
+        self.trane.update_starting_lessons();
     }
     fn get_starting_lessons(&self, course_id: &Ustr) -> Option<UstrSet> {
         self.trane.get_starting_lessons(course_id)

@@ -173,7 +173,7 @@ impl ScoreCache {
         let scores = superseding_ids
             .iter()
             .map(|id| self.get_unit_score(id).unwrap_or_default())
-            .filter(|score| score.is_some())
+            .filter(Option::is_some)
             .collect::<Vec<_>>();
         scores
             .iter()
@@ -184,7 +184,7 @@ impl ScoreCache {
     /// replace them from the original set with those units.
     fn replace_superseding(&self, superseding_ids: UstrSet) -> UstrSet {
         let mut result = UstrSet::default();
-        superseding_ids.into_iter().for_each(|id| {
+        for id in superseding_ids {
             let superseding = self.data.get_superseding(&id);
             if let Some(superseding) = superseding {
                 // The unit has some superseding units of its own. If the unit has been superseded
@@ -198,7 +198,7 @@ impl ScoreCache {
                 // The unit has no superseding units, so add it to the result.
                 result.insert(id);
             }
-        });
+        }
         result
     }
 
@@ -212,7 +212,7 @@ impl ScoreCache {
     /// Returns the average score of all the exercises in the given lesson.
     fn get_lesson_score(&self, lesson_id: &Ustr) -> Result<Option<f32>> {
         // Return the cached score if it exists.
-        let cached_score = self.lesson_cache.borrow().get(lesson_id).cloned();
+        let cached_score = self.lesson_cache.borrow().get(lesson_id).copied();
         if let Some(score) = cached_score {
             return Ok(score);
         }
@@ -276,7 +276,7 @@ impl ScoreCache {
     /// Returns the average score of all the lesson scores in the given course.
     fn get_course_score(&self, course_id: &Ustr) -> Result<Option<f32>> {
         // Return the cached score if it exists.
-        let cached_score = self.course_cache.borrow().get(course_id).cloned();
+        let cached_score = self.course_cache.borrow().get(course_id).copied();
         if let Some(score) = cached_score {
             return Ok(score);
         }
