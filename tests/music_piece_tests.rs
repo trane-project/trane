@@ -179,7 +179,7 @@ fn all_exercises_visited_simple_local() -> Result<()> {
         exercise_ids.len() * 5,
         Box::new(|_| Some(MasteryScore::Five)),
     );
-    simulation.run_simulation(&mut trane, &vec![], None)?;
+    simulation.run_simulation(&mut trane, &vec![], &None)?;
 
     // Every exercise ID should be in `simulation.answer_history`.
     for exercise_id in exercise_ids {
@@ -220,7 +220,7 @@ fn all_exercises_visited_simple_soundslice() -> Result<()> {
         exercise_ids.len() * 5,
         Box::new(|_| Some(MasteryScore::Five)),
     );
-    simulation.run_simulation(&mut trane, &vec![], None)?;
+    simulation.run_simulation(&mut trane, &vec![], &None)?;
 
     // Every exercise ID should be in `simulation.answer_history`.
     for exercise_id in exercise_ids {
@@ -257,7 +257,7 @@ fn all_exercises_visited_complex() -> Result<()> {
         exercise_ids.len() * 5,
         Box::new(|_| Some(MasteryScore::Five)),
     );
-    simulation.run_simulation(&mut trane, &vec![], None)?;
+    simulation.run_simulation(&mut trane, &vec![], &None)?;
 
     // Every exercise ID should be in `simulation.answer_history`.
     for exercise_id in exercise_ids {
@@ -294,7 +294,7 @@ fn no_progress_complex() -> Result<()> {
         exercise_ids.len() * 5,
         Box::new(|_| Some(MasteryScore::One)),
     );
-    simulation.run_simulation(&mut trane, &vec![], None)?;
+    simulation.run_simulation(&mut trane, &vec![], &None)?;
 
     // Find all the exercises in the simulation history. There should be less than the total number
     // of exercises.
@@ -330,7 +330,7 @@ fn no_progress_simple() -> Result<()> {
         exercise_ids.len() * 5,
         Box::new(|_| Some(MasteryScore::One)),
     );
-    simulation.run_simulation(&mut trane, &vec![], None)?;
+    simulation.run_simulation(&mut trane, &vec![], &None)?;
 
     // Find all the exercises in the simulation history. Given that there's only one exercise, it
     // has been visited.

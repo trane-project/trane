@@ -31,7 +31,7 @@ fn all_exercises_scheduled_random() -> Result<()> {
         exercise_ids.len() * 50,
         Box::new(|_| Some(MasteryScore::Five)),
     );
-    simulation.run_simulation(&mut trane, &vec![], None)?;
+    simulation.run_simulation(&mut trane, &vec![], &None)?;
 
     // Every exercise ID should be in `simulation.answer_history`.
     for exercise_id in exercise_ids {

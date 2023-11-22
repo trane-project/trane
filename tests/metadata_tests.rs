@@ -352,7 +352,7 @@ fn scheduler_respects_metadata_filter_op_all() -> Result<()> {
     simulation.run_simulation(
         &mut trane,
         &vec![],
-        Some(ExerciseFilter::UnitFilter(filter)),
+        &Some(ExerciseFilter::UnitFilter(filter)),
     )?;
 
     // Only exercises in the lessons that match the metadata filters should be scheduled.
@@ -415,7 +415,7 @@ fn scheduler_respects_metadata_filter_op_any() -> Result<()> {
     simulation.run_simulation(
         &mut trane,
         &vec![],
-        Some(ExerciseFilter::UnitFilter(filter)),
+        &Some(ExerciseFilter::UnitFilter(filter)),
     )?;
 
     // Only exercises in the lessons that match the metadata filters should be scheduled.
@@ -469,7 +469,7 @@ fn scheduler_respects_lesson_metadata_filter() -> Result<()> {
     simulation.run_simulation(
         &mut trane,
         &vec![],
-        Some(ExerciseFilter::UnitFilter(filter)),
+        &Some(ExerciseFilter::UnitFilter(filter)),
     )?;
 
     // Only exercises in the lessons that match the metadata filters should be scheduled.
@@ -521,7 +521,7 @@ fn scheduler_respects_course_metadata_filter() -> Result<()> {
     simulation.run_simulation(
         &mut trane,
         &vec![],
-        Some(ExerciseFilter::UnitFilter(filter)),
+        &Some(ExerciseFilter::UnitFilter(filter)),
     )?;
 
     // Only exercises in the lessons that match the metadata filters should be scheduled.
@@ -581,7 +581,7 @@ fn scheduler_respects_metadata_filter_and_blacklist() -> Result<()> {
     simulation.run_simulation(
         &mut trane,
         &blacklist,
-        Some(ExerciseFilter::UnitFilter(filter)),
+        &Some(ExerciseFilter::UnitFilter(filter)),
     )?;
 
     // Only exercises in the lessons that match the metadata filters should be scheduled.

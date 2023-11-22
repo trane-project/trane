@@ -353,7 +353,7 @@ impl KnowledgeBaseLesson {
     // allowed, as it is not required to have one.
     fn filter_matching_exercises(exercise_files: &mut HashMap<String, Vec<KnowledgeBaseFile>>) {
         let mut to_remove = Vec::new();
-        for (short_id, files) in exercise_files.iter() {
+        for (short_id, files) in &*exercise_files {
             let has_front = files
                 .iter()
                 .any(|file| matches!(file, KnowledgeBaseFile::ExerciseFront(_)));
@@ -518,7 +518,7 @@ impl KnowledgeBaseConfig {
         short_ids: &HashSet<Ustr>,
         lessons: &mut UstrMap<(KnowledgeBaseLesson, Vec<KnowledgeBaseExercise>)>,
     ) {
-        for (_, lesson) in lessons.iter_mut() {
+        for (_, lesson) in lessons {
             // Update dependencies.
             let updated_dependencies = lesson
                 .0
