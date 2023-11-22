@@ -52,7 +52,7 @@ pub struct SchedulerData {
 impl SchedulerData {
     /// Returns the ID of the course to which the lesson with the given ID belongs.
     #[inline]
-    pub fn get_course_id(&self, lesson_id: &Ustr) -> Result<Ustr> {
+    pub fn get_course_id(&self, lesson_id: Ustr) -> Result<Ustr> {
         self.unit_graph
             .read()
             .get_lesson_course(lesson_id)
@@ -62,13 +62,13 @@ impl SchedulerData {
     /// Returns the type of the given unit.
     #[inline]
     #[must_use]
-    pub fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType> {
+    pub fn get_unit_type(&self, unit_id: Ustr) -> Option<UnitType> {
         self.unit_graph.read().get_unit_type(unit_id)
     }
 
     /// Returns the type of the given unit. Returns an error if the type is not known.
     #[inline]
-    pub fn get_unit_type_strict(&self, unit_id: &Ustr) -> Result<UnitType> {
+    pub fn get_unit_type_strict(&self, unit_id: Ustr) -> Result<UnitType> {
         self.unit_graph
             .read()
             .get_unit_type(unit_id)
@@ -77,7 +77,7 @@ impl SchedulerData {
 
     /// Returns the manifest for the course with the given ID.
     #[inline]
-    pub fn get_course_manifest(&self, course_id: &Ustr) -> Result<CourseManifest> {
+    pub fn get_course_manifest(&self, course_id: Ustr) -> Result<CourseManifest> {
         self.course_library
             .read()
             .get_course_manifest(course_id)
@@ -86,7 +86,7 @@ impl SchedulerData {
 
     /// Returns the manifest for the course with the given ID.
     #[inline]
-    pub fn get_lesson_manifest(&self, lesson_id: &Ustr) -> Result<LessonManifest> {
+    pub fn get_lesson_manifest(&self, lesson_id: Ustr) -> Result<LessonManifest> {
         self.course_library
             .read()
             .get_lesson_manifest(lesson_id)
@@ -95,7 +95,7 @@ impl SchedulerData {
 
     /// Returns the manifest for the exercise with the given ID.
     #[inline]
-    pub fn get_exercise_manifest(&self, exercise_id: &Ustr) -> Result<ExerciseManifest> {
+    pub fn get_exercise_manifest(&self, exercise_id: Ustr) -> Result<ExerciseManifest> {
         self.course_library
             .read()
             .get_exercise_manifest(exercise_id)
@@ -104,7 +104,7 @@ impl SchedulerData {
 
     /// Returns whether the unit with the given ID is blacklisted.
     #[inline]
-    pub fn blacklisted(&self, unit_id: &Ustr) -> Result<bool> {
+    pub fn blacklisted(&self, unit_id: Ustr) -> Result<bool> {
         let blacklisted = self.blacklist.read().blacklisted(unit_id)?;
         Ok(blacklisted)
     }
@@ -112,7 +112,7 @@ impl SchedulerData {
     /// Returns all the units that are dependencies of the unit with the given ID.
     #[inline]
     #[must_use]
-    pub fn get_all_dependents(&self, unit_id: &Ustr) -> Vec<Ustr> {
+    pub fn get_all_dependents(&self, unit_id: Ustr) -> Vec<Ustr> {
         return self
             .unit_graph
             .read()
@@ -125,16 +125,16 @@ impl SchedulerData {
     /// Returns all the units that supersede the unit with the given ID.
     #[inline]
     #[must_use]
-    pub fn get_superseding(&self, unit_id: &Ustr) -> Option<UstrSet> {
+    pub fn get_superseding(&self, unit_id: Ustr) -> Option<UstrSet> {
         return self.unit_graph.read().get_superseding(unit_id);
     }
 
     /// Returns all the dependencies of the unit with the given ID at the given depth.
     #[must_use]
-    pub fn get_dependencies_at_depth(&self, unit_id: &Ustr, depth: usize) -> Vec<Ustr> {
+    pub fn get_dependencies_at_depth(&self, unit_id: Ustr, depth: usize) -> Vec<Ustr> {
         // Search for the dependencies at the given depth.
         let mut dependencies = vec![];
-        let mut stack = vec![(*unit_id, 0)];
+        let mut stack = vec![(unit_id, 0)];
         while let Some((candidate_id, candidate_depth)) = stack.pop() {
             if candidate_depth == depth {
                 // Reached the end of the search.
@@ -143,7 +143,7 @@ impl SchedulerData {
             }
 
             // Otherwise, look up the dependencies of the candidate and continue the search.
-            let candidate_dependencies = self.unit_graph.read().get_dependencies(&candidate_id);
+            let candidate_dependencies = self.unit_graph.read().get_dependencies(candidate_id);
             match candidate_dependencies {
                 Some(candidate_dependencies) => {
                     if candidate_dependencies.is_empty() {
@@ -165,21 +165,21 @@ impl SchedulerData {
         // Remove any units not found in the graph. This can happen if a unit claims a dependency on
         // a unit not found in the graph.
         dependencies
-            .retain(|dependency| self.unit_graph.read().get_unit_type(dependency).is_some());
+            .retain(|dependency| self.unit_graph.read().get_unit_type(*dependency).is_some());
         dependencies
     }
 
     /// Returns the value of the `course_id` field in the manifest of the given lesson.
     #[inline]
     #[must_use]
-    pub fn get_lesson_course(&self, lesson_id: &Ustr) -> Option<Ustr> {
+    pub fn get_lesson_course(&self, lesson_id: Ustr) -> Option<Ustr> {
         self.unit_graph.read().get_lesson_course(lesson_id)
     }
 
     /// Returns whether the unit exists in the library. Some units will exist in the unit graph
     /// because they are a dependency of another, but their data might not exist in the library.
     #[inline]
-    pub fn unit_exists(&self, unit_id: &Ustr) -> Result<bool> {
+    pub fn unit_exists(&self, unit_id: Ustr) -> Result<bool> {
         // Retrieve the unit type. A missing unit type indicates the unit does not exist.
         let unit_type = self.unit_graph.read().get_unit_type(unit_id);
         if unit_type.is_none() {
@@ -198,7 +198,7 @@ impl SchedulerData {
     /// Returns the exercises contained within the given unit.
     #[inline]
     #[must_use]
-    pub fn get_lesson_exercises(&self, unit_id: &Ustr) -> Vec<Ustr> {
+    pub fn get_lesson_exercises(&self, unit_id: Ustr) -> Vec<Ustr> {
         self.unit_graph
             .read()
             .get_lesson_exercises(unit_id)
@@ -210,7 +210,7 @@ impl SchedulerData {
     /// Returns the number of lessons in the given course.
     #[inline]
     #[must_use]
-    pub fn get_num_lessons_in_course(&self, course_id: &Ustr) -> usize {
+    pub fn get_num_lessons_in_course(&self, course_id: Ustr) -> usize {
         let lessons: UstrSet = self
             .unit_graph
             .read()
@@ -224,7 +224,7 @@ impl SchedulerData {
     #[inline]
     pub fn unit_passes_filter(
         &self,
-        unit_id: &Ustr,
+        unit_id: Ustr,
         metadata_filter: Option<&KeyValueFilter>,
     ) -> Result<bool> {
         // All units pass if there is no filter.
@@ -252,7 +252,7 @@ impl SchedulerData {
                 // Retrieve the lesson and course manifests and check if the lesson passes the
                 // filter.
                 let course_manifest =
-                    self.get_course_manifest(&self.get_lesson_course(unit_id).unwrap_or_default())?;
+                    self.get_course_manifest(self.get_lesson_course(unit_id).unwrap_or_default())?;
                 let lesson_manifest = self.get_lesson_manifest(unit_id)?;
                 Ok(metadata_filter
                     .as_ref()
@@ -264,19 +264,19 @@ impl SchedulerData {
 
     /// Increments the value in the frequency map for the given exercise ID.
     #[inline]
-    pub fn increment_exercise_frequency(&self, exercise_id: &Ustr) {
+    pub fn increment_exercise_frequency(&self, exercise_id: Ustr) {
         let mut frequency_map = self.frequency_map.write();
-        let frequency = frequency_map.entry(*exercise_id).or_insert(0);
+        let frequency = frequency_map.entry(exercise_id).or_insert(0);
         *frequency += 1;
     }
 
     /// Returns the frequency of the given exercise ID.
     #[inline]
     #[must_use]
-    pub fn get_exercise_frequency(&self, exercise_id: &Ustr) -> usize {
+    pub fn get_exercise_frequency(&self, exercise_id: Ustr) -> usize {
         self.frequency_map
             .read()
-            .get(exercise_id)
+            .get(&exercise_id)
             .copied()
             .unwrap_or(0)
     }
@@ -308,7 +308,7 @@ impl SchedulerData {
 
     /// Returns all the valid exercises in the given lesson.
     #[must_use]
-    pub fn all_valid_exercises_in_lesson(&self, lesson_id: &Ustr) -> Vec<Ustr> {
+    pub fn all_valid_exercises_in_lesson(&self, lesson_id: Ustr) -> Vec<Ustr> {
         // If the lesson is blacklisted, return no exercises.
         if self.blacklisted(lesson_id).unwrap_or(false) {
             return vec![];
@@ -316,7 +316,7 @@ impl SchedulerData {
 
         // If the course to which the lesson belongs is blacklisted, return no exercises.
         let course_id = self.get_lesson_course(lesson_id).unwrap_or_default();
-        if self.blacklisted(&course_id).unwrap_or(false) {
+        if self.blacklisted(course_id).unwrap_or(false) {
             return vec![];
         }
 
@@ -324,13 +324,13 @@ impl SchedulerData {
         let exercises = self.get_lesson_exercises(lesson_id);
         exercises
             .into_iter()
-            .filter(|exercise_id| !self.blacklisted(exercise_id).unwrap_or(false))
+            .filter(|exercise_id| !self.blacklisted(*exercise_id).unwrap_or(false))
             .collect()
     }
 
     /// Returns all the valid exercises in the given unit.
     #[must_use]
-    pub fn all_valid_exercises(&self, unit_id: &Ustr) -> Vec<Ustr> {
+    pub fn all_valid_exercises(&self, unit_id: Ustr) -> Vec<Ustr> {
         // First, get the type of the unit. Then get the exercises based on the unit type.
         let unit_type = self.get_unit_type(unit_id);
         match unit_type {
@@ -340,7 +340,7 @@ impl SchedulerData {
                 if self.blacklisted(unit_id).unwrap_or(false) {
                     vec![]
                 } else {
-                    vec![*unit_id]
+                    vec![unit_id]
                 }
             }
             Some(UnitType::Lesson) => self.all_valid_exercises_in_lesson(unit_id),
@@ -358,7 +358,7 @@ impl SchedulerData {
                     .unwrap_or_default();
                 lessons
                     .into_iter()
-                    .flat_map(|lesson_id| self.all_valid_exercises_in_lesson(&lesson_id))
+                    .flat_map(|lesson_id| self.all_valid_exercises_in_lesson(lesson_id))
                     .collect()
             }
         }
@@ -455,20 +455,20 @@ mod test {
         let scheduler_data = library.get_scheduler_data();
 
         assert_eq!(
-            scheduler_data.get_unit_type_strict(&Ustr::from("0"))?,
+            scheduler_data.get_unit_type_strict(Ustr::from("0"))?,
             UnitType::Course
         );
-        assert!(scheduler_data.unit_exists(&Ustr::from("0"))?);
+        assert!(scheduler_data.unit_exists(Ustr::from("0"))?);
         assert_eq!(
-            scheduler_data.get_unit_type_strict(&Ustr::from("0::0"))?,
+            scheduler_data.get_unit_type_strict(Ustr::from("0::0"))?,
             UnitType::Lesson
         );
-        assert!(scheduler_data.unit_exists(&Ustr::from("0::0"))?);
+        assert!(scheduler_data.unit_exists(Ustr::from("0::0"))?);
         assert_eq!(
-            scheduler_data.get_unit_type_strict(&Ustr::from("0::0::0"))?,
+            scheduler_data.get_unit_type_strict(Ustr::from("0::0::0"))?,
             UnitType::Exercise
         );
-        assert!(scheduler_data.unit_exists(&Ustr::from("0::0::0"))?);
+        assert!(scheduler_data.unit_exists(Ustr::from("0::0::0"))?);
         Ok(())
     }
 
@@ -484,7 +484,7 @@ mod test {
             filter_type: FilterType::Include,
         };
         assert!(scheduler_data
-            .unit_passes_filter(&Ustr::from("0::0::0"), Some(&metadata_filter))
+            .unit_passes_filter(Ustr::from("0::0::0"), Some(&metadata_filter))
             .is_err());
         Ok(())
     }
@@ -498,12 +498,12 @@ mod test {
         let scheduler_data = library.get_scheduler_data();
 
         assert_eq!(
-            scheduler_data.get_exercise_frequency(&Ustr::from("0::0::0")),
+            scheduler_data.get_exercise_frequency(Ustr::from("0::0::0")),
             0
         );
-        scheduler_data.increment_exercise_frequency(&Ustr::from("0::0::0"));
+        scheduler_data.increment_exercise_frequency(Ustr::from("0::0::0"));
         assert_eq!(
-            scheduler_data.get_exercise_frequency(&Ustr::from("0::0::0")),
+            scheduler_data.get_exercise_frequency(Ustr::from("0::0::0")),
             1
         );
         Ok(())
@@ -594,12 +594,12 @@ mod test {
 
         // Verify an empty list is returned when an unknown unit is passed.
         assert!(scheduler_data
-            .all_valid_exercises(&Ustr::from("unknown"))
+            .all_valid_exercises(Ustr::from("unknown"))
             .is_empty());
 
         // Get the valid exercises when the ID is an exercise.
         assert_eq!(
-            scheduler_data.all_valid_exercises(&Ustr::from("0::0::0")),
+            scheduler_data.all_valid_exercises(Ustr::from("0::0::0")),
             vec![Ustr::from("0::0::0")]
         );
 
@@ -607,14 +607,14 @@ mod test {
         scheduler_data
             .blacklist
             .write()
-            .add_to_blacklist(&Ustr::from("0::0::0"))?;
+            .add_to_blacklist(Ustr::from("0::0::0"))?;
         assert!(scheduler_data
-            .all_valid_exercises(&Ustr::from("0::0::0"))
+            .all_valid_exercises(Ustr::from("0::0::0"))
             .is_empty());
 
         // Get the valid exercises when the ID is a lesson.
         assert_eq!(
-            scheduler_data.all_valid_exercises(&Ustr::from("0::1")),
+            scheduler_data.all_valid_exercises(Ustr::from("0::1")),
             vec![Ustr::from("0::1::0"), Ustr::from("0::1::1")]
         );
 
@@ -622,14 +622,14 @@ mod test {
         scheduler_data
             .blacklist
             .write()
-            .add_to_blacklist(&Ustr::from("0::1"))?;
+            .add_to_blacklist(Ustr::from("0::1"))?;
         assert!(scheduler_data
-            .all_valid_exercises(&Ustr::from("0::1"))
+            .all_valid_exercises(Ustr::from("0::1"))
             .is_empty());
 
         // Get the valid exercises when the ID is a course.
         assert_eq!(
-            scheduler_data.all_valid_exercises(&Ustr::from("0")),
+            scheduler_data.all_valid_exercises(Ustr::from("0")),
             vec![Ustr::from("0::0::1"),]
         );
 
@@ -637,9 +637,9 @@ mod test {
         scheduler_data
             .blacklist
             .write()
-            .add_to_blacklist(&Ustr::from("0"))?;
+            .add_to_blacklist(Ustr::from("0"))?;
         assert!(scheduler_data
-            .all_valid_exercises(&Ustr::from("0"))
+            .all_valid_exercises(Ustr::from("0"))
             .is_empty());
 
         Ok(())

@@ -59,25 +59,25 @@ const METADATA_SCHEMA_FIELD: &str = "metadata";
 /// operations to retrieve the courses, lessons in a course, and exercises in a lesson.
 pub trait CourseLibrary {
     /// Returns the course manifest for the given course.
-    fn get_course_manifest(&self, course_id: &Ustr) -> Option<CourseManifest>;
+    fn get_course_manifest(&self, course_id: Ustr) -> Option<CourseManifest>;
 
     /// Returns the lesson manifest for the given lesson.
-    fn get_lesson_manifest(&self, lesson_id: &Ustr) -> Option<LessonManifest>;
+    fn get_lesson_manifest(&self, lesson_id: Ustr) -> Option<LessonManifest>;
 
     /// Returns the exercise manifest for the given exercise.
-    fn get_exercise_manifest(&self, exercise_id: &Ustr) -> Option<ExerciseManifest>;
+    fn get_exercise_manifest(&self, exercise_id: Ustr) -> Option<ExerciseManifest>;
 
     /// Returns the IDs of all courses in the library sorted alphabetically.
     fn get_course_ids(&self) -> Vec<Ustr>;
 
     /// Returns the IDs of all lessons in the given course sorted alphabetically.
-    fn get_lesson_ids(&self, course_id: &Ustr) -> Option<Vec<Ustr>>;
+    fn get_lesson_ids(&self, course_id: Ustr) -> Option<Vec<Ustr>>;
 
     /// Returns the IDs of all exercises in the given lesson sorted alphabetically.
-    fn get_exercise_ids(&self, lesson_id: &Ustr) -> Option<Vec<Ustr>>;
+    fn get_exercise_ids(&self, lesson_id: Ustr) -> Option<Vec<Ustr>>;
 
     /// Returns the IDs of all exercises in the given course sorted alphabetically.
-    fn get_all_exercise_ids(&self, unit_id: Option<&Ustr>) -> Vec<Ustr>;
+    fn get_all_exercise_ids(&self, unit_id: Option<Ustr>) -> Vec<Ustr>;
 
     /// Returns the set of units whose ID starts with the given prefix and are of the given type.
     /// If `unit_type` is `None`, then all unit types are considered.
@@ -248,7 +248,7 @@ impl LocalCourseLibrary {
         // Add the exercise to the unit graph and exercise map.
         self.unit_graph
             .write()
-            .add_exercise(&exercise_manifest.id, &exercise_manifest.lesson_id)?;
+            .add_exercise(exercise_manifest.id, exercise_manifest.lesson_id)?;
         self.exercise_map
             .insert(exercise_manifest.id, exercise_manifest);
         Ok(())
@@ -278,15 +278,15 @@ impl LocalCourseLibrary {
         // lesson manifest.
         self.unit_graph
             .write()
-            .add_lesson(&lesson_manifest.id, &lesson_manifest.course_id)?;
+            .add_lesson(lesson_manifest.id, lesson_manifest.course_id)?;
         self.unit_graph.write().add_dependencies(
-            &lesson_manifest.id,
+            lesson_manifest.id,
             UnitType::Lesson,
             &lesson_manifest.dependencies,
         )?;
         self.unit_graph
             .write()
-            .add_superseded(&lesson_manifest.id, &lesson_manifest.superseded);
+            .add_superseded(lesson_manifest.id, &lesson_manifest.superseded);
 
         // Add the generated exercises to the lesson.
         if let Some(exercises) = generated_exercises {
@@ -358,15 +358,15 @@ impl LocalCourseLibrary {
 
         // Add the course, the dependencies, and the superseded units explicitly listed in the
         // manifest.
-        self.unit_graph.write().add_course(&course_manifest.id)?;
+        self.unit_graph.write().add_course(course_manifest.id)?;
         self.unit_graph.write().add_dependencies(
-            &course_manifest.id,
+            course_manifest.id,
             UnitType::Course,
             &course_manifest.dependencies,
         )?;
         self.unit_graph
             .write()
-            .add_superseded(&course_manifest.id, &course_manifest.superseded);
+            .add_superseded(course_manifest.id, &course_manifest.superseded);
 
         // If the course has a generator config, generate the lessons and exercises and add them to
         // the library.
@@ -659,16 +659,16 @@ impl LocalCourseLibrary {
 }
 
 impl CourseLibrary for LocalCourseLibrary {
-    fn get_course_manifest(&self, course_id: &Ustr) -> Option<CourseManifest> {
-        self.course_map.get(course_id).cloned()
+    fn get_course_manifest(&self, course_id: Ustr) -> Option<CourseManifest> {
+        self.course_map.get(&course_id).cloned()
     }
 
-    fn get_lesson_manifest(&self, lesson_id: &Ustr) -> Option<LessonManifest> {
-        self.lesson_map.get(lesson_id).cloned()
+    fn get_lesson_manifest(&self, lesson_id: Ustr) -> Option<LessonManifest> {
+        self.lesson_map.get(&lesson_id).cloned()
     }
 
-    fn get_exercise_manifest(&self, exercise_id: &Ustr) -> Option<ExerciseManifest> {
-        self.exercise_map.get(exercise_id).cloned()
+    fn get_exercise_manifest(&self, exercise_id: Ustr) -> Option<ExerciseManifest> {
+        self.exercise_map.get(&exercise_id).cloned()
     }
 
     fn get_course_ids(&self) -> Vec<Ustr> {
@@ -677,7 +677,7 @@ impl CourseLibrary for LocalCourseLibrary {
         courses
     }
 
-    fn get_lesson_ids(&self, course_id: &Ustr) -> Option<Vec<Ustr>> {
+    fn get_lesson_ids(&self, course_id: Ustr) -> Option<Vec<Ustr>> {
         let mut lessons = self
             .unit_graph
             .read()
@@ -688,7 +688,7 @@ impl CourseLibrary for LocalCourseLibrary {
         Some(lessons)
     }
 
-    fn get_exercise_ids(&self, lesson_id: &Ustr) -> Option<Vec<Ustr>> {
+    fn get_exercise_ids(&self, lesson_id: Ustr) -> Option<Vec<Ustr>> {
         let mut exercises = self
             .unit_graph
             .read()
@@ -699,7 +699,7 @@ impl CourseLibrary for LocalCourseLibrary {
         Some(exercises)
     }
 
-    fn get_all_exercise_ids(&self, unit_id: Option<&Ustr>) -> Vec<Ustr> {
+    fn get_all_exercise_ids(&self, unit_id: Option<Ustr>) -> Vec<Ustr> {
         let mut exercises = match unit_id {
             Some(unit_id) => {
                 // Return the exercises according to the type of the unit.
@@ -714,7 +714,7 @@ impl CourseLibrary for LocalCourseLibrary {
                         .flat_map(|lesson_id| {
                             self.unit_graph
                                 .read()
-                                .get_lesson_exercises(&lesson_id)
+                                .get_lesson_exercises(lesson_id)
                                 .unwrap_or_default()
                         })
                         .collect::<Vec<Ustr>>(),
@@ -725,7 +725,7 @@ impl CourseLibrary for LocalCourseLibrary {
                         .unwrap_or_default()
                         .into_iter()
                         .collect::<Vec<Ustr>>(),
-                    Some(UnitType::Exercise) => vec![*unit_id],
+                    Some(UnitType::Exercise) => vec![unit_id],
                     None => vec![],
                 }
             }

@@ -188,7 +188,7 @@ fn all_exercises_visited_simple_local() -> Result<()> {
             "exercise {:?} should have been scheduled",
             exercise_id
         );
-        assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        assert_simulation_scores(exercise_id, &trane, &simulation.answer_history)?;
     }
     Ok(())
 }
@@ -229,7 +229,7 @@ fn all_exercises_visited_simple_soundslice() -> Result<()> {
             "exercise {:?} should have been scheduled",
             exercise_id
         );
-        assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        assert_simulation_scores(exercise_id, &trane, &simulation.answer_history)?;
     }
     Ok(())
 }
@@ -266,7 +266,7 @@ fn all_exercises_visited_complex() -> Result<()> {
             "exercise {:?} should have been scheduled",
             exercise_id
         );
-        assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        assert_simulation_scores(exercise_id, &trane, &simulation.answer_history)?;
     }
     Ok(())
 }

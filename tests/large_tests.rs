@@ -42,7 +42,7 @@ fn all_exercises_scheduled_random() -> Result<()> {
             "exercise {:?} should have been scheduled",
             exercise_id
         );
-        assert_simulation_scores(&exercise_id.to_ustr(), &trane, &simulation.answer_history)?;
+        assert_simulation_scores(exercise_id.to_ustr(), &trane, &simulation.answer_history)?;
     }
     Ok(())
 }

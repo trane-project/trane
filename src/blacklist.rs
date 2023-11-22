@@ -20,17 +20,17 @@ use crate::{db_utils, error::BlacklistError};
 /// An interface to store and read the list of units which should be skipped during scheduling.
 pub trait Blacklist {
     /// Adds the given unit to the blacklist.
-    fn add_to_blacklist(&mut self, unit_id: &Ustr) -> Result<(), BlacklistError>;
+    fn add_to_blacklist(&mut self, unit_id: Ustr) -> Result<(), BlacklistError>;
 
     /// Removes the given unit from the blacklist. Do nothing if the unit is not already in the
     /// list.
-    fn remove_from_blacklist(&mut self, unit_id: &Ustr) -> Result<(), BlacklistError>;
+    fn remove_from_blacklist(&mut self, unit_id: Ustr) -> Result<(), BlacklistError>;
 
     /// Removes all the units that match the given prefix from the blacklist.
     fn remove_prefix_from_blacklist(&mut self, prefix: &str) -> Result<(), BlacklistError>;
 
     /// Returns whether the given unit is in the blacklist and should be skipped during scheduling.
-    fn blacklisted(&self, unit_id: &Ustr) -> Result<bool, BlacklistError>;
+    fn blacklisted(&self, unit_id: Ustr) -> Result<bool, BlacklistError>;
 
     /// Returns all the entries in the blacklist.
     fn get_blacklist_entries(&self) -> Result<Vec<Ustr>, BlacklistError>;
@@ -92,21 +92,21 @@ impl BlacklistDB {
 
     /// Returns whether there's an entry for the given unit in the blacklist.
     #[inline]
-    fn has_entry(&self, unit_id: &Ustr) -> bool {
+    fn has_entry(&self, unit_id: Ustr) -> bool {
         let mut cache = self.cache.write();
-        if let Some(has_entry) = cache.get(unit_id) {
+        if let Some(has_entry) = cache.get(&unit_id) {
             *has_entry
         } else {
             // Because the cache was initialized with all the entries in the blacklist, and it's
             // kept updated, it's safe to assume that the entry is not in the blacklist and update
             // the cache accordingly.
-            cache.insert(*unit_id, false);
+            cache.insert(unit_id, false);
             false
         }
     }
 
     /// Helper function to add a unit to the blacklist.
-    fn add_to_blacklist_helper(&mut self, unit_id: &Ustr) -> Result<()> {
+    fn add_to_blacklist_helper(&mut self, unit_id: Ustr) -> Result<()> {
         // Check the cache first to avoid unnecessary queries.
         let has_entry = self.has_entry(unit_id);
         if has_entry {
@@ -119,19 +119,19 @@ impl BlacklistDB {
         stmt.execute(params![unit_id.as_str()])?;
 
         // Update the cache.
-        self.cache.write().insert(*unit_id, true);
+        self.cache.write().insert(unit_id, true);
         Ok(())
     }
 
     /// Helper function to remove a unit from the blacklist.
-    fn remove_from_blacklist_helper(&mut self, unit_id: &Ustr) -> Result<()> {
+    fn remove_from_blacklist_helper(&mut self, unit_id: Ustr) -> Result<()> {
         // Remove the entry from the database.
         let connection = self.pool.get()?;
         let mut stmt = connection.prepare_cached("DELETE FROM blacklist WHERE unit_id = $1")?;
         stmt.execute(params![unit_id.as_str()])?;
 
         // Update the cache.
-        self.cache.write().insert(*unit_id, false);
+        self.cache.write().insert(unit_id, false);
         Ok(())
     }
 
@@ -176,14 +176,14 @@ impl BlacklistDB {
 }
 
 impl Blacklist for BlacklistDB {
-    fn add_to_blacklist(&mut self, unit_id: &Ustr) -> Result<(), BlacklistError> {
+    fn add_to_blacklist(&mut self, unit_id: Ustr) -> Result<(), BlacklistError> {
         self.add_to_blacklist_helper(unit_id)
-            .map_err(|e| BlacklistError::AddUnit(*unit_id, e))
+            .map_err(|e| BlacklistError::AddUnit(unit_id, e))
     }
 
-    fn remove_from_blacklist(&mut self, unit_id: &Ustr) -> Result<(), BlacklistError> {
+    fn remove_from_blacklist(&mut self, unit_id: Ustr) -> Result<(), BlacklistError> {
         self.remove_from_blacklist_helper(unit_id)
-            .map_err(|e| BlacklistError::RemoveUnit(*unit_id, e))
+            .map_err(|e| BlacklistError::RemoveUnit(unit_id, e))
     }
 
     fn remove_prefix_from_blacklist(&mut self, prefix: &str) -> Result<(), BlacklistError> {
@@ -192,7 +192,7 @@ impl Blacklist for BlacklistDB {
     }
 
     #[inline]
-    fn blacklisted(&self, unit_id: &Ustr) -> Result<bool, BlacklistError> {
+    fn blacklisted(&self, unit_id: Ustr) -> Result<bool, BlacklistError> {
         Ok(self.has_entry(unit_id))
     }
 
@@ -221,7 +221,7 @@ mod test {
     #[test]
     fn not_in_blacklist() -> Result<()> {
         let blacklist = new_test_blacklist()?;
-        assert!(!blacklist.blacklisted(&Ustr::from("unit_id"))?);
+        assert!(!blacklist.blacklisted(Ustr::from("unit_id"))?);
         Ok(())
     }
 
@@ -231,10 +231,10 @@ mod test {
         let mut blacklist = new_test_blacklist()?;
 
         let unit_id = Ustr::from("unit_id");
-        blacklist.add_to_blacklist(&unit_id)?;
-        assert!(blacklist.blacklisted(&unit_id)?);
-        blacklist.remove_from_blacklist(&unit_id)?;
-        assert!(!blacklist.blacklisted(&unit_id)?);
+        blacklist.add_to_blacklist(unit_id)?;
+        assert!(blacklist.blacklisted(unit_id)?);
+        blacklist.remove_from_blacklist(unit_id)?;
+        assert!(!blacklist.blacklisted(unit_id)?);
         Ok(())
     }
 
@@ -253,12 +253,12 @@ mod test {
             Ustr::from("c::a"),
         ];
         for unit in &units {
-            blacklist.add_to_blacklist(unit).unwrap();
+            blacklist.add_to_blacklist(*unit).unwrap();
         }
 
         // Remove the units with the prefix "a" and verify only those are removed.
         blacklist.remove_prefix_from_blacklist("a").unwrap();
-        for unit in &units {
+        for unit in units {
             if unit.as_str().starts_with("a") {
                 assert!(!blacklist.blacklisted(unit).unwrap());
             } else {
@@ -273,12 +273,12 @@ mod test {
     fn blacklist_cache() -> Result<()> {
         let mut blacklist = new_test_blacklist()?;
         let unit_id = Ustr::from("unit_id");
-        blacklist.add_to_blacklist(&unit_id)?;
-        assert!(blacklist.blacklisted(&unit_id)?);
+        blacklist.add_to_blacklist(unit_id)?;
+        assert!(blacklist.blacklisted(unit_id)?);
         // The value in the second call is retrieved from the cache.
-        assert!(blacklist.blacklisted(&unit_id)?);
+        assert!(blacklist.blacklisted(unit_id)?);
         // The function should return early because it's already in the cache.
-        blacklist.add_to_blacklist(&unit_id)?;
+        blacklist.add_to_blacklist(unit_id)?;
         Ok(())
     }
 
@@ -287,12 +287,12 @@ mod test {
     fn readd_to_blacklist() -> Result<()> {
         let mut blacklist = new_test_blacklist()?;
         let unit_id = Ustr::from("unit_id");
-        blacklist.add_to_blacklist(&unit_id)?;
-        assert!(blacklist.blacklisted(&unit_id)?);
-        blacklist.remove_from_blacklist(&unit_id)?;
-        assert!(!blacklist.blacklisted(&unit_id)?);
-        blacklist.add_to_blacklist(&unit_id)?;
-        assert!(blacklist.blacklisted(&unit_id)?);
+        blacklist.add_to_blacklist(unit_id)?;
+        assert!(blacklist.blacklisted(unit_id)?);
+        blacklist.remove_from_blacklist(unit_id)?;
+        assert!(!blacklist.blacklisted(unit_id)?);
+        blacklist.add_to_blacklist(unit_id)?;
+        assert!(blacklist.blacklisted(unit_id)?);
         Ok(())
     }
 
@@ -302,10 +302,10 @@ mod test {
         let mut blacklist = new_test_blacklist()?;
         let unit_id = Ustr::from("unit_id");
         let unit_id2 = Ustr::from("unit_id2");
-        blacklist.add_to_blacklist(&unit_id)?;
-        assert!(blacklist.blacklisted(&unit_id)?);
-        blacklist.add_to_blacklist(&unit_id2)?;
-        assert!(blacklist.blacklisted(&unit_id2)?);
+        blacklist.add_to_blacklist(unit_id)?;
+        assert!(blacklist.blacklisted(unit_id)?);
+        blacklist.add_to_blacklist(unit_id2)?;
+        assert!(blacklist.blacklisted(unit_id2)?);
         assert_eq!(blacklist.get_blacklist_entries()?, vec![unit_id, unit_id2]);
         Ok(())
     }
@@ -317,12 +317,12 @@ mod test {
         let mut blacklist =
             BlacklistDB::new_from_disk(dir.path().join("blacklist.db").to_str().unwrap())?;
         let unit_id = Ustr::from("unit_id");
-        blacklist.add_to_blacklist(&unit_id)?;
-        assert!(blacklist.blacklisted(&unit_id)?);
+        blacklist.add_to_blacklist(unit_id)?;
+        assert!(blacklist.blacklisted(unit_id)?);
 
         let new_blacklist =
             BlacklistDB::new_from_disk(dir.path().join("blacklist.db").to_str().unwrap())?;
-        assert!(new_blacklist.blacklisted(&unit_id)?);
+        assert!(new_blacklist.blacklisted(unit_id)?);
         Ok(())
     }
 }

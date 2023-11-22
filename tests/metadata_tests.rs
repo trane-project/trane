@@ -373,7 +373,7 @@ fn scheduler_respects_metadata_filter_op_all() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -438,7 +438,7 @@ fn scheduler_respects_metadata_filter_op_any() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -490,7 +490,7 @@ fn scheduler_respects_lesson_metadata_filter() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -538,7 +538,7 @@ fn scheduler_respects_course_metadata_filter() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -598,7 +598,7 @@ fn scheduler_respects_metadata_filter_and_blacklist() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
