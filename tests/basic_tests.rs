@@ -287,12 +287,12 @@ fn get_unit_ids() -> Result<()> {
     // Verify the lesson and exercise IDs.
     for course_id in course_ids {
         let course_test_id = TestId::from(&course_id);
-        let lesson_ids = trane.get_lesson_ids(&course_id).unwrap_or_default();
+        let lesson_ids = trane.get_lesson_ids(course_id).unwrap_or_default();
         for lesson_id in lesson_ids {
             let lesson_test_id = TestId::from(&lesson_id);
             assert_eq!(course_test_id.0, lesson_test_id.0);
             assert_eq!(lesson_test_id.2, None);
-            let exercise_ids = trane.get_exercise_ids(&lesson_id).unwrap_or_default();
+            let exercise_ids = trane.get_exercise_ids(lesson_id).unwrap_or_default();
             for exercise_id in exercise_ids {
                 let exercise_test_id = TestId::from(&exercise_id);
                 assert!(exercise_test_id.2.is_some());
@@ -313,26 +313,26 @@ fn get_all_exercise_ids() -> Result<()> {
     let trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
 
     // Get all exercises from a course.
-    let exercise_ids = trane.get_all_exercise_ids(Some(&Ustr::from("0")));
+    let exercise_ids = trane.get_all_exercise_ids(Some(Ustr::from("0")));
     assert!(!exercise_ids.is_empty());
     for exercise_id in exercise_ids {
         assert!(exercise_id.starts_with("0::"));
     }
 
     // Get all exercises from a lesson.
-    let exercise_ids = trane.get_all_exercise_ids(Some(&Ustr::from("0::0")));
+    let exercise_ids = trane.get_all_exercise_ids(Some(Ustr::from("0::0")));
     assert!(!exercise_ids.is_empty());
     for exercise_id in exercise_ids {
         assert!(exercise_id.starts_with("0::0::"));
     }
 
     // Get all exercises from an exercise. This should return only the exercise itself.
-    let exercise_ids = trane.get_all_exercise_ids(Some(&Ustr::from("0::0::0")));
+    let exercise_ids = trane.get_all_exercise_ids(Some(Ustr::from("0::0::0")));
     assert_eq!(exercise_ids.len(), 1);
     assert_eq!(exercise_ids[0], Ustr::from("0::0::0"));
 
     // Get all exercises from a non-existent unit. This should return an empty vector.
-    let exercise_ids = trane.get_all_exercise_ids(Some(&Ustr::from("0::0::100")));
+    let exercise_ids = trane.get_all_exercise_ids(Some(Ustr::from("0::0::100")));
     assert!(exercise_ids.is_empty());
 
     // Get all the exercises from the library.
@@ -364,7 +364,7 @@ fn all_exercises_scheduled() -> Result<()> {
             "exercise {:?} should have been scheduled",
             exercise_id
         );
-        assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+        assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
     }
     Ok(())
 }
@@ -398,7 +398,7 @@ fn bad_score_prevents_advancing() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -447,7 +447,7 @@ fn scheduler_respects_course_filter() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -496,7 +496,7 @@ fn scheduler_respects_lesson_filter() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -519,7 +519,7 @@ fn schedule_exercises_in_review_list() -> Result<()> {
     let review_exercises = vec![TestId(1, Some(0), Some(0)), TestId(2, Some(1), Some(7))];
     for unit_id in &review_exercises {
         let unit_ustr = unit_id.to_ustr();
-        trane.add_to_review_list(&unit_ustr)?;
+        trane.add_to_review_list(unit_ustr)?;
     }
 
     // Run the simulation with the review list filter.
@@ -543,7 +543,7 @@ fn schedule_exercises_in_review_list() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -567,7 +567,7 @@ fn schedule_lessons_in_review_list() -> Result<()> {
     let review_lessons = vec![TestId(1, Some(0), None), TestId(2, Some(1), None)];
     for unit_id in &review_lessons {
         let unit_ustr = unit_id.to_ustr();
-        trane.add_to_review_list(&unit_ustr)?;
+        trane.add_to_review_list(unit_ustr)?;
     }
 
     // Run the simulation with the review list filter.
@@ -591,7 +591,7 @@ fn schedule_lessons_in_review_list() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -615,7 +615,7 @@ fn schedule_courses_in_review_list() -> Result<()> {
     let review_courses = vec![TestId(1, None, None), TestId(2, None, None)];
     for unit_id in &review_courses {
         let unit_ustr = unit_id.to_ustr();
-        trane.add_to_review_list(&unit_ustr)?;
+        trane.add_to_review_list(unit_ustr)?;
     }
 
     // Run the simulation with the review list filter.
@@ -639,7 +639,7 @@ fn schedule_courses_in_review_list() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -692,7 +692,7 @@ fn schedule_units_and_dependents() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -744,7 +744,7 @@ fn schedule_dependencies() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -804,7 +804,7 @@ fn schedule_dependencies_large_depth() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -909,7 +909,7 @@ fn schedule_study_session() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),

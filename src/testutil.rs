@@ -445,7 +445,7 @@ impl TraneSimulation {
     ) -> Result<()> {
         // Update the blacklist.
         for unit_id in blacklist {
-            trane.add_to_blacklist(&unit_id.to_ustr())?;
+            trane.add_to_blacklist(unit_id.to_ustr())?;
         }
 
         // Initialize the counter and batch.
@@ -470,7 +470,7 @@ impl TraneSimulation {
             let (exercise_id, _) = batch.pop().unwrap();
             let score = (self.answer_closure)(&exercise_id);
             if let Some(score) = score {
-                trane.score_exercise(&exercise_id, score.clone(), Utc::now().timestamp())?;
+                trane.score_exercise(exercise_id, score.clone(), Utc::now().timestamp())?;
                 self.answer_history
                     .entry(exercise_id)
                     .or_default()
@@ -526,7 +526,7 @@ pub fn init_test_simulation(library_root: &Path, courses: &Vec<TestCourse>) -> R
 /// Asserts that the scores in the simulation match the scores reported by Trane for the given
 /// exercise.
 pub fn assert_simulation_scores(
-    exercise_id: &Ustr,
+    exercise_id: Ustr,
     trane: &Trane,
     simulation_scores: &UstrMap<Vec<MasteryScore>>,
 ) -> Result<()> {
@@ -536,7 +536,7 @@ pub fn assert_simulation_scores(
     // Check that the last ten scores from the simulation history equal the scores retrieved
     // directly from Trane.
     let empty_scores = vec![];
-    let simulation_scores = simulation_scores.get(exercise_id).unwrap_or(&empty_scores);
+    let simulation_scores = simulation_scores.get(&exercise_id).unwrap_or(&empty_scores);
     let most_recent_scores = simulation_scores.iter().rev().take(trane_scores.len());
     let _: Vec<()> =
         most_recent_scores
@@ -871,7 +871,7 @@ mod test {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         }
         Ok(())
     }

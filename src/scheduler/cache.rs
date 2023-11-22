@@ -64,19 +64,19 @@ impl ScoreCache {
     }
 
     /// Removes the cached score for the given unit.
-    pub(super) fn invalidate_cached_score(&self, unit_id: &Ustr) {
+    pub(super) fn invalidate_cached_score(&self, unit_id: Ustr) {
         // Remove the unit from the exercise, lesson, and course caches. This is safe to do even
         // though the unit is at most in one cache because the different types of units are
         // disjoint.
-        self.exercise_cache.borrow_mut().remove(unit_id);
-        self.lesson_cache.borrow_mut().remove(unit_id);
-        self.course_cache.borrow_mut().remove(unit_id);
+        self.exercise_cache.borrow_mut().remove(&unit_id);
+        self.lesson_cache.borrow_mut().remove(&unit_id);
+        self.course_cache.borrow_mut().remove(&unit_id);
 
         // If the unit is an exercise, invalidate the cached score of its lesson and course. If the
         // unit is a lesson, invalidate the cached score of its course.
         if let Some(lesson_id) = self.data.unit_graph.read().get_exercise_lesson(unit_id) {
             self.lesson_cache.borrow_mut().remove(&lesson_id);
-            if let Some(course_id) = self.data.unit_graph.read().get_lesson_course(&lesson_id) {
+            if let Some(course_id) = self.data.unit_graph.read().get_lesson_course(lesson_id) {
                 self.course_cache.borrow_mut().remove(&course_id);
             }
         } else if let Some(course_id) = self.data.unit_graph.read().get_lesson_course(unit_id) {
@@ -97,9 +97,9 @@ impl ScoreCache {
     }
 
     /// Returns the score for the given exercise.
-    fn get_exercise_score(&self, exercise_id: &Ustr) -> Result<f32> {
+    fn get_exercise_score(&self, exercise_id: Ustr) -> Result<f32> {
         // Return the cached score if it exists.
-        let cached_score = self.exercise_cache.borrow().get(exercise_id).cloned();
+        let cached_score = self.exercise_cache.borrow().get(&exercise_id).cloned();
         if let Some(cached_score) = cached_score {
             return Ok(cached_score.score);
         }
@@ -113,7 +113,7 @@ impl ScoreCache {
             .unwrap_or_default();
         let score = self.scorer.score(&scores)?;
         self.exercise_cache.borrow_mut().insert(
-            *exercise_id,
+            exercise_id,
             CachedScore {
                 score,
                 num_trials: scores.len(),
@@ -124,9 +124,9 @@ impl ScoreCache {
 
     /// Returns the number of trials that were considered when computing the score for the given
     /// exercise.
-    pub(super) fn get_num_trials(&self, exercise_id: &Ustr) -> Result<Option<usize>> {
+    pub(super) fn get_num_trials(&self, exercise_id: Ustr) -> Result<Option<usize>> {
         // Return the cached value if it exists.
-        let cached_score = self.exercise_cache.borrow().get(exercise_id).cloned();
+        let cached_score = self.exercise_cache.borrow().get(&exercise_id).cloned();
         if let Some(cached_score) = cached_score {
             return Ok(Some(cached_score.num_trials));
         }
@@ -134,12 +134,12 @@ impl ScoreCache {
         // Compute the exercise's score, which populates the cache. Then, retrieve the number of
         // trials from the cache.
         self.get_exercise_score(exercise_id)?;
-        let cached_score = self.exercise_cache.borrow().get(exercise_id).cloned();
+        let cached_score = self.exercise_cache.borrow().get(&exercise_id).cloned();
         Ok(cached_score.map(|s| s.num_trials))
     }
 
     /// Returns whether all the exercises in the unit have valid scores.
-    pub(super) fn all_valid_exercises_have_scores(&self, unit_id: &Ustr) -> bool {
+    pub(super) fn all_valid_exercises_have_scores(&self, unit_id: Ustr) -> bool {
         // Get all the valid exercises in the unit.
         let valid_exercises = self.data.all_valid_exercises(unit_id);
         if valid_exercises.is_empty() {
@@ -149,7 +149,7 @@ impl ScoreCache {
         // All valid exercises must have a score greater than 0.0.
         let scores: Vec<Result<f32>> = valid_exercises
             .into_iter()
-            .map(|id| self.get_exercise_score(&id))
+            .map(|id| self.get_exercise_score(id))
             .collect();
         scores
             .into_iter()
@@ -158,7 +158,7 @@ impl ScoreCache {
 
     /// Returns whether the superseded unit can be considered as superseded by the superseding
     /// units.
-    pub(super) fn is_superseded(&self, superseded_id: &Ustr, superseding_ids: &UstrSet) -> bool {
+    pub(super) fn is_superseded(&self, superseded_id: Ustr, superseding_ids: &UstrSet) -> bool {
         // Units with no superseding units are not superseded.
         if superseding_ids.is_empty() {
             return false;
@@ -172,7 +172,7 @@ impl ScoreCache {
         // All the superseding units must have a score equal or greater than the superseding score.
         let scores = superseding_ids
             .iter()
-            .map(|id| self.get_unit_score(id).unwrap_or_default())
+            .map(|id| self.get_unit_score(*id).unwrap_or_default())
             .filter(Option::is_some)
             .collect::<Vec<_>>();
         scores
@@ -185,11 +185,11 @@ impl ScoreCache {
     fn replace_superseding(&self, superseding_ids: UstrSet) -> UstrSet {
         let mut result = UstrSet::default();
         for id in superseding_ids {
-            let superseding = self.data.get_superseding(&id);
+            let superseding = self.data.get_superseding(id);
             if let Some(superseding) = superseding {
                 // The unit has some superseding units of its own. If the unit has been superseded
                 // by them, recursively call this function. Otherwise, add the unit to the result.
-                if self.is_superseded(&id, &superseding) {
+                if self.is_superseded(id, &superseding) {
                     result.extend(self.replace_superseding(superseding));
                 } else {
                     result.insert(id);
@@ -204,15 +204,15 @@ impl ScoreCache {
 
     /// Get the initial superseding units and then recursively replace them if they have been
     /// superseded.
-    pub(super) fn get_superseding_recursive(&self, unit_id: &Ustr) -> Option<UstrSet> {
+    pub(super) fn get_superseding_recursive(&self, unit_id: Ustr) -> Option<UstrSet> {
         let superseding_ids = self.data.get_superseding(unit_id);
         superseding_ids.map(|ids| self.replace_superseding(ids))
     }
 
     /// Returns the average score of all the exercises in the given lesson.
-    fn get_lesson_score(&self, lesson_id: &Ustr) -> Result<Option<f32>> {
+    fn get_lesson_score(&self, lesson_id: Ustr) -> Result<Option<f32>> {
         // Return the cached score if it exists.
-        let cached_score = self.lesson_cache.borrow().get(lesson_id).copied();
+        let cached_score = self.lesson_cache.borrow().get(&lesson_id).copied();
         if let Some(score) = cached_score {
             return Ok(score);
         }
@@ -221,7 +221,7 @@ impl ScoreCache {
         let blacklist = self.data.blacklist.read();
         let blacklisted = blacklist.blacklisted(lesson_id);
         if blacklisted.unwrap_or(false) {
-            self.lesson_cache.borrow_mut().insert(*lesson_id, None);
+            self.lesson_cache.borrow_mut().insert(lesson_id, None);
             return Ok(None);
         }
 
@@ -229,7 +229,7 @@ impl ScoreCache {
         let superseding_ids = self.get_superseding_recursive(lesson_id);
         if let Some(superseding_ids) = superseding_ids {
             if self.is_superseded(lesson_id, &superseding_ids) {
-                self.lesson_cache.borrow_mut().insert(*lesson_id, None);
+                self.lesson_cache.borrow_mut().insert(lesson_id, None);
                 return Ok(None);
             }
         }
@@ -246,7 +246,7 @@ impl ScoreCache {
                 let valid_exercises = exercise_ids
                     .into_iter()
                     .filter(|exercise_id| {
-                        let blacklisted = blacklist.blacklisted(exercise_id);
+                        let blacklisted = blacklist.blacklisted(*exercise_id);
                         !blacklisted.unwrap_or(false)
                     })
                     .collect::<Vec<Ustr>>();
@@ -258,7 +258,7 @@ impl ScoreCache {
                     // Compute the average score of the valid exercises.
                     let avg_score: f32 = valid_exercises
                         .iter()
-                        .map(|id| self.get_exercise_score(id))
+                        .map(|id| self.get_exercise_score(*id))
                         .sum::<Result<f32>>()? // grcov-excl-line
                         / valid_exercises.len() as f32;
                     Ok(Some(avg_score))
@@ -268,15 +268,15 @@ impl ScoreCache {
 
         // Update the cache with a valid score.
         if let Ok(score) = score {
-            self.lesson_cache.borrow_mut().insert(*lesson_id, score);
+            self.lesson_cache.borrow_mut().insert(lesson_id, score);
         }
         score
     }
 
     /// Returns the average score of all the lesson scores in the given course.
-    fn get_course_score(&self, course_id: &Ustr) -> Result<Option<f32>> {
+    fn get_course_score(&self, course_id: Ustr) -> Result<Option<f32>> {
         // Return the cached score if it exists.
-        let cached_score = self.course_cache.borrow().get(course_id).copied();
+        let cached_score = self.course_cache.borrow().get(&course_id).copied();
         if let Some(score) = cached_score {
             return Ok(score);
         }
@@ -284,7 +284,7 @@ impl ScoreCache {
         // Check if the unit is blacklisted. A blacklisted course has no valid score.
         let blacklisted = self.data.blacklist.read().blacklisted(course_id);
         if blacklisted.unwrap_or(false) {
-            self.course_cache.borrow_mut().insert(*course_id, None);
+            self.course_cache.borrow_mut().insert(course_id, None);
             return Ok(None);
         }
 
@@ -292,7 +292,7 @@ impl ScoreCache {
         let superseding_ids = self.get_superseding_recursive(course_id);
         if let Some(superseding_ids) = superseding_ids {
             if self.is_superseded(course_id, &superseding_ids) {
-                self.course_cache.borrow_mut().insert(*course_id, None);
+                self.course_cache.borrow_mut().insert(course_id, None);
                 return Ok(None);
             }
         }
@@ -308,7 +308,7 @@ impl ScoreCache {
                 // Collect all the valid scores from the course's lessons.
                 let valid_lesson_scores = lesson_ids
                     .into_iter()
-                    .map(|lesson_id| self.get_lesson_score(&lesson_id))
+                    .map(|lesson_id| self.get_lesson_score(lesson_id))
                     .filter(|score| {
                         // Filter out any lesson whose score is not valid.
                         if score.as_ref().unwrap_or(&None).is_none() {
@@ -336,7 +336,7 @@ impl ScoreCache {
 
         // Update the cache with a valid score.
         if let Ok(score) = score {
-            self.course_cache.borrow_mut().insert(*course_id, score);
+            self.course_cache.borrow_mut().insert(course_id, score);
         }
         score
     }
@@ -344,7 +344,7 @@ impl ScoreCache {
     /// Returns the score for the given unit. A return value of `Ok(None)` indicates that there is
     /// not a valid score for the unit, such as when the unit is blacklisted. Such a unit is
     /// considered a satisfied dependency.
-    pub(super) fn get_unit_score(&self, unit_id: &Ustr) -> Result<Option<f32>> {
+    pub(super) fn get_unit_score(&self, unit_id: Ustr) -> Result<Option<f32>> {
         // Decide which method to call based on the unit type.
         let unit_type = self
             .data
@@ -438,8 +438,8 @@ mod test {
         let cache = ScoreCache::new(scheduler_data, SchedulerOptions::default());
 
         let course_id = Ustr::from("0");
-        library.add_to_blacklist(&course_id)?;
-        assert_eq!(cache.get_course_score(&course_id)?, None);
+        library.add_to_blacklist(course_id)?;
+        assert_eq!(cache.get_course_score(course_id)?, None);
         Ok(())
     }
 
@@ -452,19 +452,19 @@ mod test {
         let cache = ScoreCache::new(scheduler_data, SchedulerOptions::default());
 
         // Insert scores for every exercise to ensure course 0 has been superseded.
-        library.score_exercise(&Ustr::from("0::0::0"), MasteryScore::Five, 1)?;
-        library.score_exercise(&Ustr::from("0::0::1"), MasteryScore::Five, 1)?;
-        library.score_exercise(&Ustr::from("0::1::0"), MasteryScore::Five, 1)?;
-        library.score_exercise(&Ustr::from("0::1::1"), MasteryScore::Five, 1)?;
-        library.score_exercise(&Ustr::from("1::0::0"), MasteryScore::Five, 1)?;
-        library.score_exercise(&Ustr::from("1::0::1"), MasteryScore::Five, 1)?;
-        library.score_exercise(&Ustr::from("1::1::0"), MasteryScore::Five, 1)?;
-        library.score_exercise(&Ustr::from("1::1::1"), MasteryScore::Five, 1)?;
+        library.score_exercise(Ustr::from("0::0::0"), MasteryScore::Five, 1)?;
+        library.score_exercise(Ustr::from("0::0::1"), MasteryScore::Five, 1)?;
+        library.score_exercise(Ustr::from("0::1::0"), MasteryScore::Five, 1)?;
+        library.score_exercise(Ustr::from("0::1::1"), MasteryScore::Five, 1)?;
+        library.score_exercise(Ustr::from("1::0::0"), MasteryScore::Five, 1)?;
+        library.score_exercise(Ustr::from("1::0::1"), MasteryScore::Five, 1)?;
+        library.score_exercise(Ustr::from("1::1::0"), MasteryScore::Five, 1)?;
+        library.score_exercise(Ustr::from("1::1::1"), MasteryScore::Five, 1)?;
 
         // Get the scores for course 0 twice. Once to populate the cache and once to retrieve the
         // cached value.
-        assert_eq!(cache.get_course_score(&Ustr::from("0"))?, None);
-        assert_eq!(cache.get_course_score(&Ustr::from("0"))?, None);
+        assert_eq!(cache.get_course_score(Ustr::from("0"))?, None);
+        assert_eq!(cache.get_course_score(Ustr::from("0"))?, None);
         Ok(())
     }
 
@@ -477,19 +477,19 @@ mod test {
         let cache = ScoreCache::new(scheduler_data, SchedulerOptions::default());
 
         // Insert scores for every exercise to ensure lesson 1::0 has been superseded.
-        library.score_exercise(&Ustr::from("0::0::0"), MasteryScore::Five, 1)?;
-        library.score_exercise(&Ustr::from("0::0::1"), MasteryScore::Five, 1)?;
-        library.score_exercise(&Ustr::from("0::1::0"), MasteryScore::Five, 1)?;
-        library.score_exercise(&Ustr::from("0::1::1"), MasteryScore::Five, 1)?;
-        library.score_exercise(&Ustr::from("1::0::0"), MasteryScore::Five, 1)?;
-        library.score_exercise(&Ustr::from("1::0::1"), MasteryScore::Five, 1)?;
-        library.score_exercise(&Ustr::from("1::1::0"), MasteryScore::Five, 1)?;
-        library.score_exercise(&Ustr::from("1::1::1"), MasteryScore::Five, 1)?;
+        library.score_exercise(Ustr::from("0::0::0"), MasteryScore::Five, 1)?;
+        library.score_exercise(Ustr::from("0::0::1"), MasteryScore::Five, 1)?;
+        library.score_exercise(Ustr::from("0::1::0"), MasteryScore::Five, 1)?;
+        library.score_exercise(Ustr::from("0::1::1"), MasteryScore::Five, 1)?;
+        library.score_exercise(Ustr::from("1::0::0"), MasteryScore::Five, 1)?;
+        library.score_exercise(Ustr::from("1::0::1"), MasteryScore::Five, 1)?;
+        library.score_exercise(Ustr::from("1::1::0"), MasteryScore::Five, 1)?;
+        library.score_exercise(Ustr::from("1::1::1"), MasteryScore::Five, 1)?;
 
         // Get the scores for lesson 1::0 twice. Once to populate the cache and once to retrieve the
         // cached value.
-        assert_eq!(cache.get_lesson_score(&Ustr::from("1::0"))?, None);
-        assert_eq!(cache.get_lesson_score(&Ustr::from("1::0"))?, None);
+        assert_eq!(cache.get_lesson_score(Ustr::from("1::0"))?, None);
+        assert_eq!(cache.get_lesson_score(Ustr::from("1::0"))?, None);
         Ok(())
     }
 
@@ -526,23 +526,23 @@ mod test {
             .insert(Ustr::from("c::a"), Some(5.0));
 
         // Verify that the scores are present.
-        assert_eq!(cache.get_exercise_score(&Ustr::from("a"))?, 5.0);
-        assert_eq!(cache.get_exercise_score(&Ustr::from("b::a"))?, 5.0);
-        assert_eq!(cache.get_lesson_score(&Ustr::from("a::a"))?, Some(5.0));
-        assert_eq!(cache.get_lesson_score(&Ustr::from("c::a"))?, Some(5.0));
+        assert_eq!(cache.get_exercise_score(Ustr::from("a"))?, 5.0);
+        assert_eq!(cache.get_exercise_score(Ustr::from("b::a"))?, 5.0);
+        assert_eq!(cache.get_lesson_score(Ustr::from("a::a"))?, Some(5.0));
+        assert_eq!(cache.get_lesson_score(Ustr::from("c::a"))?, Some(5.0));
 
         // Invalidate prefix `a` and verify that the cached scores are removed.
         cache.invalidate_cached_scores_with_prefix("a");
-        assert_eq!(cache.get_exercise_score(&Ustr::from("a"))?, 0.0);
-        assert_eq!(cache.get_exercise_score(&Ustr::from("b::a"))?, 5.0);
-        assert_eq!(cache.get_lesson_score(&Ustr::from("a::a"))?, None);
-        assert_eq!(cache.get_lesson_score(&Ustr::from("c::a"))?, Some(5.0));
+        assert_eq!(cache.get_exercise_score(Ustr::from("a"))?, 0.0);
+        assert_eq!(cache.get_exercise_score(Ustr::from("b::a"))?, 5.0);
+        assert_eq!(cache.get_lesson_score(Ustr::from("a::a"))?, None);
+        assert_eq!(cache.get_lesson_score(Ustr::from("c::a"))?, Some(5.0));
 
         // Invalidate units `b::a  and `c::a` and verify that the score is removed.
-        cache.invalidate_cached_score(&Ustr::from("b::a"));
-        cache.invalidate_cached_score(&Ustr::from("c::a"));
-        assert_eq!(cache.get_exercise_score(&Ustr::from("b::a"))?, 0.0);
-        assert_eq!(cache.get_lesson_score(&Ustr::from("c::a"))?, None);
+        cache.invalidate_cached_score(Ustr::from("b::a"));
+        cache.invalidate_cached_score(Ustr::from("c::a"));
+        assert_eq!(cache.get_exercise_score(Ustr::from("b::a"))?, 0.0);
+        assert_eq!(cache.get_lesson_score(Ustr::from("c::a"))?, None);
         Ok(())
     }
 
@@ -555,18 +555,18 @@ mod test {
         let scheduler_data = library.get_scheduler_data();
         let cache = ScoreCache::new(scheduler_data, SchedulerOptions::default());
         let exercise_id = Ustr::from("0::0::0");
-        library.score_exercise(&exercise_id, MasteryScore::Four, 1)?;
-        library.score_exercise(&exercise_id, MasteryScore::Five, 2)?;
+        library.score_exercise(exercise_id, MasteryScore::Four, 1)?;
+        library.score_exercise(exercise_id, MasteryScore::Five, 2)?;
 
         // Retrieve the number of trials twice. The second time should hit the cache.
-        assert_eq!(Some(2), cache.get_num_trials(&exercise_id)?);
-        assert_eq!(Some(2), cache.get_num_trials(&exercise_id)?);
+        assert_eq!(Some(2), cache.get_num_trials(exercise_id)?);
+        assert_eq!(Some(2), cache.get_num_trials(exercise_id)?);
 
         // Add another score and invalidate the cache. The change in the number of trials should be
         // reflected.
-        library.score_exercise(&exercise_id, MasteryScore::Four, 3)?;
-        cache.invalidate_cached_score(&exercise_id);
-        assert_eq!(Some(3), cache.get_num_trials(&exercise_id)?);
+        library.score_exercise(exercise_id, MasteryScore::Four, 3)?;
+        cache.invalidate_cached_score(exercise_id);
+        assert_eq!(Some(3), cache.get_num_trials(exercise_id)?);
         Ok(())
     }
 }

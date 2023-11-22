@@ -227,7 +227,7 @@ fn scheduler_respects_superseded_courses() -> Result<()> {
             "exercise {:?} should have been scheduled",
             exercise_id
         );
-        assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+        assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
     }
 
     // Run the simulation again to clear the simulation history.
@@ -269,7 +269,7 @@ fn scheduler_respects_superseded_courses() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         }
     }
     Ok(())
@@ -296,7 +296,7 @@ fn scheduler_respects_superseded_lessons() -> Result<()> {
             "exercise {:?} should have been scheduled",
             exercise_id
         );
-        assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+        assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
     }
 
     // Run the simulation again to clear the simulation history.
@@ -338,7 +338,7 @@ fn scheduler_respects_superseded_lessons() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         }
     }
     Ok(())
@@ -366,7 +366,7 @@ fn scheduler_respects_superseded_course_chain() -> Result<()> {
             "exercise {:?} should have been scheduled",
             exercise_id
         );
-        assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+        assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
     }
 
     // Run the simulation again to clear the simulation history.
@@ -412,7 +412,7 @@ fn scheduler_respects_superseded_course_chain() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         } else if exercise_id.exercise_in_course(&superseded_course_ids[0]) {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -445,7 +445,7 @@ fn scheduler_respects_superseded_course_chain() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         }
     }
     Ok(())
@@ -473,7 +473,7 @@ fn scheduler_respects_superseded_lesson_chain() -> Result<()> {
             "exercise {:?} should have been scheduled",
             exercise_id
         );
-        assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+        assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
     }
 
     // Run the simulation again to clear the simulation history.
@@ -519,7 +519,7 @@ fn scheduler_respects_superseded_lesson_chain() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         } else if exercise_id.exercise_in_lesson(&superseded_lesson_ids[0]) {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -552,7 +552,7 @@ fn scheduler_respects_superseded_lesson_chain() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         }
     }
     Ok(())
@@ -594,7 +594,7 @@ fn scheduler_ignores_superseded_exercises() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         }
     }
 
@@ -627,7 +627,7 @@ fn scheduler_ignores_superseded_exercises() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         }
     }
 
@@ -646,7 +646,7 @@ fn scheduler_ignores_superseded_exercises() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         }
     }
     Ok(())

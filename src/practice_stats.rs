@@ -23,7 +23,7 @@ pub trait PracticeStats {
     /// descending order according to the timestamp.
     fn get_scores(
         &self,
-        exercise_id: &Ustr,
+        exercise_id: Ustr,
         num_scores: usize,
     ) -> Result<Vec<ExerciseTrial>, PracticeStatsError>;
 
@@ -33,7 +33,7 @@ pub trait PracticeStats {
     /// caller.
     fn record_exercise_score(
         &mut self,
-        exercise_id: &Ustr,
+        exercise_id: Ustr,
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<(), PracticeStatsError>;
@@ -114,7 +114,7 @@ impl PracticeStatsDB {
     /// Helper function to retrieve scores from the database.
     fn get_scores_helper(
         &self,
-        exercise_id: &Ustr,
+        exercise_id: Ustr,
         num_scores: usize,
     ) -> Result<Vec<ExerciseTrial>> {
         // Retrieve the exercise trials from the database.
@@ -141,7 +141,7 @@ impl PracticeStatsDB {
     /// Helper function to record a score to the database.
     fn record_exercise_score_helper(
         &mut self,
-        exercise_id: &Ustr,
+        exercise_id: Ustr,
         score: &MasteryScore,
         timestamp: i64,
     ) -> Result<()> {
@@ -216,21 +216,21 @@ impl PracticeStatsDB {
 impl PracticeStats for PracticeStatsDB {
     fn get_scores(
         &self,
-        exercise_id: &Ustr,
+        exercise_id: Ustr,
         num_scores: usize,
     ) -> Result<Vec<ExerciseTrial>, PracticeStatsError> {
         self.get_scores_helper(exercise_id, num_scores)
-            .map_err(|e| PracticeStatsError::GetScores(*exercise_id, e))
+            .map_err(|e| PracticeStatsError::GetScores(exercise_id, e))
     }
 
     fn record_exercise_score(
         &mut self,
-        exercise_id: &Ustr,
+        exercise_id: Ustr,
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<(), PracticeStatsError> {
         self.record_exercise_score_helper(exercise_id, &score, timestamp)
-            .map_err(|e| PracticeStatsError::RecordScore(*exercise_id, e))
+            .map_err(|e| PracticeStatsError::RecordScore(exercise_id, e))
     }
 
     fn trim_scores(&mut self, num_scores: usize) -> Result<(), PracticeStatsError> {
@@ -282,8 +282,8 @@ mod test {
     fn basic() -> Result<()> {
         let mut stats = new_tests_stats()?;
         let exercise_id = Ustr::from("ex_123");
-        stats.record_exercise_score(&exercise_id, MasteryScore::Five, 1)?;
-        let scores = stats.get_scores(&exercise_id, 1)?;
+        stats.record_exercise_score(exercise_id, MasteryScore::Five, 1)?;
+        let scores = stats.get_scores(exercise_id, 1)?;
         assert_scores(vec![5.0], scores);
         Ok(())
     }
@@ -293,17 +293,17 @@ mod test {
     fn multiple_records() -> Result<()> {
         let mut stats = new_tests_stats()?;
         let exercise_id = Ustr::from("ex_123");
-        stats.record_exercise_score(&exercise_id, MasteryScore::Three, 1)?;
-        stats.record_exercise_score(&exercise_id, MasteryScore::Four, 2)?;
-        stats.record_exercise_score(&exercise_id, MasteryScore::Five, 3)?;
+        stats.record_exercise_score(exercise_id, MasteryScore::Three, 1)?;
+        stats.record_exercise_score(exercise_id, MasteryScore::Four, 2)?;
+        stats.record_exercise_score(exercise_id, MasteryScore::Five, 3)?;
 
-        let one_score = stats.get_scores(&exercise_id, 1)?;
+        let one_score = stats.get_scores(exercise_id, 1)?;
         assert_scores(vec![5.0], one_score);
 
-        let three_scores = stats.get_scores(&exercise_id, 3)?;
+        let three_scores = stats.get_scores(exercise_id, 3)?;
         assert_scores(vec![5.0, 4.0, 3.0], three_scores);
 
-        let more_scores = stats.get_scores(&exercise_id, 10)?;
+        let more_scores = stats.get_scores(exercise_id, 10)?;
         assert_scores(vec![5.0, 4.0, 3.0], more_scores);
         Ok(())
     }
@@ -312,7 +312,7 @@ mod test {
     #[test]
     fn no_records() -> Result<()> {
         let stats = new_tests_stats()?;
-        let scores = stats.get_scores(&Ustr::from("ex_123"), 10)?;
+        let scores = stats.get_scores(Ustr::from("ex_123"), 10)?;
         assert_scores(vec![], scores);
         Ok(())
     }
@@ -322,20 +322,20 @@ mod test {
     fn trim_scores_some_scores_removed() -> Result<()> {
         let mut stats = new_tests_stats()?;
         let exercise1_id = Ustr::from("exercise1");
-        stats.record_exercise_score(&exercise1_id, MasteryScore::Three, 1)?;
-        stats.record_exercise_score(&exercise1_id, MasteryScore::Four, 2)?;
-        stats.record_exercise_score(&exercise1_id, MasteryScore::Five, 3)?;
+        stats.record_exercise_score(exercise1_id, MasteryScore::Three, 1)?;
+        stats.record_exercise_score(exercise1_id, MasteryScore::Four, 2)?;
+        stats.record_exercise_score(exercise1_id, MasteryScore::Five, 3)?;
 
         let exercise2_id = Ustr::from("exercise2");
-        stats.record_exercise_score(&exercise2_id, MasteryScore::One, 1)?;
-        stats.record_exercise_score(&exercise2_id, MasteryScore::One, 2)?;
-        stats.record_exercise_score(&exercise2_id, MasteryScore::Three, 3)?;
+        stats.record_exercise_score(exercise2_id, MasteryScore::One, 1)?;
+        stats.record_exercise_score(exercise2_id, MasteryScore::One, 2)?;
+        stats.record_exercise_score(exercise2_id, MasteryScore::Three, 3)?;
 
         stats.trim_scores(2)?;
 
-        let scores = stats.get_scores(&exercise1_id, 10)?;
+        let scores = stats.get_scores(exercise1_id, 10)?;
         assert_scores(vec![5.0, 4.0], scores);
-        let scores = stats.get_scores(&exercise2_id, 10)?;
+        let scores = stats.get_scores(exercise2_id, 10)?;
         assert_scores(vec![3.0, 1.0], scores);
         Ok(())
     }
@@ -345,20 +345,20 @@ mod test {
     fn trim_scores_no_scores_removed() -> Result<()> {
         let mut stats = new_tests_stats()?;
         let exercise1_id = Ustr::from("exercise1");
-        stats.record_exercise_score(&exercise1_id, MasteryScore::Three, 1)?;
-        stats.record_exercise_score(&exercise1_id, MasteryScore::Four, 2)?;
-        stats.record_exercise_score(&exercise1_id, MasteryScore::Five, 3)?;
+        stats.record_exercise_score(exercise1_id, MasteryScore::Three, 1)?;
+        stats.record_exercise_score(exercise1_id, MasteryScore::Four, 2)?;
+        stats.record_exercise_score(exercise1_id, MasteryScore::Five, 3)?;
 
         let exercise2_id = Ustr::from("exercise2");
-        stats.record_exercise_score(&exercise2_id, MasteryScore::One, 1)?;
-        stats.record_exercise_score(&exercise2_id, MasteryScore::One, 2)?;
-        stats.record_exercise_score(&exercise2_id, MasteryScore::Three, 3)?;
+        stats.record_exercise_score(exercise2_id, MasteryScore::One, 1)?;
+        stats.record_exercise_score(exercise2_id, MasteryScore::One, 2)?;
+        stats.record_exercise_score(exercise2_id, MasteryScore::Three, 3)?;
 
         stats.trim_scores(10)?;
 
-        let scores = stats.get_scores(&exercise1_id, 10)?;
+        let scores = stats.get_scores(exercise1_id, 10)?;
         assert_scores(vec![5.0, 4.0, 3.0], scores);
-        let scores = stats.get_scores(&exercise2_id, 10)?;
+        let scores = stats.get_scores(exercise2_id, 10)?;
         assert_scores(vec![3.0, 1.0, 1.0], scores);
         Ok(())
     }
@@ -368,36 +368,36 @@ mod test {
     fn remove_scores_with_prefix() -> Result<()> {
         let mut stats = new_tests_stats()?;
         let exercise1_id = Ustr::from("exercise1");
-        stats.record_exercise_score(&exercise1_id, MasteryScore::Three, 1)?;
-        stats.record_exercise_score(&exercise1_id, MasteryScore::Four, 2)?;
-        stats.record_exercise_score(&exercise1_id, MasteryScore::Five, 3)?;
+        stats.record_exercise_score(exercise1_id, MasteryScore::Three, 1)?;
+        stats.record_exercise_score(exercise1_id, MasteryScore::Four, 2)?;
+        stats.record_exercise_score(exercise1_id, MasteryScore::Five, 3)?;
 
         let exercise2_id = Ustr::from("exercise2");
-        stats.record_exercise_score(&exercise2_id, MasteryScore::One, 1)?;
-        stats.record_exercise_score(&exercise2_id, MasteryScore::One, 2)?;
-        stats.record_exercise_score(&exercise2_id, MasteryScore::Three, 3)?;
+        stats.record_exercise_score(exercise2_id, MasteryScore::One, 1)?;
+        stats.record_exercise_score(exercise2_id, MasteryScore::One, 2)?;
+        stats.record_exercise_score(exercise2_id, MasteryScore::Three, 3)?;
 
         let exercise3_id = Ustr::from("exercise3");
-        stats.record_exercise_score(&exercise3_id, MasteryScore::One, 1)?;
-        stats.record_exercise_score(&exercise3_id, MasteryScore::One, 2)?;
-        stats.record_exercise_score(&exercise3_id, MasteryScore::Three, 3)?;
+        stats.record_exercise_score(exercise3_id, MasteryScore::One, 1)?;
+        stats.record_exercise_score(exercise3_id, MasteryScore::One, 2)?;
+        stats.record_exercise_score(exercise3_id, MasteryScore::Three, 3)?;
 
         // Remove the prefix "exercise1".
         stats.remove_scores_with_prefix("exercise1")?;
-        let scores = stats.get_scores(&exercise1_id, 10)?;
+        let scores = stats.get_scores(exercise1_id, 10)?;
         assert_scores(vec![], scores);
-        let scores = stats.get_scores(&exercise2_id, 10)?;
+        let scores = stats.get_scores(exercise2_id, 10)?;
         assert_scores(vec![3.0, 1.0, 1.0], scores);
-        let scores = stats.get_scores(&exercise3_id, 10)?;
+        let scores = stats.get_scores(exercise3_id, 10)?;
         assert_scores(vec![3.0, 1.0, 1.0], scores);
 
         // Remove the prefix "exercise". All the scores should be removed.
         stats.remove_scores_with_prefix("exercise")?;
-        let scores = stats.get_scores(&exercise1_id, 10)?;
+        let scores = stats.get_scores(exercise1_id, 10)?;
         assert_scores(vec![], scores);
-        let scores = stats.get_scores(&exercise2_id, 10)?;
+        let scores = stats.get_scores(exercise2_id, 10)?;
         assert_scores(vec![], scores);
-        let scores = stats.get_scores(&exercise3_id, 10)?;
+        let scores = stats.get_scores(exercise3_id, 10)?;
         assert_scores(vec![], scores);
 
         Ok(())

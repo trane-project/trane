@@ -143,7 +143,7 @@ fn all_exercises_visited() -> Result<()> {
             "exercise {:?} should have been scheduled",
             exercise_id
         );
-        assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        assert_simulation_scores(exercise_id, &trane, &simulation.answer_history)?;
     }
     Ok(())
 }
@@ -179,7 +179,7 @@ fn no_progress_past_singing_lessons() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_id, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_id),
@@ -229,7 +229,7 @@ fn advanced_singing_blocks_advanced_transcription() -> Result<()> {
                 "exercise {:?} should not have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_id, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 simulation.answer_history.contains_key(&exercise_id),
@@ -289,7 +289,7 @@ fn transcription_blocks_advanced_transcription_and_dependents() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_id, &trane, &simulation.answer_history)?;
         }
     }
     Ok(())
@@ -325,7 +325,7 @@ fn skip_advanced_lessons() -> Result<()> {
             "exercise {:?} should have been scheduled",
             exercise_id
         );
-        assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        assert_simulation_scores(*exercise_id, &trane, &simulation.answer_history)?;
     }
 
     // No exercises from the advanced lessons should have been generated.
@@ -369,7 +369,7 @@ fn skip_singing_lessons() -> Result<()> {
             "exercise {:?} should have been scheduled",
             exercise_id
         );
-        assert_simulation_scores(&exercise_id, &trane, &simulation.answer_history)?;
+        assert_simulation_scores(*exercise_id, &trane, &simulation.answer_history)?;
     }
 
     // No exercises from the singing lessons should have been generated.

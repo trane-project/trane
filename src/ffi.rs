@@ -42,16 +42,16 @@ impl TraneFFI {
 // Thus, successful compilation is considered sufficient coverage.
 
 impl Blacklist for TraneFFI {
-    fn add_to_blacklist(&mut self, unit_id: &Ustr) -> Result<(), BlacklistError> {
+    fn add_to_blacklist(&mut self, unit_id: Ustr) -> Result<(), BlacklistError> {
         self.trane.add_to_blacklist(unit_id)
     }
-    fn remove_from_blacklist(&mut self, unit_id: &Ustr) -> Result<(), BlacklistError> {
+    fn remove_from_blacklist(&mut self, unit_id: Ustr) -> Result<(), BlacklistError> {
         self.trane.remove_from_blacklist(unit_id)
     }
     fn remove_prefix_from_blacklist(&mut self, prefix: &str) -> Result<(), BlacklistError> {
         self.trane.remove_prefix_from_blacklist(prefix)
     }
-    fn blacklisted(&self, unit_id: &Ustr) -> Result<bool, BlacklistError> {
+    fn blacklisted(&self, unit_id: Ustr) -> Result<bool, BlacklistError> {
         self.trane.blacklisted(unit_id)
     }
     fn get_blacklist_entries(&self) -> Result<Vec<Ustr>, BlacklistError> {
@@ -62,26 +62,26 @@ impl Blacklist for TraneFFI {
 /// The FFI version of the `CourseLibrary` trait.
 #[allow(missing_docs)]
 pub trait CourseLibraryFFI {
-    fn get_course_manifest(&self, course_id: &Ustr) -> Option<CourseManifest>;
-    fn get_lesson_manifest(&self, lesson_id: &Ustr) -> Option<LessonManifest>;
-    fn get_exercise_manifest(&self, exercise_id: &Ustr) -> Option<ExerciseManifest>;
+    fn get_course_manifest(&self, course_id: Ustr) -> Option<CourseManifest>;
+    fn get_lesson_manifest(&self, lesson_id: Ustr) -> Option<LessonManifest>;
+    fn get_exercise_manifest(&self, exercise_id: Ustr) -> Option<ExerciseManifest>;
     fn get_course_ids(&self) -> Vec<Ustr>;
-    fn get_lesson_ids(&self, course_id: &Ustr) -> Option<Vec<Ustr>>;
-    fn get_exercise_ids(&self, lesson_id: &Ustr) -> Option<Vec<Ustr>>;
-    fn get_all_exercise_ids(&self, unit_id: Option<&Ustr>) -> Vec<Ustr>;
+    fn get_lesson_ids(&self, course_id: Ustr) -> Option<Vec<Ustr>>;
+    fn get_exercise_ids(&self, lesson_id: Ustr) -> Option<Vec<Ustr>>;
+    fn get_all_exercise_ids(&self, unit_id: Option<Ustr>) -> Vec<Ustr>;
     fn search(&self, query: &str) -> Result<Vec<Ustr>, CourseLibraryError>;
     fn get_user_preferences(&self) -> UserPreferences;
 }
 
 impl CourseLibraryFFI for TraneFFI {
-    fn get_course_manifest(&self, course_id: &Ustr) -> Option<CourseManifest> {
+    fn get_course_manifest(&self, course_id: Ustr) -> Option<CourseManifest> {
         self.trane.get_course_manifest(course_id).map(Into::into)
     }
-    fn get_lesson_manifest(&self, lesson_id: &Ustr) -> Option<LessonManifest> {
+    fn get_lesson_manifest(&self, lesson_id: Ustr) -> Option<LessonManifest> {
         self.trane.get_lesson_manifest(lesson_id).map(Into::into)
     }
 
-    fn get_exercise_manifest(&self, exercise_id: &Ustr) -> Option<ExerciseManifest> {
+    fn get_exercise_manifest(&self, exercise_id: Ustr) -> Option<ExerciseManifest> {
         self.trane
             .get_exercise_manifest(exercise_id)
             .map(Into::into)
@@ -89,13 +89,13 @@ impl CourseLibraryFFI for TraneFFI {
     fn get_course_ids(&self) -> Vec<Ustr> {
         self.trane.get_course_ids()
     }
-    fn get_lesson_ids(&self, course_id: &Ustr) -> Option<Vec<Ustr>> {
+    fn get_lesson_ids(&self, course_id: Ustr) -> Option<Vec<Ustr>> {
         self.trane.get_lesson_ids(course_id)
     }
-    fn get_exercise_ids(&self, lesson_id: &Ustr) -> Option<Vec<Ustr>> {
+    fn get_exercise_ids(&self, lesson_id: Ustr) -> Option<Vec<Ustr>> {
         self.trane.get_exercise_ids(lesson_id)
     }
-    fn get_all_exercise_ids(&self, unit_id: Option<&Ustr>) -> Vec<Ustr> {
+    fn get_all_exercise_ids(&self, unit_id: Option<Ustr>) -> Vec<Ustr> {
         self.trane.get_all_exercise_ids(unit_id)
     }
     fn search(&self, query: &str) -> Result<Vec<Ustr>, CourseLibraryError> {
@@ -115,11 +115,11 @@ pub trait ExerciseSchedulerFFI {
     ) -> Result<Vec<(Ustr, ExerciseManifest)>, ExerciseSchedulerError>;
     fn score_exercise(
         &self,
-        exercise_id: &Ustr,
+        exercise_id: Ustr,
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<(), ExerciseSchedulerError>;
-    fn invalidate_cached_score(&self, unit_id: &Ustr);
+    fn invalidate_cached_score(&self, unit_id: Ustr);
     fn invalidate_cached_scores_with_prefix(&self, prefix: &str);
     fn get_scheduler_options(&self) -> SchedulerOptions;
     fn set_scheduler_options(&mut self, options: SchedulerOptions);
@@ -140,14 +140,14 @@ impl ExerciseSchedulerFFI for TraneFFI {
     }
     fn score_exercise(
         &self,
-        exercise_id: &Ustr,
+        exercise_id: Ustr,
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<(), ExerciseSchedulerError> {
         self.trane
             .score_exercise(exercise_id, score.into(), timestamp)
     }
-    fn invalidate_cached_score(&self, unit_id: &Ustr) {
+    fn invalidate_cached_score(&self, unit_id: Ustr) {
         self.trane.invalidate_cached_score(unit_id);
     }
     fn invalidate_cached_scores_with_prefix(&self, prefix: &str) {
@@ -185,12 +185,12 @@ impl FilterManagerFFI for TraneFFI {
 pub trait PracticeStatsFFI {
     fn get_scores(
         &self,
-        exercise_id: &Ustr,
+        exercise_id: Ustr,
         num_scores: usize,
     ) -> Result<Vec<ExerciseTrial>, PracticeStatsError>;
     fn record_exercise_score(
         &mut self,
-        exercise_id: &Ustr,
+        exercise_id: Ustr,
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<(), PracticeStatsError>;
@@ -200,14 +200,14 @@ pub trait PracticeStatsFFI {
 impl PracticeStatsFFI for TraneFFI {
     fn get_scores(
         &self,
-        exercise_id: &Ustr,
+        exercise_id: Ustr,
         num_scores: usize,
     ) -> Result<Vec<ExerciseTrial>, PracticeStatsError> {
         self.trane.get_scores(exercise_id, num_scores)
     }
     fn record_exercise_score(
         &mut self,
-        exercise_id: &Ustr,
+        exercise_id: Ustr,
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<(), PracticeStatsError> {
@@ -262,16 +262,16 @@ impl RepositoryManagerFFI for TraneFFI {
 /// The FFI version of the `ReviewList` trait.
 #[allow(missing_docs)]
 pub trait ReviewListFFI {
-    fn add_to_review_list(&mut self, unit_id: &Ustr) -> Result<(), ReviewListError>;
-    fn remove_from_review_list(&mut self, unit_id: &Ustr) -> Result<(), ReviewListError>;
+    fn add_to_review_list(&mut self, unit_id: Ustr) -> Result<(), ReviewListError>;
+    fn remove_from_review_list(&mut self, unit_id: Ustr) -> Result<(), ReviewListError>;
     fn get_review_list_entries(&self) -> Result<Vec<Ustr>, ReviewListError>;
 }
 
 impl ReviewListFFI for TraneFFI {
-    fn add_to_review_list(&mut self, unit_id: &Ustr) -> Result<(), ReviewListError> {
+    fn add_to_review_list(&mut self, unit_id: Ustr) -> Result<(), ReviewListError> {
         self.trane.add_to_review_list(unit_id)
     }
-    fn remove_from_review_list(&mut self, unit_id: &Ustr) -> Result<(), ReviewListError> {
+    fn remove_from_review_list(&mut self, unit_id: Ustr) -> Result<(), ReviewListError> {
         self.trane.remove_from_review_list(unit_id)
     }
     fn get_review_list_entries(&self) -> Result<Vec<Ustr>, ReviewListError> {
@@ -298,88 +298,88 @@ impl StudySessionManagerFFI for TraneFFI {
 /// The FFI version of the `UnitGraph` trait.
 #[allow(missing_docs)]
 pub trait UnitGraphFFI {
-    fn add_course(&mut self, course_id: &Ustr) -> Result<(), UnitGraphError>;
-    fn add_lesson(&mut self, lesson_id: &Ustr, course_id: &Ustr) -> Result<(), UnitGraphError>;
-    fn add_exercise(&mut self, exercise_id: &Ustr, lesson_id: &Ustr) -> Result<(), UnitGraphError>;
+    fn add_course(&mut self, course_id: Ustr) -> Result<(), UnitGraphError>;
+    fn add_lesson(&mut self, lesson_id: Ustr, course_id: Ustr) -> Result<(), UnitGraphError>;
+    fn add_exercise(&mut self, exercise_id: Ustr, lesson_id: Ustr) -> Result<(), UnitGraphError>;
     fn add_dependencies(
         &mut self,
-        unit_id: &Ustr,
+        unit_id: Ustr,
         unit_type: UnitType,
         dependencies: &[Ustr],
     ) -> Result<(), UnitGraphError>;
-    fn add_superseded(&mut self, unit_id: &Ustr, superseded: &[Ustr]);
-    fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType>;
-    fn get_course_lessons(&self, course_id: &Ustr) -> Option<UstrSet>;
+    fn add_superseded(&mut self, unit_id: Ustr, superseded: &[Ustr]);
+    fn get_unit_type(&self, unit_id: Ustr) -> Option<UnitType>;
+    fn get_course_lessons(&self, course_id: Ustr) -> Option<UstrSet>;
     fn update_starting_lessons(&mut self);
-    fn get_starting_lessons(&self, course_id: &Ustr) -> Option<UstrSet>;
-    fn get_lesson_course(&self, lesson_id: &Ustr) -> Option<Ustr>;
-    fn get_lesson_exercises(&self, lesson_id: &Ustr) -> Option<UstrSet>;
-    fn get_exercise_lesson(&self, exercise_id: &Ustr) -> Option<Ustr>;
-    fn get_dependencies(&self, unit_id: &Ustr) -> Option<UstrSet>;
-    fn get_dependents(&self, unit_id: &Ustr) -> Option<UstrSet>;
+    fn get_starting_lessons(&self, course_id: Ustr) -> Option<UstrSet>;
+    fn get_lesson_course(&self, lesson_id: Ustr) -> Option<Ustr>;
+    fn get_lesson_exercises(&self, lesson_id: Ustr) -> Option<UstrSet>;
+    fn get_exercise_lesson(&self, exercise_id: Ustr) -> Option<Ustr>;
+    fn get_dependencies(&self, unit_id: Ustr) -> Option<UstrSet>;
+    fn get_dependents(&self, unit_id: Ustr) -> Option<UstrSet>;
     fn get_dependency_sinks(&self) -> UstrSet;
-    fn get_superseded(&self, unit_id: &Ustr) -> Option<UstrSet>;
-    fn get_superseding(&self, unit_id: &Ustr) -> Option<UstrSet>;
+    fn get_superseded(&self, unit_id: Ustr) -> Option<UstrSet>;
+    fn get_superseding(&self, unit_id: Ustr) -> Option<UstrSet>;
     fn check_cycles(&self) -> Result<(), UnitGraphError>;
     fn generate_dot_graph(&self) -> String;
 }
 
 impl UnitGraphFFI for TraneFFI {
-    fn add_course(&mut self, course_id: &Ustr) -> Result<(), UnitGraphError> {
+    fn add_course(&mut self, course_id: Ustr) -> Result<(), UnitGraphError> {
         self.trane.add_course(course_id)
     }
-    fn add_lesson(&mut self, lesson_id: &Ustr, course_id: &Ustr) -> Result<(), UnitGraphError> {
+    fn add_lesson(&mut self, lesson_id: Ustr, course_id: Ustr) -> Result<(), UnitGraphError> {
         self.trane.add_lesson(lesson_id, course_id)
     }
-    fn add_exercise(&mut self, exercise_id: &Ustr, lesson_id: &Ustr) -> Result<(), UnitGraphError> {
+    fn add_exercise(&mut self, exercise_id: Ustr, lesson_id: Ustr) -> Result<(), UnitGraphError> {
         self.trane.add_exercise(exercise_id, lesson_id)
     }
     fn add_dependencies(
         &mut self,
-        unit_id: &Ustr,
+        unit_id: Ustr,
         unit_type: UnitType,
         dependencies: &[Ustr],
     ) -> Result<(), UnitGraphError> {
         self.trane
             .add_dependencies(unit_id, unit_type.into(), dependencies)
     }
-    fn add_superseded(&mut self, unit_id: &Ustr, superseded: &[Ustr]) {
+    fn add_superseded(&mut self, unit_id: Ustr, superseded: &[Ustr]) {
         self.trane.add_superseded(unit_id, superseded);
     }
-    fn get_unit_type(&self, unit_id: &Ustr) -> Option<UnitType> {
+    fn get_unit_type(&self, unit_id: Ustr) -> Option<UnitType> {
         self.trane.get_unit_type(unit_id).map(Into::into)
     }
-    fn get_course_lessons(&self, course_id: &Ustr) -> Option<UstrSet> {
+    fn get_course_lessons(&self, course_id: Ustr) -> Option<UstrSet> {
         self.trane.get_course_lessons(course_id)
     }
     fn update_starting_lessons(&mut self) {
         self.trane.update_starting_lessons();
     }
-    fn get_starting_lessons(&self, course_id: &Ustr) -> Option<UstrSet> {
+    fn get_starting_lessons(&self, course_id: Ustr) -> Option<UstrSet> {
         self.trane.get_starting_lessons(course_id)
     }
-    fn get_lesson_course(&self, lesson_id: &Ustr) -> Option<Ustr> {
+    fn get_lesson_course(&self, lesson_id: Ustr) -> Option<Ustr> {
         self.trane.get_lesson_course(lesson_id)
     }
-    fn get_lesson_exercises(&self, lesson_id: &Ustr) -> Option<UstrSet> {
+    fn get_lesson_exercises(&self, lesson_id: Ustr) -> Option<UstrSet> {
         self.trane.get_lesson_exercises(lesson_id)
     }
-    fn get_exercise_lesson(&self, exercise_id: &Ustr) -> Option<Ustr> {
+    fn get_exercise_lesson(&self, exercise_id: Ustr) -> Option<Ustr> {
         self.trane.get_exercise_lesson(exercise_id)
     }
-    fn get_dependencies(&self, unit_id: &Ustr) -> Option<UstrSet> {
+    fn get_dependencies(&self, unit_id: Ustr) -> Option<UstrSet> {
         self.trane.get_dependencies(unit_id)
     }
-    fn get_dependents(&self, unit_id: &Ustr) -> Option<UstrSet> {
+    fn get_dependents(&self, unit_id: Ustr) -> Option<UstrSet> {
         self.trane.get_dependents(unit_id)
     }
     fn get_dependency_sinks(&self) -> UstrSet {
         self.trane.get_dependency_sinks()
     }
-    fn get_superseded(&self, unit_id: &Ustr) -> Option<UstrSet> {
+    fn get_superseded(&self, unit_id: Ustr) -> Option<UstrSet> {
         self.trane.get_superseded(unit_id)
     }
-    fn get_superseding(&self, unit_id: &Ustr) -> Option<UstrSet> {
+    fn get_superseding(&self, unit_id: Ustr) -> Option<UstrSet> {
         self.trane.get_superseding(unit_id)
     }
     fn check_cycles(&self) -> Result<(), UnitGraphError> {

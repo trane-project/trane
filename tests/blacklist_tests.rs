@@ -146,7 +146,7 @@ fn avoid_scheduling_courses_in_blacklist() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -185,7 +185,7 @@ fn avoid_scheduling_lessons_in_blacklist() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -235,7 +235,7 @@ fn avoid_scheduling_lessons_in_blacklist_with_course_filter() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -283,7 +283,7 @@ fn avoid_scheduling_exercises_in_blacklist() -> Result<()> {
                 "exercise {:?} should have been scheduled",
                 exercise_id
             );
-            assert_simulation_scores(&exercise_ustr, &trane, &simulation.answer_history)?;
+            assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -356,7 +356,7 @@ fn invalidate_cache_on_blacklist_update() -> Result<()> {
     // Remove those units from the blacklist and re-run the simulation, but this time assign a score
     // of one to all exercises.
     for exercise_id in &exercise_blacklist {
-        trane.remove_from_blacklist(&exercise_id.to_ustr())?;
+        trane.remove_from_blacklist(exercise_id.to_ustr())?;
     }
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::One)));
     simulation.run_simulation(&mut trane, &vec![], &None)?;

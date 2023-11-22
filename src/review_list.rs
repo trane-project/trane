@@ -16,11 +16,11 @@ use crate::error::ReviewListError;
 /// An interface to store and read a list of units that need review.
 pub trait ReviewList {
     /// Adds the given unit to the review list.
-    fn add_to_review_list(&mut self, unit_id: &Ustr) -> Result<(), ReviewListError>;
+    fn add_to_review_list(&mut self, unit_id: Ustr) -> Result<(), ReviewListError>;
 
     /// Removes the given unit from the review list. Do nothing if the unit is not already in the
     /// list.
-    fn remove_from_review_list(&mut self, unit_id: &Ustr) -> Result<(), ReviewListError>;
+    fn remove_from_review_list(&mut self, unit_id: Ustr) -> Result<(), ReviewListError>;
 
     /// Returns all the entries in the review list.
     fn get_review_list_entries(&self) -> Result<Vec<Ustr>, ReviewListError>;
@@ -79,7 +79,7 @@ impl ReviewListDB {
     }
 
     /// Helper to add a unit to the review list.
-    fn add_to_review_list_helper(&mut self, unit_id: &Ustr) -> Result<()> {
+    fn add_to_review_list_helper(&mut self, unit_id: Ustr) -> Result<()> {
         // Add the unit to the database.
         let connection = self.pool.get()?;
         let mut stmt =
@@ -89,7 +89,7 @@ impl ReviewListDB {
     }
 
     /// Helper to remove a unit from the review list.
-    fn remove_from_review_list_helper(&mut self, unit_id: &Ustr) -> Result<()> {
+    fn remove_from_review_list_helper(&mut self, unit_id: Ustr) -> Result<()> {
         // Remove the unit from the database.
         let connection = self.pool.get()?;
         let mut stmt = connection.prepare_cached("DELETE FROM review_list WHERE unit_id = $1")?;
@@ -115,14 +115,14 @@ impl ReviewListDB {
 }
 
 impl ReviewList for ReviewListDB {
-    fn add_to_review_list(&mut self, unit_id: &Ustr) -> Result<(), ReviewListError> {
+    fn add_to_review_list(&mut self, unit_id: Ustr) -> Result<(), ReviewListError> {
         self.add_to_review_list_helper(unit_id)
-            .map_err(|e| ReviewListError::AddUnit(*unit_id, e))
+            .map_err(|e| ReviewListError::AddUnit(unit_id, e))
     }
 
-    fn remove_from_review_list(&mut self, unit_id: &Ustr) -> Result<(), ReviewListError> {
+    fn remove_from_review_list(&mut self, unit_id: Ustr) -> Result<(), ReviewListError> {
         self.remove_from_review_list_helper(unit_id)
-            .map_err(|e| ReviewListError::RemoveUnit(*unit_id, e))
+            .map_err(|e| ReviewListError::RemoveUnit(unit_id, e))
     }
 
     fn get_review_list_entries(&self) -> Result<Vec<Ustr>, ReviewListError> {
@@ -152,16 +152,16 @@ mod test {
 
         let unit_id = Ustr::from("unit_id");
         let unit_id2 = Ustr::from("unit_id2");
-        review_list.add_to_review_list(&unit_id)?;
-        review_list.add_to_review_list(&unit_id)?;
-        review_list.add_to_review_list(&unit_id2)?;
+        review_list.add_to_review_list(unit_id)?;
+        review_list.add_to_review_list(unit_id)?;
+        review_list.add_to_review_list(unit_id2)?;
 
         let entries = review_list.get_review_list_entries()?;
         assert_eq!(entries.len(), 2);
         assert!(entries.contains(&unit_id));
         assert!(entries.contains(&unit_id2));
 
-        review_list.remove_from_review_list(&unit_id)?;
+        review_list.remove_from_review_list(unit_id)?;
         let entries = review_list.get_review_list_entries()?;
         assert_eq!(entries.len(), 1);
         assert!(!entries.contains(&unit_id));

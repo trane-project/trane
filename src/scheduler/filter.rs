@@ -240,7 +240,7 @@ impl CandidateFilter {
         let mut exercises = candidates
             .into_iter()
             .map(|c| -> Result<(Ustr, _)> {
-                let manifest = self.data.get_exercise_manifest(&c.exercise_id)?;
+                let manifest = self.data.get_exercise_manifest(c.exercise_id)?;
                 Ok((c.exercise_id, manifest))
             })
             .collect::<Result<Vec<(Ustr, _)>>>()?; // grcov-excl-line

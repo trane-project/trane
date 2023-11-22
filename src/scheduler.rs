@@ -63,7 +63,7 @@ pub trait ExerciseScheduler {
     /// into a final batch.
     fn score_exercise(
         &self,
-        exercise_id: &Ustr,
+        exercise_id: Ustr,
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<(), ExerciseSchedulerError>;
@@ -79,7 +79,7 @@ pub trait ExerciseScheduler {
     /// However, the final users of Trane do not need to call this function because the `Trane`
     /// object in lib.rs takes care of clearing the cache when exposing the interface that modifies
     /// the blacklist.
-    fn invalidate_cached_score(&self, unit_id: &Ustr);
+    fn invalidate_cached_score(&self, unit_id: Ustr);
 
     /// Removes any cached scores from units with the given prefix. The same considerations as
     /// `invalidate_cached_score` apply.
@@ -179,10 +179,10 @@ impl DepthFirstScheduler {
         loop {
             let mut new_starting_courses = UstrSet::default();
             for course_id in &starting_courses {
-                if self.data.unit_exists(course_id).unwrap_or(false) {
+                if self.data.unit_exists(*course_id).unwrap_or(false) {
                     new_starting_courses.insert(*course_id);
                 } else {
-                    new_starting_courses.extend(self.data.get_all_dependents(course_id).iter());
+                    new_starting_courses.extend(self.data.get_all_dependents(*course_id).iter());
                 }
             }
             if new_starting_courses.len() == starting_courses.len() {
@@ -200,10 +200,10 @@ impl DepthFirstScheduler {
                 self.data
                     .unit_graph
                     .read()
-                    .get_dependencies(course_id)
+                    .get_dependencies(*course_id)
                     .unwrap_or_default()
                     .iter()
-                    .all(|id| !self.data.unit_exists(id).unwrap())
+                    .all(|id| !self.data.unit_exists(*id).unwrap())
             })
             .collect()
     }
@@ -212,7 +212,7 @@ impl DepthFirstScheduler {
     /// and whose dependencies are satisfied.
     pub fn get_course_valid_starting_lessons(
         &self,
-        course_id: &Ustr,
+        course_id: Ustr,
         depth: usize,
         metadata_filter: Option<&KeyValueFilter>,
     ) -> Result<Vec<Ustr>> {
@@ -226,7 +226,7 @@ impl DepthFirstScheduler {
             .filter(|id| {
                 // Filter out lessons whose dependencies are not satisfied. Otherwise, those lessons
                 // would be traversed prematurely.
-                self.all_satisfied_dependencies(id, depth, metadata_filter)
+                self.all_satisfied_dependencies(*id, depth, metadata_filter)
             })
             .collect())
     }
@@ -241,7 +241,7 @@ impl DepthFirstScheduler {
         for course_id in starting_units {
             // Set the depth to zero since all the starting units are at the same depth.
             let lesson_ids = self
-                .get_course_valid_starting_lessons(&course_id, 0, metadata_filter)
+                .get_course_valid_starting_lessons(course_id, 0, metadata_filter)
                 .unwrap_or_default();
 
             if lesson_ids.is_empty() {
@@ -271,7 +271,7 @@ impl DepthFirstScheduler {
     /// The average score is used to help decide whether to continue searching a path in the graph.
     fn get_candidates_from_lesson_helper(&self, item: &StackItem) -> Result<(Vec<Candidate>, f32)> {
         // Retrieve the lesson's exercises.
-        let exercises = self.data.all_valid_exercises_in_lesson(&item.unit_id);
+        let exercises = self.data.all_valid_exercises_in_lesson(item.unit_id);
         if exercises.is_empty() {
             // Return early to avoid division by zero later on.
             return Ok((vec![], 0.0));
@@ -287,13 +287,13 @@ impl DepthFirstScheduler {
                     depth: (item.depth + 1) as f32,
                     score: self
                         .score_cache
-                        .get_unit_score(&exercise_id)? // grcov-excl-line
+                        .get_unit_score(exercise_id)? // grcov-excl-line
                         .unwrap_or_default(),
                     num_trials: self
                         .score_cache
-                        .get_num_trials(&exercise_id)? // grcov-excl-line
+                        .get_num_trials(exercise_id)? // grcov-excl-line
                         .unwrap_or_default(),
-                    frequency: self.data.get_exercise_frequency(&exercise_id),
+                    frequency: self.data.get_exercise_frequency(exercise_id),
                 })
             })
             .collect::<Result<Vec<Candidate>>>()?; // grcov-excl-line
@@ -307,7 +307,7 @@ impl DepthFirstScheduler {
     /// of a unit are met, the search can continue with the unit.
     fn satisfied_dependency(
         &self,
-        dependency_id: &Ustr,
+        dependency_id: Ustr,
         depth: usize,
         metadata_filter: Option<&KeyValueFilter>,
     ) -> bool {
@@ -334,7 +334,7 @@ impl DepthFirstScheduler {
             .data
             .get_lesson_course(dependency_id)
             .unwrap_or_default();
-        if self.data.blacklisted(&course_id).unwrap_or(false) {
+        if self.data.blacklisted(course_id).unwrap_or(false) {
             return true;
         }
 
@@ -359,7 +359,7 @@ impl DepthFirstScheduler {
     /// Returns whether all the dependencies of the given unit are satisfied.
     fn all_satisfied_dependencies(
         &self,
-        unit_id: &Ustr,
+        unit_id: Ustr,
         depth: usize,
         metadata_filter: Option<&KeyValueFilter>,
     ) -> bool {
@@ -369,21 +369,21 @@ impl DepthFirstScheduler {
             .get_dependencies(unit_id)
             .unwrap_or_default()
             .into_iter()
-            .all(|dependency_id| self.satisfied_dependency(&dependency_id, depth, metadata_filter))
+            .all(|dependency_id| self.satisfied_dependency(dependency_id, depth, metadata_filter))
     }
 
     /// Returns the valid dependents which can be visited after the given unit. A valid dependent is
     /// a unit whose full dependencies are met.
     fn get_valid_dependents(
         &self,
-        unit_id: &Ustr,
+        unit_id: Ustr,
         depth: usize,
         metadata_filter: Option<&KeyValueFilter>,
     ) -> Vec<Ustr> {
         self.data
             .get_all_dependents(unit_id)
             .into_iter()
-            .filter(|unit_id| self.all_satisfied_dependencies(unit_id, depth, metadata_filter))
+            .filter(|unit_id| self.all_satisfied_dependencies(*unit_id, depth, metadata_filter))
             .collect()
     }
 
@@ -391,7 +391,7 @@ impl DepthFirstScheduler {
     /// dependents of the course should be added to the stack.
     fn skip_course(
         &self,
-        course_id: &Ustr,
+        course_id: Ustr,
         metadata_filter: Option<&KeyValueFilter>,
         pending_course_lessons: &mut UstrMap<usize>,
     ) -> bool {
@@ -406,7 +406,7 @@ impl DepthFirstScheduler {
 
         // Check the number of pending lessons in the course.
         let pending_lessons = pending_course_lessons
-            .entry(*course_id)
+            .entry(course_id)
             .or_insert_with(|| self.data.get_num_lessons_in_course(course_id));
 
         // Check if the course has been superseded by another unit.
@@ -425,7 +425,7 @@ impl DepthFirstScheduler {
 
     /// Returns whether the given lesson should be skipped during the search. If so, the valid
     /// dependents of the lesson should be added to the stack.
-    fn skip_lesson(&self, lesson_id: &Ustr, metadata_filter: Option<&KeyValueFilter>) -> bool {
+    fn skip_lesson(&self, lesson_id: Ustr, metadata_filter: Option<&KeyValueFilter>) -> bool {
         // Check if the lesson is blacklisted.
         let blacklisted = self.data.blacklisted(lesson_id).unwrap_or(false);
 
@@ -448,11 +448,11 @@ impl DepthFirstScheduler {
         let course_id = self.data.get_lesson_course(lesson_id).unwrap_or_default();
         let superseding_units = self
             .score_cache
-            .get_superseding_recursive(&course_id)
+            .get_superseding_recursive(course_id)
             .unwrap_or_default();
         let is_course_superseded = self
             .score_cache
-            .is_superseded(&course_id, &superseding_units);
+            .is_superseded(course_id, &superseding_units);
 
         // The lesson should be skipped if it is blacklisted, does not pass the filter or if it or
         // its course have been superseded.
@@ -496,7 +496,7 @@ impl DepthFirstScheduler {
             }
 
             // The logic past this point depends on the type of the unit.
-            let unit_type = self.data.get_unit_type(&curr_unit.unit_id);
+            let unit_type = self.data.get_unit_type(curr_unit.unit_id);
             if unit_type.is_none() {
                 // The type of the unit is unknown. This can happen when a unit depends on some
                 // unknown unit.
@@ -515,7 +515,7 @@ impl DepthFirstScheduler {
                 // Retrieve the starting lessons in the course and add them to the stack.
                 let starting_lessons: Vec<Ustr> = self
                     .get_course_valid_starting_lessons(
-                        &curr_unit.unit_id,
+                        curr_unit.unit_id,
                         curr_unit.depth,
                         metadata_filter,
                     )
@@ -525,13 +525,13 @@ impl DepthFirstScheduler {
                 // The course can be skipped. Add it to the visited set, push its valid dependents
                 // onto the stack, and continue.
                 if self.skip_course(
-                    &curr_unit.unit_id,
+                    curr_unit.unit_id,
                     metadata_filter,
                     &mut pending_course_lessons,
                 ) {
                     visited.insert(curr_unit.unit_id);
                     let valid_deps = self.get_valid_dependents(
-                        &curr_unit.unit_id,
+                        curr_unit.unit_id,
                         curr_unit.depth,
                         metadata_filter,
                     );
@@ -548,10 +548,10 @@ impl DepthFirstScheduler {
             visited.insert(curr_unit.unit_id);
 
             // Update the number of lessons pending to be processed.
-            let course_id = self.data.get_course_id(&curr_unit.unit_id)?;
+            let course_id = self.data.get_course_id(curr_unit.unit_id)?;
             let pending_lessons = pending_course_lessons
                 .entry(course_id)
-                .or_insert_with(|| self.data.get_num_lessons_in_course(&course_id));
+                .or_insert_with(|| self.data.get_num_lessons_in_course(course_id));
             *pending_lessons -= 1;
 
             // Check whether there are pending lessons.
@@ -566,8 +566,8 @@ impl DepthFirstScheduler {
 
             // Retrieve the valid dependents of the lesson, and directly skip the lesson if needed.
             let valid_deps =
-                self.get_valid_dependents(&curr_unit.unit_id, curr_unit.depth, metadata_filter);
-            if self.skip_lesson(&curr_unit.unit_id, metadata_filter) {
+                self.get_valid_dependents(curr_unit.unit_id, curr_unit.depth, metadata_filter);
+            if self.skip_lesson(curr_unit.unit_id, metadata_filter) {
                 Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
                 continue;
             }
@@ -615,7 +615,7 @@ impl DepthFirstScheduler {
                 .data
                 .unit_graph
                 .read()
-                .get_starting_lessons(course_id)
+                .get_starting_lessons(*course_id)
                 .unwrap_or_default()
                 .into_iter()
                 .map(|id| StackItem {
@@ -639,7 +639,7 @@ impl DepthFirstScheduler {
             visited.insert(curr_unit.unit_id);
 
             // The logic past this point depends on the type of the unit.
-            let unit_type = self.data.get_unit_type(&curr_unit.unit_id);
+            let unit_type = self.data.get_unit_type(curr_unit.unit_id);
             if unit_type.is_none() {
                 // The type of the unit is unknown. This can happen when a unit depends on some
                 // unknown unit.
@@ -663,15 +663,15 @@ impl DepthFirstScheduler {
             // other courses that might have been added to the stack.
             let lesson_course_id = self
                 .data
-                .get_lesson_course(&curr_unit.unit_id)
+                .get_lesson_course(curr_unit.unit_id)
                 .unwrap_or_default();
             if !course_ids.contains(&lesson_course_id) {
                 continue;
             }
 
             // Retrieve the valid dependents of the lesson, and directly skip the lesson if needed.
-            let valid_deps = self.get_valid_dependents(&curr_unit.unit_id, curr_unit.depth, None);
-            if self.skip_lesson(&curr_unit.unit_id, None) {
+            let valid_deps = self.get_valid_dependents(curr_unit.unit_id, curr_unit.depth, None);
+            if self.skip_lesson(curr_unit.unit_id, None) {
                 Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
                 continue;
             }
@@ -708,9 +708,9 @@ impl DepthFirstScheduler {
     }
 
     /// Searches for candidates from the given lesson.
-    fn get_candidates_from_lesson(&self, lesson_id: &Ustr) -> Result<Vec<Candidate>> {
+    fn get_candidates_from_lesson(&self, lesson_id: Ustr) -> Result<Vec<Candidate>> {
         let (candidates, _) = self.get_candidates_from_lesson_helper(&StackItem {
-            unit_id: *lesson_id,
+            unit_id: lesson_id,
             depth: 0,
         })?; // grcov-excl-line
         Ok(candidates)
@@ -722,11 +722,11 @@ impl DepthFirstScheduler {
         // Retrieve candidates from each entry in the review list.
         let mut candidates = vec![];
         let review_list = self.data.review_list.read().get_review_list_entries()?;
-        for unit_id in &review_list {
+        for unit_id in review_list {
             match self.data.get_unit_type_strict(unit_id)? {
                 UnitType::Course => {
                     // If the unit is a course, use the course scheduler to retrieve candidates.
-                    let course_ids = vec![*unit_id];
+                    let course_ids = vec![unit_id];
                     candidates.extend(self.get_candidates_from_course(&course_ids)?);
                 }
                 UnitType::Lesson => {
@@ -744,7 +744,7 @@ impl DepthFirstScheduler {
 
                     // If the unit is an exercise, directly add it to the list of candidates.
                     candidates.push(Candidate {
-                        exercise_id: *unit_id,
+                        exercise_id: unit_id,
                         lesson_id,
                         depth: 0.0,
                         score: self
@@ -755,7 +755,7 @@ impl DepthFirstScheduler {
                             .score_cache
                             .get_num_trials(unit_id)? // grcov-excl-line
                             .unwrap_or_default(),
-                        frequency: *self.data.frequency_map.read().get(unit_id).unwrap_or(&0),
+                        frequency: *self.data.frequency_map.read().get(&unit_id).unwrap_or(&0),
                     });
                 }
             }
@@ -784,7 +784,7 @@ impl DepthFirstScheduler {
                         let mut candidates = Vec::new();
                         for lesson_id in lesson_ids {
                             candidates
-                                .extend(self.get_candidates_from_lesson(&lesson_id)?.into_iter());
+                                .extend(self.get_candidates_from_lesson(lesson_id)?.into_iter());
                         }
                         candidates
                     }
@@ -806,7 +806,9 @@ impl DepthFirstScheduler {
                     UnitFilter::Dependencies { unit_ids, depth } => {
                         let dependencies: Vec<Ustr> = unit_ids
                             .iter()
-                            .flat_map(|unit_id| self.data.get_dependencies_at_depth(unit_id, depth))
+                            .flat_map(|unit_id| {
+                                self.data.get_dependencies_at_depth(*unit_id, depth)
+                            })
                             .collect();
                         let initial_stack = dependencies
                             .iter()
@@ -853,7 +855,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
         // chance of being selected in the future so that exercises that have not been selected as
         // often have a higher chance of being selected.
         for (exercise_id, _) in &final_candidates {
-            self.data.increment_exercise_frequency(exercise_id);
+            self.data.increment_exercise_frequency(*exercise_id);
         }
 
         Ok(final_candidates)
@@ -861,7 +863,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
 
     fn score_exercise(
         &self,
-        exercise_id: &Ustr,
+        exercise_id: Ustr,
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<(), ExerciseSchedulerError> {
@@ -880,7 +882,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
 
     // grcov-excl-start: These methods simply call similar methods on the cache, which are already
     // tested.
-    fn invalidate_cached_score(&self, unit_id: &Ustr) {
+    fn invalidate_cached_score(&self, unit_id: Ustr) {
         self.score_cache.invalidate_cached_score(unit_id);
     }
 
