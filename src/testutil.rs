@@ -458,7 +458,7 @@ impl TraneSimulation {
             completed_exercises += 1;
 
             // If the batch is empty, try to get another batch. If this batch is also empty, break
-            // early to avoid falling into an infinite loop.
+            // early to avoid falling into an nfinite loop.
             if batch.is_empty() {
                 batch = trane.get_exercise_batch(filter.clone())?;
                 if batch.is_empty() {
@@ -474,7 +474,7 @@ impl TraneSimulation {
                     exercise_manifest.id,
                     score.clone(),
                     Utc::now().timestamp(),
-                )?;
+                )?; // grcov-excl-line
                 self.answer_history
                     .entry(exercise_manifest.id)
                     .or_default()
