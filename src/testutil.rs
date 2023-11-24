@@ -458,7 +458,7 @@ impl TraneSimulation {
             completed_exercises += 1;
 
             // If the batch is empty, try to get another batch. If this batch is also empty, break
-            // early to avoid falling into an infinite loop.
+            // early to avoid falling into an nfinite loop.
             if batch.is_empty() {
                 batch = trane.get_exercise_batch(filter.clone())?;
                 if batch.is_empty() {
@@ -467,12 +467,16 @@ impl TraneSimulation {
             }
 
             // Retrieve an exercise, compute its score, add it to the history, and submit it.
-            let (exercise_id, _) = batch.pop().unwrap();
-            let score = (self.answer_closure)(&exercise_id);
+            let exercise_manifest = batch.pop().unwrap();
+            let score = (self.answer_closure)(&exercise_manifest.id);
             if let Some(score) = score {
-                trane.score_exercise(exercise_id, score.clone(), Utc::now().timestamp())?;
+                trane.score_exercise(
+                    exercise_manifest.id,
+                    score.clone(),
+                    Utc::now().timestamp(),
+                )?; // grcov-excl-line
                 self.answer_history
-                    .entry(exercise_id)
+                    .entry(exercise_manifest.id)
                     .or_default()
                     .push(score);
             }

@@ -112,7 +112,7 @@ pub trait ExerciseSchedulerFFI {
     fn get_exercise_batch(
         &self,
         filter: Option<ExerciseFilter>,
-    ) -> Result<Vec<(Ustr, ExerciseManifest)>, ExerciseSchedulerError>;
+    ) -> Result<Vec<ExerciseManifest>, ExerciseSchedulerError>;
     fn score_exercise(
         &self,
         exercise_id: Ustr,
@@ -130,12 +130,12 @@ impl ExerciseSchedulerFFI for TraneFFI {
     fn get_exercise_batch(
         &self,
         filter: Option<ExerciseFilter>,
-    ) -> Result<Vec<(Ustr, ExerciseManifest)>, ExerciseSchedulerError> {
+    ) -> Result<Vec<ExerciseManifest>, ExerciseSchedulerError> {
         Ok(self
             .trane
             .get_exercise_batch(filter.map(Into::into))?
             .into_iter()
-            .map(|(unit_id, manifest)| (unit_id, manifest.into()))
+            .map(Into::into)
             .collect())
     }
     fn score_exercise(

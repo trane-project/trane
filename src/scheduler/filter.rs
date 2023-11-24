@@ -13,7 +13,7 @@
 use anyhow::Result;
 use lazy_static::lazy_static;
 use rand::{prelude::SliceRandom, thread_rng};
-use ustr::{Ustr, UstrMap, UstrSet};
+use ustr::{UstrMap, UstrSet};
 
 use crate::{
     data::{ExerciseManifest, MasteryWindow},
@@ -232,22 +232,18 @@ impl CandidateFilter {
     }
 
     /// Takes a list of candidates and returns a vector of tuples of exercises IDs and manifests.
-    fn candidates_to_exercises(
-        &self,
-        candidates: Vec<Candidate>,
-    ) -> Result<Vec<(Ustr, ExerciseManifest)>> {
+    fn candidates_to_exercises(&self, candidates: Vec<Candidate>) -> Result<Vec<ExerciseManifest>> {
         // Retrieve the manifests for each candidate.
         let mut exercises = candidates
             .into_iter()
-            .map(|c| -> Result<(Ustr, _)> {
+            .map(|c| -> Result<_> {
                 let manifest = self.data.get_exercise_manifest(c.exercise_id)?;
-                Ok((c.exercise_id, manifest))
+                Ok(manifest)
             })
-            .collect::<Result<Vec<(Ustr, _)>>>()?; // grcov-excl-line
+            .collect::<Result<Vec<_>>>()?; // grcov-excl-line
 
         // Shuffle the list one more time to add more randomness to the final batch.
         exercises.shuffle(&mut thread_rng());
-
         Ok(exercises)
     }
 
@@ -270,10 +266,7 @@ impl CandidateFilter {
 
     /// Takes a list of exercises and filters them so that the end result is a list of exercise
     /// manifests which fit the mastery windows defined in the scheduler options.
-    pub fn filter_candidates(
-        &self,
-        candidates: &[Candidate],
-    ) -> Result<Vec<(Ustr, ExerciseManifest)>> {
+    pub fn filter_candidates(&self, candidates: &[Candidate]) -> Result<Vec<ExerciseManifest>> {
         // Find the batch size to use.
         let options = &self.data.options;
         let batch_size = Self::dynamic_batch_size(options.batch_size, candidates.len());
