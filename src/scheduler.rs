@@ -56,7 +56,7 @@ pub trait ExerciseScheduler {
     fn get_exercise_batch(
         &self,
         filter: Option<ExerciseFilter>,
-    ) -> Result<Vec<(Ustr, ExerciseManifest)>, ExerciseSchedulerError>;
+    ) -> Result<Vec<ExerciseManifest>, ExerciseSchedulerError>;
 
     /// Records the score of the given exercise's trial. The scores are used by the scheduler to
     /// decide when to stop traversing a path and how to sort and filter all the found candidates
@@ -838,7 +838,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
     fn get_exercise_batch(
         &self,
         filter: Option<ExerciseFilter>,
-    ) -> Result<Vec<(Ustr, ExerciseManifest)>, ExerciseSchedulerError> {
+    ) -> Result<Vec<ExerciseManifest>, ExerciseSchedulerError> {
         // Retrieve an initial batch of candidates based on the type of the filter.
         let initial_candidates = self
             .get_initial_candidates(filter)
@@ -852,10 +852,10 @@ impl ExerciseScheduler for DepthFirstScheduler {
             .map_err(ExerciseSchedulerError::GetExerciseBatch)?; // grcov-excl-line
 
         // Increment the frequency of the exercises in the batch. These exercises will have a lower
-        // chance of being selected in the future so that exercises that have not been selected as
+        // chance of being selected in the future,so that exercises that have not been selected as
         // often have a higher chance of being selected.
-        for (exercise_id, _) in &final_candidates {
-            self.data.increment_exercise_frequency(*exercise_id);
+        for exercise_manifest in &final_candidates {
+            self.data.increment_exercise_frequency(exercise_manifest.id);
         }
 
         Ok(final_candidates)

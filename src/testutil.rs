@@ -467,12 +467,16 @@ impl TraneSimulation {
             }
 
             // Retrieve an exercise, compute its score, add it to the history, and submit it.
-            let (exercise_id, _) = batch.pop().unwrap();
-            let score = (self.answer_closure)(&exercise_id);
+            let exercise_manifest = batch.pop().unwrap();
+            let score = (self.answer_closure)(&exercise_manifest.id);
             if let Some(score) = score {
-                trane.score_exercise(exercise_id, score.clone(), Utc::now().timestamp())?;
+                trane.score_exercise(
+                    exercise_manifest.id,
+                    score.clone(),
+                    Utc::now().timestamp(),
+                )?;
                 self.answer_history
-                    .entry(exercise_id)
+                    .entry(exercise_manifest.id)
                     .or_default()
                     .push(score);
             }

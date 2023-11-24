@@ -333,7 +333,7 @@ impl ExerciseScheduler for Trane {
     fn get_exercise_batch(
         &self,
         filter: Option<ExerciseFilter>,
-    ) -> Result<Vec<(Ustr, ExerciseManifest)>, ExerciseSchedulerError> {
+    ) -> Result<Vec<ExerciseManifest>, ExerciseSchedulerError> {
         self.scheduler.get_exercise_batch(filter)
     }
 
