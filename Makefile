@@ -3,8 +3,6 @@ build: build-ffi build-cargo
 
 # Build and verify the FFI bindings.
 build-ffi:
-	typeshare ./ --lang=kotlin --output-file=ffi/trane.kt
-	typeshare ./ --lang=swift --output-file=ffi/trane.swift
 	typeshare ./ --lang=typescript --output-file=ffi/trane.ts
 	tsc ffi/trane.ts
 
