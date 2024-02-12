@@ -1,12 +1,9 @@
 //! Defines a special course to teach transcription based on a set of musical passages.
 //!  
-//! This course generator is similar to the improvisation course generator, but the passages are
-//! provided as actual musical recordings instead of music sheet. The student is expected to listen
-//! to the passages to internalize the sounds, and then transcribe the passages to their instruments
-//! and use them as a basis for improvisation. It is not required to use solfege syllables or
-//! numbers nor to notate the passages. This course is meant to replicate the process of listenting
-//! and imitation that is used in traditional music education and eventually became the method on
-//! which Jazz was aurally transmitted.
+//! The student is expected to listen to the passages to internalize the sounds, and then transcribe
+//! the passages to their instruments and use them as a basis for improvisation. This course is
+//! meant to replicate the process of listenting and imitation that is at the heart of the
+//! transmitions of aural music traditions, such as Jazz.
 
 pub mod constants;
 
@@ -97,8 +94,8 @@ pub struct TranscriptionPassages {
     pub asset: TranscriptionAsset,
 
     /// The ranges `[start, end]` of the passages to transcribe. Stored as a map maping a unique ID
-    /// to the start and end of the passage. A map is used to get the indices instead of getting
-    /// them from a vector because reordering the passages would change the resulting exercise IDs.
+    /// to the start and end of the passage. A map is used instead of a list because reordering the
+    /// passages would change the resulting exercise IDs.
     pub intervals: HashMap<usize, (String, String)>,
 }
 //>@transcription-passages

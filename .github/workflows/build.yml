@@ -16,7 +16,7 @@ jobs:
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: 1.73.0
+          toolchain: stable
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
@@ -36,7 +36,7 @@ jobs:
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: 1.73.0
+          toolchain: stable
 
       - name: Install extra components
         run: rustup component add clippy rust-docs rustfmt 
