@@ -43,7 +43,7 @@ lazy_static! {
     };
 }
 
-/// Returns a course builder with an improvisation generator.
+/// Returns a course builder with an transcription generator.
 fn transcription_builder(
     course_id: Ustr,
     course_index: usize,
@@ -110,7 +110,7 @@ fn transcription_builder(
     }
 }
 
-/// Verifies that all improvisation exercises are visited.
+/// Verifies that all transcription exercises are visited.
 #[test]
 fn all_exercises_visited() -> Result<()> {
     // Initialize test course library.
