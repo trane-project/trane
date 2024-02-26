@@ -997,7 +997,7 @@ mod test {
         assert_eq!(MasteryScore::Five, MasteryScore::try_from(5.0).unwrap());
         assert!(MasteryScore::try_from(-1.0).is_err());
         assert!(MasteryScore::try_from(0.0).is_err());
-        println!("{:?}", MasteryScore::try_from(5.1));
+        assert!(MasteryScore::try_from(3.5).is_err());
         assert!(MasteryScore::try_from(5.1).is_err());
     }
 
