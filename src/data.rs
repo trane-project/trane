@@ -22,7 +22,7 @@ use self::course_generator::{
 /// The score used by students to evaluate their mastery of a particular exercise after a trial.
 /// More detailed descriptions of the levels are provided using the example of an exercise that
 /// requires the student to learn a musical passage.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum MasteryScore {
     /// One signifies the student has barely any mastery of the exercise. For a musical passage,
     /// this level of mastery represents the initial attempts at hearing and reading the music, and
@@ -66,6 +66,34 @@ impl MasteryScore {
             Self::Three => 3.0,
             Self::Four => 4.0,
             Self::Five => 5.0,
+        }
+    }
+}
+
+impl TryFrom<MasteryScore> for f32 {
+    type Error = ();
+
+    fn try_from(score: MasteryScore) -> Result<f32, ()> {
+        Ok(score.float_score())
+    }
+}
+
+impl TryFrom<f32> for MasteryScore {
+    type Error = ();
+
+    fn try_from(score: f32) -> Result<MasteryScore, ()> {
+        if (score - 1.0_f32).abs() < f32::EPSILON {
+            Ok(MasteryScore::One)
+        } else if (score - 2.0_f32).abs() < f32::EPSILON {
+            Ok(MasteryScore::Two)
+        } else if (score - 3.0_f32).abs() < f32::EPSILON {
+            Ok(MasteryScore::Three)
+        } else if (score - 4.0_f32).abs() < f32::EPSILON {
+            Ok(MasteryScore::Four)
+        } else if (score - 5.0_f32).abs() < f32::EPSILON {
+            Ok(MasteryScore::Five)
+        } else {
+            Err(())
         }
     }
 }
@@ -943,13 +971,34 @@ pub struct UserPreferences {
 mod test {
     use crate::data::*;
 
+    // Verifies the conversion of mastery scores to float values.
     #[test]
-    fn float_score() {
+    fn score_to_float() {
         assert_eq!(1.0, MasteryScore::One.float_score());
         assert_eq!(2.0, MasteryScore::Two.float_score());
         assert_eq!(3.0, MasteryScore::Three.float_score());
         assert_eq!(4.0, MasteryScore::Four.float_score());
         assert_eq!(5.0, MasteryScore::Five.float_score());
+
+        assert_eq!(1.0, f32::try_from(MasteryScore::One).unwrap());
+        assert_eq!(2.0, f32::try_from(MasteryScore::Two).unwrap());
+        assert_eq!(3.0, f32::try_from(MasteryScore::Three).unwrap());
+        assert_eq!(4.0, f32::try_from(MasteryScore::Four).unwrap());
+        assert_eq!(5.0, f32::try_from(MasteryScore::Five).unwrap());
+    }
+
+    /// Verifies the conversion of floats to mastery scores.
+    #[test]
+    fn float_to_score() {
+        assert_eq!(MasteryScore::One, MasteryScore::try_from(1.0).unwrap());
+        assert_eq!(MasteryScore::Two, MasteryScore::try_from(2.0).unwrap());
+        assert_eq!(MasteryScore::Three, MasteryScore::try_from(3.0).unwrap());
+        assert_eq!(MasteryScore::Four, MasteryScore::try_from(4.0).unwrap());
+        assert_eq!(MasteryScore::Five, MasteryScore::try_from(5.0).unwrap());
+        assert!(MasteryScore::try_from(-1.0).is_err());
+        assert!(MasteryScore::try_from(0.0).is_err());
+        assert!(MasteryScore::try_from(3.5).is_err());
+        assert!(MasteryScore::try_from(5.1).is_err());
     }
 
     /// Verifies that each type of manifest returns the correct unit type.
