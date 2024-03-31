@@ -37,7 +37,7 @@ export type TranscriptionAsset =
 
 export interface TranscriptionPassages {
 	asset: TranscriptionAsset;
-	intervals: Record<number, string[]>;
+	intervals?: Record<number, string[]>;
 }
 
 export interface TranscriptionPreferences {

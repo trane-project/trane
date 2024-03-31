@@ -240,6 +240,7 @@ impl From<transcription::TranscriptionAsset> for TranscriptionAsset {
 pub struct TranscriptionPassages {
     pub asset: TranscriptionAsset,
     #[typeshare(serialized_as = "HashMap<u32, Vec<String>>")]
+    #[serde(default)]
     pub intervals: HashMap<usize, (String, String)>,
 }
 
