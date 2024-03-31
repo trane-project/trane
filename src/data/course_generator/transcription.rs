@@ -98,7 +98,7 @@ pub struct TranscriptionPassages {
     /// passages would change the resulting exercise IDs.
     ///
     /// If the map is empty, one passage is assumed to cover the entire asset and the ID for the
-    /// exercises will be generated based on a constant, not a passage ID.
+    /// exercises will not include a passage ID.
     #[serde(default)]
     pub intervals: HashMap<usize, (String, String)>,
 }
@@ -242,8 +242,8 @@ impl TranscriptionConfig {
                 exercise_type: ExerciseType::Procedural,
                 exercise_asset: passages.generate_exercise_asset(
                     SINGING_DESCRIPTION,
-                    "Start of audio",
-                    "End of audio",
+                    "Start of passage",
+                    "End of passage",
                     None,
                 ),
             }];
@@ -340,8 +340,8 @@ impl TranscriptionConfig {
                 exercise_type: ExerciseType::Procedural,
                 exercise_asset: passages.generate_exercise_asset(
                     ADVANCED_SINGING_DESCRIPTION,
-                    "Start of audio",
-                    "End of audio",
+                    "Start of passage",
+                    "End of passage",
                     None,
                 ),
             }];
@@ -442,8 +442,8 @@ impl TranscriptionConfig {
                 exercise_type: ExerciseType::Procedural,
                 exercise_asset: passages.generate_exercise_asset(
                     TRANSCRIPTION_DESCRIPTION,
-                    "Start of audio",
-                    "End of audio",
+                    "Start of passage",
+                    "End of passage",
                     Some(instrument),
                 ),
             }];
@@ -572,8 +572,8 @@ impl TranscriptionConfig {
                 exercise_type: ExerciseType::Procedural,
                 exercise_asset: passages.generate_exercise_asset(
                     ADVANCED_TRANSCRIPTION_DESCRIPTION,
-                    "Start of audio",
-                    "End of audio",
+                    "Start of passage",
+                    "End of passage",
                     Some(insturment),
                 ),
             }];

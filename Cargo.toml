@@ -36,7 +36,7 @@ typeshare = "1.0.1"
 url = "2.4.1"
 ustr = { version = "0.9.0", features = ["serialization"] }
 walkdir = "2.4.0"
-# This is a workaround for a compile issue in the CI. See: https://github.com/gyscos/zstd-rs/issues/270#issuecomment-2026322823
+# Fix the dependency to work around a compile issue. See: https://github.com/gyscos/zstd-rs/issues/270#issuecomment-2026322823.
 zstd-sys = "=2.0.9"
 
 [profile.bench]
