@@ -69,7 +69,7 @@ pub enum TranscriptionAsset {
         #[serde(default)]
         duration: Option<String>,
 
-        /// A link to an external copy (e.g. youtube video) of the track.
+        /// A link to an external copy (e.g., YouTube link) of the track.
         #[serde(default)]
         external_link: Option<TranscriptionLink>,
     },
@@ -77,7 +77,7 @@ pub enum TranscriptionAsset {
 //>@transcription-asset
 
 impl TranscriptionAsset {
-    /// Returns the short ID of the asset, which wil be used to generate the exercise IDs.
+    /// Returns the short ID of the asset, which will be used to generate the exercise IDs.
     #[must_use]
     pub fn short_id(&self) -> &str {
         match self {
@@ -93,9 +93,13 @@ pub struct TranscriptionPassages {
     /// The asset to transcribe.
     pub asset: TranscriptionAsset,
 
-    /// The ranges `[start, end]` of the passages to transcribe. Stored as a map maping a unique ID
+    /// The ranges `[start, end]` of the passages to transcribe. Stored as a map mapping a unique ID
     /// to the start and end of the passage. A map is used instead of a list because reordering the
     /// passages would change the resulting exercise IDs.
+    ///
+    /// If the map is empty, one passage is assumed to cover the entire asset and the ID for the
+    /// exercises will not include a passage ID.
+    #[serde(default)]
     pub intervals: HashMap<usize, (String, String)>,
 }
 //>@transcription-passages
@@ -192,7 +196,7 @@ pub struct TranscriptionConfig {
     pub inlined_passages: Vec<TranscriptionPassages>,
 
     /// If true, the course will skip creating the singing lesson. This is useful when the course
-    /// contains backing tracks that have not melodies, for example. Both the singing and the
+    /// contains backing tracks that have no melodies, for example. Both the singing and the
     /// advanced singing lessons will be skipped. Because other transcription courses that depend on
     /// this lesson will use the singing lesson to create the dependency, the lesson will be
     /// created, but will be empty.
@@ -209,8 +213,11 @@ pub struct TranscriptionConfig {
 
 impl TranscriptionConfig {
     /// Returns the ID for a given exercise given the lesson ID and the exercise index.
-    fn exercise_id(lesson_id: Ustr, asset_id: &str, passage_id: usize) -> Ustr {
-        Ustr::from(&format!("{lesson_id}::{asset_id}::{passage_id}"))
+    fn exercise_id(lesson_id: Ustr, asset_id: &str, passage_id: Option<usize>) -> Ustr {
+        match passage_id {
+            Some(passage_id) => Ustr::from(&format!("{lesson_id}::{asset_id}::{passage_id}")),
+            None => Ustr::from(&format!("{lesson_id}::{asset_id}")),
+        }
     }
 
     /// Returns the ID of the singing lesson for the given course.
@@ -224,11 +231,30 @@ impl TranscriptionConfig {
         lesson_id: Ustr,
         passages: &TranscriptionPassages,
     ) -> Vec<ExerciseManifest> {
+        // Generate the default exercise if no passages are provided.
+        if passages.intervals.is_empty() {
+            return vec![ExerciseManifest {
+                id: Self::exercise_id(lesson_id, passages.asset.short_id(), None),
+                lesson_id,
+                course_id: course_manifest.id,
+                name: format!("{} - Singing", course_manifest.name),
+                description: None,
+                exercise_type: ExerciseType::Procedural,
+                exercise_asset: passages.generate_exercise_asset(
+                    SINGING_DESCRIPTION,
+                    "Start of passage",
+                    "End of passage",
+                    None,
+                ),
+            }];
+        }
+
+        // Generate an exercise for each passage.
         passages
             .intervals
             .iter()
             .map(|(passage_id, (start, end))| ExerciseManifest {
-                id: Self::exercise_id(lesson_id, passages.asset.short_id(), *passage_id),
+                id: Self::exercise_id(lesson_id, passages.asset.short_id(), Some(*passage_id)),
                 lesson_id,
                 course_id: course_manifest.id,
                 name: format!("{} - Singing", course_manifest.name),
@@ -303,11 +329,30 @@ impl TranscriptionConfig {
         lesson_id: Ustr,
         passages: &TranscriptionPassages,
     ) -> Vec<ExerciseManifest> {
+        // Generate the default exercise if no passages are provided.
+        if passages.intervals.is_empty() {
+            return vec![ExerciseManifest {
+                id: Self::exercise_id(lesson_id, passages.asset.short_id(), None),
+                lesson_id,
+                course_id: course_manifest.id,
+                name: format!("{} - Advanced Singing", course_manifest.name),
+                description: None,
+                exercise_type: ExerciseType::Procedural,
+                exercise_asset: passages.generate_exercise_asset(
+                    ADVANCED_SINGING_DESCRIPTION,
+                    "Start of passage",
+                    "End of passage",
+                    None,
+                ),
+            }];
+        }
+
+        // Generate an exercise for each passage.
         passages
             .intervals
             .iter()
             .map(|(passage_id, (start, end))| ExerciseManifest {
-                id: Self::exercise_id(lesson_id, passages.asset.short_id(), *passage_id),
+                id: Self::exercise_id(lesson_id, passages.asset.short_id(), Some(*passage_id)),
                 lesson_id,
                 course_id: course_manifest.id,
                 name: format!("{} - Advanced Singing", course_manifest.name),
@@ -383,11 +428,33 @@ impl TranscriptionConfig {
         passages: &TranscriptionPassages,
         instrument: &Instrument,
     ) -> Vec<ExerciseManifest> {
+        // Generate the default exercise if no passages are provided.
+        if passages.intervals.is_empty() {
+            return vec![ExerciseManifest {
+                id: Self::exercise_id(lesson_id, passages.asset.short_id(), None),
+                lesson_id,
+                course_id: course_manifest.id,
+                name: format!(
+                    "{} - Transcription - {}",
+                    course_manifest.name, instrument.name
+                ),
+                description: None,
+                exercise_type: ExerciseType::Procedural,
+                exercise_asset: passages.generate_exercise_asset(
+                    TRANSCRIPTION_DESCRIPTION,
+                    "Start of passage",
+                    "End of passage",
+                    Some(instrument),
+                ),
+            }];
+        }
+
+        // Generate an exercise for each passage.
         passages
             .intervals
             .iter()
             .map(|(passage_id, (start, end))| ExerciseManifest {
-                id: Self::exercise_id(lesson_id, passages.asset.short_id(), *passage_id),
+                id: Self::exercise_id(lesson_id, passages.asset.short_id(), Some(*passage_id)),
                 lesson_id,
                 course_id: course_manifest.id,
                 name: format!(
@@ -491,11 +558,33 @@ impl TranscriptionConfig {
         passages: &TranscriptionPassages,
         insturment: &Instrument,
     ) -> Vec<ExerciseManifest> {
+        // Generate the default exercise if no passages are provided.
+        if passages.intervals.is_empty() {
+            return vec![ExerciseManifest {
+                id: Self::exercise_id(lesson_id, passages.asset.short_id(), None),
+                lesson_id,
+                course_id: course_manifest.id,
+                name: format!(
+                    "{} - Advanced Transcription - {}",
+                    course_manifest.name, insturment.name
+                ),
+                description: None,
+                exercise_type: ExerciseType::Procedural,
+                exercise_asset: passages.generate_exercise_asset(
+                    ADVANCED_TRANSCRIPTION_DESCRIPTION,
+                    "Start of passage",
+                    "End of passage",
+                    Some(insturment),
+                ),
+            }];
+        }
+
+        // Generate an exercise for each passage.
         passages
             .intervals
             .iter()
             .map(|(passage_id, (start, end))| ExerciseManifest {
-                id: Self::exercise_id(lesson_id, passages.asset.short_id(), *passage_id),
+                id: Self::exercise_id(lesson_id, passages.asset.short_id(), Some(*passage_id)),
                 lesson_id,
                 course_id: course_manifest.id,
                 name: format!(
@@ -772,12 +861,19 @@ mod test {
     /// Verifies generating IDs for the exercises in the course.
     #[test]
     fn exercise_id() {
+        // Generate the ID for an exercise with a passage ID.
         let lesson_id = Ustr::from("lesson_id");
         let asset_id = "asset_id";
         let passage_id = 2;
         assert_eq!(
-            TranscriptionConfig::exercise_id(lesson_id, &asset_id, passage_id),
+            TranscriptionConfig::exercise_id(lesson_id, &asset_id, Some(passage_id)),
             Ustr::from("lesson_id::asset_id::2")
+        );
+
+        // Generate the ID for an exercise with the default passage.
+        assert_eq!(
+            TranscriptionConfig::exercise_id(lesson_id, &asset_id, None),
+            Ustr::from("lesson_id::asset_id")
         );
     }
 
@@ -895,7 +991,7 @@ mod test {
     /// Verifies creating the course based on the passages in the passage directory.
     #[test]
     fn open_passage_directory() -> Result<()> {
-        // Create the passages directory.
+        // Create the `passages` directory.
         let temp_dir = tempfile::tempdir()?;
         let passages_dir = temp_dir.path().join("passages");
         fs::create_dir(&passages_dir)?;
@@ -945,7 +1041,7 @@ mod test {
     /// Verifies creating the course based on an empty passage directory.
     #[test]
     fn open_passage_directory_empty() -> Result<()> {
-        // Create the passages directory.
+        // Create the `passages` directory.
         let temp_dir = tempfile::tempdir()?;
 
         // Open the empty passages directory and verify there are no passages.
@@ -965,7 +1061,7 @@ mod test {
     /// Verifies that opening the passage directory fails if there are passages with duplicate IDs.
     #[test]
     fn open_passage_directory_duplicate() -> Result<()> {
-        // Create the passages directory.
+        // Create the `passages` directory.
         let temp_dir = tempfile::tempdir()?;
         let passages_dir = temp_dir.path().join("passages");
         fs::create_dir(&passages_dir)?;
@@ -1014,7 +1110,7 @@ mod test {
     /// Verifies that opening the passage directory fails if the directory does not exist.
     #[test]
     fn open_passage_directory_bad_directory() -> Result<()> {
-        // Create the course directory but not the passages directory.
+        // Create the course directory but not the `passages` directory.
         let temp_dir = tempfile::tempdir()?;
 
         // Open the passages directory and verify the method fails.
