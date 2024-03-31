@@ -172,12 +172,11 @@ impl ScoreCache {
         // All the superseding units must have a score equal or greater than the superseding score.
         let scores = superseding_ids
             .iter()
-            .map(|id| self.get_unit_score(*id).unwrap_or_default())
-            .filter(Option::is_some)
+            .filter_map(|id| self.get_unit_score(*id).unwrap_or_default())
             .collect::<Vec<_>>();
         scores
             .iter()
-            .all(|score| score.unwrap() >= self.data.options.superseding_score)
+            .all(|score| *score >= self.data.options.superseding_score)
     }
 
     /// Recursively check if each superseding unit has itself been superseded by another unit and
