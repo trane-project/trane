@@ -43,7 +43,7 @@ lazy_static! {
     };
 }
 
-/// Returns a course builder with an transcription generator.
+/// Returns a course builder with a transcription generator.
 fn transcription_builder(
     course_id: Ustr,
     course_index: usize,
@@ -52,12 +52,12 @@ fn transcription_builder(
     skip_singing_lessons: bool,
     skip_advanced_lessons: bool,
 ) -> CourseBuilder {
-    // Create the passages for the course. Half of the passages will be stored in the passages
+    // Create the passages for the course. Half of the passages will be stored in the `passages`
     // directory, and the other half will be inlined in the course manifest.
     let mut asset_builders = Vec::new();
     let mut inlined_passages = Vec::new();
     for i in 0..num_passages {
-        // Create the passages.
+        // Create the passages. Create half of them with explicit intervals and half without.
         let passages = TranscriptionPassages {
             asset: TranscriptionAsset::Track {
                 short_id: format!("passages_{}", i),
@@ -67,7 +67,14 @@ fn transcription_builder(
                 duration: None,
                 external_link: None,
             },
-            intervals: HashMap::from([(0, ("0:00".to_string(), "0:01".to_string()))]),
+            intervals: if i % 2 == 0 {
+                HashMap::from([
+                    (0, ("0:00".to_string(), "0:01".to_string())),
+                    (1, ("0:05".to_string(), "0:10".to_string())),
+                ])
+            } else {
+                HashMap::new()
+            },
         };
 
         // In odd iterations, add the passage to the inlined passages.
@@ -76,7 +83,7 @@ fn transcription_builder(
             continue;
         }
 
-        // In even iterations, write the passage to the passages directory.
+        // In even iterations, write the passage to the `passages` directory.
         let passage_path = format!("passages/passages_{}.json", i);
         asset_builders.push(AssetBuilder {
             file_name: passage_path.clone(),
