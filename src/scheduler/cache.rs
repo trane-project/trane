@@ -11,10 +11,7 @@ use std::cell::RefCell;
 use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
-    blacklist::Blacklist,
     data::{SchedulerOptions, UnitType},
-    graph::UnitGraph,
-    practice_stats::PracticeStats,
     scheduler::SchedulerData,
     scorer::{ExerciseScorer, SimpleScorer},
 };

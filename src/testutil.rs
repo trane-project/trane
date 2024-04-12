@@ -509,7 +509,7 @@ pub fn init_simulation(
     }
 
     // Initialize the Trane library.
-    let trane = Trane::new(library_root, library_root)?;
+    let trane = Trane::new_local(library_root, library_root)?;
     Ok(trane)
 }
 
@@ -523,7 +523,7 @@ pub fn init_test_simulation(library_root: &Path, courses: &Vec<TestCourse>) -> R
         .collect::<Result<()>>()?;
 
     // Initialize the Trane library.
-    let trane = Trane::new(library_root, library_root)?;
+    let trane = Trane::new_local(library_root, library_root)?;
     Ok(trane)
 }
 

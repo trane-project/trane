@@ -65,13 +65,13 @@ pub mod testutil;
 use anyhow::Result;
 use error::*;
 use parking_lot::RwLock;
-use review_list::{ReviewList, ReviewListDB};
+use review_list::{LocalReviewList, ReviewList};
 use std::{path::Path, sync::Arc};
 use study_session_manager::{LocalStudySessionManager, StudySessionManager};
 use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::mantra_miner::TraneMantraMiner;
-use blacklist::{Blacklist, BlacklistDB};
+use blacklist::{Blacklist, LocalBlacklist};
 use course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary};
 use data::{
     filter::{ExerciseFilter, SavedFilter},
@@ -80,7 +80,7 @@ use data::{
 };
 use filter_manager::{FilterManager, LocalFilterManager};
 use graph::UnitGraph;
-use practice_stats::{PracticeStats, PracticeStatsDB};
+use practice_stats::{LocalPracticeStats, PracticeStats};
 use repository_manager::{LocalRepositoryManager, RepositoryManager};
 use scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseScheduler};
 
@@ -169,10 +169,10 @@ impl Trane {
         options
     }
 
-    /// Creates a new instance of the library given the path to the root of a course library. The
-    /// user data will be stored in a directory named `.trane` inside the library root directory.
-    /// The working directory will be used to resolve relative paths.
-    pub fn new(working_dir: &Path, library_root: &Path) -> Result<Trane> {
+    /// Creates a new local instance of the Trane given the path to the root of a course library.
+    /// The user data will be stored in a directory named `.trane` inside the library root
+    /// directory. The working directory will be used to resolve relative paths.
+    pub fn new_local(working_dir: &Path, library_root: &Path) -> Result<Trane> {
         let config_path = library_root.join(Path::new(TRANE_CONFIG_DIR_PATH));
 
         // The course library must be created first because it makes sure to initialize all the
@@ -183,13 +183,13 @@ impl Trane {
 
         // Build all the components needed to create a Trane instance.
         let unit_graph = course_library.write().get_unit_graph();
-        let practice_stats = Arc::new(RwLock::new(PracticeStatsDB::new_from_disk(
+        let practice_stats = Arc::new(RwLock::new(LocalPracticeStats::new_from_disk(
             config_path.join(PRACTICE_STATS_PATH).to_str().unwrap(),
         )?));
-        let blacklist = Arc::new(RwLock::new(BlacklistDB::new_from_disk(
+        let blacklist = Arc::new(RwLock::new(LocalBlacklist::new_from_disk(
             config_path.join(BLACKLIST_PATH).to_str().unwrap(),
         )?));
-        let review_list = Arc::new(RwLock::new(ReviewListDB::new_from_disk(
+        let review_list = Arc::new(RwLock::new(LocalReviewList::new_from_disk(
             config_path.join(REVIEW_LIST_PATH).to_str().unwrap(),
         )?));
         let filter_manager = Arc::new(RwLock::new(LocalFilterManager::new(
@@ -561,7 +561,7 @@ mod test {
     #[test]
     fn library_root() -> Result<()> {
         let dir = tempfile::tempdir()?;
-        let trane = Trane::new(dir.path(), dir.path())?;
+        let trane = Trane::new_local(dir.path(), dir.path())?;
         assert_eq!(trane.library_root(), dir.path().to_str().unwrap());
         Ok(())
     }
@@ -570,7 +570,7 @@ mod test {
     #[test]
     fn mantra_count() -> Result<()> {
         let dir = tempfile::tempdir()?;
-        let trane = Trane::new(dir.path(), dir.path())?;
+        let trane = Trane::new_local(dir.path(), dir.path())?;
         thread::sleep(Duration::from_millis(1000));
         assert!(trane.mantra_count() > 0);
         Ok(())
@@ -583,7 +583,7 @@ mod test {
         let dir = tempfile::tempdir()?;
         let trane_path = dir.path().join(".trane");
         File::create(&trane_path)?;
-        assert!(Trane::new(dir.path(), dir.path()).is_err());
+        assert!(Trane::new_local(dir.path(), dir.path()).is_err());
         Ok(())
     }
 
@@ -592,7 +592,7 @@ mod test {
     fn bad_dir_permissions() -> Result<()> {
         let dir = tempfile::tempdir()?;
         set_permissions(&dir, Permissions::from_mode(0o000))?;
-        assert!(Trane::new(dir.path(), dir.path()).is_err());
+        assert!(Trane::new_local(dir.path(), dir.path()).is_err());
         Ok(())
     }
 
@@ -603,7 +603,7 @@ mod test {
         let config_dir_path = dir.path().join(".trane");
         create_dir(&config_dir_path)?;
         set_permissions(&config_dir_path, Permissions::from_mode(0o000))?;
-        assert!(Trane::new(dir.path(), dir.path()).is_err());
+        assert!(Trane::new_local(dir.path(), dir.path()).is_err());
         Ok(())
     }
 
@@ -611,7 +611,7 @@ mod test {
     #[test]
     fn scheduler_data() -> Result<()> {
         let dir = tempfile::tempdir()?;
-        let trane = Trane::new(dir.path(), dir.path())?;
+        let trane = Trane::new_local(dir.path(), dir.path())?;
         trane.get_scheduler_data();
         Ok(())
     }

@@ -37,7 +37,7 @@ pub trait Blacklist {
 }
 
 /// An implementation of [Blacklist] backed by `SQLite`.
-pub struct BlacklistDB {
+pub struct LocalBlacklist {
     /// A cache of the blacklist entries used to avoid unnecessary queries to the database.
     cache: RwLock<UstrMap<bool>>,
 
@@ -45,7 +45,7 @@ pub struct BlacklistDB {
     pool: Pool<SqliteConnectionManager>,
 }
 
-impl BlacklistDB {
+impl LocalBlacklist {
     /// Returns all the migrations needed to set up the database.
     fn migrations() -> Migrations<'static> {
         Migrations::new(vec![
@@ -68,10 +68,10 @@ impl BlacklistDB {
     }
 
     /// A constructor taking a connection manager.
-    fn new(connection_manager: SqliteConnectionManager) -> Result<BlacklistDB> {
+    fn new(connection_manager: SqliteConnectionManager) -> Result<LocalBlacklist> {
         // Initialize the pool and the blacklist database.
         let pool = Pool::new(connection_manager)?;
-        let mut blacklist = BlacklistDB {
+        let mut blacklist = LocalBlacklist {
             cache: RwLock::new(UstrMap::default()),
             pool,
         };
@@ -86,7 +86,7 @@ impl BlacklistDB {
     }
 
     /// A constructor taking the path to the database file.
-    pub fn new_from_disk(db_path: &str) -> Result<BlacklistDB> {
+    pub fn new_from_disk(db_path: &str) -> Result<LocalBlacklist> {
         Self::new(db_utils::new_connection_manager(db_path))
     }
 
@@ -175,7 +175,7 @@ impl BlacklistDB {
     }
 }
 
-impl Blacklist for BlacklistDB {
+impl Blacklist for LocalBlacklist {
     fn add_to_blacklist(&mut self, unit_id: Ustr) -> Result<(), BlacklistError> {
         self.add_to_blacklist_helper(unit_id)
             .map_err(|e| BlacklistError::AddUnit(unit_id, e))
@@ -209,11 +209,11 @@ mod test {
     use tempfile::tempdir;
     use ustr::Ustr;
 
-    use crate::blacklist::{Blacklist, BlacklistDB};
+    use crate::blacklist::{Blacklist, LocalBlacklist};
 
     fn new_test_blacklist() -> Result<Box<dyn Blacklist>> {
         let connection_manager = SqliteConnectionManager::memory();
-        let blacklist = BlacklistDB::new(connection_manager)?;
+        let blacklist = LocalBlacklist::new(connection_manager)?;
         Ok(Box::new(blacklist))
     }
 
@@ -315,13 +315,13 @@ mod test {
     fn reopen_blacklist() -> Result<()> {
         let dir = tempdir()?;
         let mut blacklist =
-            BlacklistDB::new_from_disk(dir.path().join("blacklist.db").to_str().unwrap())?;
+            LocalBlacklist::new_from_disk(dir.path().join("blacklist.db").to_str().unwrap())?;
         let unit_id = Ustr::from("unit_id");
         blacklist.add_to_blacklist(unit_id)?;
         assert!(blacklist.blacklisted(unit_id)?);
 
         let new_blacklist =
-            BlacklistDB::new_from_disk(dir.path().join("blacklist.db").to_str().unwrap())?;
+            LocalBlacklist::new_from_disk(dir.path().join("blacklist.db").to_str().unwrap())?;
         assert!(new_blacklist.blacklisted(unit_id)?);
         Ok(())
     }

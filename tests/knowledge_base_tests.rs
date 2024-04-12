@@ -134,7 +134,7 @@ fn init_knowledge_base_simulation(
         .collect::<Result<()>>()?;
 
     // Initialize the Trane library.
-    let trane = Trane::new(library_root, library_root)?;
+    let trane = Trane::new_local(library_root, library_root)?;
     Ok(trane)
 }
 

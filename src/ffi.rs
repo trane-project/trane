@@ -30,10 +30,10 @@ pub struct TraneFFI {
 }
 
 impl TraneFFI {
-    /// Creates and wraps a new instance of Trane for use with FFI.
-    pub fn new(working_dir: &Path, library_root: &Path) -> Result<TraneFFI> {
+    /// Creates and wraps a new local instance of Trane for use with FFI.
+    pub fn new_local(working_dir: &Path, library_root: &Path) -> Result<TraneFFI> {
         Ok(TraneFFI {
-            trane: Trane::new(working_dir, library_root)?,
+            trane: Trane::new_local(working_dir, library_root)?,
         })
     }
 }
