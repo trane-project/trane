@@ -35,9 +35,6 @@ use crate::{
         ExerciseManifest, MasteryScore, SchedulerOptions, UnitType,
     },
     error::ExerciseSchedulerError,
-    graph::UnitGraph,
-    practice_stats::PracticeStats,
-    review_list::ReviewList,
     scheduler::{cache::ScoreCache, data::SchedulerData, filter::CandidateFilter},
 };
 

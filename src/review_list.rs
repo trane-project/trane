@@ -27,12 +27,12 @@ pub trait ReviewList {
 }
 
 /// An implementation of [`ReviewList`] backed by `SQLite`.
-pub struct ReviewListDB {
+pub struct LocalReviewList {
     /// A pool of connections to the database.
     pool: Pool<SqliteConnectionManager>,
 }
 
-impl ReviewListDB {
+impl LocalReviewList {
     /// Returns all the migrations needed to set up the database.
     fn migrations() -> Migrations<'static> {
         Migrations::new(vec![
@@ -56,16 +56,16 @@ impl ReviewListDB {
     }
 
     /// A constructor taking a connection manager.
-    fn new(connection_manager: SqliteConnectionManager) -> Result<ReviewListDB> {
+    fn new(connection_manager: SqliteConnectionManager) -> Result<LocalReviewList> {
         // Initialize the pool and the review list database.
         let pool = Pool::new(connection_manager)?;
-        let mut review_list = ReviewListDB { pool };
+        let mut review_list = LocalReviewList { pool };
         review_list.init()?;
         Ok(review_list)
     }
 
     /// A constructor taking the path to the database file.
-    pub fn new_from_disk(db_path: &str) -> Result<ReviewListDB> {
+    pub fn new_from_disk(db_path: &str) -> Result<LocalReviewList> {
         let connection_manager = SqliteConnectionManager::file(db_path).with_init(
             |connection: &mut Connection| -> Result<(), rusqlite::Error> {
                 // The following pragma statements are set to improve the read and write performance
@@ -114,7 +114,7 @@ impl ReviewListDB {
     }
 }
 
-impl ReviewList for ReviewListDB {
+impl ReviewList for LocalReviewList {
     fn add_to_review_list(&mut self, unit_id: Ustr) -> Result<(), ReviewListError> {
         self.add_to_review_list_helper(unit_id)
             .map_err(|e| ReviewListError::AddUnit(unit_id, e))
@@ -137,11 +137,11 @@ mod test {
     use r2d2_sqlite::SqliteConnectionManager;
     use ustr::Ustr;
 
-    use crate::review_list::{ReviewList, ReviewListDB};
+    use crate::review_list::{LocalReviewList, ReviewList};
 
     fn new_test_review_list() -> Result<Box<dyn ReviewList>> {
         let connection_manager = SqliteConnectionManager::memory();
-        let review_list = ReviewListDB::new(connection_manager)?;
+        let review_list = LocalReviewList::new(connection_manager)?;
         Ok(Box::new(review_list))
     }
 

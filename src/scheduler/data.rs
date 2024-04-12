@@ -7,16 +7,16 @@ use std::sync::Arc;
 use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
-    blacklist::{Blacklist, BlacklistDB},
-    course_library::{CourseLibrary, LocalCourseLibrary},
+    blacklist::Blacklist,
+    course_library::CourseLibrary,
     data::{
         filter::{KeyValueFilter, SavedFilter, SessionPart, StudySessionData, UnitFilter},
         CourseManifest, ExerciseManifest, LessonManifest, SchedulerOptions, UnitType,
     },
-    filter_manager::{FilterManager, LocalFilterManager},
-    graph::{InMemoryUnitGraph, UnitGraph},
-    practice_stats::PracticeStatsDB,
-    review_list::ReviewListDB,
+    filter_manager::FilterManager,
+    graph::UnitGraph,
+    practice_stats::PracticeStats,
+    review_list::ReviewList,
 };
 
 /// A struct encapsulating all the state needed by the scheduler.
@@ -26,22 +26,22 @@ pub struct SchedulerData {
     pub options: SchedulerOptions,
 
     /// The course library storing manifests and info about units.
-    pub course_library: Arc<RwLock<LocalCourseLibrary>>,
+    pub course_library: Arc<RwLock<dyn CourseLibrary>>,
 
     /// The dependency graph of courses and lessons.
-    pub unit_graph: Arc<RwLock<InMemoryUnitGraph>>,
+    pub unit_graph: Arc<RwLock<dyn UnitGraph>>,
 
     /// The list of previous exercise results.
-    pub practice_stats: Arc<RwLock<PracticeStatsDB>>,
+    pub practice_stats: Arc<RwLock<dyn PracticeStats>>,
 
     /// The list of units to skip during scheduling.
-    pub blacklist: Arc<RwLock<BlacklistDB>>,
+    pub blacklist: Arc<RwLock<dyn Blacklist>>,
 
     /// The list of units which should be reviewed by the student.
-    pub review_list: Arc<RwLock<ReviewListDB>>,
+    pub review_list: Arc<RwLock<dyn ReviewList>>,
 
     /// The manager used to access unit filters saved by the user.
-    pub filter_manager: Arc<RwLock<LocalFilterManager>>,
+    pub filter_manager: Arc<RwLock<dyn FilterManager>>,
 
     /// A map storing the number of times an exercise has been scheduled during the lifetime of this
     /// scheduler. The value is used to give more weight during filtering to exercises that have
@@ -378,7 +378,6 @@ mod test {
     use ustr::Ustr;
 
     use crate::{
-        blacklist::Blacklist,
         data::{
             filter::{
                 FilterType, KeyValueFilter, SavedFilter, SessionPart, StudySession,

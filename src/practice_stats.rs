@@ -47,12 +47,12 @@ pub trait PracticeStats {
 }
 
 /// An implementation of [`PracticeStats`] backed by `SQLite`.
-pub struct PracticeStatsDB {
+pub struct LocalPracticeStats {
     /// A pool of connections to the database.
     pool: Pool<SqliteConnectionManager>,
 }
 
-impl PracticeStatsDB {
+impl LocalPracticeStats {
     /// Returns all the migrations needed to set up the database.
     fn migrations() -> Migrations<'static> {
         Migrations::new(vec![
@@ -98,16 +98,16 @@ impl PracticeStatsDB {
     }
 
     /// A constructor taking a `SQLite` connection manager.
-    fn new(connection_manager: SqliteConnectionManager) -> Result<PracticeStatsDB> {
+    fn new(connection_manager: SqliteConnectionManager) -> Result<LocalPracticeStats> {
         // Create a connection pool and initialize the database.
         let pool = Pool::new(connection_manager)?;
-        let mut stats = PracticeStatsDB { pool };
+        let mut stats = LocalPracticeStats { pool };
         stats.init()?;
         Ok(stats)
     }
 
     /// A constructor taking the path to a database file.
-    pub fn new_from_disk(db_path: &str) -> Result<PracticeStatsDB> {
+    pub fn new_from_disk(db_path: &str) -> Result<LocalPracticeStats> {
         Self::new(db_utils::new_connection_manager(db_path))
     }
 
@@ -213,7 +213,7 @@ impl PracticeStatsDB {
     }
 }
 
-impl PracticeStats for PracticeStatsDB {
+impl PracticeStats for LocalPracticeStats {
     fn get_scores(
         &self,
         exercise_id: Ustr,
@@ -252,12 +252,12 @@ mod test {
 
     use crate::{
         data::{ExerciseTrial, MasteryScore},
-        practice_stats::{PracticeStats, PracticeStatsDB},
+        practice_stats::{LocalPracticeStats, PracticeStats},
     };
 
     fn new_tests_stats() -> Result<Box<dyn PracticeStats>> {
         let connection_manager = SqliteConnectionManager::memory();
-        let practice_stats = PracticeStatsDB::new(connection_manager)?;
+        let practice_stats = LocalPracticeStats::new(connection_manager)?;
         Ok(Box::new(practice_stats))
     }
 
