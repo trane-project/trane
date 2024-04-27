@@ -450,7 +450,7 @@ mod test {
     #[test]
     fn unit_exists() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        let library = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
         let scheduler_data = library.get_scheduler_data();
 
         assert_eq!(
@@ -475,7 +475,7 @@ mod test {
     #[test]
     fn exercise_metadata_filter() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        let library = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
         let scheduler_data = library.get_scheduler_data();
         let metadata_filter = KeyValueFilter::CourseFilter {
             key: "key".into(),
@@ -493,7 +493,7 @@ mod test {
     #[test]
     fn exercise_frequency() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        let library = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
         let scheduler_data = library.get_scheduler_data();
 
         assert_eq!(
@@ -512,7 +512,7 @@ mod test {
     #[test]
     fn get_session_filter() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        let library = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
 
         // Add a saved filter to the filter manager.
         let mut scheduler_data = library.get_scheduler_data();
@@ -588,7 +588,7 @@ mod test {
     fn all_valid_exercises() -> Result<()> {
         // Generate a test library.
         let temp_dir = tempfile::tempdir()?;
-        let library = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
         let scheduler_data = library.get_scheduler_data();
 
         // Verify an empty list is returned when an unknown unit is passed.

@@ -113,7 +113,7 @@ fn transcription_builder(
         },
         lesson_manifest_template: LessonManifestBuilder::default().clone(),
         lesson_builders: vec![],
-        asset_builders: asset_builders,
+        asset_builders,
     }
 }
 
@@ -123,8 +123,8 @@ fn all_exercises_visited() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
     let mut trane = init_simulation(
-        &temp_dir.path(),
-        &vec![
+        temp_dir.path(),
+        &[
             transcription_builder(*COURSE0_ID, 0, vec![], 5, false, false),
             transcription_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false, false),
         ],
@@ -133,7 +133,7 @@ fn all_exercises_visited() -> Result<()> {
 
     // Run the simulation.
     let exercise_ids = trane.get_all_exercise_ids(None);
-    assert!(exercise_ids.len() > 0);
+    assert!(!exercise_ids.is_empty());
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
         Box::new(|_| Some(MasteryScore::Five)),
@@ -161,8 +161,8 @@ fn no_progress_past_singing_lessons() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
     let mut trane = init_simulation(
-        &temp_dir.path(),
-        &vec![
+        temp_dir.path(),
+        &[
             transcription_builder(*COURSE0_ID, 0, vec![], 5, false, false),
             transcription_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false, false),
         ],
@@ -205,8 +205,8 @@ fn advanced_singing_blocks_advanced_transcription() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
     let mut trane = init_simulation(
-        &temp_dir.path(),
-        &vec![
+        temp_dir.path(),
+        &[
             transcription_builder(*COURSE0_ID, 0, vec![], 5, false, false),
             transcription_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false, false),
         ],
@@ -255,8 +255,8 @@ fn transcription_blocks_advanced_transcription_and_dependents() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
     let mut trane = init_simulation(
-        &temp_dir.path(),
-        &vec![
+        temp_dir.path(),
+        &[
             transcription_builder(*COURSE0_ID, 0, vec![], 5, false, false),
             transcription_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false, false),
         ],
@@ -308,8 +308,8 @@ fn skip_advanced_lessons() -> Result<()> {
     // Initialize test course library. Skip the advanced lessons.
     let temp_dir = TempDir::new()?;
     let mut trane = init_simulation(
-        &temp_dir.path(),
-        &vec![
+        temp_dir.path(),
+        &[
             transcription_builder(*COURSE0_ID, 0, vec![], 5, false, true),
             transcription_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, false, true),
         ],
@@ -318,7 +318,7 @@ fn skip_advanced_lessons() -> Result<()> {
 
     // Run the simulation.
     let exercise_ids = trane.get_all_exercise_ids(None);
-    assert!(exercise_ids.len() > 0);
+    assert!(!exercise_ids.is_empty());
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
         Box::new(|_| Some(MasteryScore::Five)),
@@ -328,7 +328,7 @@ fn skip_advanced_lessons() -> Result<()> {
     // Every exercise ID should be in `simulation.answer_history`.
     for exercise_id in &exercise_ids {
         assert!(
-            simulation.answer_history.contains_key(&exercise_id),
+            simulation.answer_history.contains_key(exercise_id),
             "exercise {:?} should have been scheduled",
             exercise_id
         );
@@ -352,8 +352,8 @@ fn skip_singing_lessons() -> Result<()> {
     // Initialize test course library. Skip the advanced lessons.
     let temp_dir = TempDir::new()?;
     let mut trane = init_simulation(
-        &temp_dir.path(),
-        &vec![
+        temp_dir.path(),
+        &[
             transcription_builder(*COURSE0_ID, 0, vec![], 5, true, false),
             transcription_builder(*COURSE1_ID, 1, vec![*COURSE0_ID], 5, true, false),
         ],
@@ -362,7 +362,7 @@ fn skip_singing_lessons() -> Result<()> {
 
     // Run the simulation.
     let exercise_ids = trane.get_all_exercise_ids(None);
-    assert!(exercise_ids.len() > 0);
+    assert!(!exercise_ids.is_empty());
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
         Box::new(|_| Some(MasteryScore::Five)),
@@ -372,7 +372,7 @@ fn skip_singing_lessons() -> Result<()> {
     // Every exercise ID should be in `simulation.answer_history`.
     for exercise_id in &exercise_ids {
         assert!(
-            simulation.answer_history.contains_key(&exercise_id),
+            simulation.answer_history.contains_key(exercise_id),
             "exercise {:?} should have been scheduled",
             exercise_id
         );

@@ -429,7 +429,7 @@ mod test {
     #[test]
     fn blacklisted_course_score() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        let mut library = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let mut library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
         let scheduler_data = library.get_scheduler_data();
         let cache = ScoreCache::new(scheduler_data, SchedulerOptions::default());
 
@@ -443,7 +443,7 @@ mod test {
     #[test]
     fn superseded_course_score_cached() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        let library = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
         let scheduler_data = library.get_scheduler_data();
         let cache = ScoreCache::new(scheduler_data, SchedulerOptions::default());
 
@@ -468,7 +468,7 @@ mod test {
     #[test]
     fn superseded_course_lesson_cached() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        let library = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
         let scheduler_data = library.get_scheduler_data();
         let cache = ScoreCache::new(scheduler_data, SchedulerOptions::default());
 
@@ -493,7 +493,7 @@ mod test {
     #[test]
     fn invalidate_cached_scores() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        let library = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
         let scheduler_data = library.get_scheduler_data();
         let cache = ScoreCache::new(scheduler_data, SchedulerOptions::default());
 
@@ -547,7 +547,7 @@ mod test {
     fn get_num_trials() -> Result<()> {
         // Create a test library and send some scores.
         let temp_dir = tempfile::tempdir()?;
-        let library = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
         let scheduler_data = library.get_scheduler_data();
         let cache = ScoreCache::new(scheduler_data, SchedulerOptions::default());
         let exercise_id = Ustr::from("0::0::0");

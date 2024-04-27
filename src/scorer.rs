@@ -189,7 +189,7 @@ mod test {
     /// Verifies the score for an exercise with no previous trials is 0.0.
     #[test]
     fn no_previous_trials() {
-        assert_eq!(0.0, SCORER.score(&vec![]).unwrap());
+        assert_eq!(0.0, SCORER.score(&[]).unwrap());
     }
 
     /// Verifies that the score is not changed if the number of days since the trial is negative.
@@ -271,8 +271,8 @@ mod test {
 
         let diff = (adjusted_score
             - SCORER
-                .score(&vec![ExerciseTrial {
-                    score: score,
+                .score(&[ExerciseTrial {
+                    score,
                     timestamp: generate_timestamp(days as i64),
                 }])
                 .unwrap())
@@ -299,7 +299,7 @@ mod test {
         assert_eq!(
             (weight1 * adjusted_score1 + weight2 * adjusted_score2) / (weight1 + weight2),
             SCORER
-                .score(&vec![
+                .score(&[
                     ExerciseTrial {
                         score: score1,
                         timestamp: generate_timestamp(days1 as i64)
@@ -318,7 +318,7 @@ mod test {
     fn invalid_timestamp() {
         // The timestamp is before the Unix epoch.
         assert!(SCORER
-            .score(&vec![ExerciseTrial {
+            .score(&[ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(1e10 as i64)
             },])

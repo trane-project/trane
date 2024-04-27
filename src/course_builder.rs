@@ -272,7 +272,7 @@ mod test {
                     .id("exercise1")
                     .name("Exercise 1".into())
                     .exercise_asset(ExerciseAsset::BasicAsset(BasicAsset::InlinedAsset {
-                        content: "".into(),
+                        content: String::new(),
                     }))
                     .clone()
             }),

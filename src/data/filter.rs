@@ -401,7 +401,6 @@ pub enum ExerciseFilter {
 
 #[cfg(test)]
 mod test {
-    use anyhow::Result;
     use chrono::{Duration, Utc};
     use std::collections::BTreeMap;
     use ustr::Ustr;
@@ -443,7 +442,7 @@ mod test {
 
     /// Verifies correctly applying a course filter to a course.
     #[test]
-    fn apply_course_filter_to_course() -> Result<()> {
+    fn apply_course_filter_to_course() {
         let metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -466,12 +465,11 @@ mod test {
             filter_type: FilterType::Exclude,
         };
         assert!(!exclude_filter.apply_to_course(&metadata));
-        Ok(())
     }
 
     /// Verifies applying a lesson filter to a course.
     #[test]
-    fn apply_lesson_filter_to_course() -> Result<()> {
+    fn apply_lesson_filter_to_course() {
         let metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -494,13 +492,12 @@ mod test {
             filter_type: FilterType::Exclude,
         };
         assert!(!exclude_filter.apply_to_course(&metadata));
-        Ok(())
     }
 
     /// Verifies applying a course filter to a course with metadata that doesn't contain the
     /// required keys or values.
     #[test]
-    fn apply_course_filter_to_course_no_match() -> Result<()> {
+    fn apply_course_filter_to_course_no_match() {
         let metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -527,12 +524,11 @@ mod test {
             filter_type: FilterType::Exclude,
         };
         assert!(exclude_filter.apply_to_course(&metadata));
-        Ok(())
     }
 
     /// Verifies correctly applying a course filter to a lesson.
     #[test]
-    fn apply_course_filter_to_lesson() -> Result<()> {
+    fn apply_course_filter_to_lesson() {
         let course_metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -566,12 +562,11 @@ mod test {
             filter_type: FilterType::Exclude,
         };
         assert!(!exclude_filter.apply_to_lesson(&course_metadata, &lesson_metadata));
-        Ok(())
     }
 
     /// Verifies correctly applying a lesson filter to a lesson.
     #[test]
-    fn apply_lesson_filter_to_lesson() -> Result<()> {
+    fn apply_lesson_filter_to_lesson() {
         let course_metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -605,12 +600,11 @@ mod test {
             filter_type: FilterType::Exclude,
         };
         assert!(!exclude_filter.apply_to_lesson(&course_metadata, &lesson_metadata));
-        Ok(())
     }
 
     /// Verifies correctly applying a course filter to a lesson that does not match the filter.
     #[test]
-    fn apply_course_filter_to_lesson_no_match() -> Result<()> {
+    fn apply_course_filter_to_lesson_no_match() {
         let course_metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -644,12 +638,11 @@ mod test {
             filter_type: FilterType::Exclude,
         };
         assert!(exclude_filter.apply_to_lesson(&course_metadata, &lesson_metadata));
-        Ok(())
     }
 
     /// Verifies correctly applying a lesson filter to a lesson that does not match the filter.
     #[test]
-    fn apply_lesson_filter_to_lesson_no_match() -> Result<()> {
+    fn apply_lesson_filter_to_lesson_no_match() {
         let course_metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -683,12 +676,11 @@ mod test {
             filter_type: FilterType::Exclude,
         };
         assert!(exclude_filter.apply_to_lesson(&course_metadata, &lesson_metadata));
-        Ok(())
     }
 
     /// Verifies applying a combined key-value filter with the `All` operator to a course.
     #[test]
-    fn apply_combined_all_filter_to_course() -> Result<()> {
+    fn apply_combined_all_filter_to_course() {
         let metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -715,13 +707,12 @@ mod test {
             ],
         };
         assert!(filter.apply_to_course(&metadata));
-        Ok(())
     }
 
     /// Verifies applying a combined key-value filter containing a lesson filter with the `All`
     /// operator to a course.
     #[test]
-    fn apply_combined_all_filter_with_lesson_filter_to_course() -> Result<()> {
+    fn apply_combined_all_filter_with_lesson_filter_to_course() {
         let metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -753,13 +744,12 @@ mod test {
             ],
         };
         assert!(!filter.apply_to_course(&metadata));
-        Ok(())
     }
 
     /// Verifies applying a combined key-value filter containing a nested combined filter with the
     /// `All` operator to a course.
     #[test]
-    fn apply_combined_all_filter_with_combined_filter_to_course() -> Result<()> {
+    fn apply_combined_all_filter_with_combined_filter_to_course() {
         let metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -794,13 +784,12 @@ mod test {
             ],
         };
         assert!(filter.apply_to_course(&metadata));
-        Ok(())
     }
 
     /// Verifies applying a combined key-value filter with the `All` operator to a key-value pair that
     /// does not pass the filter.
     #[test]
-    fn apply_combined_all_filter_to_course_no_match() -> Result<()> {
+    fn apply_combined_all_filter_to_course_no_match() {
         let metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -827,12 +816,11 @@ mod test {
             ],
         };
         assert!(!filter.apply_to_course(&metadata));
-        Ok(())
     }
 
     /// Verifies applying a combined key-value filter with the `Any` operator to a course.
     #[test]
-    fn apply_combined_any_filter_to_course() -> Result<()> {
+    fn apply_combined_any_filter_to_course() {
         let metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -859,13 +847,12 @@ mod test {
             ],
         };
         assert!(filter.apply_to_course(&metadata));
-        Ok(())
     }
 
     /// Verifies applying a combined key-value filter with the `Any` operator to a course that
     /// does not pass the filter.
     #[test]
-    fn apply_combined_any_filter_to_course_no_match() -> Result<()> {
+    fn apply_combined_any_filter_to_course_no_match() {
         let metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -892,13 +879,12 @@ mod test {
             ],
         };
         assert!(!filter.apply_to_course(&metadata));
-        Ok(())
     }
 
     /// Verifies applying a combined key-value filter containing a nested combined filter with the
     /// `Any` operator to a course.
     #[test]
-    fn apply_combined_any_filter_with_combined_filter_to_course() -> Result<()> {
+    fn apply_combined_any_filter_with_combined_filter_to_course() {
         let metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -933,12 +919,11 @@ mod test {
             ],
         };
         assert!(!filter.apply_to_course(&metadata));
-        Ok(())
     }
 
     /// Verifies applying a combined key-value filter with the `All` operator to a lesson.
     #[test]
-    fn apply_combined_all_filter_to_lesson() -> Result<()> {
+    fn apply_combined_all_filter_to_lesson() {
         let course_metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -976,13 +961,12 @@ mod test {
             ],
         };
         assert!(filter.apply_to_lesson(&course_metadata, &lesson_metadata));
-        Ok(())
     }
 
     /// Verifies applying a combined key-value filter with the `All` operator to a lesson that does
     /// not match.
     #[test]
-    fn apply_combined_all_filter_to_lesson_no_match() -> Result<()> {
+    fn apply_combined_all_filter_to_lesson_no_match() {
         let course_metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -1020,12 +1004,11 @@ mod test {
             ],
         };
         assert!(!filter.apply_to_lesson(&course_metadata, &lesson_metadata));
-        Ok(())
     }
 
     /// Verifies applying a combined key-value filter with the `Any` operator to a lesson.
     #[test]
-    fn apply_combined_any_filter_to_lesson() -> Result<()> {
+    fn apply_combined_any_filter_to_lesson() {
         let course_metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -1063,13 +1046,12 @@ mod test {
             ],
         };
         assert!(filter.apply_to_lesson(&course_metadata, &lesson_metadata));
-        Ok(())
     }
 
     /// Verifies applying a combined key-value filter with the `Any` operator to a lesson that does
     /// not match.
     #[test]
-    fn apply_combined_any_filter_to_lesson_no_match() -> Result<()> {
+    fn apply_combined_any_filter_to_lesson_no_match() {
         let course_metadata = BTreeMap::from([
             (
                 "key1".to_string(),
@@ -1107,7 +1089,6 @@ mod test {
             ],
         };
         assert!(!filter.apply_to_lesson(&course_metadata, &lesson_metadata));
-        Ok(())
     }
 
     /// Verifies cloning a unit filter. Done so that the auto-generated trait implementation is

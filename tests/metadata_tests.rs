@@ -328,7 +328,7 @@ lazy_static! {
 fn scheduler_respects_metadata_filter_op_all() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -356,7 +356,7 @@ fn scheduler_respects_metadata_filter_op_all() -> Result<()> {
     )?;
 
     // Only exercises in the lessons that match the metadata filters should be scheduled.
-    let matching_lessons = vec![
+    let matching_lessons = [
         TestId(2, Some(1), None),
         TestId(2, Some(2), None),
         TestId(5, Some(0), None),
@@ -391,7 +391,7 @@ fn scheduler_respects_metadata_filter_op_all() -> Result<()> {
 fn scheduler_respects_metadata_filter_op_any() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -419,7 +419,7 @@ fn scheduler_respects_metadata_filter_op_any() -> Result<()> {
     )?;
 
     // Only exercises in the lessons that match the metadata filters should be scheduled.
-    let matching_lessons = vec![
+    let matching_lessons = [
         TestId(2, Some(0), None),
         TestId(2, Some(1), None),
         TestId(2, Some(2), None),
@@ -455,7 +455,7 @@ fn scheduler_respects_metadata_filter_op_any() -> Result<()> {
 fn scheduler_respects_lesson_metadata_filter() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -473,7 +473,7 @@ fn scheduler_respects_lesson_metadata_filter() -> Result<()> {
     )?;
 
     // Only exercises in the lessons that match the metadata filters should be scheduled.
-    let matching_lessons = vec![
+    let matching_lessons = [
         TestId(2, Some(1), None),
         TestId(2, Some(2), None),
         TestId(5, Some(0), None),
@@ -507,7 +507,7 @@ fn scheduler_respects_lesson_metadata_filter() -> Result<()> {
 fn scheduler_respects_course_metadata_filter() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -525,7 +525,7 @@ fn scheduler_respects_course_metadata_filter() -> Result<()> {
     )?;
 
     // Only exercises in the lessons that match the metadata filters should be scheduled.
-    let matching_courses = vec![TestId(2, None, None), TestId(5, None, None)];
+    let matching_courses = [TestId(2, None, None), TestId(5, None, None)];
     let exercise_ids = all_test_exercises(&LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
@@ -556,7 +556,7 @@ fn scheduler_respects_course_metadata_filter() -> Result<()> {
 fn scheduler_respects_metadata_filter_and_blacklist() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -585,7 +585,7 @@ fn scheduler_respects_metadata_filter_and_blacklist() -> Result<()> {
     )?;
 
     // Only exercises in the lessons that match the metadata filters should be scheduled.
-    let matching_lessons = vec![TestId(5, Some(0), None)];
+    let matching_lessons = [TestId(5, Some(0), None)];
     let exercise_ids = all_test_exercises(&LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
@@ -615,7 +615,7 @@ fn scheduler_respects_metadata_filter_and_blacklist() -> Result<()> {
 fn course_library_search_course_metadata() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Search for a course's metadata.
     let search_results = trane.search("\"course_key_2:value_2\"")?;
@@ -629,7 +629,7 @@ fn course_library_search_course_metadata() -> Result<()> {
 fn course_library_search_lesson_metadata() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Search for a lesson's metadata.
     let search_results = trane.search("\"lesson_key_2:value_4\"")?;

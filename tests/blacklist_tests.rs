@@ -125,7 +125,7 @@ lazy_static! {
 fn avoid_scheduling_courses_in_blacklist() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -139,7 +139,7 @@ fn avoid_scheduling_courses_in_blacklist() -> Result<()> {
         let exercise_ustr = exercise_id.to_ustr();
         if !course_blacklist
             .iter()
-            .any(|course_id| exercise_id.exercise_in_course(&course_id))
+            .any(|course_id| exercise_id.exercise_in_course(course_id))
         {
             assert!(
                 simulation.answer_history.contains_key(&exercise_ustr),
@@ -164,7 +164,7 @@ fn avoid_scheduling_courses_in_blacklist() -> Result<()> {
 fn avoid_scheduling_lessons_in_blacklist() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -178,7 +178,7 @@ fn avoid_scheduling_lessons_in_blacklist() -> Result<()> {
         let exercise_ustr = exercise_id.to_ustr();
         if !lesson_blacklist
             .iter()
-            .any(|lesson_id| exercise_id.exercise_in_lesson(&lesson_id))
+            .any(|lesson_id| exercise_id.exercise_in_lesson(lesson_id))
         {
             assert!(
                 simulation.answer_history.contains_key(&exercise_ustr),
@@ -202,11 +202,11 @@ fn avoid_scheduling_lessons_in_blacklist() -> Result<()> {
 fn avoid_scheduling_lessons_in_blacklist_with_course_filter() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Run the simulation.
     let lesson_blacklist = vec![TestId(0, Some(1), None), TestId(3, Some(0), None)];
-    let selected_courses = vec![TestId(0, None, None), TestId(3, None, None)];
+    let selected_courses = [TestId(0, None, None), TestId(3, None, None)];
     let course_filter = UnitFilter::CourseFilter {
         course_ids: selected_courses.iter().map(|id| id.to_ustr()).collect(),
     };
@@ -224,10 +224,10 @@ fn avoid_scheduling_lessons_in_blacklist_with_course_filter() -> Result<()> {
         let exercise_ustr = exercise_id.to_ustr();
         let in_blacklisted_lesson = lesson_blacklist
             .iter()
-            .any(|lesson_id| exercise_id.exercise_in_lesson(&lesson_id));
+            .any(|lesson_id| exercise_id.exercise_in_lesson(lesson_id));
         let in_selected_course = selected_courses
             .iter()
-            .any(|course_id| exercise_id.exercise_in_course(&course_id));
+            .any(|course_id| exercise_id.exercise_in_course(course_id));
 
         if in_selected_course && !in_blacklisted_lesson {
             assert!(
@@ -252,7 +252,7 @@ fn avoid_scheduling_lessons_in_blacklist_with_course_filter() -> Result<()> {
 fn avoid_scheduling_exercises_in_blacklist() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -300,7 +300,7 @@ fn avoid_scheduling_exercises_in_blacklist() -> Result<()> {
 fn invalidate_cache_on_blacklist_update() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Run the simulation with a valid blacklist and give each exercise a score of 5.
     // All exercises except for those in the blacklist should be scheduled.
@@ -385,7 +385,7 @@ fn invalidate_cache_on_blacklist_update() -> Result<()> {
             );
         } else if unscheduled_lessons
             .iter()
-            .any(|lesson_id| exercise_id.exercise_in_lesson(&lesson_id))
+            .any(|lesson_id| exercise_id.exercise_in_lesson(lesson_id))
         {
             // None of the units depending on lesson `TestId(0, Some(0), None)` should have been
             // scheduled.

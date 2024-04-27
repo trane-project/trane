@@ -211,7 +211,7 @@ lazy_static! {
 fn scheduler_respects_superseded_courses() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Run the simulation first giving a score of 5 to all exercises.
     let superseded_course_id = TestId(0, None, None);
@@ -280,7 +280,7 @@ fn scheduler_respects_superseded_courses() -> Result<()> {
 fn scheduler_respects_superseded_lessons() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Run the simulation first giving a score of 5 to all exercises.
     let superseded_lesson_id = TestId(2, Some(0), None);
@@ -350,7 +350,7 @@ fn scheduler_respects_superseded_lessons() -> Result<()> {
 fn scheduler_respects_superseded_course_chain() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Run the simulation first giving a score of 5 to all exercises.
     let superseded_course_ids = [TestId(3, None, None), TestId(4, None, None)];
@@ -457,7 +457,7 @@ fn scheduler_respects_superseded_course_chain() -> Result<()> {
 fn scheduler_respects_superseded_lesson_chain() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Run the simulation first giving a score of 5 to all exercises.
     let superseded_lesson_ids = [TestId(6, Some(0), None), TestId(6, Some(1), None)];
@@ -563,7 +563,7 @@ fn scheduler_respects_superseded_lesson_chain() -> Result<()> {
 fn scheduler_ignores_superseded_exercises() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Run the simulation, filtering only the  exercises in the superseded lessons and giving them a
     // score of 1. This will have the effect of bringing down the average score of all athe
@@ -601,7 +601,7 @@ fn scheduler_ignores_superseded_exercises() -> Result<()> {
     // Run the simulation, filtering only the  exercises in the superseding lesson and giving them a
     // score of four. This will have the effect of bringing up the average score of the course and
     // ensuring the previous lessons are superseded.
-    let superseding_lesson_ids = vec![TestId(6, Some(2), None)];
+    let superseding_lesson_ids = [TestId(6, Some(2), None)];
     let mut simulation = TraneSimulation::new(2000, Box::new(|_| Some(MasteryScore::Four)));
     simulation.run_simulation(
         &mut trane,

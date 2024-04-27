@@ -730,7 +730,7 @@ mod test {
 
     /// Verify that the given test library was built correctly.
     fn verify_test_library(test_library: &[TestCourse], library_path: &Path) {
-        for course in test_library.iter() {
+        for course in test_library {
             // Verify the course directory exists.
             let course_dir = library_path.join(format!("course_{}", course.id.0));
             assert!(course_dir.is_dir());
@@ -752,7 +752,7 @@ mod test {
                 // Verify all the exercise directories were built correctly.
                 for exercise_index in 0..lesson.num_exercises {
                     // Verify the exercise directory exists.
-                    let exercise_dir = lesson_dir.join(format!("exercise_{}", exercise_index));
+                    let exercise_dir = lesson_dir.join(format!("exercise_{exercise_index}"));
                     assert!(exercise_dir.is_dir());
 
                     // Verify the exercise manifest exists.
@@ -773,8 +773,8 @@ mod test {
     #[test]
     fn build_test_library() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
-        verify_test_library(&*TEST_LIBRARY, temp_dir.path());
+        init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
+        verify_test_library(&TEST_LIBRARY, temp_dir.path());
         Ok(())
     }
 
@@ -791,7 +791,7 @@ mod test {
             exercises_per_lesson_range: (0, 5),
         }
         .generate_library();
-        init_test_simulation(&temp_dir.path(), &random_library)?;
+        init_test_simulation(temp_dir.path(), &random_library)?;
         verify_test_library(&random_library, temp_dir.path());
         Ok(())
     }
@@ -860,7 +860,7 @@ mod test {
     #[test]
     fn run_exercise_simulation() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        let mut trane = init_test_simulation(&temp_dir.path(), &TEST_LIBRARY)?;
+        let mut trane = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
 
         // Run the simulation answering all exercises with the maximum score.
         let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -872,8 +872,7 @@ mod test {
             let exercise_ustr = exercise_id.to_ustr();
             assert!(
                 simulation.answer_history.contains_key(&exercise_ustr),
-                "exercise {:?} should have been scheduled",
-                exercise_id
+                "exercise {exercise_id:?} should have been scheduled",
             );
             assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
         }
@@ -891,7 +890,7 @@ mod test {
             lessons: vec![],
         }];
         let temp_dir = tempfile::tempdir()?;
-        assert!(init_test_simulation(&temp_dir.path(), &bad_courses).is_err());
+        assert!(init_test_simulation(temp_dir.path(), &bad_courses).is_err());
         Ok(())
     }
 }
