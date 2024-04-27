@@ -673,6 +673,15 @@ mod test {
         Ok(())
     }
 
+    /// Verifies opening a course library with a path that is not a directory fails.
+    #[test]
+    fn library_root_is_not_dir() -> Result<()> {
+        let file = tempfile::NamedTempFile::new()?;
+        let result = Trane::new_local(file.path(), file.path());
+        assert!(result.is_err());
+        Ok(())
+    }
+
     /// Verifies that opening a library if the path to the config directory exists but is not a
     /// directory.
     #[test]
