@@ -341,7 +341,6 @@ impl CandidateFilter {
 
 #[cfg(test)]
 mod test {
-    use anyhow::Result;
     use ustr::Ustr;
 
     use crate::scheduler::{
@@ -351,7 +350,7 @@ mod test {
 
     /// Verifies that the batch size is adjusted based on the number of candidates.
     #[test]
-    fn dynamic_batch_size() -> Result<()> {
+    fn dynamic_batch_size() {
         // Small batch sizes are unaffected.
         assert_eq!(CandidateFilter::dynamic_batch_size(5, 10), 5);
 
@@ -365,12 +364,11 @@ mod test {
         // The batch size from the options is used if there are enough candidates.
         assert_eq!(CandidateFilter::dynamic_batch_size(50, 150), 50);
         assert_eq!(CandidateFilter::dynamic_batch_size(50, 200), 50);
-        Ok(())
     }
 
     /// Verifies that the candidates per lesson are counted correctly.
     #[test]
-    fn count_lesson_frequency() -> Result<()> {
+    fn count_lesson_frequency() {
         // Create a list of candidates with different lessons.
         let candidates = vec![
             Candidate {
@@ -413,7 +411,5 @@ mod test {
         assert_eq!(lesson_frequency.get(&Ustr::from("lesson1")), Some(&2));
         assert_eq!(lesson_frequency.get(&Ustr::from("lesson2")), Some(&1));
         assert_eq!(lesson_frequency.get(&Ustr::from("")), Some(&1));
-
-        Ok(())
     }
 }

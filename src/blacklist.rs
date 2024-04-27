@@ -259,7 +259,7 @@ mod test {
         // Remove the units with the prefix "a" and verify only those are removed.
         blacklist.remove_prefix_from_blacklist("a").unwrap();
         for unit in units {
-            if unit.as_str().starts_with("a") {
+            if unit.as_str().starts_with('a') {
                 assert!(!blacklist.blacklisted(unit).unwrap());
             } else {
                 assert!(blacklist.blacklisted(unit).unwrap());

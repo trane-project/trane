@@ -35,6 +35,7 @@
 
 // Allow pedantic warnings but disable some that are not useful.
 #![warn(clippy::pedantic)]
+#![allow(clippy::float_cmp)]
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::missing_panics_doc)]
 #![allow(clippy::module_name_repetitions)]

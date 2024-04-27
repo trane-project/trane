@@ -142,7 +142,7 @@ mod test {
         );
 
         for (index, (id, _)) in session_list.iter().enumerate() {
-            let session = manager.get_study_session(&id);
+            let session = manager.get_study_session(id);
             assert!(session.is_some());
             let session = session.unwrap();
             assert_eq!(sessions[index], session);

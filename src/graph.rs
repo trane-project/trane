@@ -652,7 +652,7 @@ mod test {
         let mut graph = InMemoryUnitGraph::default();
         let id = Ustr::from("id1");
         graph.add_course(id)?;
-        graph.add_dependencies(id, UnitType::Course, &vec![])?;
+        graph.add_dependencies(id, UnitType::Course, &[])?;
         assert_eq!(graph.get_unit_type(id), Some(UnitType::Course));
         Ok(())
     }
@@ -670,7 +670,7 @@ mod test {
         let lesson2_exercise2_id = Ustr::from("course1::lesson2::exercise2");
 
         graph.add_course(course_id)?;
-        graph.add_dependencies(course_id, UnitType::Course, &vec![])?;
+        graph.add_dependencies(course_id, UnitType::Course, &[])?;
         graph.add_lesson(lesson1_id, course_id)?;
         graph.add_exercise(lesson1_exercise1_id, lesson1_id)?;
         graph.add_exercise(lesson1_exercise2_id, lesson1_id)?;
@@ -726,11 +726,11 @@ mod test {
         graph.add_course(course3_id)?;
         graph.add_course(course4_id)?;
         graph.add_course(course5_id)?;
-        graph.add_dependencies(course1_id, UnitType::Course, &vec![])?;
-        graph.add_dependencies(course2_id, UnitType::Course, &vec![course1_id.clone()])?;
-        graph.add_dependencies(course3_id, UnitType::Course, &vec![course1_id.clone()])?;
-        graph.add_dependencies(course4_id, UnitType::Course, &vec![course2_id.clone()])?;
-        graph.add_dependencies(course5_id, UnitType::Course, &vec![course3_id.clone()])?;
+        graph.add_dependencies(course1_id, UnitType::Course, &[])?;
+        graph.add_dependencies(course2_id, UnitType::Course, &[course1_id])?;
+        graph.add_dependencies(course3_id, UnitType::Course, &[course1_id])?;
+        graph.add_dependencies(course4_id, UnitType::Course, &[course2_id])?;
+        graph.add_dependencies(course5_id, UnitType::Course, &[course3_id])?;
 
         {
             let dependents = graph.get_dependents(course1_id).unwrap();
@@ -814,19 +814,11 @@ mod test {
         graph.add_lesson(course3_lesson1_id, course3_id)?;
         graph.add_lesson(course3_lesson2_id, course3_id)?;
 
-        graph.add_dependencies(course1_id, UnitType::Course, &vec![])?;
-        graph.add_dependencies(
-            course1_lesson2_id,
-            UnitType::Lesson,
-            &vec![course1_lesson1_id.clone()],
-        )?;
-        graph.add_dependencies(course2_id, UnitType::Course, &vec![course1_id.clone()])?;
-        graph.add_dependencies(course3_id, UnitType::Course, &vec![course2_id.clone()])?;
-        graph.add_dependencies(
-            course3_lesson2_id,
-            UnitType::Lesson,
-            &vec![course3_lesson1_id.clone()],
-        )?;
+        graph.add_dependencies(course1_id, UnitType::Course, &[])?;
+        graph.add_dependencies(course1_lesson2_id, UnitType::Lesson, &[course1_lesson1_id])?;
+        graph.add_dependencies(course2_id, UnitType::Course, &[course1_id])?;
+        graph.add_dependencies(course3_id, UnitType::Course, &[course2_id])?;
+        graph.add_dependencies(course3_lesson2_id, UnitType::Lesson, &[course3_lesson1_id])?;
         graph.update_starting_lessons();
 
         let dot = graph.generate_dot_graph();
@@ -895,14 +887,14 @@ mod test {
         graph.add_course(course3_id)?;
         graph.add_course(course4_id)?;
         graph.add_course(course5_id)?;
-        graph.add_dependencies(course1_id, UnitType::Course, &vec![])?;
-        graph.add_dependencies(course2_id, UnitType::Course, &vec![course1_id.clone()])?;
-        graph.add_dependencies(course3_id, UnitType::Course, &vec![course1_id.clone()])?;
-        graph.add_dependencies(course4_id, UnitType::Course, &vec![course2_id.clone()])?;
-        graph.add_dependencies(course5_id, UnitType::Course, &vec![course3_id.clone()])?;
+        graph.add_dependencies(course1_id, UnitType::Course, &[])?;
+        graph.add_dependencies(course2_id, UnitType::Course, &[course1_id])?;
+        graph.add_dependencies(course3_id, UnitType::Course, &[course1_id])?;
+        graph.add_dependencies(course4_id, UnitType::Course, &[course2_id])?;
+        graph.add_dependencies(course5_id, UnitType::Course, &[course3_id])?;
 
         // Add a cycle, which should be detected when calling `check_cycles`.
-        graph.add_dependencies(course1_id, UnitType::Course, &vec![course5_id.clone()])?;
+        graph.add_dependencies(course1_id, UnitType::Course, &[course5_id])?;
         assert!(graph.check_cycles().is_err());
 
         Ok(())
@@ -910,7 +902,7 @@ mod test {
 
     /// Verifies that a cycle in the superseded graph is detected and causes an error.
     #[test]
-    fn superseded_cycle() -> Result<()> {
+    fn superseded_cycle() {
         // Add a cycle, which should be detected when calling `check_cycles`.
         let mut graph = InMemoryUnitGraph::default();
         let course1_id = Ustr::from("course1");
@@ -918,13 +910,12 @@ mod test {
         let course3_id = Ustr::from("course3");
         let course4_id = Ustr::from("course4");
         let course5_id = Ustr::from("course5");
-        graph.add_superseded(course2_id, &vec![course1_id.clone()]);
-        graph.add_superseded(course3_id, &vec![course1_id.clone()]);
-        graph.add_superseded(course4_id, &vec![course2_id.clone()]);
-        graph.add_superseded(course5_id, &vec![course3_id.clone()]);
-        graph.add_superseded(course1_id, &vec![course5_id.clone()]);
+        graph.add_superseded(course2_id, &[course1_id]);
+        graph.add_superseded(course3_id, &[course1_id]);
+        graph.add_superseded(course4_id, &[course2_id]);
+        graph.add_superseded(course5_id, &[course3_id]);
+        graph.add_superseded(course1_id, &[course5_id]);
         assert!(graph.check_cycles().is_err());
-        Ok(())
     }
 
     #[test]
@@ -936,13 +927,11 @@ mod test {
         graph.add_course(course_id).unwrap();
         graph.add_lesson(lesson1_id, course_id).unwrap();
         graph.add_lesson(lesson2_id, course_id).unwrap();
-        graph.add_dependencies(lesson2_id, UnitType::Lesson, &[lesson1_id.clone()])?;
+        graph.add_dependencies(lesson2_id, UnitType::Lesson, &[lesson1_id])?;
 
         // Manually remove the dependent relationship to trigger the check and make the cycle
         // detection fail.
-        graph
-            .dependent_graph
-            .insert(lesson1_id.clone(), UstrSet::default());
+        graph.dependent_graph.insert(lesson1_id, UstrSet::default());
         assert!(graph.check_cycles().is_err());
         // Also check that the check fails if the dependents value is `None`.
         graph.dependency_graph.remove(&lesson1_id);
@@ -951,21 +940,20 @@ mod test {
     }
 
     #[test]
-    fn missing_superseding_relationship() -> Result<()> {
+    fn missing_superseding_relationship() {
         let mut graph = InMemoryUnitGraph::default();
         let lesson1_id = Ustr::from("lesson1_id");
         let lesson2_id = Ustr::from("lesson2_id");
-        graph.add_superseded(lesson2_id, &[lesson1_id.clone()]);
+        graph.add_superseded(lesson2_id, &[lesson1_id]);
 
         // Manually remove the superseding relationship to trigger the check and make the cycle
         // detection fail.
         graph
             .superseding_graph
-            .insert(lesson1_id.clone(), UstrSet::default());
+            .insert(lesson1_id, UstrSet::default());
         assert!(graph.check_cycles().is_err());
         // Also check that the check fails if the superseding value is `None`.
         graph.dependency_graph.remove(&lesson1_id);
         assert!(graph.check_cycles().is_err());
-        Ok(())
     }
 }

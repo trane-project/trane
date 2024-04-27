@@ -1065,7 +1065,7 @@ mod test {
         Ok(())
     }
 
-    /// Verifies the `NormalizePaths` trait works for a SoundSlice asset.
+    /// Verifies the `NormalizePaths` trait works for a `SoundSlice` asset.
     #[test]
     fn soundslice_normalize_paths() -> Result<()> {
         let soundslice = ExerciseAsset::SoundSliceAsset {
@@ -1086,7 +1086,7 @@ mod test {
         Ok(())
     }
 
-    /// Verifies the `VerifyPaths` trait works for a SoundSlice asset.
+    /// Verifies the `VerifyPaths` trait works for a `SoundSlice` asset.
     #[test]
     fn soundslice_verify_paths() -> Result<()> {
         let soundslice = ExerciseAsset::SoundSliceAsset {
@@ -1227,8 +1227,10 @@ mod test {
     /// Verifies scheduler options with a batch size of 0 are invalid.
     #[test]
     fn scheduler_options_invalid_batch_size() {
-        let mut options = SchedulerOptions::default();
-        options.batch_size = 0;
+        let options = SchedulerOptions {
+            batch_size: 0,
+            ..Default::default()
+        };
         assert!(options.verify().is_err());
     }
 

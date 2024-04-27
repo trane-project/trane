@@ -162,8 +162,8 @@ fn all_exercises_visited_simple_local() -> Result<()> {
         sub_passages: vec![],
     };
     let mut trane = init_simulation(
-        &temp_dir.path(),
-        &vec![music_piece_builder(
+        temp_dir.path(),
+        &[music_piece_builder(
             *COURSE_ID,
             0,
             LOCAL_MUSIC_ASSET.clone(),
@@ -174,7 +174,7 @@ fn all_exercises_visited_simple_local() -> Result<()> {
 
     // Run the simulation.
     let exercise_ids = trane.get_all_exercise_ids(None);
-    assert!(exercise_ids.len() > 0);
+    assert!(!exercise_ids.is_empty());
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
         Box::new(|_| Some(MasteryScore::Five)),
@@ -203,8 +203,8 @@ fn all_exercises_visited_simple_soundslice() -> Result<()> {
         sub_passages: vec![],
     };
     let mut trane = init_simulation(
-        &temp_dir.path(),
-        &vec![music_piece_builder(
+        temp_dir.path(),
+        &[music_piece_builder(
             *COURSE_ID,
             0,
             SOUNDSLICE_MUSIC_ASSET.clone(),
@@ -215,7 +215,7 @@ fn all_exercises_visited_simple_soundslice() -> Result<()> {
 
     // Run the simulation.
     let exercise_ids = trane.get_all_exercise_ids(None);
-    assert!(exercise_ids.len() > 0);
+    assert!(!exercise_ids.is_empty());
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
         Box::new(|_| Some(MasteryScore::Five)),
@@ -240,8 +240,8 @@ fn all_exercises_visited_complex() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
     let mut trane = init_simulation(
-        &temp_dir.path(),
-        &vec![music_piece_builder(
+        temp_dir.path(),
+        &[music_piece_builder(
             *COURSE_ID,
             0,
             SOUNDSLICE_MUSIC_ASSET.clone(),
@@ -252,7 +252,7 @@ fn all_exercises_visited_complex() -> Result<()> {
 
     // Run the simulation.
     let exercise_ids = trane.get_all_exercise_ids(None);
-    assert!(exercise_ids.len() > 0);
+    assert!(!exercise_ids.is_empty());
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
         Box::new(|_| Some(MasteryScore::Five)),
@@ -277,8 +277,8 @@ fn no_progress_complex() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
     let mut trane = init_simulation(
-        &temp_dir.path(),
-        &vec![music_piece_builder(
+        temp_dir.path(),
+        &[music_piece_builder(
             *COURSE_ID,
             0,
             SOUNDSLICE_MUSIC_ASSET.clone(),
@@ -289,7 +289,7 @@ fn no_progress_complex() -> Result<()> {
 
     // Run the simulation.
     let exercise_ids = trane.get_all_exercise_ids(None);
-    assert!(exercise_ids.len() > 0);
+    assert!(!exercise_ids.is_empty());
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
         Box::new(|_| Some(MasteryScore::One)),
@@ -313,8 +313,8 @@ fn no_progress_simple() -> Result<()> {
         sub_passages: vec![],
     };
     let mut trane = init_simulation(
-        &temp_dir.path(),
-        &vec![music_piece_builder(
+        temp_dir.path(),
+        &[music_piece_builder(
             *COURSE_ID,
             0,
             SOUNDSLICE_MUSIC_ASSET.clone(),
@@ -325,7 +325,7 @@ fn no_progress_simple() -> Result<()> {
 
     // Run the simulation.
     let exercise_ids = trane.get_all_exercise_ids(None);
-    assert!(exercise_ids.len() > 0);
+    assert!(!exercise_ids.is_empty());
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 5,
         Box::new(|_| Some(MasteryScore::One)),

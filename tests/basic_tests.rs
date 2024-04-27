@@ -268,7 +268,7 @@ lazy_static! {
 fn get_unit_ids() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Verify the course IDs.
     let course_ids = trane.get_course_ids();
@@ -310,7 +310,7 @@ fn get_unit_ids() -> Result<()> {
 fn get_all_exercise_ids() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Get all exercises from a course.
     let exercise_ids = trane.get_all_exercise_ids(Some(Ustr::from("0")));
@@ -349,7 +349,7 @@ fn get_all_exercise_ids() -> Result<()> {
 fn all_exercises_scheduled() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -374,14 +374,14 @@ fn all_exercises_scheduled() -> Result<()> {
 #[test]
 fn bad_score_prevents_advancing() -> Result<()> {
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(200, Box::new(|_| Some(MasteryScore::One)));
     simulation.run_simulation(&mut trane, &vec![], &None)?;
 
     // Only the exercises in the first lessons should be in `simulation.answer_history`.
-    let first_lessons = vec![
+    let first_lessons = [
         TestId(0, Some(0), None),
         TestId(4, Some(0), None),
         TestId(6, Some(0), None),
@@ -391,7 +391,7 @@ fn bad_score_prevents_advancing() -> Result<()> {
         let exercise_ustr = exercise_id.to_ustr();
         if first_lessons
             .iter()
-            .any(|lesson| exercise_id.exercise_in_lesson(&lesson))
+            .any(|lesson| exercise_id.exercise_in_lesson(lesson))
         {
             assert!(
                 simulation.answer_history.contains_key(&exercise_ustr),
@@ -415,11 +415,11 @@ fn bad_score_prevents_advancing() -> Result<()> {
 fn scheduler_respects_course_filter() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
-    let selected_courses = vec![
+    let selected_courses = [
         TestId(1, None, None),
         TestId(5, None, None),
         // Missing course.
@@ -464,11 +464,11 @@ fn scheduler_respects_course_filter() -> Result<()> {
 fn scheduler_respects_lesson_filter() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
-    let selected_lessons = vec![
+    let selected_lessons = [
         TestId(2, Some(0), None),
         TestId(4, Some(1), None),
         // Missing lesson.
@@ -513,7 +513,7 @@ fn scheduler_respects_lesson_filter() -> Result<()> {
 fn schedule_exercises_in_review_list() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Add some exercises to the review list.
     let review_exercises = vec![TestId(1, Some(0), Some(0)), TestId(2, Some(1), Some(7))];
@@ -561,7 +561,7 @@ fn schedule_exercises_in_review_list() -> Result<()> {
 fn schedule_lessons_in_review_list() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Add some lessons to the review list.
     let review_lessons = vec![TestId(1, Some(0), None), TestId(2, Some(1), None)];
@@ -609,7 +609,7 @@ fn schedule_lessons_in_review_list() -> Result<()> {
 fn schedule_courses_in_review_list() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Add some courses to the review list.
     let review_courses = vec![TestId(1, None, None), TestId(2, None, None)];
@@ -656,11 +656,11 @@ fn schedule_courses_in_review_list() -> Result<()> {
 fn schedule_units_and_dependents() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Only schedule the exercises from the given units and their dependents.
-    let starting_units = vec![TestId(5, Some(0), None)];
-    let unit_and_dependents = vec![
+    let starting_units = [TestId(5, Some(0), None)];
+    let unit_and_dependents = [
         TestId(5, Some(0), None),
         TestId(5, Some(1), None),
         TestId(5, Some(2), None),
@@ -709,12 +709,12 @@ fn schedule_units_and_dependents() -> Result<()> {
 fn schedule_dependencies() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Only schedule the exercises from the dependencies of the unit at depth 1.
-    let starting_units = vec![TestId(5, Some(1), None)];
+    let starting_units = [TestId(5, Some(1), None)];
     let depth = 1;
-    let matching_lessons = vec![TestId(5, Some(0), None), TestId(5, Some(1), None)];
+    let matching_lessons = [TestId(5, Some(0), None), TestId(5, Some(1), None)];
 
     // Run the simulation.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
@@ -762,13 +762,13 @@ fn schedule_dependencies() -> Result<()> {
 fn schedule_dependencies_large_depth() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Only schedule the exercises from the dependencies of the unit at depth 5. The search should
     // stop earlier because the graph is not as deep.
-    let starting_units = vec![TestId(2, None, None)];
+    let starting_units = [TestId(2, None, None)];
     let depth = 5;
-    let matching_courses = vec![
+    let matching_courses = [
         TestId(0, None, None),
         TestId(1, None, None),
         TestId(2, None, None),
@@ -822,11 +822,11 @@ fn schedule_dependencies_large_depth() -> Result<()> {
 fn schedule_dependencies_unknown_unit() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Only schedule the exercises from the dependencies of the unit at depth 5. Since the unit does
     // not exist, no exercises should be scheduled.
-    let starting_units = vec![TestId(20, None, None)];
+    let starting_units = [TestId(20, None, None)];
     let depth = 5;
 
     // Run the simulation.
@@ -861,7 +861,7 @@ fn schedule_dependencies_unknown_unit() -> Result<()> {
 fn schedule_study_session() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Create a study session with a couple of parts.
     let session_data = StudySessionData {
@@ -896,7 +896,7 @@ fn schedule_study_session() -> Result<()> {
 
     // The second part of the session is active, so only exercises from course 1 should have been
     // scheduled.
-    let matching_courses = vec![TestId(1, None, None)];
+    let matching_courses = [TestId(1, None, None)];
     let exercise_ids = all_test_exercises(&LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
@@ -927,7 +927,7 @@ fn schedule_study_session() -> Result<()> {
 fn get_matching_courses() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // The test will use the ID of course 0 as the prefix.
     let prefix = TestId(0, None, None).to_ustr();
@@ -944,7 +944,7 @@ fn get_matching_courses() -> Result<()> {
 fn get_matching_lessons() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // The test will use the ID of lesson 0::0 as the prefix.
     let prefix = TestId(0, Some(0), None).to_ustr();
@@ -961,7 +961,7 @@ fn get_matching_lessons() -> Result<()> {
 fn get_matching_exercises() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // The test will use the ID of exercise 0::0::0 as the prefix.
     let prefix = TestId(0, Some(0), Some(0)).to_ustr();
@@ -978,7 +978,7 @@ fn get_matching_exercises() -> Result<()> {
 fn get_matching_units() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // The test will use the ID of course 0 as the prefix.
     let prefix = TestId(0, None, None).to_ustr();
@@ -998,7 +998,7 @@ fn get_matching_units() -> Result<()> {
 fn course_library_search_courses() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Search for a course's ID.
     let search_results = trane.search("\"2\"")?;
@@ -1022,7 +1022,7 @@ fn course_library_search_courses() -> Result<()> {
 fn course_library_search_lessons() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Search for a lesson's ID.
     let search_results = trane.search("\"2::1\"")?;
@@ -1046,7 +1046,7 @@ fn course_library_search_lessons() -> Result<()> {
 fn course_library_search_exercises() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Search for an exercise ID.
     let search_results = trane.search("\"2::1::7\"")?;
@@ -1070,11 +1070,13 @@ fn course_library_search_exercises() -> Result<()> {
 fn set_scheduler_options() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Set the scheduler options to have a batch size of ten.
-    let mut scheduler_options = SchedulerOptions::default();
-    scheduler_options.batch_size = 10;
+    let scheduler_options = SchedulerOptions {
+        batch_size: 10,
+        ..Default::default()
+    };
     trane.set_scheduler_options(scheduler_options);
 
     // Verify the scheduler options were set.
@@ -1088,11 +1090,13 @@ fn set_scheduler_options() -> Result<()> {
 fn reset_scheduler_options() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
-    let mut trane = init_test_simulation(&temp_dir.path(), &LIBRARY)?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Set the scheduler options to have a batch size of ten.
-    let mut scheduler_options = SchedulerOptions::default();
-    scheduler_options.batch_size = 10;
+    let scheduler_options = SchedulerOptions {
+        batch_size: 10,
+        ..Default::default()
+    };
     trane.set_scheduler_options(scheduler_options);
 
     // Reset the scheduler options and verify the scheduler options were reset.
@@ -1120,7 +1124,7 @@ fn ignored_paths() -> Result<()> {
         .iter()
         .map(|c| c.course_builder())
         .collect::<Result<Vec<_>>>()?;
-    let trane = init_simulation(&temp_dir.path(), &course_builders, Some(&user_preferences))?;
+    let trane = init_simulation(temp_dir.path(), &course_builders, Some(&user_preferences))?;
 
     // Verify the courses in the list are ignored.
     let exercise_ids = trane.get_all_exercise_ids(None);

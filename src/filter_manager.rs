@@ -172,7 +172,7 @@ mod test {
         );
 
         for (index, (id, _)) in filter_list.iter().enumerate() {
-            let filter = manager.get_filter(&id);
+            let filter = manager.get_filter(id);
             assert!(filter.is_some());
             let filter = filter.unwrap();
             assert_eq!(filters[index], filter);

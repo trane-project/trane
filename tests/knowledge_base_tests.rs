@@ -25,7 +25,7 @@ use ustr::Ustr;
 /// Generates a random number of dependencies for the lesson with the given index. All dependencies
 /// will have a lower index to avoid cycles.
 fn generate_lesson_dependencies(lesson_index: usize, rng: &mut impl Rng) -> Vec<Ustr> {
-    let num_dependencies = rng.gen_range(0..=lesson_index) as usize;
+    let num_dependencies = rng.gen_range(0..=lesson_index);
     if num_dependencies == 0 {
         return vec![];
     }
@@ -125,13 +125,12 @@ fn knowledge_base_builder(
 /// Creates the courses, initializes the Trane library, and returns a Trane instance.
 fn init_knowledge_base_simulation(
     library_root: &Path,
-    course_builders: &Vec<CourseBuilder>,
+    course_builders: &[CourseBuilder],
 ) -> Result<Trane> {
     // Build the courses.
     course_builders
-        .into_iter()
-        .map(|course_builder| course_builder.build(library_root))
-        .collect::<Result<()>>()?;
+        .iter()
+        .try_for_each(|course_builder| course_builder.build(library_root))?;
 
     // Initialize the Trane library.
     let trane = Trane::new_local(library_root, library_root)?;
@@ -180,11 +179,11 @@ fn all_exercises_visited() -> Result<()> {
     // Initialize the Trane library.
     let temp_dir = TempDir::new()?;
     let mut trane =
-        init_knowledge_base_simulation(&temp_dir.path(), &vec![course1_builder, course2_builder])?;
+        init_knowledge_base_simulation(temp_dir.path(), &vec![course1_builder, course2_builder])?;
 
     // Run the simulation.
     let exercise_ids = trane.get_all_exercise_ids(None);
-    assert!(exercise_ids.len() > 0);
+    assert!(!exercise_ids.is_empty());
     let mut simulation = TraneSimulation::new(
         exercise_ids.len() * 10,
         Box::new(|_| Some(MasteryScore::Five)),

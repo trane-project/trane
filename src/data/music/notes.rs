@@ -135,6 +135,7 @@ mod test {
     /// Verifies that notes can be cloned. Done to ensure that the auto-generated trait
     /// implementation is included in the code coverage report.
     #[test]
+    #[allow(clippy::clone_on_copy)]
     fn note_clone() {
         let note = Note(NaturalNote::A, Accidental::Natural);
         let clone = note.clone();

@@ -261,7 +261,7 @@ mod test {
         Ok(Box::new(practice_stats))
     }
 
-    fn assert_scores(expected: Vec<f32>, actual: Vec<ExerciseTrial>) {
+    fn assert_scores(expected: &[f32], actual: &[ExerciseTrial]) {
         let only_scores: Vec<f32> = actual.iter().map(|t| t.score).collect();
         assert_eq!(expected, only_scores);
         let all_sorted = actual
@@ -284,7 +284,7 @@ mod test {
         let exercise_id = Ustr::from("ex_123");
         stats.record_exercise_score(exercise_id, MasteryScore::Five, 1)?;
         let scores = stats.get_scores(exercise_id, 1)?;
-        assert_scores(vec![5.0], scores);
+        assert_scores(&[5.0], &scores);
         Ok(())
     }
 
@@ -298,13 +298,13 @@ mod test {
         stats.record_exercise_score(exercise_id, MasteryScore::Five, 3)?;
 
         let one_score = stats.get_scores(exercise_id, 1)?;
-        assert_scores(vec![5.0], one_score);
+        assert_scores(&[5.0], &one_score);
 
         let three_scores = stats.get_scores(exercise_id, 3)?;
-        assert_scores(vec![5.0, 4.0, 3.0], three_scores);
+        assert_scores(&[5.0, 4.0, 3.0], &three_scores);
 
         let more_scores = stats.get_scores(exercise_id, 10)?;
-        assert_scores(vec![5.0, 4.0, 3.0], more_scores);
+        assert_scores(&[5.0, 4.0, 3.0], &more_scores);
         Ok(())
     }
 
@@ -313,7 +313,7 @@ mod test {
     fn no_records() -> Result<()> {
         let stats = new_tests_stats()?;
         let scores = stats.get_scores(Ustr::from("ex_123"), 10)?;
-        assert_scores(vec![], scores);
+        assert_scores(&[], &scores);
         Ok(())
     }
 
@@ -334,9 +334,9 @@ mod test {
         stats.trim_scores(2)?;
 
         let scores = stats.get_scores(exercise1_id, 10)?;
-        assert_scores(vec![5.0, 4.0], scores);
+        assert_scores(&[5.0, 4.0], &scores);
         let scores = stats.get_scores(exercise2_id, 10)?;
-        assert_scores(vec![3.0, 1.0], scores);
+        assert_scores(&[3.0, 1.0], &scores);
         Ok(())
     }
 
@@ -357,9 +357,9 @@ mod test {
         stats.trim_scores(10)?;
 
         let scores = stats.get_scores(exercise1_id, 10)?;
-        assert_scores(vec![5.0, 4.0, 3.0], scores);
+        assert_scores(&[5.0, 4.0, 3.0], &scores);
         let scores = stats.get_scores(exercise2_id, 10)?;
-        assert_scores(vec![3.0, 1.0, 1.0], scores);
+        assert_scores(&[3.0, 1.0, 1.0], &scores);
         Ok(())
     }
 
@@ -385,20 +385,20 @@ mod test {
         // Remove the prefix "exercise1".
         stats.remove_scores_with_prefix("exercise1")?;
         let scores = stats.get_scores(exercise1_id, 10)?;
-        assert_scores(vec![], scores);
+        assert_scores(&[], &scores);
         let scores = stats.get_scores(exercise2_id, 10)?;
-        assert_scores(vec![3.0, 1.0, 1.0], scores);
+        assert_scores(&[3.0, 1.0, 1.0], &scores);
         let scores = stats.get_scores(exercise3_id, 10)?;
-        assert_scores(vec![3.0, 1.0, 1.0], scores);
+        assert_scores(&[3.0, 1.0, 1.0], &scores);
 
         // Remove the prefix "exercise". All the scores should be removed.
         stats.remove_scores_with_prefix("exercise")?;
         let scores = stats.get_scores(exercise1_id, 10)?;
-        assert_scores(vec![], scores);
+        assert_scores(&[], &scores);
         let scores = stats.get_scores(exercise2_id, 10)?;
-        assert_scores(vec![], scores);
+        assert_scores(&[], &scores);
         let scores = stats.get_scores(exercise3_id, 10)?;
-        assert_scores(vec![], scores);
+        assert_scores(&[], &scores);
 
         Ok(())
     }

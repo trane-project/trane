@@ -282,7 +282,7 @@ mod test {
         let metadata_dir = library_root
             .join(TRANE_CONFIG_DIR_PATH)
             .join(REPOSITORY_DIRECTORY);
-        fs::create_dir_all(&metadata_dir)?;
+        fs::create_dir_all(metadata_dir)?;
         Ok(())
     }
 
@@ -309,7 +309,7 @@ mod test {
             .path()
             .join(TRANE_CONFIG_DIR_PATH)
             .join(REPOSITORY_DIRECTORY)
-            .join(format!("{}.json", REPO_ID))
+            .join(format!("{REPO_ID}.json"))
             .exists());
         Ok(())
     }
@@ -367,9 +367,9 @@ mod test {
         setup_directories(library_root.path())?;
         let mut manager = LocalRepositoryManager::new(library_root.path())?;
         let download_dir = library_root.path().join(DOWNLOAD_DIRECTORY);
-        fs::create_dir_all(&download_dir)?;
+        fs::create_dir_all(download_dir)?;
         let repo_dir = library_root.path().join(DOWNLOAD_DIRECTORY).join(REPO_ID);
-        fs::File::create(&repo_dir)?;
+        fs::File::create(repo_dir)?;
         assert!(manager.add_repo(REPO_URL, None).is_err());
         Ok(())
     }
@@ -383,7 +383,7 @@ mod test {
         let download_dir = library_root.path().join(DOWNLOAD_DIRECTORY);
         fs::create_dir_all(&download_dir)?;
         // Set permissions to 0 so that the download directory cannot be created.
-        fs::set_permissions(&download_dir, fs::Permissions::from_mode(0))?;
+        fs::set_permissions(&download_dir, fs::Permissions::from_mode(0o0))?;
 
         assert!(manager.add_repo(REPO_URL, None).is_err());
         Ok(())
@@ -407,7 +407,7 @@ mod test {
             .path()
             .join(TRANE_CONFIG_DIR_PATH)
             .join(REPOSITORY_DIRECTORY)
-            .join(format!("{}.json", REPO_ID))
+            .join(format!("{REPO_ID}.json"))
             .exists());
         Ok(())
     }
@@ -531,7 +531,7 @@ mod test {
         let mut manager = LocalRepositoryManager::new(library_root.path())?;
         manager.add_repo(REPO_URL, None)?;
         let repo_dir = library_root.path().join(DOWNLOAD_DIRECTORY).join(REPO_ID);
-        fs::remove_dir_all(&repo_dir)?;
+        fs::remove_dir_all(repo_dir)?;
         let _ = LocalRepositoryManager::new(library_root.path())?;
         Ok(())
     }
@@ -548,7 +548,7 @@ mod test {
             .join(DOWNLOAD_DIRECTORY)
             .join(REPO_ID)
             .join(".git");
-        fs::remove_dir_all(&git_dir)?;
+        fs::remove_dir_all(git_dir)?;
         assert!(LocalRepositoryManager::new(library_root.path()).is_err());
         Ok(())
     }
