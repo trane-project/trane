@@ -62,11 +62,16 @@ pub mod scorer;
 pub mod study_session_manager;
 pub mod testutil;
 
-use anyhow::Result;
+use anyhow::{anyhow, bail, ensure, Context, Result};
 use error::*;
 use parking_lot::RwLock;
 use review_list::{LocalReviewList, ReviewList};
-use std::{path::Path, sync::Arc};
+use std::{
+    fs::{create_dir, File},
+    io::{BufReader, Write},
+    path::Path,
+    sync::Arc,
+};
 use study_session_manager::{LocalStudySessionManager, StudySessionManager};
 use ustr::{Ustr, UstrMap, UstrSet};
 
@@ -169,19 +174,110 @@ impl Trane {
         options
     }
 
+    /// Initializes the config directory at path `.trane` inside the library root.
+    fn init_config_directory(library_root: &Path) -> Result<()> {
+        // Verify that the library root is a directory.
+        ensure!(
+            library_root.is_dir(),
+            "library root {} is not a directory",
+            library_root.display(),
+        );
+
+        // Create the config folder inside the library root if it does not exist already.
+        let trane_path = library_root.join(TRANE_CONFIG_DIR_PATH);
+        if !trane_path.exists() {
+            create_dir(trane_path.clone()).with_context(|| {
+                format!(
+                    "failed to create config directory at {}",
+                    trane_path.display()
+                )
+            })?;
+        } else if !trane_path.is_dir() {
+            bail!("config path .trane inside library must be a directory");
+        }
+
+        // Create the `filters` directory if it does not exist already.
+        let filters_path = trane_path.join(FILTERS_DIR);
+        if !filters_path.is_dir() {
+            create_dir(filters_path.clone()).with_context(|| {
+                format!(
+                    "failed to create filters directory at {}",
+                    filters_path.display()
+                )
+            })?;
+        }
+
+        // Create the `study_sessions` directory if it does not exist already.
+        let sessions_path = trane_path.join(STUDY_SESSIONS_DIR);
+        if !sessions_path.is_dir() {
+            create_dir(sessions_path.clone()).with_context(|| {
+                format!(
+                    "failed to create filters directory at {}",
+                    sessions_path.display()
+                )
+            })?;
+        }
+
+        // Create the user preferences file if it does not exist already.
+        let user_prefs_path = trane_path.join(USER_PREFERENCES_PATH);
+        if !user_prefs_path.exists() {
+            // Create the file.
+            let mut file = File::create(user_prefs_path.clone()).with_context(|| {
+                format!(
+                    "failed to create user preferences file at {}",
+                    user_prefs_path.display()
+                )
+            })?;
+
+            // Write the default user preferences to the file.
+            let default_prefs = UserPreferences::default();
+            let prefs_json = serde_json::to_string_pretty(&default_prefs)? + "\n";
+            file.write_all(prefs_json.as_bytes()).with_context(|| {
+                // grcov-excl-start: File should be writable.
+                format!(
+                    "failed to write to user preferences file at {}",
+                    user_prefs_path.display()
+                )
+                // grcov-excl-stop
+            })?; // grcov-excl-line
+        } else if !user_prefs_path.is_file() {
+            // The user preferences file exists but is not a regular file.
+            bail!(
+                "user preferences file must be a regular file at {}",
+                user_prefs_path.display()
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Returns the user preferences stored in the local course library.
+    fn open_preferences(library_root: &Path) -> Result<UserPreferences> {
+        // The user preferences should exist when this function is called.
+        let path = library_root
+            .join(TRANE_CONFIG_DIR_PATH)
+            .join(USER_PREFERENCES_PATH);
+        let file = File::open(path.clone())
+            .with_context(|| anyhow!("cannot open user preferences file {}", path.display()))?;
+        let reader = BufReader::new(file);
+        serde_json::from_reader(reader)
+            .with_context(|| anyhow!("cannot parse user preferences file {}", path.display()))
+    }
+
     /// Creates a new local instance of the Trane given the path to the root of a course library.
     /// The user data will be stored in a directory named `.trane` inside the library root
     /// directory. The working directory will be used to resolve relative paths.
     pub fn new_local(working_dir: &Path, library_root: &Path) -> Result<Trane> {
+        // Initialize the config directory.
         let config_path = library_root.join(Path::new(TRANE_CONFIG_DIR_PATH));
-
-        // The course library must be created first because it makes sure to initialize all the
-        // required directories if they are missing.
-        let course_library = Arc::new(RwLock::new(LocalCourseLibrary::new(
-            &working_dir.join(library_root),
-        )?));
+        Self::init_config_directory(library_root)?;
 
         // Build all the components needed to create a Trane instance.
+        let user_preferences = Self::open_preferences(library_root)?;
+        let course_library = Arc::new(RwLock::new(LocalCourseLibrary::new(
+            &working_dir.join(library_root),
+            user_preferences,
+        )?));
         let unit_graph = course_library.write().get_unit_graph();
         let practice_stats = Arc::new(RwLock::new(LocalPracticeStats::new_from_disk(
             config_path.join(PRACTICE_STATS_PATH).to_str().unwrap(),
@@ -554,7 +650,7 @@ mod test {
 
     use crate::{
         data::{SchedulerOptions, SchedulerPreferences, UserPreferences},
-        Trane,
+        Trane, FILTERS_DIR, STUDY_SESSIONS_DIR, TRANE_CONFIG_DIR_PATH, USER_PREFERENCES_PATH,
     };
 
     /// Verifies retrieving the root of a library.
@@ -582,7 +678,7 @@ mod test {
     fn config_dir_is_file() -> Result<()> {
         let dir = tempfile::tempdir()?;
         let trane_path = dir.path().join(".trane");
-        File::create(&trane_path)?;
+        File::create(trane_path)?;
         assert!(Trane::new_local(dir.path(), dir.path()).is_err());
         Ok(())
     }
@@ -607,6 +703,72 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that opening a library fails if the user preferences file is not a file.
+    #[test]
+    fn user_preferences_file_is_a_dir() -> Result<()> {
+        // Create directory `./trane/user_preferences.json` which is not a file.
+        let temp_dir = tempfile::tempdir()?;
+        std::fs::create_dir_all(
+            temp_dir
+                .path()
+                .join(TRANE_CONFIG_DIR_PATH)
+                .join(USER_PREFERENCES_PATH),
+        )?;
+        assert!(Trane::new_local(temp_dir.path(), temp_dir.path()).is_err());
+        Ok(())
+    }
+
+    /// Verifies that opening a library fails if the filters directory cannot be created.
+    #[test]
+    fn cannot_create_filters_directory() -> Result<()> {
+        // Create config directory.
+        let temp_dir = tempfile::tempdir()?;
+        let config_dir = temp_dir.path().join(TRANE_CONFIG_DIR_PATH);
+        create_dir(config_dir.clone())?;
+
+        // Set permissions of `.trane` directory to read-only.
+        std::fs::set_permissions(temp_dir.path(), std::fs::Permissions::from_mode(0o444))?;
+
+        assert!(Trane::new_local(temp_dir.path(), temp_dir.path()).is_err());
+        Ok(())
+    }
+
+    /// Verifies that opening a library fails if the study sessions directory cannot be created.
+    #[test]
+    fn cannot_create_study_sessions() -> Result<()> {
+        // Create config and filters directories.
+        let temp_dir = tempfile::tempdir()?;
+        let config_dir = temp_dir.path().join(TRANE_CONFIG_DIR_PATH);
+        create_dir(config_dir.clone())?;
+        let filters_dir = config_dir.join(FILTERS_DIR);
+        create_dir(filters_dir)?;
+
+        // Set permissions of `.trane` directory to read-only. This should prevent Trane from
+        // creating the user preferences file.
+        std::fs::set_permissions(config_dir, std::fs::Permissions::from_mode(0o500))?;
+        assert!(Trane::new_local(temp_dir.path(), temp_dir.path()).is_err());
+        Ok(())
+    }
+
+    /// Verifies that opening a library fails if the user preferences file cannot be created.
+    #[test]
+    fn cannot_create_user_preferences() -> Result<()> {
+        // Create config, filters, and study sessions directories.
+        let temp_dir = tempfile::tempdir()?;
+        let config_dir = temp_dir.path().join(TRANE_CONFIG_DIR_PATH);
+        create_dir(config_dir.clone())?;
+        let filters_dir = config_dir.join(FILTERS_DIR);
+        create_dir(filters_dir)?;
+        let sessions_dir = config_dir.join(STUDY_SESSIONS_DIR);
+        create_dir(sessions_dir)?;
+
+        // Set permissions of `.trane` directory to read-only. This should prevent Trane from
+        // creating the user preferences file.
+        std::fs::set_permissions(config_dir, std::fs::Permissions::from_mode(0o500))?;
+        assert!(Trane::new_local(temp_dir.path(), temp_dir.path()).is_err());
+        Ok(())
+    }
+
     /// Verifies retrieving the scheduler data from the library.
     #[test]
     fn scheduler_data() -> Result<()> {
@@ -618,7 +780,7 @@ mod test {
 
     /// Verifies building the scheduler options from the user preferences.
     #[test]
-    fn scheduler_options() -> Result<()> {
+    fn scheduler_options() {
         // Test with no preferences.
         let user_preferences = UserPreferences {
             scheduler: None,
@@ -638,6 +800,5 @@ mod test {
         };
         let options = Trane::create_scheduler_options(&user_preferences.scheduler);
         assert_eq!(options.batch_size, 10);
-        Ok(())
     }
 }
