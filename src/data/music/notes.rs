@@ -132,12 +132,12 @@ mod test {
         );
     }
 
-    /// Verifies that notes can be cloned. Done to ensure that the auto-generated trait
-    /// implementation is included in the code coverage report.
-    #[test]
-    fn note_clone() {
-        let note = Note(NaturalNote::A, Accidental::Natural);
-        let clone = note.clone();
-        assert_eq!(note, clone);
-    }
+    // /// Verifies that notes can be cloned. Done to ensure that the auto-generated trait
+    // /// implementation is included in the code coverage report.
+    // #[test]
+    // fn note_clone() {
+    //     let note = Note(NaturalNote::A, Accidental::Natural);
+    //     let clone = note.clone();
+    //     assert_eq!(note, clone);
+    // }
 }

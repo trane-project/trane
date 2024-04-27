@@ -985,7 +985,7 @@ mod test {
                 .to_string()
         );
         assert_eq!(
-            exercise.back_file.to_owned().unwrap_or_default(),
+            exercise.back_file.clone().unwrap_or_default(),
             lesson_dir.join("ex1.back.md").to_str().unwrap().to_string()
         );
         Ok(())

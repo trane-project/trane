@@ -866,13 +866,13 @@ mod test {
         let asset_id = "asset_id";
         let passage_id = 2;
         assert_eq!(
-            TranscriptionConfig::exercise_id(lesson_id, &asset_id, Some(passage_id)),
+            TranscriptionConfig::exercise_id(lesson_id, asset_id, Some(passage_id)),
             Ustr::from("lesson_id::asset_id::2")
         );
 
         // Generate the ID for an exercise with the default passage.
         assert_eq!(
-            TranscriptionConfig::exercise_id(lesson_id, &asset_id, None),
+            TranscriptionConfig::exercise_id(lesson_id, asset_id, None),
             Ustr::from("lesson_id::asset_id")
         );
     }
@@ -1032,7 +1032,7 @@ mod test {
             skip_singing_lessons: false,
             skip_advanced_lessons: false,
         };
-        let passages = config.open_passage_directory(&temp_dir.path())?;
+        let passages = config.open_passage_directory(temp_dir.path())?;
         assert_eq!(2, passages.len());
 
         Ok(())
@@ -1046,13 +1046,13 @@ mod test {
 
         // Open the empty passages directory and verify there are no passages.
         let config = TranscriptionConfig {
-            passage_directory: "".into(),
+            passage_directory: String::new(),
             inlined_passages: vec![],
             transcription_dependencies: vec![],
             skip_singing_lessons: false,
             skip_advanced_lessons: false,
         };
-        let passages = config.open_passage_directory(&temp_dir.path())?;
+        let passages = config.open_passage_directory(temp_dir.path())?;
         assert!(passages.is_empty());
 
         Ok(())
@@ -1102,7 +1102,7 @@ mod test {
             skip_singing_lessons: false,
             skip_advanced_lessons: false,
         };
-        let result = config.open_passage_directory(&temp_dir.path());
+        let result = config.open_passage_directory(temp_dir.path());
         assert!(result.is_err());
         Ok(())
     }
@@ -1121,7 +1121,7 @@ mod test {
             skip_singing_lessons: false,
             skip_advanced_lessons: false,
         };
-        let result = config.open_passage_directory(&temp_dir.path());
+        let result = config.open_passage_directory(temp_dir.path());
         assert!(result.is_err());
         Ok(())
     }

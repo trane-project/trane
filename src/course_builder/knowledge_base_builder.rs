@@ -668,7 +668,7 @@ mod test {
         let dummy_dir = temp_dir.path().join("1.lesson").join("dummy");
         fs::create_dir_all(&dummy_dir)?;
         assert!(dummy_dir.exists());
-        simple_course.build(&temp_dir.path())?;
+        simple_course.build(temp_dir.path())?;
         assert!(!dummy_dir.exists());
 
         // Verify that the first lesson was built correctly.
@@ -799,7 +799,7 @@ mod test {
 
         // Verify that the course builder fails.
         let temp_dir = tempfile::tempdir()?;
-        assert!(simple_course.build(&temp_dir.path()).is_err());
+        assert!(simple_course.build(temp_dir.path()).is_err());
         Ok(())
     }
 
@@ -843,7 +843,7 @@ mod test {
 
         // Verify that the course builder fails.
         let temp_dir = tempfile::tempdir()?;
-        assert!(simple_course.build(&temp_dir.path()).is_err());
+        assert!(simple_course.build(temp_dir.path()).is_err());
         Ok(())
     }
 
@@ -880,7 +880,7 @@ mod test {
 
         // Verify that the course builder fails.
         let temp_dir = tempfile::tempdir()?;
-        assert!(simple_course.build(&temp_dir.path()).is_err());
+        assert!(simple_course.build(temp_dir.path()).is_err());
         Ok(())
     }
 
@@ -906,7 +906,7 @@ mod test {
                 dependencies: vec![],
                 superseded: vec![],
                 exercises: vec![SimpleKnowledgeBaseExercise {
-                    short_id: "".into(),
+                    short_id: String::new(),
                     front: vec!["Lesson 1, Exercise 1 front".into()],
                     back: vec![],
                 }],
@@ -917,7 +917,7 @@ mod test {
 
         // Verify that the course builder fails.
         let temp_dir = tempfile::tempdir()?;
-        assert!(simple_course.build(&temp_dir.path()).is_err());
+        assert!(simple_course.build(temp_dir.path()).is_err());
         Ok(())
     }
 }
