@@ -7,6 +7,7 @@
 
 use std::{
     collections::BTreeMap,
+    fmt::{Display, Formatter},
     fs::{self, File},
     io::Write,
     path::Path,
@@ -76,19 +77,17 @@ impl TestId {
     }
 }
 
-impl ToString for TestId {
+impl Display for TestId {
     /// Converts the test ID to a valid string representation.
-    fn to_string(&self) -> String {
-        let mut s = self.0.to_string();
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)?;
         if let Some(lesson_id) = &self.1 {
-            s.push_str("::");
-            s.push_str(&lesson_id.to_string());
+            write!(f, "::{lesson_id}")?;
         }
         if let Some(exercise_id) = &self.2 {
-            s.push_str("::");
-            s.push_str(&exercise_id.to_string());
+            write!(f, "::{exercise_id}")?;
         }
-        s
+        Ok(())
     }
 }
 

@@ -1,6 +1,7 @@
 //! Defines musical scales for use in generating music courses.
 
 use anyhow::{anyhow, Result};
+use std::fmt::{Display, Formatter};
 
 use crate::data::music::intervals::*;
 use crate::data::music::notes::*;
@@ -25,13 +26,13 @@ pub enum ScaleType {
     MinorPentatonic,
 }
 
-impl ToString for ScaleType {
-    fn to_string(&self) -> String {
+impl Display for ScaleType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ScaleType::Major => "Major".to_string(),
-            ScaleType::Minor => "Minor".to_string(),
-            ScaleType::MajorPentatonic => "Major Pentatonic".to_string(),
-            ScaleType::MinorPentatonic => "Minor Pentatonic".to_string(),
+            ScaleType::Major => write!(f, "Major"),
+            ScaleType::Minor => write!(f, "Minor"),
+            ScaleType::MajorPentatonic => write!(f, "Major Pentatonic"),
+            ScaleType::MinorPentatonic => write!(f, "Minor Pentatonic"),
         }
     }
 }
