@@ -1,5 +1,7 @@
 //! Defines the notes and accidentals for use in generating music courses.
 
+use std::fmt::{Display, Formatter};
+
 /// Defines the names of the natural notes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[allow(missing_docs)]
@@ -13,16 +15,16 @@ pub enum NaturalNote {
     G,
 }
 
-impl ToString for NaturalNote {
-    fn to_string(&self) -> String {
-        match &self {
-            NaturalNote::A => "A".to_string(),
-            NaturalNote::B => "B".to_string(),
-            NaturalNote::C => "C".to_string(),
-            NaturalNote::D => "D".to_string(),
-            NaturalNote::E => "E".to_string(),
-            NaturalNote::F => "F".to_string(),
-            NaturalNote::G => "G".to_string(),
+impl Display for NaturalNote {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NaturalNote::A => write!(f, "A"),
+            NaturalNote::B => write!(f, "B"),
+            NaturalNote::C => write!(f, "C"),
+            NaturalNote::D => write!(f, "D"),
+            NaturalNote::E => write!(f, "E"),
+            NaturalNote::F => write!(f, "F"),
+            NaturalNote::G => write!(f, "G"),
         }
     }
 }
@@ -36,12 +38,12 @@ pub enum Accidental {
     Sharp,
 }
 
-impl ToString for Accidental {
-    fn to_string(&self) -> String {
-        match &self {
-            Accidental::Natural => String::new(),
-            Accidental::Flat => "♭".to_string(),
-            Accidental::Sharp => "♯".to_string(),
+impl Display for Accidental {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Accidental::Natural => write!(f, ""),
+            Accidental::Flat => write!(f, "♭"),
+            Accidental::Sharp => write!(f, "♯"),
         }
     }
 }
@@ -83,15 +85,13 @@ impl Note {
             Accidental::Flat => "_flat".to_string(),
             Accidental::Sharp => "_sharp".to_string(),
         };
-        format!("{}{}", self.0.to_string(), accidental)
+        format!("{}{}", self.0, accidental)
     }
 }
 
-impl ToString for Note {
-    fn to_string(&self) -> String {
-        let mut output = self.0.to_string();
-        output.push_str(&self.1.to_string());
-        output
+impl Display for Note {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}{}", self.0, self.1)
     }
 }
 
