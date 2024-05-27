@@ -78,10 +78,6 @@ pub trait CourseLibrary {
 
     /// Returns the IDs of all the units which match the given query.
     fn search(&self, query: &str) -> Result<Vec<Ustr>, CourseLibraryError>;
-
-    /// Returns the user preferences found in the library. The default preferences should be
-    /// returned if the user preferences file is not found.
-    fn get_user_preferences(&self) -> UserPreferences;
 }
 
 /// A trait that retrieves the unit graph generated after reading a course library.
@@ -687,10 +683,6 @@ impl CourseLibrary for LocalCourseLibrary {
     fn search(&self, query: &str) -> Result<Vec<Ustr>, CourseLibraryError> {
         self.search_helper(query)
             .map_err(|e| CourseLibraryError::Search(query.into(), e))
-    }
-
-    fn get_user_preferences(&self) -> UserPreferences {
-        self.user_preferences.clone()
     }
 }
 

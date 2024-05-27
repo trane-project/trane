@@ -18,8 +18,8 @@ use crate::{
 /// Trane to have access to the user's SSH keys.
 const HTTPS_PREFIX: &str = "https://";
 
-/// A trait with function to manage git repositories of courses, with functions to add new
-/// repositories, remove existing ones, and update repositories to the latest version.
+/// A trait to manage git repositories of courses, with functions to add new repositories, remove
+/// existing ones, and update repositories to the latest version.
 pub trait RepositoryManager {
     /// Downloads the courses from the given git repository into the given directory. The ID will
     /// also be used to identify the repository in the future and as the name of the directory. If

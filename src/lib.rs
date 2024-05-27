@@ -57,6 +57,7 @@ pub mod filter_manager;
 pub mod graph;
 pub mod mantra_miner;
 pub mod practice_stats;
+pub mod preferences_manager;
 pub mod repository_manager;
 pub mod review_list;
 pub mod scheduler;
@@ -64,13 +65,14 @@ pub mod scorer;
 pub mod study_session_manager;
 pub mod testutil;
 
-use anyhow::{anyhow, bail, ensure, Context, Result};
+use anyhow::{bail, ensure, Context, Result};
 use error::*;
 use parking_lot::RwLock;
+use preferences_manager::{LocalPreferencesManager, PreferencesManager};
 use review_list::{LocalReviewList, ReviewList};
 use std::{
     fs::{create_dir, File},
-    io::{BufReader, Write},
+    io::Write,
     path::Path,
     sync::Arc,
 };
@@ -139,6 +141,9 @@ pub struct Trane {
 
     /// The object managing the information on previous exercise trials.
     practice_stats: Arc<RwLock<dyn PracticeStats + Send + Sync>>,
+
+    /// The object managing the user preferences.
+    preferences_manager: Arc<RwLock<dyn PreferencesManager + Send + Sync>>,
 
     /// The object managing git repositories containing courses.
     repo_manager: Arc<RwLock<dyn RepositoryManager + Send + Sync>>,
@@ -253,19 +258,6 @@ impl Trane {
         Ok(())
     }
 
-    /// Returns the user preferences stored in the local course library.
-    fn open_preferences(library_root: &Path) -> Result<UserPreferences> {
-        // The user preferences should exist when this function is called.
-        let path = library_root
-            .join(TRANE_CONFIG_DIR_PATH)
-            .join(USER_PREFERENCES_PATH);
-        let file = File::open(path.clone())
-            .with_context(|| anyhow!("cannot open user preferences file {}", path.display()))?;
-        let reader = BufReader::new(file);
-        serde_json::from_reader(reader)
-            .with_context(|| anyhow!("cannot parse user preferences file {}", path.display()))
-    }
-
     /// Creates a new local instance of the Trane given the path to the root of a course library.
     /// The user data will be stored in a directory named `.trane` inside the library root
     /// directory. The working directory will be used to resolve relative paths.
@@ -275,10 +267,15 @@ impl Trane {
         Self::init_config_directory(library_root)?;
 
         // Build all the components needed to create a Trane instance.
-        let user_preferences = Self::open_preferences(library_root)?;
+        let preferences_manager = Arc::new(RwLock::new(LocalPreferencesManager {
+            path: library_root
+                .join(TRANE_CONFIG_DIR_PATH)
+                .join(USER_PREFERENCES_PATH),
+        }));
+        let user_preferences = preferences_manager.read().get_user_preferences()?;
         let course_library = Arc::new(RwLock::new(LocalCourseLibrary::new(
             &working_dir.join(library_root),
-            user_preferences,
+            user_preferences.clone(),
         )?));
         let unit_graph = course_library.write().get_unit_graph();
         let practice_stats = Arc::new(RwLock::new(LocalPracticeStats::new_from_disk(
@@ -299,9 +296,6 @@ impl Trane {
         let repo_manager = Arc::new(RwLock::new(LocalRepositoryManager::new(library_root)?));
         let mut mantra_miner = TraneMantraMiner::default();
         mantra_miner.mantra_miner.start()?;
-
-        // Build the scheduler options and data.
-        let user_preferences = course_library.read().get_user_preferences();
         let options = Self::create_scheduler_options(&user_preferences.scheduler);
         options.verify()?;
         let scheduler_data = SchedulerData {
@@ -321,6 +315,7 @@ impl Trane {
             filter_manager,
             library_root: library_root.to_str().unwrap().to_string(),
             practice_stats,
+            preferences_manager,
             repo_manager,
             review_list,
             scheduler_data: scheduler_data.clone(),
@@ -421,10 +416,6 @@ impl CourseLibrary for Trane {
     fn search(&self, query: &str) -> Result<Vec<Ustr>, CourseLibraryError> {
         self.course_library.read().search(query)
     }
-
-    fn get_user_preferences(&self) -> UserPreferences {
-        self.course_library.read().get_user_preferences()
-    }
 }
 
 impl ExerciseScheduler for Trane {
@@ -505,6 +496,21 @@ impl PracticeStats for Trane {
         self.practice_stats
             .write()
             .remove_scores_with_prefix(prefix)
+    }
+}
+
+impl PreferencesManager for Trane {
+    fn get_user_preferences(&self) -> Result<UserPreferences, PreferencesManagerError> {
+        self.preferences_manager.read().get_user_preferences()
+    }
+
+    fn set_user_preferences(
+        &mut self,
+        preferences: UserPreferences,
+    ) -> Result<(), PreferencesManagerError> {
+        self.preferences_manager
+            .write()
+            .set_user_preferences(preferences)
     }
 }
 
