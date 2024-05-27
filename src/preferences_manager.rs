@@ -1,7 +1,7 @@
 //! A module containing methods to read and write user preferences.
 
-use anyhow::{anyhow, Context, Result};
-use std::{fs::File, io::BufReader, path::PathBuf};
+use anyhow::{Context, Result};
+use std::{fs, path::PathBuf};
 
 use crate::{data::UserPreferences, PreferencesManagerError};
 
@@ -26,25 +26,24 @@ pub struct LocalPreferencesManager {
 impl LocalPreferencesManager {
     /// Helper function to get the current user preferences.
     fn get_user_preferences_helper(&self) -> Result<UserPreferences> {
-        let file = File::open(self.path.clone()).with_context(|| {
-            anyhow!("cannot open user preferences file {}", self.path.display())
+        let raw_preferences = &fs::read_to_string(&self.path).with_context(|| {
+            format!(
+                "failed to read user preferences from {}",
+                self.path.display()
+            )
         })?;
-        let reader = BufReader::new(file);
-        serde_json::from_reader(reader)
-            .with_context(|| anyhow!("cannot parse user preferences file {}", self.path.display()))
+        let preferences = serde_json::from_str::<UserPreferences>(raw_preferences)
+            .with_context(|| "invalid user preferences")?; // grcov-excl-line
+        Ok(preferences)
     }
 
     /// Helper function to set the user preferences to the given value.
     fn set_user_preferences_helper(&self, preferences: &UserPreferences) -> Result<()> {
-        let file = File::create(self.path.clone()).with_context(|| {
-            anyhow!(
-                "cannot create user preferences file {}",
-                self.path.display()
-            )
-        })?;
-        serde_json::to_writer(file, &preferences).with_context(|| {
-            anyhow!(
-                "cannot serialize user preferences to file at {}",
+        let pretty_json = serde_json::to_string_pretty(preferences)
+            .with_context(|| "invalid user preferences")?; // grcov-excl-line
+        fs::write(&self.path, pretty_json).with_context(|| {
+            format!(
+                "failed to write user preferences to {}",
                 self.path.display()
             )
         })
@@ -68,6 +67,8 @@ impl PreferencesManager for LocalPreferencesManager {
 
 #[cfg(test)]
 mod tests {
+    use std::{fs, os::unix::fs::PermissionsExt};
+
     use anyhow::Result;
     use tempfile::tempdir;
 
@@ -98,6 +99,27 @@ mod tests {
         };
         manager.set_user_preferences(new_preferences.clone())?;
         assert_eq!(manager.get_user_preferences()?, new_preferences);
+        Ok(())
+    }
+
+    /// Verifies that an error is returned when the preferences file is missing.
+    #[test]
+    fn missing_preferences_file() {
+        let temp_dir = tempdir().unwrap();
+        let path = temp_dir.path().join(USER_PREFERENCES_PATH);
+        let manager = LocalPreferencesManager { path };
+        assert!(manager.get_user_preferences().is_err());
+    }
+
+    /// Verifies that an error is returned when the preferences file cannot be written.
+    #[test]
+    fn unwritable_preferences_file() -> Result<()> {
+        let temp_dir = tempdir().unwrap();
+        fs::set_permissions(temp_dir.path(), fs::Permissions::from_mode(0o0))?;
+        let path = temp_dir.path().join(USER_PREFERENCES_PATH);
+        let mut manager = LocalPreferencesManager { path };
+        let preferences = UserPreferences::default();
+        assert!(manager.set_user_preferences(preferences).is_err());
         Ok(())
     }
 }

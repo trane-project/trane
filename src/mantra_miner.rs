@@ -107,7 +107,7 @@ impl TraneMantraMiner {
             // symmetry.
             conclusion_repeats: Some(3),
             repeats: None,
-            rate_ns: 1_000_000,
+            rate_ns: 108_000,
         }
     }
 }
