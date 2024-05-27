@@ -61,6 +61,17 @@ pub enum PracticeStatsError {
     RemovePrefix(String, #[source] anyhow::Error),
 }
 
+/// An error returned when dealing with user preferences.
+#[derive(Debug, Error)]
+#[allow(missing_docs)]
+pub enum PreferencesManagerError {
+    #[error("cannot get user preferences: {0}")]
+    GetUserPreferences(#[source] anyhow::Error),
+
+    #[error("cannot set user preferences: {0}")]
+    SetUserPreferences(#[source] anyhow::Error),
+}
+
 /// An error returned when dealing with git repositories containing courses.
 #[derive(Debug, Error)]
 #[allow(missing_docs)]

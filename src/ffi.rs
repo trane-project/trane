@@ -7,6 +7,7 @@ use std::path::Path;
 use ustr::Ustr;
 use ustr::UstrSet;
 
+use crate::preferences_manager::PreferencesManager;
 use crate::{
     blacklist::Blacklist,
     course_library::CourseLibrary,
@@ -70,7 +71,6 @@ pub trait CourseLibraryFFI {
     fn get_exercise_ids(&self, lesson_id: Ustr) -> Option<Vec<Ustr>>;
     fn get_all_exercise_ids(&self, unit_id: Option<Ustr>) -> Vec<Ustr>;
     fn search(&self, query: &str) -> Result<Vec<Ustr>, CourseLibraryError>;
-    fn get_user_preferences(&self) -> UserPreferences;
 }
 
 impl CourseLibraryFFI for TraneFFI {
@@ -100,9 +100,6 @@ impl CourseLibraryFFI for TraneFFI {
     }
     fn search(&self, query: &str) -> Result<Vec<Ustr>, CourseLibraryError> {
         self.trane.search(query)
-    }
-    fn get_user_preferences(&self) -> UserPreferences {
-        self.trane.get_user_preferences().into()
     }
 }
 
@@ -216,6 +213,29 @@ impl PracticeStatsFFI for TraneFFI {
     }
     fn trim_scores(&mut self, num_scores: usize) -> Result<(), PracticeStatsError> {
         self.trane.trim_scores(num_scores)
+    }
+}
+
+// The FFI version of the `PreferencesManager` trait.
+#[allow(missing_docs)]
+pub trait PreferencesManagerFFI {
+    fn get_user_preferences(&self) -> Result<UserPreferences, PreferencesManagerError>;
+    fn set_user_preferences(
+        &mut self,
+        preferences: UserPreferences,
+    ) -> Result<(), PreferencesManagerError>;
+}
+
+impl PreferencesManagerFFI for TraneFFI {
+    fn get_user_preferences(&self) -> Result<UserPreferences, PreferencesManagerError> {
+        self.trane.get_user_preferences().map(Into::into)
+    }
+
+    fn set_user_preferences(
+        &mut self,
+        preferences: UserPreferences,
+    ) -> Result<(), PreferencesManagerError> {
+        self.trane.set_user_preferences(preferences.into())
     }
 }
 
