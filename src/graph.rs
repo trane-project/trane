@@ -18,10 +18,13 @@
 //! 3. A course, a collection of lessons which are related. It mostly exists to help organize the
 //!    material in larger entities which share some context.
 //!
-//! The relationships between the units can be of two types:
+//! The relationships between the units is one of the following:
 //! 1. A course or lesson A is a dependency of course or lesson B if A needs to be sufficiently
 //!    mastered before B can be practiced.
 //! 2. The reverse relationship. Thus, we say that B is a dependent of A.
+//! 3. A course or lesson A is superseded by another course or lesson B if sufficient mastery of B
+//!    makes showing exercises from A redundant.
+//! 4. The reverse relationship. Thus, we say that B supersedes A.
 //!
 //! The graph also provides a number of operations to manipulate the graph, which are only used when
 //! reading the Trane library (see [`course_library`](crate::course_library)), and another few to
@@ -41,10 +44,9 @@ use crate::{data::UnitType, error::UnitGraphError};
 /// exercises do not define any dependencies). It provides basic functions to update the graph and
 /// retrieve information about it for use during scheduling and student's requests.
 ///
-/// The write operations are only used when reading the Trane library during startup. A user that
-/// copies new courses to an existing and currently opened library will need to restart the
-/// interface for Trane. That limitation might change in the future, but it's not a high priority as
-/// the process takes only a couple of seconds.
+/// The operations that update the graph are only used when reading the Trane library during
+/// startup. A user that copies new courses to an existing and currently opened library will need to
+/// restart Trane to see the changes take effect.
 pub trait UnitGraph {
     /// Adds a new course to the unit graph.
     fn add_course(&mut self, course_id: Ustr) -> Result<(), UnitGraphError>;
@@ -486,7 +488,7 @@ impl UnitGraph for InMemoryUnitGraph {
             .or_default()
             .extend(superseded);
 
-        // For each superseded, insert the equivalent superseding relationship.
+        // For each superseded ID, insert the equivalent superseding relationship.
         for superseded_id in superseded {
             self.superseding_graph
                 .entry(*superseded_id)
@@ -918,6 +920,7 @@ mod test {
         assert!(graph.check_cycles().is_err());
     }
 
+    /// Verifies that the cycle check fails if a dependent relationship is missing.
     #[test]
     fn missing_dependent_relationship() -> Result<()> {
         let mut graph = InMemoryUnitGraph::default();
@@ -939,6 +942,7 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that the cycle check fails if a superseding relationship is missing.
     #[test]
     fn missing_superseding_relationship() {
         let mut graph = InMemoryUnitGraph::default();
