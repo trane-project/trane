@@ -1149,6 +1149,27 @@ mod test {
         Ok(())
     }
 
+    /// Verifies the `NormalizePaths` trait works for a transcription asset.
+    #[test]
+    fn transcription_normalize_paths() {
+        let asset = ExerciseAsset::TranscriptionAsset {
+            content: "content".into(),
+            external_link: None,
+        };
+        assert!(asset.normalize_paths(Path::new("./")).is_ok());
+    }
+
+    /// Verifies the `VerifyPaths` trait works for a transcription asset.
+    #[test]
+    fn transcription_verify_paths() -> Result<()> {
+        let asset = ExerciseAsset::TranscriptionAsset {
+            content: "content".into(),
+            external_link: None,
+        };
+        assert!(asset.verify_paths(Path::new("./"))?);
+        Ok(())
+    }
+
     /// Verifies the `VerifyPaths` trait works for a flashcard asset.
     #[test]
     fn verify_flashcard_assets() -> Result<()> {
