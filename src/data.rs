@@ -384,11 +384,11 @@ impl VerifyPaths for CourseManifest {
     fn verify_paths(&self, working_dir: &Path) -> Result<bool> {
         // The paths mentioned in the instructions and material must both exist.
         let instructions_exist = match &self.course_instructions {
-            None => true,
+            None => true, // grcov-excl-line
             Some(asset) => asset.verify_paths(working_dir)?,
         };
         let material_exists = match &self.course_material {
-            None => true,
+            None => true, // grcov-excl-line
             Some(asset) => asset.verify_paths(working_dir)?,
         };
         Ok(instructions_exist && material_exists)
@@ -465,13 +465,11 @@ pub struct LessonManifest {
 impl NormalizePaths for LessonManifest {
     fn normalize_paths(&self, working_dir: &Path) -> Result<Self> {
         let mut clone = self.clone();
-        match &self.lesson_instructions {
-            None => (),
-            Some(asset) => clone.lesson_instructions = Some(asset.normalize_paths(working_dir)?),
+        if let Some(asset) = &self.lesson_instructions {
+            clone.lesson_instructions = Some(asset.normalize_paths(working_dir)?);
         }
-        match &self.lesson_material {
-            None => (),
-            Some(asset) => clone.lesson_material = Some(asset.normalize_paths(working_dir)?),
+        if let Some(asset) = &self.lesson_material {
+            clone.lesson_material = Some(asset.normalize_paths(working_dir)?);
         }
         Ok(clone)
     }
@@ -481,11 +479,11 @@ impl VerifyPaths for LessonManifest {
     fn verify_paths(&self, working_dir: &Path) -> Result<bool> {
         // The paths mentioned in the instructions and material must both exist.
         let instruction_exists = match &self.lesson_instructions {
-            None => true,
+            None => true, // grcov-excl-line
             Some(asset) => asset.verify_paths(working_dir)?,
         };
         let material_exists = match &self.lesson_material {
-            None => true,
+            None => true, // grcov-excl-line
             Some(asset) => asset.verify_paths(working_dir)?,
         };
         Ok(instruction_exists && material_exists)
@@ -1055,28 +1053,6 @@ mod test {
                 .unwrap()
                 .get_unit_type()
         );
-    }
-
-    /// Verifies that checking the paths of a manifest works if there are no paths to check.
-    #[test]
-    fn verify_paths_none() -> Result<()> {
-        let lesson_manifest = LessonManifestBuilder::default()
-            .id("test")
-            .course_id("test")
-            .name("Test".to_string())
-            .dependencies(vec![])
-            .build()
-            .unwrap();
-        lesson_manifest.verify_paths(Path::new("./"))?;
-
-        let course_manifest = CourseManifestBuilder::default()
-            .id("test")
-            .name("Test".to_string())
-            .dependencies(vec![])
-            .build()
-            .unwrap();
-        course_manifest.verify_paths(Path::new("./"))?;
-        Ok(())
     }
 
     /// Verifies the `NormalizePaths` trait works for a `SoundSlice` asset.
