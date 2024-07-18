@@ -153,16 +153,20 @@ export enum ExerciseType {
 }
 
 export type ExerciseAsset = 
+	| { type: "BasicAsset", content: BasicAsset }
+	| { type: "FlashcardAsset", content: {
+	front_path: string;
+	back_path?: string;
+}}
 	| { type: "SoundSliceAsset", content: {
 	link: string;
 	description?: string;
 	backup?: string;
 }}
-	| { type: "FlashcardAsset", content: {
-	front_path: string;
-	back_path?: string;
-}}
-	| { type: "BasicAsset", content: BasicAsset };
+	| { type: "TranscriptionAsset", content: {
+	content?: string;
+	external_link?: TranscriptionLink;
+}};
 
 export interface ExerciseManifest {
 	id: string;

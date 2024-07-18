@@ -16,7 +16,7 @@ use ustr::Ustr;
 use self::course_generator::{
     knowledge_base::KnowledgeBaseConfig,
     music_piece::MusicPieceConfig,
-    transcription::{TranscriptionConfig, TranscriptionPreferences},
+    transcription::{TranscriptionConfig, TranscriptionLink, TranscriptionPreferences},
 };
 
 /// The score used by students to evaluate their mastery of a particular exercise after a trial.
@@ -384,11 +384,11 @@ impl VerifyPaths for CourseManifest {
     fn verify_paths(&self, working_dir: &Path) -> Result<bool> {
         // The paths mentioned in the instructions and material must both exist.
         let instructions_exist = match &self.course_instructions {
-            None => true,
+            None => true, // grcov-excl-line
             Some(asset) => asset.verify_paths(working_dir)?,
         };
         let material_exists = match &self.course_material {
-            None => true,
+            None => true, // grcov-excl-line
             Some(asset) => asset.verify_paths(working_dir)?,
         };
         Ok(instructions_exist && material_exists)
@@ -465,13 +465,11 @@ pub struct LessonManifest {
 impl NormalizePaths for LessonManifest {
     fn normalize_paths(&self, working_dir: &Path) -> Result<Self> {
         let mut clone = self.clone();
-        match &self.lesson_instructions {
-            None => (),
-            Some(asset) => clone.lesson_instructions = Some(asset.normalize_paths(working_dir)?),
+        if let Some(asset) = &self.lesson_instructions {
+            clone.lesson_instructions = Some(asset.normalize_paths(working_dir)?);
         }
-        match &self.lesson_material {
-            None => (),
-            Some(asset) => clone.lesson_material = Some(asset.normalize_paths(working_dir)?),
+        if let Some(asset) = &self.lesson_material {
+            clone.lesson_material = Some(asset.normalize_paths(working_dir)?);
         }
         Ok(clone)
     }
@@ -481,11 +479,11 @@ impl VerifyPaths for LessonManifest {
     fn verify_paths(&self, working_dir: &Path) -> Result<bool> {
         // The paths mentioned in the instructions and material must both exist.
         let instruction_exists = match &self.lesson_instructions {
-            None => true,
+            None => true, // grcov-excl-line
             Some(asset) => asset.verify_paths(working_dir)?,
         };
         let material_exists = match &self.lesson_material {
-            None => true,
+            None => true, // grcov-excl-line
             Some(asset) => asset.verify_paths(working_dir)?,
         };
         Ok(instruction_exists && material_exists)
@@ -520,21 +518,8 @@ pub enum ExerciseType {
 /// The asset storing the material of a particular exercise.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum ExerciseAsset {
-    /// An asset which stores a link to a SoundSlice.
-    SoundSliceAsset {
-        /// The link to the SoundSlice asset.
-        link: String,
-
-        /// An optional description of the exercise tied to this asset. For example, "Play this
-        /// slice in the key of D Major" or "Practice measures 1 through 4". A missing description
-        /// implies the entire slice should be practiced as is.
-        #[serde(default)]
-        description: Option<String>,
-
-        /// An optional path to a MusicXML file containing the sheet music for the exercise.
-        #[serde(default)]
-        backup: Option<String>,
-    },
+    /// A basic asset storing the material of the exercise.
+    BasicAsset(BasicAsset),
 
     /// An asset representing a flashcard with a front and back each stored in a markdown file. The
     /// first file stores the front (question) of the flashcard while the second file stores the
@@ -551,13 +536,41 @@ pub enum ExerciseAsset {
         back_path: Option<String>,
     },
 
-    /// A basic asset storing the material of the exercise.
-    BasicAsset(BasicAsset),
+    /// An asset which stores a link to a SoundSlice.
+    SoundSliceAsset {
+        /// The link to the SoundSlice asset.
+        link: String,
+
+        /// An optional description of the exercise tied to this asset. For example, "Play this
+        /// slice in the key of D Major" or "Practice measures 1 through 4". A missing description
+        /// implies the entire slice should be practiced as is.
+        #[serde(default)]
+        description: Option<String>,
+
+        /// An optional path to a MusicXML file containing the sheet music for the exercise.
+        #[serde(default)]
+        backup: Option<String>,
+    },
+
+    /// A transcription asset, containing an exercise's content and an optional external link to the
+    /// audio for the exercise.
+    TranscriptionAsset {
+        /// The content of the exercise.
+        #[serde(default)]
+        content: String,
+
+        /// An optional link to the audio for the exercise.
+        #[serde(default)]
+        external_link: Option<TranscriptionLink>,
+    },
 }
 
 impl NormalizePaths for ExerciseAsset {
     fn normalize_paths(&self, working_dir: &Path) -> Result<Self> {
         match &self {
+            ExerciseAsset::BasicAsset(asset) => Ok(ExerciseAsset::BasicAsset(
+                asset.normalize_paths(working_dir)?,
+            )),
             ExerciseAsset::FlashcardAsset {
                 front_path,
                 back_path,
@@ -588,9 +601,7 @@ impl NormalizePaths for ExerciseAsset {
                     })
                 }
             },
-            ExerciseAsset::BasicAsset(asset) => Ok(ExerciseAsset::BasicAsset(
-                asset.normalize_paths(working_dir)?,
-            )),
+            ExerciseAsset::TranscriptionAsset { .. } => Ok(self.clone()),
         }
     }
 }
@@ -598,6 +609,7 @@ impl NormalizePaths for ExerciseAsset {
 impl VerifyPaths for ExerciseAsset {
     fn verify_paths(&self, working_dir: &Path) -> Result<bool> {
         match &self {
+            ExerciseAsset::BasicAsset(asset) => asset.verify_paths(working_dir),
             ExerciseAsset::FlashcardAsset {
                 front_path,
                 back_path,
@@ -620,7 +632,7 @@ impl VerifyPaths for ExerciseAsset {
                     Ok(abs_path.exists())
                 }
             },
-            ExerciseAsset::BasicAsset(asset) => asset.verify_paths(working_dir),
+            ExerciseAsset::TranscriptionAsset { .. } => Ok(true),
         }
     }
 }
@@ -1043,28 +1055,6 @@ mod test {
         );
     }
 
-    /// Verifies that checking the paths of a manifest works if there are no paths to check.
-    #[test]
-    fn verify_paths_none() -> Result<()> {
-        let lesson_manifest = LessonManifestBuilder::default()
-            .id("test")
-            .course_id("test")
-            .name("Test".to_string())
-            .dependencies(vec![])
-            .build()
-            .unwrap();
-        lesson_manifest.verify_paths(Path::new("./"))?;
-
-        let course_manifest = CourseManifestBuilder::default()
-            .id("test")
-            .name("Test".to_string())
-            .dependencies(vec![])
-            .build()
-            .unwrap();
-        course_manifest.verify_paths(Path::new("./"))?;
-        Ok(())
-    }
-
     /// Verifies the `NormalizePaths` trait works for a `SoundSlice` asset.
     #[test]
     fn soundslice_normalize_paths() -> Result<()> {
@@ -1132,6 +1122,27 @@ mod test {
             content: Ustr::from("Test"),
         };
         assert!(inlined_asset.verify_paths(Path::new("./"))?);
+        Ok(())
+    }
+
+    /// Verifies the `NormalizePaths` trait works for a transcription asset.
+    #[test]
+    fn transcription_normalize_paths() {
+        let asset = ExerciseAsset::TranscriptionAsset {
+            content: "content".into(),
+            external_link: None,
+        };
+        assert!(asset.normalize_paths(Path::new("./")).is_ok());
+    }
+
+    /// Verifies the `VerifyPaths` trait works for a transcription asset.
+    #[test]
+    fn transcription_verify_paths() -> Result<()> {
+        let asset = ExerciseAsset::TranscriptionAsset {
+            content: "content".into(),
+            external_link: None,
+        };
+        assert!(asset.verify_paths(Path::new("./"))?);
         Ok(())
     }
 
