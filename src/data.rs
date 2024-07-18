@@ -16,7 +16,7 @@ use ustr::Ustr;
 use self::course_generator::{
     knowledge_base::KnowledgeBaseConfig,
     music_piece::MusicPieceConfig,
-    transcription::{TranscriptionConfig, TranscriptionPreferences},
+    transcription::{TranscriptionConfig, TranscriptionLink, TranscriptionPreferences},
 };
 
 /// The score used by students to evaluate their mastery of a particular exercise after a trial.
@@ -520,21 +520,8 @@ pub enum ExerciseType {
 /// The asset storing the material of a particular exercise.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum ExerciseAsset {
-    /// An asset which stores a link to a SoundSlice.
-    SoundSliceAsset {
-        /// The link to the SoundSlice asset.
-        link: String,
-
-        /// An optional description of the exercise tied to this asset. For example, "Play this
-        /// slice in the key of D Major" or "Practice measures 1 through 4". A missing description
-        /// implies the entire slice should be practiced as is.
-        #[serde(default)]
-        description: Option<String>,
-
-        /// An optional path to a MusicXML file containing the sheet music for the exercise.
-        #[serde(default)]
-        backup: Option<String>,
-    },
+    /// A basic asset storing the material of the exercise.
+    BasicAsset(BasicAsset),
 
     /// An asset representing a flashcard with a front and back each stored in a markdown file. The
     /// first file stores the front (question) of the flashcard while the second file stores the
@@ -551,13 +538,41 @@ pub enum ExerciseAsset {
         back_path: Option<String>,
     },
 
-    /// A basic asset storing the material of the exercise.
-    BasicAsset(BasicAsset),
+    /// An asset which stores a link to a SoundSlice.
+    SoundSliceAsset {
+        /// The link to the SoundSlice asset.
+        link: String,
+
+        /// An optional description of the exercise tied to this asset. For example, "Play this
+        /// slice in the key of D Major" or "Practice measures 1 through 4". A missing description
+        /// implies the entire slice should be practiced as is.
+        #[serde(default)]
+        description: Option<String>,
+
+        /// An optional path to a MusicXML file containing the sheet music for the exercise.
+        #[serde(default)]
+        backup: Option<String>,
+    },
+
+    /// A transcription asset, containing an exercise's content and an optional external link to the
+    /// audio for the exercise.
+    TranscriptionAsset {
+        /// The content of the exercise.
+        #[serde(default)]
+        content: String,
+
+        /// An optional link to the audio for the exercise.
+        #[serde(default)]
+        external_link: Option<TranscriptionLink>,
+    },
 }
 
 impl NormalizePaths for ExerciseAsset {
     fn normalize_paths(&self, working_dir: &Path) -> Result<Self> {
         match &self {
+            ExerciseAsset::BasicAsset(asset) => Ok(ExerciseAsset::BasicAsset(
+                asset.normalize_paths(working_dir)?,
+            )),
             ExerciseAsset::FlashcardAsset {
                 front_path,
                 back_path,
@@ -588,9 +603,7 @@ impl NormalizePaths for ExerciseAsset {
                     })
                 }
             },
-            ExerciseAsset::BasicAsset(asset) => Ok(ExerciseAsset::BasicAsset(
-                asset.normalize_paths(working_dir)?,
-            )),
+            ExerciseAsset::TranscriptionAsset { .. } => Ok(self.clone()),
         }
     }
 }
@@ -598,6 +611,7 @@ impl NormalizePaths for ExerciseAsset {
 impl VerifyPaths for ExerciseAsset {
     fn verify_paths(&self, working_dir: &Path) -> Result<bool> {
         match &self {
+            ExerciseAsset::BasicAsset(asset) => asset.verify_paths(working_dir),
             ExerciseAsset::FlashcardAsset {
                 front_path,
                 back_path,
@@ -620,7 +634,7 @@ impl VerifyPaths for ExerciseAsset {
                     Ok(abs_path.exists())
                 }
             },
-            ExerciseAsset::BasicAsset(asset) => asset.verify_paths(working_dir),
+            ExerciseAsset::TranscriptionAsset { .. } => Ok(true),
         }
     }
 }

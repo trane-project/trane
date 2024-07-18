@@ -346,6 +346,12 @@ impl From<data::ExerciseType> for ExerciseType {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(tag = "type", content = "content")]
 pub enum ExerciseAsset {
+    BasicAsset(BasicAsset),
+    FlashcardAsset {
+        front_path: String,
+        #[serde(default)]
+        back_path: Option<String>,
+    },
     SoundSliceAsset {
         link: String,
         #[serde(default)]
@@ -353,17 +359,25 @@ pub enum ExerciseAsset {
         #[serde(default)]
         backup: Option<String>,
     },
-    FlashcardAsset {
-        front_path: String,
+    TranscriptionAsset {
         #[serde(default)]
-        back_path: Option<String>,
+        content: String,
+        #[serde(default)]
+        external_link: Option<TranscriptionLink>,
     },
-    BasicAsset(BasicAsset),
 }
 
 impl From<ExerciseAsset> for data::ExerciseAsset {
     fn from(asset: ExerciseAsset) -> Self {
         match asset {
+            ExerciseAsset::BasicAsset(asset) => Self::BasicAsset(asset.into()),
+            ExerciseAsset::FlashcardAsset {
+                front_path,
+                back_path,
+            } => Self::FlashcardAsset {
+                front_path,
+                back_path,
+            },
             ExerciseAsset::SoundSliceAsset {
                 link,
                 description,
@@ -373,14 +387,13 @@ impl From<ExerciseAsset> for data::ExerciseAsset {
                 description,
                 backup,
             },
-            ExerciseAsset::FlashcardAsset {
-                front_path,
-                back_path,
-            } => Self::FlashcardAsset {
-                front_path,
-                back_path,
+            ExerciseAsset::TranscriptionAsset {
+                content,
+                external_link,
+            } => Self::TranscriptionAsset {
+                content,
+                external_link: external_link.map(std::convert::Into::into),
             },
-            ExerciseAsset::BasicAsset(asset) => Self::BasicAsset(asset.into()),
         }
     }
 }
@@ -388,6 +401,14 @@ impl From<ExerciseAsset> for data::ExerciseAsset {
 impl From<data::ExerciseAsset> for ExerciseAsset {
     fn from(asset: data::ExerciseAsset) -> Self {
         match asset {
+            data::ExerciseAsset::BasicAsset(asset) => Self::BasicAsset(asset.into()),
+            data::ExerciseAsset::FlashcardAsset {
+                front_path,
+                back_path,
+            } => Self::FlashcardAsset {
+                front_path,
+                back_path,
+            },
             data::ExerciseAsset::SoundSliceAsset {
                 link,
                 description,
@@ -397,14 +418,13 @@ impl From<data::ExerciseAsset> for ExerciseAsset {
                 description,
                 backup,
             },
-            data::ExerciseAsset::FlashcardAsset {
-                front_path,
-                back_path,
-            } => Self::FlashcardAsset {
-                front_path,
-                back_path,
+            data::ExerciseAsset::TranscriptionAsset {
+                content,
+                external_link,
+            } => Self::TranscriptionAsset {
+                content,
+                external_link: external_link.map(std::convert::Into::into),
             },
-            data::ExerciseAsset::BasicAsset(asset) => Self::BasicAsset(asset.into()),
         }
     }
 }

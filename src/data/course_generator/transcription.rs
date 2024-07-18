@@ -128,7 +128,7 @@ impl TranscriptionPassages {
                 external_link,
                 duration,
                 ..
-            } => ExerciseAsset::BasicAsset(BasicAsset::InlinedUniqueAsset {
+            } => ExerciseAsset::TranscriptionAsset {
                 content: formatdoc! {"
                     {}
 
@@ -144,9 +144,9 @@ impl TranscriptionPassages {
                     album_name.as_deref().unwrap_or(""), duration.as_deref().unwrap_or(""),
                     external_link.as_ref().map_or("", |l| l.url()), start, end,
                     instrument_instruction
-                }
-                .into(),
-            }),
+                },
+                external_link: external_link.clone(),
+            },
         }
     }
 }
@@ -950,7 +950,7 @@ mod test {
         };
         let exercise_asset =
             passages.generate_exercise_asset("My description", "0:00", "0:01", Some(&instrument));
-        let expected_asset = ExerciseAsset::BasicAsset(BasicAsset::InlinedUniqueAsset {
+        let expected_asset = ExerciseAsset::TranscriptionAsset {
             content: indoc! {"
                 My description
 
@@ -965,13 +965,14 @@ mod test {
                 Transcribe the passage using the instrument: Piano.
             "}
             .into(),
-        });
+            external_link: Some(TranscriptionLink::YouTube("https://example.com".into())),
+        };
         assert_eq!(exercise_asset, expected_asset);
 
         // Generate the asset when an instrument is not specified.
         let exercise_asset =
             passages.generate_exercise_asset("My description", "0:00", "0:01", None);
-        let expected_asset = ExerciseAsset::BasicAsset(BasicAsset::InlinedUniqueAsset {
+        let expected_asset = ExerciseAsset::TranscriptionAsset {
             content: indoc! {"
                 My description
 
@@ -984,7 +985,8 @@ mod test {
                     - Passage interval: 0:00 - 0:01
             "}
             .into(),
-        });
+            external_link: Some(TranscriptionLink::YouTube("https://example.com".into())),
+        };
         assert_eq!(exercise_asset, expected_asset);
     }
 
