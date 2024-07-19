@@ -18,7 +18,9 @@
 //! here as a play on its homophone (as in "training a new skill").
 //!
 //@<lp-example-3
-//! Here's an overview of some of the most important modules in this crate and their purpose:
+//! Below is an overview of some of the most important modules in this crate and their purpose.
+//! Refer to the documentation of each module for more details.
+//!
 //! - [`data`]: Contains the basic data structures used by Trane.
 //! - [`graph`]: Defines the graph used by Trane to list the units of material and the dependencies
 //!   among them.
@@ -31,9 +33,10 @@
 //!   material has already been mastered or they do not wish to learn it.
 //! - [`scorer`]: Calculates a score for an exercise based on the results and timestamps of previous
 //!   trials.
+//!
 //>@lp-example-3
 
-// Allow pedantic warnings but disable some that are not useful.
+// Use pedantic warnings but disable some that are not useful.
 #![warn(clippy::pedantic)]
 #![allow(clippy::doc_markdown)]
 #![allow(clippy::float_cmp)]
@@ -64,6 +67,7 @@ pub mod scheduler;
 pub mod scorer;
 pub mod study_session_manager;
 pub mod testutil;
+pub mod transcription_downloader;
 
 use anyhow::{bail, ensure, Context, Result};
 use error::*;
@@ -79,19 +83,21 @@ use std::{
 use study_session_manager::{LocalStudySessionManager, StudySessionManager};
 use ustr::{Ustr, UstrMap, UstrSet};
 
-use crate::mantra_miner::TraneMantraMiner;
-use blacklist::{Blacklist, LocalBlacklist};
-use course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary};
-use data::{
-    filter::{ExerciseFilter, SavedFilter},
-    CourseManifest, ExerciseManifest, ExerciseTrial, LessonManifest, MasteryScore,
-    RepositoryMetadata, SchedulerOptions, SchedulerPreferences, UnitType, UserPreferences,
+use crate::{
+    blacklist::{Blacklist, LocalBlacklist},
+    course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary},
+    data::{
+        filter::{ExerciseFilter, SavedFilter},
+        CourseManifest, ExerciseManifest, ExerciseTrial, LessonManifest, MasteryScore,
+        RepositoryMetadata, SchedulerOptions, SchedulerPreferences, UnitType, UserPreferences,
+    },
+    filter_manager::{FilterManager, LocalFilterManager},
+    graph::UnitGraph,
+    mantra_miner::TraneMantraMiner,
+    practice_stats::{LocalPracticeStats, PracticeStats},
+    repository_manager::{LocalRepositoryManager, RepositoryManager},
+    scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseScheduler},
 };
-use filter_manager::{FilterManager, LocalFilterManager};
-use graph::UnitGraph;
-use practice_stats::{LocalPracticeStats, PracticeStats};
-use repository_manager::{LocalRepositoryManager, RepositoryManager};
-use scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseScheduler};
 
 /// The path to the folder inside each course library containing the user data.
 pub const TRANE_CONFIG_DIR_PATH: &str = ".trane";

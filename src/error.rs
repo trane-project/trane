@@ -106,6 +106,14 @@ pub enum ReviewListError {
     RemoveUnit(Ustr, #[source] anyhow::Error),
 }
 
+/// An error returned when downloading transcription assets.
+#[derive(Debug, Error)]
+#[allow(missing_docs)]
+pub enum TranscriptionDownloaderError {
+    #[error("cannot download asset for exercise {0}: {1}")]
+    DownloadAsset(Ustr, #[source] anyhow::Error),
+}
+
 /// An error returned when dealing with the unit graph.
 #[derive(Debug, Error)]
 #[allow(missing_docs)]

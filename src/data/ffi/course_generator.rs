@@ -268,6 +268,10 @@ impl From<transcription::TranscriptionPassages> for TranscriptionPassages {
 pub struct TranscriptionPreferences {
     #[serde(default)]
     pub instruments: Vec<Instrument>,
+    #[serde(default)]
+    pub download_path: Option<String>,
+    #[serde(default)]
+    pub download_path_alias: Option<String>,
 }
 
 impl From<TranscriptionPreferences> for transcription::TranscriptionPreferences {
@@ -278,6 +282,8 @@ impl From<TranscriptionPreferences> for transcription::TranscriptionPreferences 
                 .into_iter()
                 .map(Into::into)
                 .collect(),
+            download_path: preferences.download_path,
+            download_path_alias: preferences.download_path_alias,
         }
     }
 }
@@ -290,6 +296,8 @@ impl From<transcription::TranscriptionPreferences> for TranscriptionPreferences 
                 .into_iter()
                 .map(Into::into)
                 .collect(),
+            download_path: preferences.download_path,
+            download_path_alias: preferences.download_path_alias,
         }
     }
 }
