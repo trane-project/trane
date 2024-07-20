@@ -337,7 +337,7 @@ impl Trane {
             scheduler: DepthFirstScheduler::new(scheduler_data),
             study_session_manager: study_sessions_manager,
             unit_graph,
-            transcription_downloader: transcription_downloader,
+            transcription_downloader,
             mantra_miner,
         })
     }
