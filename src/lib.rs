@@ -18,7 +18,9 @@
 //! here as a play on its homophone (as in "training a new skill").
 //!
 //@<lp-example-3
-//! Here's an overview of some of the most important modules in this crate and their purpose:
+//! Below is an overview of some of the most important modules in this crate and their purpose.
+//! Refer to the documentation of each module for more details.
+//!
 //! - [`data`]: Contains the basic data structures used by Trane.
 //! - [`graph`]: Defines the graph used by Trane to list the units of material and the dependencies
 //!   among them.
@@ -31,9 +33,10 @@
 //!   material has already been mastered or they do not wish to learn it.
 //! - [`scorer`]: Calculates a score for an exercise based on the results and timestamps of previous
 //!   trials.
+//!
 //>@lp-example-3
 
-// Allow pedantic warnings but disable some that are not useful.
+// Use pedantic warnings but disable some that are not useful.
 #![warn(clippy::pedantic)]
 #![allow(clippy::doc_markdown)]
 #![allow(clippy::float_cmp)]
@@ -64,6 +67,7 @@ pub mod scheduler;
 pub mod scorer;
 pub mod study_session_manager;
 pub mod testutil;
+pub mod transcription_downloader;
 
 use anyhow::{bail, ensure, Context, Result};
 use error::*;
@@ -77,21 +81,24 @@ use std::{
     sync::Arc,
 };
 use study_session_manager::{LocalStudySessionManager, StudySessionManager};
+use transcription_downloader::{LocalTranscriptionDownloader, TranscriptionDownloader};
 use ustr::{Ustr, UstrMap, UstrSet};
 
-use crate::mantra_miner::TraneMantraMiner;
-use blacklist::{Blacklist, LocalBlacklist};
-use course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary};
-use data::{
-    filter::{ExerciseFilter, SavedFilter},
-    CourseManifest, ExerciseManifest, ExerciseTrial, LessonManifest, MasteryScore,
-    RepositoryMetadata, SchedulerOptions, SchedulerPreferences, UnitType, UserPreferences,
+use crate::{
+    blacklist::{Blacklist, LocalBlacklist},
+    course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary},
+    data::{
+        filter::{ExerciseFilter, SavedFilter},
+        CourseManifest, ExerciseManifest, ExerciseTrial, LessonManifest, MasteryScore,
+        RepositoryMetadata, SchedulerOptions, SchedulerPreferences, UnitType, UserPreferences,
+    },
+    filter_manager::{FilterManager, LocalFilterManager},
+    graph::UnitGraph,
+    mantra_miner::TraneMantraMiner,
+    practice_stats::{LocalPracticeStats, PracticeStats},
+    repository_manager::{LocalRepositoryManager, RepositoryManager},
+    scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseScheduler},
 };
-use filter_manager::{FilterManager, LocalFilterManager};
-use graph::UnitGraph;
-use practice_stats::{LocalPracticeStats, PracticeStats};
-use repository_manager::{LocalRepositoryManager, RepositoryManager};
-use scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseScheduler};
 
 /// The path to the folder inside each course library containing the user data.
 pub const TRANE_CONFIG_DIR_PATH: &str = ".trane";
@@ -163,6 +170,9 @@ pub struct Trane {
 
     /// The dependency graph of courses and lessons in the course library.
     unit_graph: Arc<RwLock<dyn UnitGraph + Send + Sync>>,
+
+    /// An optional instance of the transcription downloader.
+    transcription_downloader: Arc<RwLock<dyn TranscriptionDownloader + Send + Sync>>,
 
     /// An instance of the mantra miner that "recites" Tara Sarasvati's mantra while Trane runs.
     mantra_miner: TraneMantraMiner,
@@ -277,6 +287,11 @@ impl Trane {
             &working_dir.join(library_root),
             user_preferences.clone(),
         )?));
+        let transcription_preferences = user_preferences.transcription.clone().unwrap_or_default();
+        let transcription_downloader = Arc::new(RwLock::new(LocalTranscriptionDownloader {
+            preferences: transcription_preferences,
+            link_store: course_library.clone(),
+        }));
         let unit_graph = course_library.write().get_unit_graph();
         let practice_stats = Arc::new(RwLock::new(LocalPracticeStats::new_from_disk(
             config_path.join(PRACTICE_STATS_PATH).to_str().unwrap(),
@@ -322,6 +337,7 @@ impl Trane {
             scheduler: DepthFirstScheduler::new(scheduler_data),
             study_session_manager: study_sessions_manager,
             unit_graph,
+            transcription_downloader,
             mantra_miner,
         })
     }
@@ -561,6 +577,36 @@ impl StudySessionManager for Trane {
 
     fn list_study_sessions(&self) -> Vec<(String, String)> {
         self.study_session_manager.read().list_study_sessions()
+    }
+}
+
+impl TranscriptionDownloader for Trane {
+    fn is_downloaded(&self, exercise_id: Ustr) -> bool {
+        self.transcription_downloader
+            .read()
+            .is_downloaded(exercise_id)
+    }
+
+    fn download_asset(
+        &self,
+        exercise_id: Ustr,
+        force_download: bool,
+    ) -> Result<(), TranscriptionDownloaderError> {
+        self.transcription_downloader
+            .write()
+            .download_asset(exercise_id, force_download)
+    }
+
+    fn download_path(&self, exercise_id: Ustr) -> Option<std::path::PathBuf> {
+        self.transcription_downloader
+            .read()
+            .download_path(exercise_id)
+    }
+
+    fn download_path_alias(&self, exercise_id: Ustr) -> Option<std::path::PathBuf> {
+        self.transcription_downloader
+            .read()
+            .download_path_alias(exercise_id)
     }
 }
 

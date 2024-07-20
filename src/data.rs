@@ -1376,6 +1376,8 @@ mod test {
         let preferences = UserPreferences {
             transcription: Some(TranscriptionPreferences {
                 instruments: vec![],
+                download_path: Some("/a/b/c".to_owned()),
+                download_path_alias: Some("alias".to_owned()),
             }),
             scheduler: Some(SchedulerPreferences {
                 batch_size: Some(10),

@@ -37,6 +37,7 @@ lazy_static! {
                     id: "piano".to_string(),
                 },
             ],
+            ..Default::default()
         }),
         ignored_paths: vec![],
         scheduler: None,

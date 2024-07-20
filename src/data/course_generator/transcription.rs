@@ -170,6 +170,17 @@ pub struct TranscriptionPreferences {
     /// carefully before you start practicing.
     #[serde(default)]
     pub instruments: Vec<Instrument>,
+
+    /// A path used to download transcription assets to the local filesystem. If not specified,
+    /// assets cannot be downloaded.
+    #[serde(default)]
+    pub download_path: Option<String>,
+
+    /// An alias for the download path. This is useful when the download path is a long path or it's
+    /// accessible from multiple locations (e.g., Windows and a terminal running on the WSL). Only
+    /// used to present the download path to the user.
+    #[serde(default)]
+    pub download_path_alias: Option<String>,
 }
 //>@transcription-preferences
 
