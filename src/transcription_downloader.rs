@@ -51,20 +51,20 @@ impl TranscriptionLinkStore for LocalCourseLibrary {
 /// Downloads transcription assets to local storage.
 pub trait TranscriptionDownloader {
     /// Checks if the given asset has been downloaded.
-    fn is_downloaded(&self, exercise_id: Ustr) -> bool;
+    fn is_transcription_asset_downloaded(&self, exercise_id: Ustr) -> bool;
 
     /// Downloads the given asset.
-    fn download_asset(
+    fn download_transcription_asset(
         &self,
         exercise_id: Ustr,
         force_download: bool,
     ) -> Result<(), TranscriptionDownloaderError>;
 
     /// Returns the download path for the given asset.
-    fn download_path(&self, exercise_id: Ustr) -> Option<PathBuf>;
+    fn transcription_download_path(&self, exercise_id: Ustr) -> Option<PathBuf>;
 
     /// Returns the download path alias for the given asset.
-    fn download_path_alias(&self, exercise_id: Ustr) -> Option<PathBuf>;
+    fn transcription_download_path_alias(&self, exercise_id: Ustr) -> Option<PathBuf>;
 }
 
 /// An implementation of `TranscriptionDownloader` that downloads assets to the local filesystem.
@@ -192,7 +192,7 @@ impl LocalTranscriptionDownloader {
 }
 
 impl TranscriptionDownloader for LocalTranscriptionDownloader {
-    fn is_downloaded(&self, exercise_id: Ustr) -> bool {
+    fn is_transcription_asset_downloaded(&self, exercise_id: Ustr) -> bool {
         if self.preferences.download_path.is_none() {
             return false;
         }
@@ -205,7 +205,7 @@ impl TranscriptionDownloader for LocalTranscriptionDownloader {
         download_path.exists()
     }
 
-    fn download_asset(
+    fn download_transcription_asset(
         &self,
         exercise_id: Ustr,
         force_download: bool,
@@ -214,12 +214,12 @@ impl TranscriptionDownloader for LocalTranscriptionDownloader {
             .map_err(|e| TranscriptionDownloaderError::DownloadAsset(exercise_id, e))
     }
 
-    fn download_path(&self, exercise_id: Ustr) -> Option<PathBuf> {
+    fn transcription_download_path(&self, exercise_id: Ustr) -> Option<PathBuf> {
         let link = self.link_store.read().get_transcription_link(exercise_id)?;
         self.full_download_path(&link)
     }
 
-    fn download_path_alias(&self, exercise_id: Ustr) -> Option<PathBuf> {
+    fn transcription_download_path_alias(&self, exercise_id: Ustr) -> Option<PathBuf> {
         let link = self.link_store.read().get_transcription_link(exercise_id)?;
         self.full_alias_path(&link)
     }
@@ -296,7 +296,7 @@ mod test {
             preferences: Default::default(),
             link_store: Arc::new(parking_lot::RwLock::new(link_store)),
         };
-        assert!(!downloader.is_downloaded(Ustr::from("exercise")));
+        assert!(!downloader.is_transcription_asset_downloaded(Ustr::from("exercise")));
     }
 
     /// Verifies that exercises that have not been downloaded are marked as such.
@@ -309,7 +309,7 @@ mod test {
             preferences: Default::default(),
             link_store: Arc::new(parking_lot::RwLock::new(link_store)),
         };
-        assert!(!downloader.is_downloaded(Ustr::from("exercise")));
+        assert!(!downloader.is_transcription_asset_downloaded(Ustr::from("exercise")));
     }
 
     /// Verifies that downloading an asset fails if there's no download path set.
@@ -328,7 +328,7 @@ mod test {
         };
         // assert!(!downloader.is_downloaded(Ustr::from("exercise")));
         assert!(downloader
-            .download_asset(Ustr::from("exercise"), false)
+            .download_transcription_asset(Ustr::from("exercise"), false)
             .is_err());
     }
 
@@ -346,9 +346,9 @@ mod test {
             },
             link_store: Arc::new(parking_lot::RwLock::new(link_store)),
         };
-        assert!(!downloader.is_downloaded(Ustr::from("exercise")));
+        assert!(!downloader.is_transcription_asset_downloaded(Ustr::from("exercise")));
         assert!(downloader
-            .download_asset(Ustr::from("exercise"), false)
+            .download_transcription_asset(Ustr::from("exercise"), false)
             .is_err());
     }
 
@@ -365,11 +365,11 @@ mod test {
             },
             link_store: Arc::new(parking_lot::RwLock::new(link_store)),
         };
-        assert!(!downloader.is_downloaded(Ustr::from("exercise")));
+        assert!(!downloader.is_transcription_asset_downloaded(Ustr::from("exercise")));
         downloader
-            .download_asset(Ustr::from("exercise"), false)
+            .download_transcription_asset(Ustr::from("exercise"), false)
             .unwrap();
-        assert!(!downloader.is_downloaded(Ustr::from("exercise")));
+        assert!(!downloader.is_transcription_asset_downloaded(Ustr::from("exercise")));
     }
 
     /// Verifies downloading a valid asset.
@@ -387,23 +387,23 @@ mod test {
             },
             link_store: Arc::new(parking_lot::RwLock::new(link_store)),
         };
-        assert!(!downloader.is_downloaded(Ustr::from("exercise")));
+        assert!(!downloader.is_transcription_asset_downloaded(Ustr::from("exercise")));
         downloader
-            .download_asset(Ustr::from("exercise"), false)
+            .download_transcription_asset(Ustr::from("exercise"), false)
             .unwrap();
-        assert!(downloader.is_downloaded(Ustr::from("exercise")));
+        assert!(downloader.is_transcription_asset_downloaded(Ustr::from("exercise")));
 
         // The asset won't be redownloaded if it already exists.
         downloader
-            .download_asset(Ustr::from("exercise"), false)
+            .download_transcription_asset(Ustr::from("exercise"), false)
             .unwrap();
-        assert!(downloader.is_downloaded(Ustr::from("exercise")));
+        assert!(downloader.is_transcription_asset_downloaded(Ustr::from("exercise")));
 
         // Verify re-downloading the asset as well.
         downloader
-            .download_asset(Ustr::from("exercise"), true)
+            .download_transcription_asset(Ustr::from("exercise"), true)
             .unwrap();
-        assert!(downloader.is_downloaded(Ustr::from("exercise")));
+        assert!(downloader.is_transcription_asset_downloaded(Ustr::from("exercise")));
     }
 
     /// Verifies downloading an invalid asset.
@@ -423,11 +423,11 @@ mod test {
             },
             link_store: Arc::new(parking_lot::RwLock::new(link_store)),
         };
-        assert!(!downloader.is_downloaded(Ustr::from("exercise")));
+        assert!(!downloader.is_transcription_asset_downloaded(Ustr::from("exercise")));
         assert!(downloader
-            .download_asset(Ustr::from("exercise"), false)
+            .download_transcription_asset(Ustr::from("exercise"), false)
             .is_err());
-        assert!(!downloader.is_downloaded(Ustr::from("exercise")));
+        assert!(!downloader.is_transcription_asset_downloaded(Ustr::from("exercise")));
     }
 
     /// Verifies that the download paths are correctly generated.
@@ -446,7 +446,9 @@ mod test {
             link_store: Arc::new(parking_lot::RwLock::new(link_store)),
         };
 
-        let download_path = downloader.download_path(Ustr::from("exercise")).unwrap();
+        let download_path = downloader
+            .transcription_download_path(Ustr::from("exercise"))
+            .unwrap();
         assert!(download_path.ends_with("audio.m4a"));
         assert!(download_path.starts_with(temp_dir.path()));
         assert_eq!(
@@ -462,7 +464,7 @@ mod test {
         );
 
         let alias_path = downloader
-            .download_path_alias(Ustr::from("exercise"))
+            .transcription_download_path_alias(Ustr::from("exercise"))
             .unwrap();
         assert!(alias_path.ends_with("audio.m4a"));
         assert!(alias_path.starts_with("C:/Users/username/Music"));

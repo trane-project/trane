@@ -581,32 +581,32 @@ impl StudySessionManager for Trane {
 }
 
 impl TranscriptionDownloader for Trane {
-    fn is_downloaded(&self, exercise_id: Ustr) -> bool {
+    fn is_transcription_asset_downloaded(&self, exercise_id: Ustr) -> bool {
         self.transcription_downloader
             .read()
-            .is_downloaded(exercise_id)
+            .is_transcription_asset_downloaded(exercise_id)
     }
 
-    fn download_asset(
+    fn download_transcription_asset(
         &self,
         exercise_id: Ustr,
         force_download: bool,
     ) -> Result<(), TranscriptionDownloaderError> {
         self.transcription_downloader
             .write()
-            .download_asset(exercise_id, force_download)
+            .download_transcription_asset(exercise_id, force_download)
     }
 
-    fn download_path(&self, exercise_id: Ustr) -> Option<std::path::PathBuf> {
+    fn transcription_download_path(&self, exercise_id: Ustr) -> Option<std::path::PathBuf> {
         self.transcription_downloader
             .read()
-            .download_path(exercise_id)
+            .transcription_download_path(exercise_id)
     }
 
-    fn download_path_alias(&self, exercise_id: Ustr) -> Option<std::path::PathBuf> {
+    fn transcription_download_path_alias(&self, exercise_id: Ustr) -> Option<std::path::PathBuf> {
         self.transcription_downloader
             .read()
-            .download_path_alias(exercise_id)
+            .transcription_download_path_alias(exercise_id)
     }
 }
 
