@@ -39,13 +39,13 @@ impl LocalCourseLibrary {
 }
 
 impl TranscriptionLinkStore for LocalCourseLibrary {
+    // grcov-excl-start: Hard to test without creating a full library. Functions called are
+    // tested separately.
     fn get_transcription_link(&self, exercise_id: Ustr) -> Option<TranscriptionLink> {
-        // grcov-excl-start: Hard to test without creating a full library. Functions called are
-        // tested separately.
         let exercise_manifest = self.get_exercise_manifest(exercise_id)?;
         Self::extract_transcription_link(&exercise_manifest)
-        // grcov-excl-stop
     }
+    // grcov-excl-stop
 }
 
 /// Downloads transcription assets to local storage.
@@ -234,7 +234,7 @@ mod test {
         course_library::LocalCourseLibrary,
         data::{
             course_generator::transcription::{TranscriptionLink, TranscriptionPreferences},
-            ExerciseAsset, ExerciseManifest, ExerciseType,
+            BasicAsset, ExerciseAsset, ExerciseManifest, ExerciseType,
         },
         transcription_downloader::{
             LocalTranscriptionDownloader, TranscriptionDownloader, TranscriptionLinkStore,
@@ -256,6 +256,7 @@ mod test {
     /// Verifies extracting the link from a valid exercise manifest.
     #[test]
     fn test_extract_link() {
+        // Transcription asset with no link.
         let mut manifest = ExerciseManifest {
             exercise_asset: ExerciseAsset::TranscriptionAsset {
                 content: "content".to_string(),
@@ -269,6 +270,8 @@ mod test {
             exercise_type: ExerciseType::Procedural,
         };
         assert!(LocalCourseLibrary::extract_transcription_link(&manifest).is_none());
+
+        // Transcription asset with a link.
         manifest.exercise_asset = ExerciseAsset::TranscriptionAsset {
             content: "content".to_string(),
             external_link: Some(TranscriptionLink::YouTube(YT_LINK.into())),
@@ -277,6 +280,12 @@ mod test {
             TranscriptionLink::YouTube(YT_LINK.into()),
             LocalCourseLibrary::extract_transcription_link(&manifest).unwrap()
         );
+
+        // Other type of asset.
+        manifest.exercise_asset = ExerciseAsset::BasicAsset(BasicAsset::InlinedAsset {
+            content: "content".to_string(),
+        });
+        assert!(LocalCourseLibrary::extract_transcription_link(&manifest).is_none());
     }
 
     /// Verifies that exercises with no links are marked as not downloaded.
@@ -386,7 +395,7 @@ mod test {
 
         // The asset won't be redownloaded if it already exists.
         downloader
-            .download_asset(Ustr::from("exercise"), true)
+            .download_asset(Ustr::from("exercise"), false)
             .unwrap();
         assert!(downloader.is_downloaded(Ustr::from("exercise")));
 
