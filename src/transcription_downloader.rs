@@ -304,7 +304,27 @@ mod test {
             .is_err());
     }
 
-    /// Verifies that downloading an asset works.
+    /// Verifies downloading an exercise with no link.
+    #[test]
+    fn test_download_asset_no_link() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let link_store = MockLinkStore { link: None };
+        let downloader = LocalTranscriptionDownloader {
+            preferences: TranscriptionPreferences {
+                instruments: vec![],
+                download_path: Some(temp_dir.path().to_str().unwrap().to_string()),
+                download_path_alias: None,
+            },
+            link_store: Arc::new(parking_lot::RwLock::new(link_store)),
+        };
+        assert!(!downloader.is_downloaded(Ustr::from("exercise")));
+        downloader
+            .download_asset(Ustr::from("exercise"), false)
+            .unwrap();
+        assert!(!downloader.is_downloaded(Ustr::from("exercise")));
+    }
+
+    /// Verifies downloading a valid asset.
     #[test]
     fn test_download_asset() {
         let temp_dir = tempfile::tempdir().unwrap();
@@ -325,11 +345,41 @@ mod test {
             .unwrap();
         assert!(downloader.is_downloaded(Ustr::from("exercise")));
 
-        // Test re-downloading the asset as well.
+        // The asset won't be redownloaded if it already exists.
         downloader
             .download_asset(Ustr::from("exercise"), true)
             .unwrap();
         assert!(downloader.is_downloaded(Ustr::from("exercise")));
+
+        // Verify re-downloading the asset as well.
+        downloader
+            .download_asset(Ustr::from("exercise"), true)
+            .unwrap();
+        assert!(downloader.is_downloaded(Ustr::from("exercise")));
+    }
+
+    /// Verifies downloading an invalid asset.
+    #[test]
+    fn test_download_bad_asset() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let link_store = MockLinkStore {
+            link: Some(TranscriptionLink::YouTube(
+                "https://www.youtube.com/watch?v=badID".into(),
+            )),
+        };
+        let downloader = LocalTranscriptionDownloader {
+            preferences: TranscriptionPreferences {
+                instruments: vec![],
+                download_path: Some(temp_dir.path().to_str().unwrap().to_string()),
+                download_path_alias: None,
+            },
+            link_store: Arc::new(parking_lot::RwLock::new(link_store)),
+        };
+        assert!(!downloader.is_downloaded(Ustr::from("exercise")));
+        assert!(downloader
+            .download_asset(Ustr::from("exercise"), false)
+            .is_err());
+        assert!(!downloader.is_downloaded(Ustr::from("exercise")));
     }
 
     /// Verifies that the download paths are correctly generated.
