@@ -18,7 +18,7 @@ use crate::{
     course_library::{CourseLibrary, LocalCourseLibrary},
     data::{
         course_generator::transcription::{TranscriptionLink, TranscriptionPreferences},
-        ExerciseAsset,
+        ExerciseAsset, ExerciseManifest,
     },
     TranscriptionDownloaderError,
 };
@@ -26,16 +26,25 @@ use crate::{
 /// A trait for getting the transcription link for an exercise.
 pub trait TranscriptionLinkStore {
     /// Gets the transcription link for the given exercise.
-    fn get_link(&self, exercise_id: Ustr) -> Option<TranscriptionLink>;
+    fn get_transcription_link(&self, exercise_id: Ustr) -> Option<TranscriptionLink>;
 }
 
-impl TranscriptionLinkStore for LocalCourseLibrary {
-    fn get_link(&self, exercise_id: Ustr) -> Option<TranscriptionLink> {
-        let exercise_manifest = self.get_exercise_manifest(exercise_id)?;
-        match &exercise_manifest.exercise_asset {
+impl LocalCourseLibrary {
+    fn extract_transcription_link(manifest: &ExerciseManifest) -> Option<TranscriptionLink> {
+        match &manifest.exercise_asset {
             ExerciseAsset::TranscriptionAsset { external_link, .. } => external_link.clone(),
             _ => None,
         }
+    }
+}
+
+impl TranscriptionLinkStore for LocalCourseLibrary {
+    fn get_transcription_link(&self, exercise_id: Ustr) -> Option<TranscriptionLink> {
+        // grcov-excl-start: Hard to test without creating a full library. Functions called are
+        // tested separately.
+        let exercise_manifest = self.get_exercise_manifest(exercise_id)?;
+        Self::extract_transcription_link(&exercise_manifest)
+        // grcov-excl-stop
     }
 }
 
@@ -145,7 +154,7 @@ impl LocalTranscriptionDownloader {
     fn download_asset_helper(&self, exercise_id: Ustr, force_download: bool) -> Result<()> {
         // Check if the asset has already been downloaded.
         self.check_prerequisites()?;
-        let link = self.link_store.read().get_link(exercise_id);
+        let link = self.link_store.read().get_transcription_link(exercise_id);
         if link.is_none() {
             return Ok(());
         }
@@ -187,7 +196,7 @@ impl TranscriptionDownloader for LocalTranscriptionDownloader {
         if self.preferences.download_path.is_none() {
             return false;
         }
-        let link = self.link_store.read().get_link(exercise_id);
+        let link = self.link_store.read().get_transcription_link(exercise_id);
         if link.is_none() {
             return false;
         }
@@ -206,12 +215,12 @@ impl TranscriptionDownloader for LocalTranscriptionDownloader {
     }
 
     fn download_path(&self, exercise_id: Ustr) -> Option<PathBuf> {
-        let link = self.link_store.read().get_link(exercise_id)?;
+        let link = self.link_store.read().get_transcription_link(exercise_id)?;
         self.full_download_path(&link)
     }
 
     fn download_path_alias(&self, exercise_id: Ustr) -> Option<PathBuf> {
-        let link = self.link_store.read().get_link(exercise_id)?;
+        let link = self.link_store.read().get_transcription_link(exercise_id)?;
         self.full_alias_path(&link)
     }
 }
@@ -222,7 +231,11 @@ mod test {
     use ustr::Ustr;
 
     use crate::{
-        data::course_generator::transcription::{TranscriptionLink, TranscriptionPreferences},
+        course_library::LocalCourseLibrary,
+        data::{
+            course_generator::transcription::{TranscriptionLink, TranscriptionPreferences},
+            ExerciseAsset, ExerciseManifest, ExerciseType,
+        },
         transcription_downloader::{
             LocalTranscriptionDownloader, TranscriptionDownloader, TranscriptionLinkStore,
         },
@@ -232,13 +245,39 @@ mod test {
         link: Option<TranscriptionLink>,
     }
     impl TranscriptionLinkStore for MockLinkStore {
-        fn get_link(&self, _exercise_id: Ustr) -> Option<TranscriptionLink> {
+        fn get_transcription_link(&self, _exercise_id: Ustr) -> Option<TranscriptionLink> {
             self.link.clone()
         }
     }
 
     // Test link to a real YouTube video: Margaret Glaspy and Julian Lage perform “Best Behavior”.
     const YT_LINK: &str = "https://www.youtube.com/watch?v=p4LgzLjF4xE";
+
+    /// Verifies extracting the link from a valid exercise manifest.
+    #[test]
+    fn test_extract_link() {
+        let mut manifest = ExerciseManifest {
+            exercise_asset: ExerciseAsset::TranscriptionAsset {
+                content: "content".to_string(),
+                external_link: None,
+            },
+            id: Ustr::from("exercise_id"),
+            lesson_id: Ustr::from("lesson_id"),
+            course_id: Ustr::from("course_id"),
+            name: "Exercise Name".to_string(),
+            description: None,
+            exercise_type: ExerciseType::Procedural,
+        };
+        assert!(LocalCourseLibrary::extract_transcription_link(&manifest).is_none());
+        manifest.exercise_asset = ExerciseAsset::TranscriptionAsset {
+            content: "content".to_string(),
+            external_link: Some(TranscriptionLink::YouTube(YT_LINK.into())),
+        };
+        assert_eq!(
+            TranscriptionLink::YouTube(YT_LINK.into()),
+            LocalCourseLibrary::extract_transcription_link(&manifest).unwrap()
+        );
+    }
 
     /// Verifies that exercises with no links are marked as not downloaded.
     #[test]
