@@ -64,7 +64,7 @@ pub struct LocalTranscriptionDownloader {
     pub preferences: TranscriptionPreferences,
 
     /// The course library from which to get the transcription links.
-    pub link_store: Arc<RwLock<dyn TranscriptionLinkStore>>,
+    pub link_store: Arc<RwLock<dyn TranscriptionLinkStore + Send + Sync>>,
 }
 
 impl LocalTranscriptionDownloader {

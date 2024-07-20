@@ -81,6 +81,7 @@ use std::{
     sync::Arc,
 };
 use study_session_manager::{LocalStudySessionManager, StudySessionManager};
+use transcription_downloader::{LocalTranscriptionDownloader, TranscriptionDownloader};
 use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
@@ -169,6 +170,9 @@ pub struct Trane {
 
     /// The dependency graph of courses and lessons in the course library.
     unit_graph: Arc<RwLock<dyn UnitGraph + Send + Sync>>,
+
+    /// An optional instance of the transcription downloader.
+    transcription_downloader: Arc<RwLock<dyn TranscriptionDownloader + Send + Sync>>,
 
     /// An instance of the mantra miner that "recites" Tara Sarasvati's mantra while Trane runs.
     mantra_miner: TraneMantraMiner,
@@ -283,6 +287,11 @@ impl Trane {
             &working_dir.join(library_root),
             user_preferences.clone(),
         )?));
+        let transcription_preferences = user_preferences.transcription.clone().unwrap_or_default();
+        let transcription_downloader = Arc::new(RwLock::new(LocalTranscriptionDownloader {
+            preferences: transcription_preferences,
+            link_store: course_library.clone(),
+        }));
         let unit_graph = course_library.write().get_unit_graph();
         let practice_stats = Arc::new(RwLock::new(LocalPracticeStats::new_from_disk(
             config_path.join(PRACTICE_STATS_PATH).to_str().unwrap(),
@@ -328,6 +337,7 @@ impl Trane {
             scheduler: DepthFirstScheduler::new(scheduler_data),
             study_session_manager: study_sessions_manager,
             unit_graph,
+            transcription_downloader: transcription_downloader,
             mantra_miner,
         })
     }
@@ -567,6 +577,36 @@ impl StudySessionManager for Trane {
 
     fn list_study_sessions(&self) -> Vec<(String, String)> {
         self.study_session_manager.read().list_study_sessions()
+    }
+}
+
+impl TranscriptionDownloader for Trane {
+    fn is_downloaded(&self, exercise_id: Ustr) -> bool {
+        self.transcription_downloader
+            .read()
+            .is_downloaded(exercise_id)
+    }
+
+    fn download_asset(
+        &self,
+        exercise_id: Ustr,
+        force_download: bool,
+    ) -> Result<(), TranscriptionDownloaderError> {
+        self.transcription_downloader
+            .write()
+            .download_asset(exercise_id, force_download)
+    }
+
+    fn download_path(&self, exercise_id: Ustr) -> Option<std::path::PathBuf> {
+        self.transcription_downloader
+            .read()
+            .download_path(exercise_id)
+    }
+
+    fn download_path_alias(&self, exercise_id: Ustr) -> Option<std::path::PathBuf> {
+        self.transcription_downloader
+            .read()
+            .download_path_alias(exercise_id)
     }
 }
 
