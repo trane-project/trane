@@ -11,35 +11,35 @@ repository = "https://github.com/trane-project/trane"
 name = "trane"
 
 [dependencies]
-anyhow = "1.0.75"
-chrono = { version = "0.4.31", features = ["serde"] }
-derive_builder = "0.12.0"
-fs_extra = "1.3.0"
-git2 = "0.19.0"
-hex = "0.4.3"
-indoc = "2.0.4"
-lazy_static = "1.4.0"
-mantra-miner = "0.1.1"
-parking_lot = { version = "0.12.1", features = ["hardware-lock-elision"] }
-r2d2 = "0.8.10"
-r2d2_sqlite = "0.22.0"
-rand = "0.8.5"
-rayon = "1.7.0"
-rusqlite = { version = "0.29.0", features = ["bundled"] }
-rusqlite_migration = "1.0.2"
-serde = { version = "1.0.188", features = ["derive"] }
-serde_json = "1.0.107"
-sha1 = "0.10.6"
-strum = { version = "0.25.0", features = ["derive"] }
-tantivy = "0.21.1"
-tempfile = "3.8.0"
-thiserror = "1.0.48"
-typeshare = "1.0.1"
-url = "2.4.1"
-ustr = { version = "0.9.0", features = ["serialization"] }
-walkdir = "2.4.0"
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+derive_builder = "0.20"
+fs_extra = "1"
+git2 = "0.19"
+hex = "0.4"
+indoc = "2"
+lazy_static = "1"
+mantra-miner = "0.1"
+parking_lot = { version = "0.12", features = ["hardware-lock-elision"] }
+r2d2 = "0.8"
+r2d2_sqlite = "0.24"
+rand = "0.8"
+rayon = "1"
+rusqlite = { version = "0.31", features = ["bundled"] }
+rusqlite_migration = "1.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha1 = "0.10"
+strum = { version = "0.25", features = ["derive"] }
+tantivy = "0.22"
+tempfile = "3"
+thiserror = "1"
+typeshare = "1"
+url = "2"
+ustr = { version = "1", features = ["serde"] }
+walkdir = "2"
 # Fix the dependency to work around a compile issue. See: https://github.com/gyscos/zstd-rs/issues/270#issuecomment-2026322823.
-zstd-sys = "=2.0.9"
+# zstd-sys = "=2.0.9"
 
 [profile.bench]
 debug = true
