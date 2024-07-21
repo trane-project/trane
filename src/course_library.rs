@@ -12,8 +12,8 @@ use tantivy::{
     collector::TopDocs,
     doc,
     query::QueryParser,
-    schema::{Field, Schema, STORED, TEXT},
-    Index, IndexReader, IndexWriter, ReloadPolicy,
+    schema::{Field, Schema, Value, STORED, TEXT},
+    Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocument,
 };
 use ustr::{Ustr, UstrMap, UstrSet};
 use walkdir::WalkDir;
@@ -508,7 +508,7 @@ impl LocalCourseLibrary {
             library
                 .index
                 .reader_builder()
-                .reload_policy(ReloadPolicy::OnCommit)
+                .reload_policy(ReloadPolicy::OnCommitWithDelay)
                 .try_into()?, // grcov-excl-line
         );
 
@@ -546,9 +546,9 @@ impl LocalCourseLibrary {
         top_docs
             .into_iter()
             .map(|(_, doc_address)| {
-                let doc = searcher.doc(doc_address)?;
+                let doc: TantivyDocument = searcher.doc(doc_address)?;
                 let id = doc.get_first(id_field).unwrap();
-                Ok(id.as_text().unwrap_or("").to_string().into())
+                Ok(id.as_str().unwrap_or("").to_string().into())
             })
             .collect::<Result<Vec<Ustr>>>()
     }

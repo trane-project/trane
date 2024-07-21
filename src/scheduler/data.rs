@@ -612,8 +612,10 @@ mod test {
             .is_empty());
 
         // Get the valid exercises when the ID is a lesson.
+        let mut valid_exercises = scheduler_data.all_valid_exercises(Ustr::from("0::1"));
+        valid_exercises.sort();
         assert_eq!(
-            scheduler_data.all_valid_exercises(Ustr::from("0::1")),
+            valid_exercises,
             vec![Ustr::from("0::1::0"), Ustr::from("0::1::1")]
         );
 
