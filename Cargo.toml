@@ -38,8 +38,6 @@ typeshare = "1"
 url = "2"
 ustr = { version = "1", features = ["serde"] }
 walkdir = "2"
-# Fix the dependency to work around a compile issue. See: https://github.com/gyscos/zstd-rs/issues/270#issuecomment-2026322823.
-# zstd-sys = "=2.0.9"
 
 [profile.bench]
 debug = true
