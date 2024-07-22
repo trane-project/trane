@@ -59,18 +59,22 @@ pub enum TranscriptionAsset {
 
         /// The name of the artist(s) who performs the track.
         #[serde(default)]
+        #[serde(skip_serializing_if = "Option::is_none")]
         artist_name: Option<String>,
 
         /// The name of the album in which the track appears.
         #[serde(default)]
+        #[serde(skip_serializing_if = "Option::is_none")]
         album_name: Option<String>,
 
         /// The duration of the track.
         #[serde(default)]
+        #[serde(skip_serializing_if = "Option::is_none")]
         duration: Option<String>,
 
         /// A link to an external copy (e.g., YouTube link) of the track.
         #[serde(default)]
+        #[serde(skip_serializing_if = "Option::is_none")]
         external_link: Option<TranscriptionLink>,
     },
 }
@@ -100,6 +104,7 @@ pub struct TranscriptionPassages {
     /// If the map is empty, one passage is assumed to cover the entire asset and the ID for the
     /// exercises will not include a passage ID.
     #[serde(default)]
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub intervals: HashMap<usize, (String, String)>,
 }
 //>@transcription-passages
@@ -174,12 +179,14 @@ pub struct TranscriptionPreferences {
     /// A path used to download transcription assets to the local filesystem. If not specified,
     /// assets cannot be downloaded.
     #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub download_path: Option<String>,
 
     /// An alias for the download path. This is useful when the download path is a long path or it's
     /// accessible from multiple locations (e.g., Windows and a terminal running on the WSL). Only
     /// used to present the download path to the user.
     #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub download_path_alias: Option<String>,
 }
 //>@transcription-preferences
@@ -199,6 +206,7 @@ pub struct TranscriptionConfig {
     /// The directory can be written relative to the root of the course or as an absolute path. The
     /// first option is recommended. An empty value will safely default to not reading any files.
     #[serde(default)]
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub passage_directory: String,
 
     /// A list of passages to include in the course in addition to the ones in the passage
