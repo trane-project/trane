@@ -2,6 +2,7 @@
 //! meant to simplify the process of adding new courses to Trane.
 
 use anyhow::{anyhow, bail, Context, Result};
+use serde::Serialize;
 use std::{
     collections::HashMap,
     fs,
@@ -86,9 +87,13 @@ impl LocalRepositoryManager {
             .metadata_directory
             .join(format!("{}.json", metadata.id));
 
-        let pretty_json =
-            serde_json::to_string_pretty(metadata).with_context(|| "invalid metadata")?;
-        fs::write(&path, pretty_json)
+        let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
+        let mut buf = Vec::new();
+        let mut ser = serde_json::Serializer::with_formatter(&mut buf, formatter);
+        metadata
+            .serialize(&mut ser)
+            .with_context(|| "failed to serialize repository metadata")?;
+        fs::write(&path, buf)
             .with_context(|| format!("failed to write metadata to {}", path.display()))?;
         Ok(())
         // grcov-excl-stop
@@ -305,12 +310,13 @@ mod test {
         assert!(manager.repositories.contains_key(REPO_ID));
         let repo_dir = library_root.path().join(DOWNLOAD_DIRECTORY).join(REPO_ID);
         assert!(repo_dir.exists());
-        assert!(library_root
+        let metadata_path = library_root
             .path()
             .join(TRANE_CONFIG_DIR_PATH)
             .join(REPOSITORY_DIRECTORY)
-            .join(format!("{REPO_ID}.json"))
-            .exists());
+            .join(format!("{REPO_ID}.json"));
+        assert!(metadata_path.exists());
+        assert!(LocalRepositoryManager::read_metadata(&metadata_path).is_ok());
         Ok(())
     }
 
@@ -327,12 +333,13 @@ mod test {
             .join(DOWNLOAD_DIRECTORY)
             .join("custom-id")
             .exists());
-        assert!(library_root
+        let metadata_path = library_root
             .path()
             .join(TRANE_CONFIG_DIR_PATH)
             .join(REPOSITORY_DIRECTORY)
-            .join("custom-id.json")
-            .exists());
+            .join("custom-id.json");
+        assert!(metadata_path.exists());
+        assert!(LocalRepositoryManager::read_metadata(&metadata_path).is_ok());
         Ok(())
     }
 
