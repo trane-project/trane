@@ -11,33 +11,33 @@ repository = "https://github.com/trane-project/trane"
 name = "trane"
 
 [dependencies]
-anyhow = "1"
-chrono = { version = "0.4", features = ["serde"] }
-derive_builder = "0.20"
-fs_extra = "1"
-git2 = "0.19"
-hex = "0.4"
-indoc = "2"
-lazy_static = "1"
-mantra-miner = "0.1"
-parking_lot = { version = "0.12", features = ["hardware-lock-elision"] }
-r2d2 = "0.8"
-r2d2_sqlite = "0.24"
-rand = "0.8"
-rayon = "1"
-rusqlite = { version = "0.31", features = ["bundled"] }
-rusqlite_migration = "1.2"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-sha1 = "0.10"
-strum = { version = "0.25", features = ["derive"] }
-tantivy = "0.22"
-tempfile = "3"
-thiserror = "1"
-typeshare = "1"
-url = "2"
-ustr = { version = "1", features = ["serde"] }
-walkdir = "2"
+anyhow = "1.0.86"
+chrono = { version = "0.4.38", features = ["serde"] }
+derive_builder = "0.20.0"
+fs_extra = "1.3.0"
+git2 = "0.19.0"
+hex = "0.4.3"
+indoc = "2.0.5"
+lazy_static = "1.5.0"
+mantra-miner = "0.1.1"
+parking_lot = { version = "0.12.3", features = ["hardware-lock-elision"] }
+r2d2 = "0.8.10"
+r2d2_sqlite = "0.24.0"
+rand = "0.8.5"
+rayon = "1.10.0"
+rusqlite = { version = "0.31.0", features = ["bundled"] }
+rusqlite_migration = "1.2.0"
+serde = { version = "1.0.204", features = ["derive"] }
+serde_json = "1.0.120"
+sha1 = "0.10.6"
+strum = { version = "0.26.3", features = ["derive"] }
+tantivy = "0.22.0"
+tempfile = "3.10.1"
+thiserror = "1.0.63"
+typeshare = "1.0.3"
+url = "2.5.2"
+ustr = { version = "1.0.0", features = ["serde"] }
+walkdir = "2.5.0"
 
 [profile.bench]
 debug = true
