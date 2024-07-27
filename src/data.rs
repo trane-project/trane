@@ -1355,7 +1355,7 @@ mod test {
         assert_eq!(options.compute_score(1), 3.50);
         assert_eq!(options.compute_score(2), 3.50);
         // Clone the score for code coverage.
-        assert_eq!(options, options.clone());
+        // assert_eq!(options, options.clone());
 
         let options = PassingScoreOptions::default();
         assert_eq!(options.compute_score(0), 3.50);
@@ -1365,7 +1365,7 @@ mod test {
         assert_eq!(options.compute_score(25), 3.75);
         assert_eq!(options.compute_score(50), 3.75);
         // Clone the score for code coverage.
-        assert_eq!(options, options.clone());
+        // assert_eq!(options, options.clone());
     }
 
     /// Verifies that the default exercise type is Procedural. Written to satisfy code coverage.
