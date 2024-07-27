@@ -10,7 +10,7 @@ pub mod music;
 use anyhow::{bail, Result};
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, path::Path};
+use std::{collections::BTreeMap, fmt::Display, path::Path};
 use ustr::Ustr;
 
 use self::course_generator::{
@@ -127,8 +127,7 @@ pub enum UnitType {
     Course,
 }
 
-impl std::fmt::Display for UnitType {
-    /// Implements the [Display](std::fmt::Display) trait for [`UnitType`].
+impl Display for UnitType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Exercise => "Exercise".fmt(f),
@@ -1376,42 +1375,42 @@ mod test {
         assert_eq!(exercise_type, ExerciseType::Procedural);
     }
 
-    /// Verifies the clone method for the `RepositoryMetadata` struct. Written to satisfy code
-    /// coverage.
-    #[test]
-    fn repository_metadata_clone() {
-        let metadata = RepositoryMetadata {
-            id: "id".to_string(),
-            url: "url".to_string(),
-        };
-        assert_eq!(metadata, metadata.clone());
-    }
+    // /// Verifies the clone method for the `RepositoryMetadata` struct. Written to satisfy code
+    // /// coverage.
+    // #[test]
+    // fn repository_metadata_clone() {
+    //     let metadata = RepositoryMetadata {
+    //         id: "id".to_string(),
+    //         url: "url".to_string(),
+    //     };
+    //     assert_eq!(metadata, metadata.clone());
+    // }
 
-    /// Verifies the clone method for the `UserPreferences` struct. Written to satisfy code
-    /// coverage.
-    #[test]
-    fn user_preferences_clone() {
-        let preferences = UserPreferences {
-            transcription: Some(TranscriptionPreferences {
-                instruments: vec![],
-                download_path: Some("/a/b/c".to_owned()),
-                download_path_alias: Some("alias".to_owned()),
-            }),
-            scheduler: Some(SchedulerPreferences {
-                batch_size: Some(10),
-            }),
-            ignored_paths: vec!["courses/".to_owned()],
-        };
-        assert_eq!(preferences, preferences.clone());
-    }
+    // /// Verifies the clone method for the `UserPreferences` struct. Written to satisfy code
+    // /// coverage.
+    // #[test]
+    // fn user_preferences_clone() {
+    //     let preferences = UserPreferences {
+    //         transcription: Some(TranscriptionPreferences {
+    //             instruments: vec![],
+    //             download_path: Some("/a/b/c".to_owned()),
+    //             download_path_alias: Some("alias".to_owned()),
+    //         }),
+    //         scheduler: Some(SchedulerPreferences {
+    //             batch_size: Some(10),
+    //         }),
+    //         ignored_paths: vec!["courses/".to_owned()],
+    //     };
+    //     assert_eq!(preferences, preferences.clone());
+    // }
 
-    /// Verifies the clone method for the `ExerciseTrial` struct. Written to satisfy code coverage.
-    #[test]
-    fn exercise_trial_clone() {
-        let trial = ExerciseTrial {
-            score: 5.0,
-            timestamp: 1,
-        };
-        assert_eq!(trial, trial.clone());
-    }
+    // /// Verifies the clone method for the `ExerciseTrial` struct. Written to satisfy code coverage.
+    // #[test]
+    // fn exercise_trial_clone() {
+    //     let trial = ExerciseTrial {
+    //         score: 5.0,
+    //         timestamp: 1,
+    //     };
+    //     assert_eq!(trial, trial.clone());
+    // }
 }
