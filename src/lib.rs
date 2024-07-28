@@ -203,12 +203,7 @@ impl Trane {
         // Create the config folder inside the library root if it does not exist already.
         let trane_path = library_root.join(TRANE_CONFIG_DIR_PATH);
         if !trane_path.exists() {
-            create_dir(trane_path.clone()).with_context(|| {
-                format!(
-                    "failed to create config directory at {}",
-                    trane_path.display()
-                )
-            })?;
+            create_dir(trane_path.clone()).context("failed to create config directory")?;
         } else if !trane_path.is_dir() {
             bail!("config path .trane inside library must be a directory");
         }
@@ -216,55 +211,28 @@ impl Trane {
         // Create the `filters` directory if it does not exist already.
         let filters_path = trane_path.join(FILTERS_DIR);
         if !filters_path.is_dir() {
-            create_dir(filters_path.clone()).with_context(|| {
-                format!(
-                    "failed to create filters directory at {}",
-                    filters_path.display()
-                )
-            })?;
+            create_dir(filters_path.clone()).context("failed to create filters directory")?;
         }
 
         // Create the `study_sessions` directory if it does not exist already.
         let sessions_path = trane_path.join(STUDY_SESSIONS_DIR);
         if !sessions_path.is_dir() {
-            create_dir(sessions_path.clone()).with_context(|| {
-                format!(
-                    "failed to create filters directory at {}",
-                    sessions_path.display()
-                )
-            })?;
+            create_dir(sessions_path.clone())
+                .context("failed to create study_sessions directory")?;
         }
 
         // Create the user preferences file if it does not exist already.
         let user_prefs_path = trane_path.join(USER_PREFERENCES_PATH);
         if !user_prefs_path.exists() {
-            // Create the file.
-            let mut file = File::create(user_prefs_path.clone()).with_context(|| {
-                format!(
-                    "failed to create user preferences file at {}",
-                    user_prefs_path.display()
-                )
-            })?;
-
-            // Write the default user preferences to the file.
+            let mut file = File::create(user_prefs_path.clone())
+                .context("failed to create user_preferences.json file")?;
             let default_prefs = UserPreferences::default();
             let prefs_json = serde_json::to_string_pretty(&default_prefs)? + "\n";
-            file.write_all(prefs_json.as_bytes()).with_context(|| {
-                // grcov-excl-start: File should be writable.
-                format!(
-                    "failed to write to user preferences file at {}",
-                    user_prefs_path.display()
-                )
-                // grcov-excl-stop
-            })?; // grcov-excl-line
+            file.write_all(prefs_json.as_bytes())
+                .context("failed to write to user_preferences.json file")?; // grcov-excl-line
         } else if !user_prefs_path.is_file() {
-            // The user preferences file exists but is not a regular file.
-            bail!(
-                "user preferences file must be a regular file at {}",
-                user_prefs_path.display()
-            );
+            bail!("user preferences file must be a regular file");
         }
-
         Ok(())
     }
 

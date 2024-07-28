@@ -380,9 +380,9 @@ impl SimpleKnowledgeBaseCourse {
 
             // Remove the lesson directories if they already exist.
             if lesson_directory.exists() {
-                let display = lesson_directory.display();
                 fs::remove_dir_all(&lesson_directory).context(format!(
-                    "failed to remove existing lesson directory at {display}",
+                    "failed to remove existing lesson directory at {}",
+                    lesson_directory.display()
                 ))?; // grcov-excl-line
             }
 
