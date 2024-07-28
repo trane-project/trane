@@ -29,25 +29,20 @@ impl LocalStudySessionManager {
     /// Scans all study sessions in the given directory and returns a map of study sessions.
     fn scan_sessions(session_directory: &str) -> Result<HashMap<String, StudySession>> {
         let mut sessions = HashMap::new();
-        for entry in std::fs::read_dir(session_directory).with_context(|| {
-            format!("Failed to read study session directory {session_directory}")
-        })? {
+        for entry in std::fs::read_dir(session_directory)
+            .context("Failed to read study session directory")?
+        {
             // Try to read the file as a `StudySession`.
-            let entry =
-                entry.with_context(|| "Failed to read file entry for saved study session")?;
-            let file = File::open(entry.path()).with_context(|| {
-                format!(
-                    "Failed to open saved study session file {}",
-                    entry.path().display()
-                )
-            })?;
+            let entry = entry.context("Failed to read file entry for saved study session")?;
+            let file = File::open(entry.path()).context(format!(
+                "Failed to open saved study session file {}",
+                entry.path().display()
+            ))?;
             let reader = BufReader::new(file);
-            let session: StudySession = serde_json::from_reader(reader).with_context(|| {
-                format!(
-                    "Failed to parse study session from {}",
-                    entry.path().display()
-                )
-            })?;
+            let session: StudySession = serde_json::from_reader(reader).context(format!(
+                "Failed to parse study session from {}",
+                entry.path().display()
+            ))?;
 
             // Check for duplicate IDs before inserting the study session.
             if sessions.contains_key(&session.id) {

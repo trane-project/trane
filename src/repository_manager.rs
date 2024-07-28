@@ -73,9 +73,9 @@ impl LocalRepositoryManager {
         // grcov-excl-start: Can rely on serde_json to handle errors.
         let repo = serde_json::from_str::<RepositoryMetadata>(
             &fs::read_to_string(path)
-                .with_context(|| format!("failed to read metadata file {}", path.display()))?,
+                .context(format!("failed to read metadata file {}", path.display()))?,
         )
-        .with_context(|| format!("failed to parse metadata file {}", path.display()))?;
+        .context(format!("failed to parse metadata file {}", path.display()))?;
         Ok(repo)
         // grcov-excl-stop
     }
@@ -92,9 +92,8 @@ impl LocalRepositoryManager {
         let mut ser = serde_json::Serializer::with_formatter(&mut buf, formatter);
         metadata
             .serialize(&mut ser)
-            .with_context(|| "failed to serialize repository metadata")?;
-        fs::write(&path, buf)
-            .with_context(|| format!("failed to write metadata to {}", path.display()))?;
+            .context("failed to serialize repository metadata")?;
+        fs::write(&path, buf).context(format!("failed to write metadata to {}", path.display()))?;
         Ok(())
         // grcov-excl-stop
     }
@@ -110,19 +109,21 @@ impl LocalRepositoryManager {
         // Copy the repo into the download directory.
         let clone_dir = self.download_directory.join(repo_id);
         if clone_dir.exists() {
-            fs::remove_dir_all(&clone_dir).with_context(|| {
-                format!("cannot remove repository directory {}", clone_dir.display())
-            })?; // grcov-excl-line
+            fs::remove_dir_all(&clone_dir).context(format!(
+                "cannot remove repository directory {}",
+                clone_dir.display()
+            ))?; // grcov-excl-line
         }
-        fs::create_dir_all(&clone_dir).with_context(|| {
-            format!("cannot create repository directory {}", clone_dir.display())
-        })?; // grcov-excl-line
+        fs::create_dir_all(&clone_dir).context(format!(
+            "cannot create repository directory {}",
+            clone_dir.display()
+        ))?; // grcov-excl-line
         fs_extra::copy_items(
             &[temp_clone_path.to_str().unwrap()],
             &self.download_directory,
             &fs_extra::dir::CopyOptions::new().copy_inside(true),
         )
-        .with_context(|| "failed to copy repository")?; // grcov-excl-line
+        .context("failed to copy repository")?; // grcov-excl-line
         Ok(())
     }
 
@@ -218,11 +219,12 @@ impl LocalRepositoryManager {
         // Remove the repository from the map and delete the cloned repository and metadata.
         self.repositories.remove(repo_id);
         let clone_dir = self.download_directory.join(repo_id);
-        fs::remove_dir_all(clone_dir.clone()).with_context(|| {
-            format!("cannot remove repository directory {}", clone_dir.display())
-        })?;
+        fs::remove_dir_all(clone_dir.clone()).context(format!(
+            "cannot remove repository directory {}",
+            clone_dir.display()
+        ))?;
         let repo_metadata_path = self.metadata_directory.join(format!("{repo_id}.json"));
-        fs::remove_file(repo_metadata_path).with_context(|| "cannot remove repository metadata")?;
+        fs::remove_file(repo_metadata_path).context("cannot remove repository metadata")?;
         Ok(())
     }
 

@@ -26,27 +26,18 @@ pub struct LocalPreferencesManager {
 impl LocalPreferencesManager {
     /// Helper function to get the current user preferences.
     fn get_user_preferences_helper(&self) -> Result<UserPreferences> {
-        let raw_preferences = &fs::read_to_string(&self.path).with_context(|| {
-            format!(
-                "failed to read user preferences from {}",
-                self.path.display()
-            )
-        })?;
+        let raw_preferences =
+            &fs::read_to_string(&self.path).context("failed to read user preferences")?;
         let preferences = serde_json::from_str::<UserPreferences>(raw_preferences)
-            .with_context(|| "invalid user preferences")?; // grcov-excl-line
+            .context("invalid user preferences")?; // grcov-excl-line
         Ok(preferences)
     }
 
     /// Helper function to set the user preferences to the given value.
     fn set_user_preferences_helper(&self, preferences: &UserPreferences) -> Result<()> {
-        let pretty_json = serde_json::to_string_pretty(preferences)
-            .with_context(|| "invalid user preferences")?; // grcov-excl-line
-        fs::write(&self.path, pretty_json).with_context(|| {
-            format!(
-                "failed to write user preferences to {}",
-                self.path.display()
-            )
-        })
+        let pretty_json =
+            serde_json::to_string_pretty(preferences).context("invalid user preferences")?; // grcov-excl-line
+        fs::write(&self.path, pretty_json).context("failed to write user preferences")
     }
 }
 

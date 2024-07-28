@@ -52,7 +52,7 @@ impl LocalReviewList {
         let migrations = Self::migrations();
         migrations
             .to_latest(&mut connection)
-            .with_context(|| "failed to initialize review list DB") // grcov-excl-line
+            .context("failed to initialize review list DB") // grcov-excl-line
     }
 
     /// A constructor taking a connection manager.
