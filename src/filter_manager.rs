@@ -29,24 +29,20 @@ impl LocalFilterManager {
     /// Scans all `NamedFilters` in the given directory and returns a map of filters.
     fn scan_filters(filter_directory: &str) -> Result<HashMap<String, SavedFilter>> {
         let mut filters = HashMap::new();
-        for entry in std::fs::read_dir(filter_directory)
-            .with_context(|| format!("Failed to read filter directory {filter_directory}"))?
+        for entry in
+            std::fs::read_dir(filter_directory).context("Failed to read filter directory")?
         {
             // Try to read the file as a `NamedFilter`.
-            let entry = entry.with_context(|| "Failed to read file entry for saved filter")?;
-            let file = File::open(entry.path()).with_context(|| {
-                format!(
-                    "Failed to open saved filter file {}",
-                    entry.path().display()
-                )
-            })?;
+            let entry = entry.context("Failed to read saved filter entry")?;
+            let file = File::open(entry.path()).context(format!(
+                "Failed to open saved filter file {}",
+                entry.path().display()
+            ))?;
             let reader = BufReader::new(file);
-            let filter: SavedFilter = serde_json::from_reader(reader).with_context(|| {
-                format!(
-                    "Failed to parse named filter from {}",
-                    entry.path().display()
-                )
-            })?;
+            let filter: SavedFilter = serde_json::from_reader(reader).context(format!(
+                "Failed to parse named filter from {}",
+                entry.path().display()
+            ))?;
 
             // Check for duplicate IDs before inserting the filter.
             if filters.contains_key(&filter.id) {

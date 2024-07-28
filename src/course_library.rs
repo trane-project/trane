@@ -185,20 +185,19 @@ impl LocalCourseLibrary {
 
     /// Opens the course, lesson, or exercise manifest located at the given path.
     fn open_manifest<T: DeserializeOwned>(path: &Path) -> Result<T> {
-        let file = File::open(path)
-            .with_context(|| anyhow!("cannot open manifest file {}", path.display()))?;
+        let display = path.display();
+        let file = File::open(path).context(format!("cannot open manifest file {display}"))?;
         let reader = BufReader::new(file);
-        serde_json::from_reader(reader)
-            .with_context(|| anyhow!("cannot parse manifest file {}", path.display()))
+        serde_json::from_reader(reader).context(format!("cannot parse manifest file {display}"))
     }
 
     /// Returns the file name of the given path.
     fn get_file_name(path: &Path) -> Result<String> {
         Ok(path
             .file_name()
-            .ok_or_else(|| anyhow!("cannot get file name from DirEntry"))? // grcov-excl-line
+            .ok_or(anyhow!("cannot get file name from DirEntry"))? // grcov-excl-line
             .to_str()
-            .ok_or_else(|| anyhow!("invalid dir entry {}", path.display()))?
+            .ok_or(anyhow!("invalid dir entry {}", path.display()))? // grcov-excl-line
             .to_string())
     }
 
@@ -682,7 +681,7 @@ impl CourseLibrary for LocalCourseLibrary {
 
     fn search(&self, query: &str) -> Result<Vec<Ustr>, CourseLibraryError> {
         self.search_helper(query)
-            .map_err(|e| CourseLibraryError::Search(query.into(), e))
+            .map_err(|e| CourseLibraryError::Search(query.into(), e)) // grcov-excl-line
     }
 }
 

@@ -380,14 +380,10 @@ impl SimpleKnowledgeBaseCourse {
 
             // Remove the lesson directories if they already exist.
             if lesson_directory.exists() {
-                fs::remove_dir_all(&lesson_directory).with_context(|| {
-                    // grcov-excl-start
-                    format!(
-                        "failed to remove existing lesson directory at {}",
-                        lesson_directory.display()
-                    )
-                    // grcov-excl-stop
-                })?; // grcov-excl-line
+                fs::remove_dir_all(&lesson_directory).context(format!(
+                    "failed to remove existing lesson directory at {}",
+                    lesson_directory.display()
+                ))?; // grcov-excl-line
             }
 
             lesson_builder.build(&lesson_directory)?;
@@ -395,24 +391,13 @@ impl SimpleKnowledgeBaseCourse {
 
         // Write the course manifest.
         let manifest_path = root_directory.join(COURSE_MANIFEST_FILENAME);
-        let mut manifest_file = fs::File::create(&manifest_path).with_context(|| {
-            // grcov-excl-start
-            format!(
-                "failed to create course manifest file at {}",
-                manifest_path.display()
-            )
-            // grcov-excl-stop
-        })?; // grcov-excl-line
+        let display = manifest_path.display();
+        let mut manifest_file = fs::File::create(&manifest_path).context(format!(
+            "failed to create course manifest file at {display}"
+        ))?; // grcov-excl-line
         manifest_file
             .write_all(serde_json::to_string_pretty(&self.manifest)?.as_bytes())
-            .with_context(|| {
-                // grcov-excl-start
-                format!(
-                    "failed to write course manifest file at {}",
-                    manifest_path.display()
-                )
-                // grcov-excl-stop
-            }) // grcov-excl-line
+            .context(format!("failed to write course manifest file at {display}"))
     }
 }
 

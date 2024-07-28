@@ -98,11 +98,12 @@ pub enum KnowledgeBaseFile {
 impl KnowledgeBaseFile {
     /// Opens the knowledge base file at the given path and deserializes its contents.
     pub fn open<T: DeserializeOwned>(path: &Path) -> Result<T> {
-        let file = File::open(path)
-            .with_context(|| anyhow!("cannot open knowledge base file {}", path.display()))?;
+        let display = path.display();
+        let file =
+            File::open(path).context(format!("cannot open knowledge base file {display}"))?;
         let reader = BufReader::new(file);
         serde_json::from_reader(reader)
-            .with_context(|| anyhow!("cannot parse knowledge base file {}", path.display()))
+            .context(format!("cannot parse knowledge base file {display}"))
     }
 }
 
