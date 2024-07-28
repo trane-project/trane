@@ -197,7 +197,7 @@ impl LocalCourseLibrary {
             .file_name()
             .ok_or_else(|| anyhow!("cannot get file name from DirEntry"))? // grcov-excl-line
             .to_str()
-            .ok_or_else(|| anyhow!("invalid dir entry {}", path.display()))?
+            .ok_or_else(|| anyhow!("invalid dir entry {}", path.display()))? // grcov-excl-line
             .to_string())
     }
 
@@ -681,7 +681,7 @@ impl CourseLibrary for LocalCourseLibrary {
 
     fn search(&self, query: &str) -> Result<Vec<Ustr>, CourseLibraryError> {
         self.search_helper(query)
-            .map_err(|e| CourseLibraryError::Search(query.into(), e))
+            .map_err(|e| CourseLibraryError::Search(query.into(), e)) // grcov-excl-line
     }
 }
 

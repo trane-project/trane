@@ -178,17 +178,17 @@ impl LocalBlacklist {
 impl Blacklist for LocalBlacklist {
     fn add_to_blacklist(&mut self, unit_id: Ustr) -> Result<(), BlacklistError> {
         self.add_to_blacklist_helper(unit_id)
-            .map_err(|e| BlacklistError::AddUnit(unit_id, e))
+            .map_err(|e| BlacklistError::AddUnit(unit_id, e)) // grcov-excl-line
     }
 
     fn remove_from_blacklist(&mut self, unit_id: Ustr) -> Result<(), BlacklistError> {
         self.remove_from_blacklist_helper(unit_id)
-            .map_err(|e| BlacklistError::RemoveUnit(unit_id, e))
+            .map_err(|e| BlacklistError::RemoveUnit(unit_id, e)) // grcov-excl-line
     }
 
     fn remove_prefix_from_blacklist(&mut self, prefix: &str) -> Result<(), BlacklistError> {
         self.remove_prefix_from_blacklist_helper(prefix)
-            .map_err(|e| BlacklistError::RemovePrefix(prefix.into(), e))
+            .map_err(|e| BlacklistError::RemovePrefix(prefix.into(), e)) // grcov-excl-line
     }
 
     #[inline]
@@ -198,7 +198,7 @@ impl Blacklist for LocalBlacklist {
 
     fn get_blacklist_entries(&self) -> Result<Vec<Ustr>, BlacklistError> {
         self.all_blacklist_entries_helper()
-            .map_err(BlacklistError::GetEntries)
+            .map_err(BlacklistError::GetEntries) // grcov-excl-line
     }
 }
 
