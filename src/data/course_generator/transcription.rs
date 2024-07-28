@@ -719,7 +719,7 @@ impl TranscriptionConfig {
             let file_name = path
                 .file_name()
                 .and_then(|name| name.to_str())
-                .ok_or_else(|| anyhow!("Failed to get the file name"))? // grcov-excl-line
+                .ok_or(anyhow!("Failed to get the file name"))? // grcov-excl-line
                 .to_string();
 
             // Ignore any non-JSON files.

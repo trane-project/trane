@@ -347,7 +347,7 @@ impl ScoreCache {
             .unit_graph
             .read()
             .get_unit_type(unit_id)
-            .ok_or_else(|| anyhow!("missing unit type for unit with ID {}", unit_id))?;
+            .ok_or(anyhow!("missing unit type for unit with ID {unit_id}"))?;
         match unit_type {
             UnitType::Course => self.get_course_score(unit_id),
             UnitType::Lesson => self.get_lesson_score(unit_id),

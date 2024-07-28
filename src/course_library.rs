@@ -195,9 +195,9 @@ impl LocalCourseLibrary {
     fn get_file_name(path: &Path) -> Result<String> {
         Ok(path
             .file_name()
-            .ok_or_else(|| anyhow!("cannot get file name from DirEntry"))? // grcov-excl-line
+            .ok_or(anyhow!("cannot get file name from DirEntry"))? // grcov-excl-line
             .to_str()
-            .ok_or_else(|| anyhow!("invalid dir entry {}", path.display()))? // grcov-excl-line
+            .ok_or(anyhow!("invalid dir entry {}", path.display()))? // grcov-excl-line
             .to_string())
     }
 

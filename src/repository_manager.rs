@@ -63,7 +63,7 @@ impl LocalRepositoryManager {
         Ok(url
             .path_segments()
             .and_then(Iterator::last)
-            .ok_or_else(|| anyhow!("invalid repository URL"))? // grcov-excl-line
+            .ok_or(anyhow!("invalid repository URL"))? // grcov-excl-line
             .trim_end_matches(".git")
             .into())
     }
