@@ -55,7 +55,6 @@ pub mod course_library;
 pub mod data;
 pub mod db_utils;
 pub mod error;
-pub mod ffi;
 pub mod filter_manager;
 pub mod graph;
 pub mod mantra_miner;

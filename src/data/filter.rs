@@ -12,12 +12,14 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use ts_rs::TS;
 use ustr::Ustr;
 
 use crate::data::GetMetadata;
 
 /// The logical operation used to combine multiple filters.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[ts(export)]
 pub enum FilterOp {
     /// A filter returns true if all its sub-filters pass.
     All,
@@ -27,7 +29,8 @@ pub enum FilterOp {
 }
 
 /// The type of filter according to whether the units which match are included or excluded.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[ts(export)]
 pub enum FilterType {
     /// A filter which includes the units that match it.
     Include,
@@ -37,7 +40,8 @@ pub enum FilterType {
 }
 
 /// A filter on course or lesson metadata.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[ts(export)]
 pub enum KeyValueFilter {
     /// A basic filter that matches a key value pair in the course's metadata.
     CourseFilter {
@@ -214,17 +218,20 @@ impl KeyValueFilter {
 
 // grcov-excl-start: Code coverage for this struct is flaky for some unknown reason.
 /// A filter on a course or lesson manifest.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[ts(export)]
 pub enum UnitFilter {
     /// A filter to show exercises belonging to the given courses.
     CourseFilter {
         /// The IDs of the courses to filter.
+        #[ts(as = "Vec<String>")]
         course_ids: Vec<Ustr>,
     },
 
     /// A filter to show exercises belonging to the given lessons.
     LessonFilter {
         /// The IDs of the lessons to filter.
+        #[ts(as = "Vec<String>")]
         lesson_ids: Vec<Ustr>,
     },
 
@@ -240,12 +247,14 @@ pub enum UnitFilter {
     /// A filter that schedules exercises from all the given units and its dependents.
     Dependents {
         /// The IDs of the units from which to start the search.
+        #[ts(as = "Vec<String>")]
         unit_ids: Vec<Ustr>,
     },
 
     /// A filter that schedules exercises from the dependencies of the given units.
     Dependencies {
         /// The IDs from which to look up the dependencies.
+        #[ts(as = "Vec<String>")]
         unit_ids: Vec<Ustr>,
 
         /// The depth of the dependency tree to search.
@@ -276,7 +285,8 @@ impl UnitFilter {
 
 //@<saved-filter
 /// A saved filter for easy reference.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[ts(export)]
 pub struct SavedFilter {
     /// A unique ID for the filter.
     pub id: String,
@@ -292,7 +302,8 @@ pub struct SavedFilter {
 /// A part of a study session. Contains the criteria used to filter the exercises during a section
 /// of the study session along with the duration in minutes. The filter can either be a
 /// [`UnitFilter`] defined inline or a reference to a [`SavedFilter`].
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
+#[ts(export)]
 pub enum SessionPart {
     /// A part of the study session that uses a filter defined inline.
     UnitFilter {
@@ -333,7 +344,8 @@ impl SessionPart {
 /// A study session is a list of parts, each of which define the exercises to study and for how
 /// long. For example, a student learning to play piano and guitar could define a session that
 /// spends 30 minutes on exercises for piano, and 30 minutes on exercises for guitar.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
+#[ts(export)]
 pub struct StudySession {
     /// A unique identifier for the study session.
     pub id: String,
@@ -349,7 +361,8 @@ pub struct StudySession {
 
 /// A specific instance of a study session. It contains the start time of the session and its
 /// definition so that the scheduler knows the progress of the session.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
+#[ts(export)]
 pub struct StudySessionData {
     /// The start time of the session.
     pub start_time: DateTime<Utc>,
@@ -390,7 +403,8 @@ impl StudySessionData {
 
 /// A set of options to control which exercises should be considered to be included in the final
 /// batch.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
+#[ts(export)]
 pub enum ExerciseFilter {
     /// Select exercises based on a unit filter.
     UnitFilter(UnitFilter),
