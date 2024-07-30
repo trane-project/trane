@@ -13,8 +13,9 @@ use std::{collections::BTreeMap, path::Path};
 use ts_rs::TS;
 use ustr::Ustr;
 
-use self::course_generator::{
+use crate::data::course_generator::{
     knowledge_base::KnowledgeBaseConfig,
+    literacy::LiteracyConfig,
     music_piece::MusicPieceConfig,
     transcription::{TranscriptionConfig, TranscriptionLink, TranscriptionPreferences},
 };
@@ -249,6 +250,9 @@ pub enum CourseGenerator {
     /// and for future extensibility.
     KnowledgeBase(KnowledgeBaseConfig),
 
+    /// The configuration for generating a literacy course.
+    Literacy(LiteracyConfig),
+
     /// The configuration for generating a music piece course.
     MusicPiece(MusicPieceConfig),
 
@@ -289,6 +293,9 @@ impl GenerateManifests for CourseGenerator {
     ) -> Result<GeneratedCourse> {
         match self {
             CourseGenerator::KnowledgeBase(config) => {
+                config.generate_manifests(course_root, course_manifest, preferences)
+            }
+            CourseGenerator::Literacy(config) => {
                 config.generate_manifests(course_root, course_manifest, preferences)
             }
             CourseGenerator::MusicPiece(config) => {

@@ -562,12 +562,9 @@ impl GenerateManifests for KnowledgeBaseConfig {
         course_manifest: &CourseManifest,
         _preferences: &UserPreferences,
     ) -> Result<GeneratedCourse> {
-        // Store the lessons and their exercises in a map of short lesson ID to a tuple of the
-        // lesson and its exercises.
+        // Create the lessons by iterating through all the directories in the course root,
+        // processing only those whose name fits the pattern `<SHORT_LESSON_ID>.lesson`.
         let mut lessons = UstrMap::default();
-
-        // Iterate through all the directories in the course root, processing only those whose name
-        // fits the pattern `<SHORT_LESSON_ID>.lesson`.
         for entry in read_dir(course_root)? {
             // Ignore the entry if it's not a directory.
             let entry = entry?;
