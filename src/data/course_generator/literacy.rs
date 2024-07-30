@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
+use ts_rs::TS;
 use ustr::Ustr;
 
 use crate::data::{
@@ -30,11 +31,13 @@ pub const EXCEPTION_SUFFIX: &str = ".exception.md";
 /// the configuration or in separate files in the course's directory. Files that end with the
 /// extensions ".examples.md" and ".exceptions.md" will be considered as examples and exceptions,
 /// respectively.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, TS)]
+#[ts(export)]
 pub struct LiteracyConfig {
     /// The dependencies on other literacy courses. Specifying these dependencies here instead of
     /// the [CourseManifest] allows Trane to generate more fine-grained dependencies.
     #[serde(default)]
+    #[ts(as = "Vec<String>")]
     pub literacy_dependencies: Vec<Ustr>,
 
     /// Inlined examples to use in the course.
