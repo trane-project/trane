@@ -34,7 +34,7 @@ strum = { version = "0.26.3", features = ["derive"] }
 tantivy = "0.22.0"
 tempfile = "3.10.1"
 thiserror = "1.0.63"
-ts-rs = {version = "9.0.1", features = ["chrono-impl", "no-serde-warnings"]}
+ts-rs = {version = "9.0.1", features = ["chrono-impl", "no-serde-warnings", "serde-compat"]}
 url = "2.5.2"
 ustr = { version = "1.0.0", features = ["serde"] }
 walkdir = "2.5.0"
