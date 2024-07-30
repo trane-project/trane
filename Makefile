@@ -1,10 +1,11 @@
 # Run all build steps.
-build: build-ffi build-cargo
+build: generate-bindings build-cargo
 
-# Build and verify the FFI bindings.
-build-ffi:
-	typeshare ./ --lang=typescript --output-file=ffi/trane.ts
-	tsc ffi/trane.ts
+# Build and verify the TypeScript bindings.
+generate-bindings:
+	rm -rf bindings
+	cargo test --lib export_bindings
+	tsc --allowJs --noEmit bindings/*
 
 # Run all cargo checks and tests.
 build-cargo:

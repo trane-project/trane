@@ -9,6 +9,7 @@ use std::{
     io::BufReader,
     path::Path,
 };
+use ts_rs::TS;
 use ustr::{Ustr, UstrMap};
 
 use crate::data::{
@@ -508,7 +509,8 @@ impl From<KnowledgeBaseLesson> for LessonManifest {
 /// The configuration for a knowledge base course. Currently, this is an empty struct, but it is
 /// added for consistency with other course generators and to implement the [`GenerateManifests`]
 /// trait.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
+#[ts(export)]
 pub struct KnowledgeBaseConfig {}
 
 impl KnowledgeBaseConfig {

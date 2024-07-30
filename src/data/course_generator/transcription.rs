@@ -16,6 +16,7 @@ use std::{
     io::BufReader,
     path::Path,
 };
+use ts_rs::TS;
 use ustr::Ustr;
 
 use super::*;
@@ -27,7 +28,8 @@ use constants::*;
 
 //@<transcription-link
 /// A link to an external resource for a transcription asset.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
+#[ts(export)]
 pub enum TranscriptionLink {
     /// A link to a YouTube video.
     YouTube(String),
@@ -46,7 +48,8 @@ impl TranscriptionLink {
 
 //@<transcription-asset
 /// An asset used for the transcription course generator.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
+#[ts(export)]
 pub enum TranscriptionAsset {
     /// A track of recorded music that is not included along with the course. Used to reference
     /// commercial music for which there is no legal way to distribute the audio.
@@ -92,7 +95,8 @@ impl TranscriptionAsset {
 
 //@<transcription-passages
 /// A collection of passages from a track that can be used for a transcription course.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
+#[ts(export)]
 pub struct TranscriptionPassages {
     /// The asset to transcribe.
     pub asset: TranscriptionAsset,
@@ -168,7 +172,8 @@ impl TranscriptionPassages {
 
 //@<transcription-preferences
 /// Settings for generating a new transcription course that are specific to a user.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, TS)]
+#[ts(export)]
 pub struct TranscriptionPreferences {
     /// The list of instruments the user wants to practice. Note that changing the instrument ID
     /// will change the IDs of the exercises and lose your progress, so it should be chosen
@@ -193,11 +198,13 @@ pub struct TranscriptionPreferences {
 
 //@<transcription-config
 /// The configuration used to generate a transcription course.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
+#[ts(export)]
 pub struct TranscriptionConfig {
     /// The dependencies on other transcription courses. Specifying these dependencies here instead
     /// of the [CourseManifest] allows Trane to generate more fine-grained dependencies.
     #[serde(default)]
+    #[ts(as = "Vec<String>")]
     pub transcription_dependencies: Vec<Ustr>,
 
     /// The directory where the passages are stored as JSON files whose contents are serialized
