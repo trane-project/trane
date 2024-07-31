@@ -1,3 +1,10 @@
+//! Defines a special course to teach literacy skills.
+//!
+//! The student is presented with examples and exceptions that match a certain spelling rule or type
+//! of reading material. They are asked to read the example and exceptions and are scored based on
+//! how many they get right. Optionally, a dictation lesson can be generated where the student is
+//! asked to write the examples and exceptions based on the tutor's dictation.
+
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fs, path::Path};
@@ -42,7 +49,7 @@ pub enum LiteracyLesson {
 /// 2. Exceptions. For example, they can be words that share the same spelling but have different
 ///    pronunciations (e.g. "cow" and "crow").
 ///
-/// All examples and exceptions accept markdown syntax. Examples and exceptions can be declared in
+/// All examples and exceptions accept Markdown syntax. Examples and exceptions can be declared in
 /// the configuration or in separate files in the course's directory. Files that end with the
 /// extensions ".examples.md" and ".exceptions.md" will be considered as examples and exceptions,
 /// respectively.
@@ -63,8 +70,8 @@ pub struct LiteracyConfig {
     #[serde(default)]
     inlined_exceptions: Vec<String>,
 
-    /// Whether to generate an optional lesson that asks the student to write the material based on
-    /// the tutor's dictation.
+    /// Indicates whether to generate an optional lesson that asks the student to write the material
+    /// based on the tutor's dictation.
     #[serde(default)]
     pub generate_dictation: bool,
 }
