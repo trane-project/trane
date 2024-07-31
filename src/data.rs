@@ -1173,57 +1173,6 @@ mod test {
         Ok(())
     }
 
-    // /// Verifies the `NormalizePaths` trait works for an inlined asset.
-    // #[test]
-    // fn normalize_inlined_assets() -> Result<()> {
-    //     let inlined_asset = BasicAsset::InlinedAsset {
-    //         content: "Test".to_string(),
-    //     };
-    //     inlined_asset.normalize_paths(Path::new("./"))?;
-
-    //     let inlined_asset = BasicAsset::InlinedUniqueAsset {
-    //         content: Ustr::from("Test"),
-    //     };
-    //     inlined_asset.normalize_paths(Path::new("./"))?;
-    //     Ok(())
-    // }
-
-    // /// Verifies the `VerifyPaths` trait works for an inlined asset.
-    // #[test]
-    // fn verify_inlined_assets() -> Result<()> {
-    //     let inlined_asset = BasicAsset::InlinedAsset {
-    //         content: "Test".to_string(),
-    //     };
-    //     assert!(inlined_asset.verify_paths(Path::new("./"))?);
-
-    //     let inlined_asset = BasicAsset::InlinedUniqueAsset {
-    //         content: Ustr::from("Test"),
-    //     };
-    //     assert!(inlined_asset.verify_paths(Path::new("./"))?);
-    //     Ok(())
-    // }
-
-    // /// Verifies the `NormalizePaths` trait works for a transcription asset.
-    // #[test]
-    // fn transcription_normalize_paths() {
-    //     let asset = ExerciseAsset::TranscriptionAsset {
-    //         content: "content".into(),
-    //         external_link: None,
-    //     };
-    //     assert!(asset.normalize_paths(Path::new("./")).is_ok());
-    // }
-
-    // /// Verifies the `VerifyPaths` trait works for a transcription asset.
-    // #[test]
-    // fn transcription_verify_paths() -> Result<()> {
-    //     let asset = ExerciseAsset::TranscriptionAsset {
-    //         content: "content".into(),
-    //         external_link: None,
-    //     };
-    //     assert!(asset.verify_paths(Path::new("./"))?);
-    //     Ok(())
-    // }
-
     /// Verifies the `VerifyPaths` trait works for a flashcard asset.
     #[test]
     fn verify_flashcard_assets() -> Result<()> {
@@ -1283,28 +1232,6 @@ mod test {
         assert!(normalize_path(temp_dir.path(), temp_file_path).is_err());
         Ok(())
     }
-
-    // /// Verifies the `VerifyPaths` trait works for a basic exercise asset.
-    // #[test]
-    // fn exercise_basic_asset_verify_paths() -> Result<()> {
-    //     let temp_dir = tempfile::tempdir()?;
-    //     let basic_asset = ExerciseAsset::BasicAsset(BasicAsset::InlinedAsset {
-    //         content: "my content".to_string(),
-    //     });
-    //     assert!(basic_asset.verify_paths(temp_dir.path())?);
-    //     Ok(())
-    // }
-
-    // /// Verifies the `NormalizePaths` trait works for a basic exercise asset.
-    // #[test]
-    // fn exercise_basic_asset_normalize_paths() -> Result<()> {
-    //     let temp_dir = tempfile::tempdir()?;
-    //     let basic_asset = ExerciseAsset::BasicAsset(BasicAsset::InlinedAsset {
-    //         content: "my content".to_string(),
-    //     });
-    //     basic_asset.normalize_paths(temp_dir.path())?;
-    //     Ok(())
-    // }
 
     /// Verifies the default scheduler options are valid.
     #[test]
