@@ -39,8 +39,7 @@ pub const ADVANCED_TRANSCRIPTION_DESCRIPTION: &str = indoc! {"
     Refer to the lesson instructions for more details.
 "};
 
-/// The metadata key indicating the lesson belongs to a transcription course. Its value should be
-/// set to "true".
+/// The metadata key indicating this is a transcription course. Its value should be set to "true".
 pub const COURSE_METADATA: &str = "transcription_course";
 
 /// The metadata key indicating the type of the transcription lesson. Its value should be set to

@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 pub mod knowledge_base;
+pub mod literacy;
 pub mod music_piece;
 pub mod transcription;
 

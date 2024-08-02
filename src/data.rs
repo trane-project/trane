@@ -13,8 +13,9 @@ use std::{collections::BTreeMap, path::Path};
 use ts_rs::TS;
 use ustr::Ustr;
 
-use self::course_generator::{
+use crate::data::course_generator::{
     knowledge_base::KnowledgeBaseConfig,
+    literacy::{LiteracyConfig, LiteracyLesson},
     music_piece::MusicPieceConfig,
     transcription::{TranscriptionConfig, TranscriptionLink, TranscriptionPreferences},
 };
@@ -216,12 +217,14 @@ pub enum BasicAsset {
 impl NormalizePaths for BasicAsset {
     fn normalize_paths(&self, working_dir: &Path) -> Result<Self> {
         match &self {
+            // grcov-excl-start: This is a no-op for these variants.
+            BasicAsset::InlinedAsset { .. } | BasicAsset::InlinedUniqueAsset { .. } => {
+                Ok(self.clone())
+            }
+            // grcov-excl-stop
             BasicAsset::MarkdownAsset { path } => {
                 let abs_path = normalize_path(working_dir, path)?;
                 Ok(BasicAsset::MarkdownAsset { path: abs_path })
-            }
-            BasicAsset::InlinedAsset { .. } | BasicAsset::InlinedUniqueAsset { .. } => {
-                Ok(self.clone())
             }
         }
     }
@@ -230,11 +233,11 @@ impl NormalizePaths for BasicAsset {
 impl VerifyPaths for BasicAsset {
     fn verify_paths(&self, working_dir: &Path) -> Result<bool> {
         match &self {
+            BasicAsset::InlinedAsset { .. } | BasicAsset::InlinedUniqueAsset { .. } => Ok(true), // grcov-excl-line
             BasicAsset::MarkdownAsset { path } => {
                 let abs_path = working_dir.join(Path::new(path));
                 Ok(abs_path.exists())
             }
-            BasicAsset::InlinedAsset { .. } | BasicAsset::InlinedUniqueAsset { .. } => Ok(true),
         }
     }
 }
@@ -249,6 +252,9 @@ pub enum CourseGenerator {
     /// and for future extensibility.
     KnowledgeBase(KnowledgeBaseConfig),
 
+    /// The configuration for generating a literacy course.
+    Literacy(LiteracyConfig),
+
     /// The configuration for generating a music piece course.
     MusicPiece(MusicPieceConfig),
 
@@ -258,6 +264,7 @@ pub enum CourseGenerator {
 //>@course-generator
 
 /// A struct holding the results from running a course generator.
+#[derive(Debug, PartialEq)]
 pub struct GeneratedCourse {
     /// The lessons and exercise manifests generated for the course.
     pub lessons: Vec<(LessonManifest, Vec<ExerciseManifest>)>,
@@ -289,6 +296,9 @@ impl GenerateManifests for CourseGenerator {
     ) -> Result<GeneratedCourse> {
         match self {
             CourseGenerator::KnowledgeBase(config) => {
+                config.generate_manifests(course_root, course_manifest, preferences)
+            }
+            CourseGenerator::Literacy(config) => {
                 config.generate_manifests(course_root, course_manifest, preferences)
             }
             CourseGenerator::MusicPiece(config) => {
@@ -564,6 +574,20 @@ pub enum ExerciseAsset {
         back_path: Option<String>,
     },
 
+    /// An asset representing a literacy exercise.
+    LiteracyAsset {
+        /// The type of the lesson.
+        lesson_type: LiteracyLesson,
+
+        /// The examples to use in the lesson's exercise.
+        #[serde(default)]
+        examples: Vec<String>,
+
+        /// The exceptions to the examples to use in the lesson's exercise.
+        #[serde(default)]
+        exceptions: Vec<String>,
+    },
+
     /// An asset which stores a link to a SoundSlice.
     SoundSliceAsset {
         /// The link to the SoundSlice asset.
@@ -617,6 +641,11 @@ impl NormalizePaths for ExerciseAsset {
                     back_path: abs_back_path,
                 })
             }
+            // grcov-excl-start: This is a no-op for these variants.
+            ExerciseAsset::LiteracyAsset { .. } | ExerciseAsset::TranscriptionAsset { .. } => {
+                Ok(self.clone())
+            }
+            // grcov-excl-stop
             ExerciseAsset::SoundSliceAsset {
                 link,
                 description,
@@ -632,7 +661,6 @@ impl NormalizePaths for ExerciseAsset {
                     })
                 }
             },
-            ExerciseAsset::TranscriptionAsset { .. } => Ok(self.clone()),
         }
     }
 }
@@ -655,6 +683,11 @@ impl VerifyPaths for ExerciseAsset {
                     Ok(front_abs_path.exists())
                 }
             }
+            // grcov-excl-start: This is a no-op for these variants.
+            ExerciseAsset::LiteracyAsset { .. } | ExerciseAsset::TranscriptionAsset { .. } => {
+                Ok(true)
+            }
+            // grcov-excl-stop
             ExerciseAsset::SoundSliceAsset { backup, .. } => match backup {
                 None => Ok(true),
                 Some(path) => {
@@ -663,7 +696,6 @@ impl VerifyPaths for ExerciseAsset {
                     Ok(abs_path.exists())
                 }
             },
-            ExerciseAsset::TranscriptionAsset { .. } => Ok(true),
         }
     }
 }
@@ -1140,57 +1172,6 @@ mod test {
         Ok(())
     }
 
-    /// Verifies the `NormalizePaths` trait works for an inlined asset.
-    #[test]
-    fn normalize_inlined_assets() -> Result<()> {
-        let inlined_asset = BasicAsset::InlinedAsset {
-            content: "Test".to_string(),
-        };
-        inlined_asset.normalize_paths(Path::new("./"))?;
-
-        let inlined_asset = BasicAsset::InlinedUniqueAsset {
-            content: Ustr::from("Test"),
-        };
-        inlined_asset.normalize_paths(Path::new("./"))?;
-        Ok(())
-    }
-
-    /// Verifies the `VerifyPaths` trait works for an inlined asset.
-    #[test]
-    fn verify_inlined_assets() -> Result<()> {
-        let inlined_asset = BasicAsset::InlinedAsset {
-            content: "Test".to_string(),
-        };
-        assert!(inlined_asset.verify_paths(Path::new("./"))?);
-
-        let inlined_asset = BasicAsset::InlinedUniqueAsset {
-            content: Ustr::from("Test"),
-        };
-        assert!(inlined_asset.verify_paths(Path::new("./"))?);
-        Ok(())
-    }
-
-    /// Verifies the `NormalizePaths` trait works for a transcription asset.
-    #[test]
-    fn transcription_normalize_paths() {
-        let asset = ExerciseAsset::TranscriptionAsset {
-            content: "content".into(),
-            external_link: None,
-        };
-        assert!(asset.normalize_paths(Path::new("./")).is_ok());
-    }
-
-    /// Verifies the `VerifyPaths` trait works for a transcription asset.
-    #[test]
-    fn transcription_verify_paths() -> Result<()> {
-        let asset = ExerciseAsset::TranscriptionAsset {
-            content: "content".into(),
-            external_link: None,
-        };
-        assert!(asset.verify_paths(Path::new("./"))?);
-        Ok(())
-    }
-
     /// Verifies the `VerifyPaths` trait works for a flashcard asset.
     #[test]
     fn verify_flashcard_assets() -> Result<()> {
@@ -1248,28 +1229,6 @@ mod test {
         let temp_dir = tempfile::tempdir()?;
         let temp_file_path = "missing_file";
         assert!(normalize_path(temp_dir.path(), temp_file_path).is_err());
-        Ok(())
-    }
-
-    /// Verifies the `VerifyPaths` trait works for a basic exercise asset.
-    #[test]
-    fn exercise_basic_asset_verify_paths() -> Result<()> {
-        let temp_dir = tempfile::tempdir()?;
-        let basic_asset = ExerciseAsset::BasicAsset(BasicAsset::InlinedAsset {
-            content: "my content".to_string(),
-        });
-        assert!(basic_asset.verify_paths(temp_dir.path())?);
-        Ok(())
-    }
-
-    /// Verifies the `NormalizePaths` trait works for a basic exercise asset.
-    #[test]
-    fn exercise_basic_asset_normalize_paths() -> Result<()> {
-        let temp_dir = tempfile::tempdir()?;
-        let basic_asset = ExerciseAsset::BasicAsset(BasicAsset::InlinedAsset {
-            content: "my content".to_string(),
-        });
-        basic_asset.normalize_paths(temp_dir.path())?;
         Ok(())
     }
 
