@@ -266,6 +266,7 @@ pub enum CourseGenerator {
 //>@course-generator
 
 /// A struct holding the results from running a course generator.
+#[derive(Debug, PartialEq)]
 pub struct GeneratedCourse {
     /// The lessons and exercise manifests generated for the course.
     pub lessons: Vec<(LessonManifest, Vec<ExerciseManifest>)>,

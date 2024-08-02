@@ -9,7 +9,6 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fs, path::Path};
 use ts_rs::TS;
-use ustr::Ustr;
 
 use crate::data::{
     CourseGenerator, CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseType,
@@ -56,12 +55,6 @@ pub enum LiteracyLesson {
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, TS)]
 #[ts(export)]
 pub struct LiteracyConfig {
-    /// The dependencies on other literacy courses. Specifying these dependencies here instead of
-    /// the [CourseManifest] allows Trane to generate more fine-grained dependencies.
-    #[serde(default)]
-    #[ts(as = "Vec<String>")]
-    pub literacy_dependencies: Vec<Ustr>,
-
     /// Inlined examples to use in the course.
     #[serde(default)]
     inlined_examples: Vec<String>,
@@ -125,7 +118,7 @@ impl LiteracyConfig {
             if let Some(CourseGenerator::Literacy(config)) = &course_manifest.generator_config {
                 config.generate_dictation
             } else {
-                false
+                false // grcov-excl-line
             };
         if !generate_dictation {
             return None;
@@ -134,7 +127,7 @@ impl LiteracyConfig {
         // Create the lesson manifest.
         let lesson_manifest = LessonManifest {
             id: format!("{}::dictation", course_manifest.id).into(),
-            dependencies: vec![format!("{}::dictation", course_manifest.id).into()],
+            dependencies: vec![format!("{}::reading", course_manifest.id).into()],
             superseded: vec![],
             course_id: course_manifest.id,
             name: format!("{} - Dictation", course_manifest.name),
@@ -217,6 +210,10 @@ impl GenerateManifests for LiteracyConfig {
             }
         }
 
+        // Sort the lists to have predictable outputs.
+        examples.sort();
+        exceptions.sort();
+
         // Generate the manifests for all the lessons and exercises and metadata to indicate this is
         // a literacy course.
         let lessons = Self::generate_lessons(course_manifest, &examples, &exceptions);
@@ -227,5 +224,239 @@ impl GenerateManifests for LiteracyConfig {
             updated_metadata: Some(metadata),
             updated_instructions: None,
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use anyhow::Result;
+    use std::{collections::BTreeMap, fs, path::Path};
+
+    use crate::data::{
+        course_generator::literacy::{LiteracyConfig, LiteracyLesson},
+        CourseGenerator, CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseType,
+        GenerateManifests, GeneratedCourse, LessonManifest, UserPreferences,
+    };
+
+    /// Writes the given number of example and exception files to the given directory.
+    fn generate_test_files(root_dir: &Path, num_examples: u8, num_exceptions: u8) -> Result<()> {
+        for i in 0..num_examples {
+            let example_file = root_dir.join(format!("example_{i}.example.md"));
+            let example_content = format!("example_{i}");
+            fs::write(&example_file, example_content)?;
+        }
+        for i in 0..num_exceptions {
+            let exception_file = root_dir.join(format!("exception_{i}.exception.md"));
+            let exception_content = format!("exception_{i}");
+            fs::write(&exception_file, exception_content)?;
+        }
+        Ok(())
+    }
+
+    /// Verifies generating a literacy course with a dictation lesson.
+    #[test]
+    fn test_generate_manifests_dictation() -> Result<()> {
+        // Create course manifest and files.
+        let config = LiteracyConfig {
+            generate_dictation: true,
+            inlined_examples: vec![
+                "inlined_example_0".to_string(),
+                "inlined_example_1".to_string(),
+            ],
+            inlined_exceptions: vec![
+                "inlined_exception_0".to_string(),
+                "inlined_exception_1".to_string(),
+            ],
+        };
+        let course_manifest = CourseManifest {
+            id: "literacy_course".into(),
+            name: "Literacy Course".into(),
+            dependencies: vec![],
+            superseded: vec![],
+            description: None,
+            authors: None,
+            metadata: None,
+            course_material: None,
+            course_instructions: None,
+            generator_config: Some(CourseGenerator::Literacy(config.clone())),
+        };
+        let temp_dir = tempfile::tempdir()?;
+        generate_test_files(temp_dir.path(), 2, 2)?;
+
+        // Generate the manifests.
+        let prefs = UserPreferences::default();
+        let got = config.generate_manifests(temp_dir.path(), &course_manifest, &prefs)?;
+        let want = GeneratedCourse {
+            lessons: vec![
+                (
+                    LessonManifest {
+                        id: "literacy_course::reading".into(),
+                        dependencies: vec![],
+                        superseded: vec![],
+                        course_id: "literacy_course".into(),
+                        name: "Literacy Course - Reading".into(),
+                        description: None,
+                        metadata: Some(BTreeMap::from([(
+                            "literacy_lesson".to_string(),
+                            vec!["reading".to_string()],
+                        )])),
+                        lesson_material: None,
+                        lesson_instructions: None,
+                    },
+                    vec![ExerciseManifest {
+                        id: "literacy_course::reading::exercise".into(),
+                        lesson_id: "literacy_course::reading".into(),
+                        course_id: "literacy_course".into(),
+                        name: "Literacy Course - Reading".into(),
+                        description: None,
+                        exercise_type: ExerciseType::Procedural,
+                        exercise_asset: ExerciseAsset::LiteracyAsset {
+                            lesson_type: LiteracyLesson::Reading,
+                            examples: vec![
+                                "example_0".to_string(),
+                                "example_1".to_string(),
+                                "inlined_example_0".to_string(),
+                                "inlined_example_1".to_string(),
+                            ],
+                            exceptions: vec![
+                                "exception_0".to_string(),
+                                "exception_1".to_string(),
+                                "inlined_exception_0".to_string(),
+                                "inlined_exception_1".to_string(),
+                            ],
+                        },
+                    }],
+                ),
+                (
+                    LessonManifest {
+                        id: "literacy_course::dictation".into(),
+                        dependencies: vec!["literacy_course::reading".into()],
+                        superseded: vec![],
+                        course_id: "literacy_course".into(),
+                        name: "Literacy Course - Dictation".into(),
+                        description: None,
+                        metadata: Some(BTreeMap::from([(
+                            "literacy_lesson".to_string(),
+                            vec!["dictation".to_string()],
+                        )])),
+                        lesson_material: None,
+                        lesson_instructions: None,
+                    },
+                    vec![ExerciseManifest {
+                        id: "literacy_course::dictation::exercise".into(),
+                        lesson_id: "literacy_course::dictation".into(),
+                        course_id: "literacy_course".into(),
+                        name: "Literacy Course - Dictation".into(),
+                        description: None,
+                        exercise_type: ExerciseType::Procedural,
+                        exercise_asset: ExerciseAsset::LiteracyAsset {
+                            lesson_type: LiteracyLesson::Reading,
+                            examples: vec![
+                                "example_0".to_string(),
+                                "example_1".to_string(),
+                                "inlined_example_0".to_string(),
+                                "inlined_example_1".to_string(),
+                            ],
+                            exceptions: vec![
+                                "exception_0".to_string(),
+                                "exception_1".to_string(),
+                                "inlined_exception_0".to_string(),
+                                "inlined_exception_1".to_string(),
+                            ],
+                        },
+                    }],
+                ),
+            ],
+            updated_metadata: Some(BTreeMap::from([(
+                "literacy_course".to_string(),
+                vec!["true".to_string()],
+            )])),
+            updated_instructions: None,
+        };
+        assert_eq!(got, want);
+        Ok(())
+    }
+
+    /// Verifies generating a literacy course with no dictation lesson.
+    #[test]
+    fn test_generate_manifests_no_dictation() -> Result<()> {
+        // Create course manifest and files.
+        let config = LiteracyConfig {
+            generate_dictation: false,
+            inlined_examples: vec![
+                "inlined_example_0".to_string(),
+                "inlined_example_1".to_string(),
+            ],
+            inlined_exceptions: vec![
+                "inlined_exception_0".to_string(),
+                "inlined_exception_1".to_string(),
+            ],
+        };
+        let course_manifest = CourseManifest {
+            id: "literacy_course".into(),
+            name: "Literacy Course".into(),
+            dependencies: vec![],
+            superseded: vec![],
+            description: None,
+            authors: None,
+            metadata: None,
+            course_material: None,
+            course_instructions: None,
+            generator_config: Some(CourseGenerator::Literacy(config.clone())),
+        };
+        let temp_dir = tempfile::tempdir()?;
+        generate_test_files(temp_dir.path(), 2, 2)?;
+
+        // Generate the manifests.
+        let prefs = UserPreferences::default();
+        let got = config.generate_manifests(temp_dir.path(), &course_manifest, &prefs)?;
+        let want = GeneratedCourse {
+            lessons: vec![(
+                LessonManifest {
+                    id: "literacy_course::reading".into(),
+                    dependencies: vec![],
+                    superseded: vec![],
+                    course_id: "literacy_course".into(),
+                    name: "Literacy Course - Reading".into(),
+                    description: None,
+                    metadata: Some(BTreeMap::from([(
+                        "literacy_lesson".to_string(),
+                        vec!["reading".to_string()],
+                    )])),
+                    lesson_material: None,
+                    lesson_instructions: None,
+                },
+                vec![ExerciseManifest {
+                    id: "literacy_course::reading::exercise".into(),
+                    lesson_id: "literacy_course::reading".into(),
+                    course_id: "literacy_course".into(),
+                    name: "Literacy Course - Reading".into(),
+                    description: None,
+                    exercise_type: ExerciseType::Procedural,
+                    exercise_asset: ExerciseAsset::LiteracyAsset {
+                        lesson_type: LiteracyLesson::Reading,
+                        examples: vec![
+                            "example_0".to_string(),
+                            "example_1".to_string(),
+                            "inlined_example_0".to_string(),
+                            "inlined_example_1".to_string(),
+                        ],
+                        exceptions: vec![
+                            "exception_0".to_string(),
+                            "exception_1".to_string(),
+                            "inlined_exception_0".to_string(),
+                            "inlined_exception_1".to_string(),
+                        ],
+                    },
+                }],
+            )],
+            updated_metadata: Some(BTreeMap::from([(
+                "literacy_course".to_string(),
+                vec!["true".to_string()],
+            )])),
+            updated_instructions: None,
+        };
+        assert_eq!(got, want);
+        Ok(())
     }
 }
