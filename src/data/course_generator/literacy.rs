@@ -30,7 +30,7 @@ pub const EXCEPTION_SUFFIX: &str = ".exception.md";
 /// The types of literacy lessons that can be generated.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
 #[ts(export)]
-pub enum LiteracyLesson {
+pub enum LiteracyLesson { // grcov-excl-line
     /// A lesson that takes examples and exceptions and asks the student to read them.
     Reading,
 
@@ -458,17 +458,5 @@ mod test {
         };
         assert_eq!(got, want);
         Ok(())
-    }
-
-    /// Verifies cloning `LiteracyLesson` to satisfy code coverage.
-    #[test]
-    fn test_clone_literacy_lesson() {
-        let lesson = LiteracyLesson::Reading;
-        let clone = lesson.clone();
-        assert_eq!(lesson, clone);
-
-        let lesson = LiteracyLesson::Dictation;
-        let clone = lesson.clone();
-        assert_eq!(lesson, clone);
     }
 }

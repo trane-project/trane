@@ -15,12 +15,10 @@ use ustr::Ustr;
 
 use crate::data::course_generator::{
     knowledge_base::KnowledgeBaseConfig,
-    literacy::LiteracyConfig,
+    literacy::{LiteracyConfig, LiteracyLesson},
     music_piece::MusicPieceConfig,
     transcription::{TranscriptionConfig, TranscriptionLink, TranscriptionPreferences},
 };
-
-use self::course_generator::literacy::LiteracyLesson;
 
 /// The score used by students to evaluate their mastery of a particular exercise after a trial.
 /// More detailed descriptions of the levels are provided using the example of an exercise that
