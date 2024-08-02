@@ -257,7 +257,7 @@ mod test {
     #[test]
     fn test_generate_manifests_dictation() -> Result<()> {
         // Create course manifest and files.
-        let config = LiteracyConfig {
+        let config = CourseGenerator::Literacy(LiteracyConfig {
             generate_dictation: true,
             inlined_examples: vec![
                 "inlined_example_0".to_string(),
@@ -267,7 +267,7 @@ mod test {
                 "inlined_exception_0".to_string(),
                 "inlined_exception_1".to_string(),
             ],
-        };
+        });
         let course_manifest = CourseManifest {
             id: "literacy_course".into(),
             name: "Literacy Course".into(),
@@ -278,7 +278,7 @@ mod test {
             metadata: None,
             course_material: None,
             course_instructions: None,
-            generator_config: Some(CourseGenerator::Literacy(config.clone())),
+            generator_config: Some(config.clone()),
         };
         let temp_dir = tempfile::tempdir()?;
         generate_test_files(temp_dir.path(), 2, 2)?;
@@ -381,7 +381,7 @@ mod test {
     #[test]
     fn test_generate_manifests_no_dictation() -> Result<()> {
         // Create course manifest and files.
-        let config = LiteracyConfig {
+        let config = CourseGenerator::Literacy(LiteracyConfig {
             generate_dictation: false,
             inlined_examples: vec![
                 "inlined_example_0".to_string(),
@@ -391,7 +391,7 @@ mod test {
                 "inlined_exception_0".to_string(),
                 "inlined_exception_1".to_string(),
             ],
-        };
+        });
         let course_manifest = CourseManifest {
             id: "literacy_course".into(),
             name: "Literacy Course".into(),
@@ -402,7 +402,7 @@ mod test {
             metadata: None,
             course_material: None,
             course_instructions: None,
-            generator_config: Some(CourseGenerator::Literacy(config.clone())),
+            generator_config: Some(config.clone()),
         };
         let temp_dir = tempfile::tempdir()?;
         generate_test_files(temp_dir.path(), 2, 2)?;
@@ -458,5 +458,17 @@ mod test {
         };
         assert_eq!(got, want);
         Ok(())
+    }
+
+    /// Verifies cloning `LiteracyLesson` to satisfy code coverage.
+    #[test]
+    fn test_clone_literacy_lesson() {
+        let lesson = LiteracyLesson::Reading;
+        let clone = lesson.clone();
+        assert_eq!(lesson, clone);
+
+        let lesson = LiteracyLesson::Dictation;
+        let clone = lesson.clone();
+        assert_eq!(lesson, clone);
     }
 }
