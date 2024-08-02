@@ -149,7 +149,7 @@ impl LiteracyConfig {
             description: None,
             exercise_type: ExerciseType::Procedural,
             exercise_asset: ExerciseAsset::LiteracyAsset {
-                lesson_type: LiteracyLesson::Reading,
+                lesson_type: LiteracyLesson::Dictation,
                 examples: examples.to_vec(),
                 exceptions: exceptions.to_vec(),
             },
@@ -350,7 +350,7 @@ mod test {
                         description: None,
                         exercise_type: ExerciseType::Procedural,
                         exercise_asset: ExerciseAsset::LiteracyAsset {
-                            lesson_type: LiteracyLesson::Reading,
+                            lesson_type: LiteracyLesson::Dictation,
                             examples: vec![
                                 "example_0".to_string(),
                                 "example_1".to_string(),
