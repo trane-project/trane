@@ -180,7 +180,7 @@ pub struct Trane {
 impl Trane {
     /// Creates the scheduler options, overriding any values with those specified in the user
     /// preferences.
-    fn create_scheduler_options(preferences: &Option<SchedulerPreferences>) -> SchedulerOptions {
+    fn create_scheduler_options(preferences: Option<&SchedulerPreferences>) -> SchedulerOptions {
         let mut options = SchedulerOptions::default();
         if let Some(preferences) = preferences {
             if let Some(batch_size) = preferences.batch_size {
@@ -278,7 +278,7 @@ impl Trane {
         let repo_manager = Arc::new(RwLock::new(LocalRepositoryManager::new(library_root)?));
         let mut mantra_miner = TraneMantraMiner::default();
         mantra_miner.mantra_miner.start()?;
-        let options = Self::create_scheduler_options(&user_preferences.scheduler);
+        let options = Self::create_scheduler_options(user_preferences.scheduler.as_ref());
         options.verify()?;
         let scheduler_data = SchedulerData {
             options,
@@ -817,7 +817,7 @@ mod test {
             transcription: None,
             ignored_paths: vec![],
         };
-        let options = Trane::create_scheduler_options(&user_preferences.scheduler);
+        let options = Trane::create_scheduler_options(user_preferences.scheduler.as_ref());
         assert_eq!(options.batch_size, SchedulerOptions::default().batch_size);
 
         // Test with preferences.
@@ -828,7 +828,7 @@ mod test {
             transcription: None,
             ignored_paths: vec![],
         };
-        let options = Trane::create_scheduler_options(&user_preferences.scheduler);
+        let options = Trane::create_scheduler_options(user_preferences.scheduler.as_ref());
         assert_eq!(options.batch_size, 10);
     }
 }

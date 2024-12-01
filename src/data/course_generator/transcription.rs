@@ -796,11 +796,11 @@ impl TranscriptionConfig {
     /// Takes the current course metadata as input and returns updated metadata with information
     /// about the transcription course.
     fn generate_course_metadata(
-        metadata: &Option<BTreeMap<String, Vec<String>>>,
+        metadata: Option<&BTreeMap<String, Vec<String>>>,
         passages: &[TranscriptionPassages],
     ) -> BTreeMap<String, Vec<String>> {
         // Insert metadata to indicate this is a transcription course.
-        let mut metadata = metadata.clone().unwrap_or_default();
+        let mut metadata = metadata.cloned().unwrap_or_default();
         metadata.insert(COURSE_METADATA.to_string(), vec!["true".to_string()]);
 
         // Insert metadata to add all the artists from the passages.
@@ -857,7 +857,7 @@ impl GenerateManifests for TranscriptionConfig {
         let lessons = self.generate_lesson_manifests(course_manifest, preferences, &passages);
 
         // Update the course's metadata and instructions.
-        let metadata = Self::generate_course_metadata(&course_manifest.metadata, &passages);
+        let metadata = Self::generate_course_metadata(course_manifest.metadata.as_ref(), &passages);
         let instructions = if course_manifest.course_instructions.is_none() {
             Some(BasicAsset::InlinedUniqueAsset {
                 content: *COURSE_INSTRUCTIONS,
