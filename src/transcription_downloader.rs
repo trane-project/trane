@@ -173,6 +173,7 @@ impl LocalTranscriptionDownloader {
                     .stdin(Stdio::null())
                     .stdout(Stdio::null())
                     .stderr(Stdio::piped())
+                    .arg("--enable-file-urls")
                     .arg("--extract-audio")
                     .arg("--audio-format")
                     .arg("m4a")
@@ -232,7 +233,7 @@ impl TranscriptionDownloader for LocalTranscriptionDownloader {
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
+    use std::{path::{self, Path}, sync::Arc};
     use ustr::Ustr;
 
     use crate::{
@@ -257,6 +258,9 @@ mod test {
 
     // Test link to a real YouTube video: Margaret Glaspy and Julian Lage perform “Best Behavior”.
     const YT_LINK: &str = "https://www.youtube.com/watch?v=p4LgzLjF4xE";
+
+    // A local copy of the file above to avoid using the network in tests. 
+    const LOCAL_FILE: &str = "testdata/test_audio.m4a";
 
     /// Verifies extracting the link from a valid exercise manifest.
     #[test]
@@ -381,8 +385,10 @@ mod test {
     #[test]
     fn test_download_valid_asset() {
         let temp_dir = tempfile::tempdir().unwrap();
+        let local_path = path::absolute(Path::new(LOCAL_FILE)).unwrap();
+        let file_link = format!("file://{}", local_path.to_str().unwrap());
         let link_store = MockLinkStore {
-            link: Some(TranscriptionLink::YouTube(YT_LINK.into())),
+            link: Some(TranscriptionLink::YouTube(file_link)),
         };
         let downloader = LocalTranscriptionDownloader {
             preferences: TranscriptionPreferences {
