@@ -155,12 +155,12 @@ impl LocalCourseLibrary {
         index_writer: &mut IndexWriter,
         id: Ustr,
         name: &str,
-        description: &Option<String>,
-        metadata: &Option<BTreeMap<String, Vec<String>>>,
+        description: Option<&str>,
+        metadata: Option<&BTreeMap<String, Vec<String>>>,
     ) -> Result<()> {
         // Extract the description from the `Option` value to satisfy the borrow checker.
         let empty = String::new();
-        let description = description.as_ref().unwrap_or(&empty);
+        let description = description.unwrap_or(&empty);
 
         // Declare the base document with the ID, name, and description fields.
         let mut doc = doc!(
@@ -229,8 +229,8 @@ impl LocalCourseLibrary {
             index_writer,
             exercise_manifest.id,
             &exercise_manifest.name,
-            &exercise_manifest.description,
-            &None,
+            exercise_manifest.description.as_deref(),
+            None,
         )?; // grcov-excl-line
 
         // Add the exercise to the unit graph and exercise map.
@@ -328,8 +328,8 @@ impl LocalCourseLibrary {
             index_writer,
             lesson_manifest.id,
             &lesson_manifest.name,
-            &lesson_manifest.description,
-            &lesson_manifest.metadata,
+            lesson_manifest.description.as_deref(),
+            lesson_manifest.metadata.as_ref(),
         )?; // grcov-excl-line
         Ok(())
     }
@@ -427,8 +427,8 @@ impl LocalCourseLibrary {
             index_writer,
             course_manifest.id,
             &course_manifest.name,
-            &course_manifest.description,
-            &course_manifest.metadata,
+            course_manifest.description.as_deref(),
+            course_manifest.metadata.as_ref(),
         )?; // grcov-excl-line
         Ok(())
     }
