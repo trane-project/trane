@@ -233,7 +233,10 @@ impl TranscriptionDownloader for LocalTranscriptionDownloader {
 
 #[cfg(test)]
 mod test {
-    use std::{path::{self, Path}, sync::Arc};
+    use std::{
+        path::{self, Path},
+        sync::Arc,
+    };
     use ustr::Ustr;
 
     use crate::{
@@ -259,7 +262,7 @@ mod test {
     // Test link to a real YouTube video: Margaret Glaspy and Julian Lage perform “Best Behavior”.
     const YT_LINK: &str = "https://www.youtube.com/watch?v=p4LgzLjF4xE";
 
-    // A local copy of the file above to avoid using the network in tests. 
+    // A local copy of the file above to avoid using the network in tests.
     const LOCAL_FILE: &str = "testdata/test_audio.m4a";
 
     /// Verifies extracting the link from a valid exercise manifest.
