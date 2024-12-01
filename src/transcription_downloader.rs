@@ -169,19 +169,24 @@ impl LocalTranscriptionDownloader {
         match link {
             TranscriptionLink::YouTube(yt_link) => {
                 let temp_file = temp_dir.path().join("audio.m4a");
-                let status = Command::new("yt-dlp")
+                let output = Command::new("yt-dlp")
                     .stdin(Stdio::null())
                     .stdout(Stdio::null())
-                    .stderr(Stdio::null())
+                    .stderr(Stdio::piped())
                     .arg("--extract-audio")
                     .arg("--audio-format")
                     .arg("m4a")
                     .arg("--output")
                     .arg(temp_file.to_str().unwrap())
                     .arg(&yt_link)
-                    .status()?;
-                if !status.success() {
-                    bail!("yt-dlp failed to download audio from URL {}", yt_link);
+                    .output()?;
+                if !output.status.success() {
+                    let err = String::from_utf8_lossy(&output.stderr);
+                    bail!(
+                        "yt-dlp failed to download audio from URL {}: {}",
+                        yt_link,
+                        err
+                    );
                 }
                 std::fs::create_dir_all(download_path.parent().unwrap())?;
                 std::fs::copy(temp_file, &download_path)?;
@@ -374,7 +379,7 @@ mod test {
 
     /// Verifies downloading a valid asset.
     #[test]
-    fn test_download_asset() {
+    fn test_download_valid_asset() {
         let temp_dir = tempfile::tempdir().unwrap();
         let link_store = MockLinkStore {
             link: Some(TranscriptionLink::YouTube(YT_LINK.into())),
