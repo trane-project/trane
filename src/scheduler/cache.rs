@@ -351,10 +351,7 @@ impl ScoreCache {
         match unit_type {
             UnitType::Course => self.get_course_score(unit_id),
             UnitType::Lesson => self.get_lesson_score(unit_id),
-            UnitType::Exercise => match self.get_exercise_score(unit_id) {
-                Err(e) => Err(e),
-                Ok(score) => Ok(Some(score)),
-            },
+            UnitType::Exercise => self.get_exercise_score(unit_id).map(Some),
         }
     }
 }
