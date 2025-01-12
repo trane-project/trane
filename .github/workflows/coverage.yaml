@@ -38,7 +38,7 @@ jobs:
           CARGO_INCREMENTAL: '0'
           RUSTFLAGS: '-Cinstrument-coverage'
           RUSTDOCFLAGS: '-Cinstrument-coverage'
-          LLVM_PROFILE_FILE: 'trane-%p-%m.profraw'
+          LLVM_PROFILE_FILE: 'trane_%p_%m.profraw'
           
       - name: Run grcov 
         id: coverage
@@ -50,4 +50,4 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: ${{ steps.coverage.outputs.report }}
         env:
-          LLVM_PROFILE_FILE: 'trane-%p-%m.profraw'
+          LLVM_PROFILE_FILE: 'trane_%p_%m.profraw'
