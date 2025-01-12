@@ -99,12 +99,6 @@ impl ExerciseBuilder {
         }
 
         // Verify that all paths mentioned in the manifest are valid.
-        ensure!(
-            manifest.verify_paths(exercise_directory)?,
-            "cannot verify files mentioned in the manifest for exercise {}",
-            manifest.id,
-        );
-
         manifest.verify_paths(exercise_directory).context(format!(
             "failed to verify files for exercise {}",
             manifest.id
