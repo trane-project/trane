@@ -7,7 +7,10 @@
 //! development, so the format of the manifests is not stable yet. Generating the files by code
 //! makes it easier to make updates to the files as the format changes.
 
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
+
 pub mod knowledge_base_builder;
+#[cfg_attr(coverage, coverage(off))]
 pub mod music;
 
 use anyhow::{ensure, Result};
