@@ -105,7 +105,6 @@ impl ExerciseBuilder {
             manifest.id,
         );
 
-        #[cfg_attr(coverage, coverage(off))]
         manifest.verify_paths(exercise_directory).context(format!(
             "failed to verify files for exercise {}",
             manifest.id
