@@ -23,33 +23,47 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          components: llvm-tools-preview
           override: true
 
-      - name: Install llvm tools
-        run: rustup component add llvm-tools-preview
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
 
-      - name: Run tests with code coverage information 
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --all-features --no-fail-fast
-        env:
-          RUSTC_BOOTSTRAP: '1'
-          CARGO_INCREMENTAL: '0'
-          # RUSTFLAGS: '-Cinstrument-coverage'
-          RUSTFLAGS: '-Cinstrument-coverage -Ccodegen-units=1 -Cllvm-args=--inline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-          RUSTDOCFLAGS: '-Cinstrument-coverage -Ccodegen-units=1 -Cllvm-args=--inline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-          # RUSTDOCFLAGS: '-Cinstrument-coverage'
-          LLVM_PROFILE_FILE: 'trane-%p-%m.profraw'
-          
-      - name: Run grcov 
+      - name: Generate code coverage
         id: coverage
-        uses: rraval/grcov@master
+        run: cargo llvm-cov --all-features --exclude register_derive_impl --workspace --no-fail-fast --lcov --output-path lcov.info
+        env:
+          NODE_COVERALLS_DEBUG: true
 
       - name: Coveralls upload
         uses: coverallsapp/github-action@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          path-to-lcov: ${{ steps.coverage.outputs.report }}
-        env:
-          LLVM_PROFILE_FILE: 'trane-%p-%m.profraw'
+          path-to-lcov: lcov.info
+          debug: true
+
+      # - name: Run tests with code coverage information 
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: test
+      #     args: --all-features --no-fail-fast
+      #   env:
+      #     RUSTC_BOOTSTRAP: '1'
+      #     CARGO_INCREMENTAL: '0'
+      #     # RUSTFLAGS: '-Cinstrument-coverage'
+      #     RUSTFLAGS: '-Cinstrument-coverage -Ccodegen-units=1 -Cllvm-args=--inline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+      #     RUSTDOCFLAGS: '-Cinstrument-coverage -Ccodegen-units=1 -Cllvm-args=--inline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+      #     # RUSTDOCFLAGS: '-Cinstrument-coverage'
+      #     LLVM_PROFILE_FILE: 'trane-%p-%m.profraw'
+          
+      # - name: Run grcov 
+      #   id: coverage
+      #   uses: rraval/grcov@master
+
+      # - name: Coveralls upload
+      #   uses: coverallsapp/github-action@master
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     path-to-lcov: ${{ steps.coverage.outputs.report }}
+      #   env:
+      #     LLVM_PROFILE_FILE: 'trane-%p-%m.profraw'
