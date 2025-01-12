@@ -36,6 +36,8 @@
 //!
 //>@lp-example-3
 
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
+
 // Use pedantic warnings but disable some that are not useful.
 #![warn(clippy::pedantic)]
 #![allow(clippy::doc_markdown)]
@@ -327,6 +329,7 @@ impl Trane {
     }
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl Blacklist for Trane {
     fn add_to_blacklist(&mut self, unit_id: Ustr) -> Result<(), BlacklistError> {
         // Make sure to invalidate any cached scores for the given unit.
@@ -355,6 +358,7 @@ impl Blacklist for Trane {
     }
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl CourseLibrary for Trane {
     fn get_course_manifest(&self, course_id: Ustr) -> Option<CourseManifest> {
         self.course_library.read().get_course_manifest(course_id)
@@ -397,6 +401,7 @@ impl CourseLibrary for Trane {
     }
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl ExerciseScheduler for Trane {
     fn get_exercise_batch(
         &self,
@@ -435,6 +440,7 @@ impl ExerciseScheduler for Trane {
     }
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl FilterManager for Trane {
     fn get_filter(&self, id: &str) -> Option<SavedFilter> {
         self.filter_manager.read().get_filter(id)
@@ -445,6 +451,7 @@ impl FilterManager for Trane {
     }
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl PracticeStats for Trane {
     fn get_scores(
         &self,
@@ -478,6 +485,7 @@ impl PracticeStats for Trane {
     }
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl PreferencesManager for Trane {
     fn get_user_preferences(&self) -> Result<UserPreferences, PreferencesManagerError> {
         self.preferences_manager.read().get_user_preferences()
@@ -493,6 +501,7 @@ impl PreferencesManager for Trane {
     }
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl RepositoryManager for Trane {
     fn add_repo(
         &mut self,
@@ -519,6 +528,7 @@ impl RepositoryManager for Trane {
     }
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl ReviewList for Trane {
     fn add_to_review_list(&mut self, unit_id: Ustr) -> Result<(), ReviewListError> {
         self.review_list.write().add_to_review_list(unit_id)
@@ -533,6 +543,7 @@ impl ReviewList for Trane {
     }
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl StudySessionManager for Trane {
     fn get_study_session(&self, id: &str) -> Option<data::filter::StudySession> {
         self.study_session_manager.read().get_study_session(id)
@@ -543,6 +554,7 @@ impl StudySessionManager for Trane {
     }
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl TranscriptionDownloader for Trane {
     fn is_transcription_asset_downloaded(&self, exercise_id: Ustr) -> bool {
         self.transcription_downloader
@@ -573,6 +585,7 @@ impl TranscriptionDownloader for Trane {
     }
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl UnitGraph for Trane {
     fn add_course(&mut self, course_id: Ustr) -> Result<(), UnitGraphError> {
         self.unit_graph.write().add_course(course_id)

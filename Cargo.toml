@@ -41,3 +41,6 @@ walkdir = "2.5.0"
 
 [profile.bench]
 debug = true
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage,coverage_nightly)'] }
