@@ -155,7 +155,7 @@ impl CourseBuilder {
         ensure!(
             !course_directory.is_dir(),
             "course directory {} already exists",
-            course_directory.display(), // grcov-excl-line
+            course_directory.display(),
         );
         create_dir_all(&course_directory)?;
 
@@ -383,7 +383,7 @@ impl SimpleKnowledgeBaseCourse {
                 fs::remove_dir_all(&lesson_directory).context(format!(
                     "failed to remove existing lesson directory at {}",
                     lesson_directory.display()
-                ))?; // grcov-excl-line
+                ))?;
             }
 
             lesson_builder.build(&lesson_directory)?;
@@ -394,7 +394,7 @@ impl SimpleKnowledgeBaseCourse {
         let display = manifest_path.display();
         let mut manifest_file = fs::File::create(&manifest_path).context(format!(
             "failed to create course manifest file at {display}"
-        ))?; // grcov-excl-line
+        ))?;
         manifest_file
             .write_all(serde_json::to_string_pretty(&self.manifest)?.as_bytes())
             .context(format!("failed to write course manifest file at {display}"))

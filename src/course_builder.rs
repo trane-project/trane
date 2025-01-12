@@ -33,10 +33,10 @@ pub enum TraneMetadata {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AssetBuilder {
     /// The name of the file, which will be joined with the directory passed in the build function.
-    pub file_name: String, // grcov-excl-line
+    pub file_name: String,
 
     /// The contents of the file as a string.
-    pub contents: String, // grcov-excl-line
+    pub contents: String,
 }
 
 impl AssetBuilder {
@@ -48,7 +48,7 @@ impl AssetBuilder {
         ensure!(
             !asset_path.exists(),
             "asset path {} already exists",
-            asset_path.display() // grcov-excl-line
+            asset_path.display()
         );
 
         // Create any parent directories to the asset path to support specifying a directory in the
@@ -86,7 +86,7 @@ impl ExerciseBuilder {
         ensure!(
             !exercise_directory.is_dir(),
             "exercise directory {} already exists",
-            exercise_directory.display(), // grcov-excl-line
+            exercise_directory.display(),
         );
         create_dir_all(exercise_directory)?;
 
@@ -144,7 +144,7 @@ impl LessonBuilder {
         ensure!(
             !lesson_directory.is_dir(),
             "lesson directory {} already exists",
-            lesson_directory.display(), // grcov-excl-line
+            lesson_directory.display(),
         );
         create_dir_all(lesson_directory)?;
 
@@ -204,7 +204,7 @@ impl CourseBuilder {
         ensure!(
             !course_directory.is_dir(),
             "course directory {} already exists",
-            course_directory.display(), // grcov-excl-line
+            course_directory.display(),
         );
         create_dir_all(&course_directory)?;
 

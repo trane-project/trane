@@ -217,11 +217,9 @@ pub enum BasicAsset {
 impl NormalizePaths for BasicAsset {
     fn normalize_paths(&self, working_dir: &Path) -> Result<Self> {
         match &self {
-            // grcov-excl-start: This is a no-op for these variants.
             BasicAsset::InlinedAsset { .. } | BasicAsset::InlinedUniqueAsset { .. } => {
                 Ok(self.clone())
             }
-            // grcov-excl-stop
             BasicAsset::MarkdownAsset { path } => {
                 let abs_path = normalize_path(working_dir, path)?;
                 Ok(BasicAsset::MarkdownAsset { path: abs_path })
@@ -233,7 +231,7 @@ impl NormalizePaths for BasicAsset {
 impl VerifyPaths for BasicAsset {
     fn verify_paths(&self, working_dir: &Path) -> Result<bool> {
         match &self {
-            BasicAsset::InlinedAsset { .. } | BasicAsset::InlinedUniqueAsset { .. } => Ok(true), // grcov-excl-line
+            BasicAsset::InlinedAsset { .. } | BasicAsset::InlinedUniqueAsset { .. } => Ok(true),
             BasicAsset::MarkdownAsset { path } => {
                 let abs_path = working_dir.join(Path::new(path));
                 Ok(abs_path.exists())
@@ -410,11 +408,11 @@ impl VerifyPaths for CourseManifest {
     fn verify_paths(&self, working_dir: &Path) -> Result<bool> {
         // The paths mentioned in the instructions and material must both exist.
         let instructions_exist = match &self.course_instructions {
-            None => true, // grcov-excl-line
+            None => true,
             Some(asset) => asset.verify_paths(working_dir)?,
         };
         let material_exists = match &self.course_material {
-            None => true, // grcov-excl-line
+            None => true,
             Some(asset) => asset.verify_paths(working_dir)?,
         };
         Ok(instructions_exist && material_exists)
@@ -514,11 +512,11 @@ impl VerifyPaths for LessonManifest {
     fn verify_paths(&self, working_dir: &Path) -> Result<bool> {
         // The paths mentioned in the instructions and material must both exist.
         let instruction_exists = match &self.lesson_instructions {
-            None => true, // grcov-excl-line
+            None => true,
             Some(asset) => asset.verify_paths(working_dir)?,
         };
         let material_exists = match &self.lesson_material {
-            None => true, // grcov-excl-line
+            None => true,
             Some(asset) => asset.verify_paths(working_dir)?,
         };
         Ok(instruction_exists && material_exists)
@@ -641,11 +639,9 @@ impl NormalizePaths for ExerciseAsset {
                     back_path: abs_back_path,
                 })
             }
-            // grcov-excl-start: This is a no-op for these variants.
             ExerciseAsset::LiteracyAsset { .. } | ExerciseAsset::TranscriptionAsset { .. } => {
                 Ok(self.clone())
             }
-            // grcov-excl-stop
             ExerciseAsset::SoundSliceAsset {
                 link,
                 description,
@@ -683,11 +679,9 @@ impl VerifyPaths for ExerciseAsset {
                     Ok(front_abs_path.exists())
                 }
             }
-            // grcov-excl-start: This is a no-op for these variants.
             ExerciseAsset::LiteracyAsset { .. } | ExerciseAsset::TranscriptionAsset { .. } => {
                 Ok(true)
             }
-            // grcov-excl-stop
             ExerciseAsset::SoundSliceAsset { backup, .. } => match backup {
                 None => Ok(true),
                 Some(path) => {

@@ -138,22 +138,18 @@ impl KeyValueFilter {
                 let course_result = match *op {
                     FilterOp::All => course_filters
                         .iter()
-                        .map(|f| f.apply_to_course(course_manifest))
-                        .all(|x| x),
+                        .all(|f| f.apply_to_course(course_manifest)),
                     FilterOp::Any => course_filters
                         .iter()
-                        .map(|f| f.apply_to_course(course_manifest))
-                        .any(|x| x),
+                        .any(|f| f.apply_to_course(course_manifest)),
                 };
                 let other_result = match *op {
                     FilterOp::All => other_filters
                         .iter()
-                        .map(|f| f.apply_to_course(course_manifest))
-                        .all(|x| x),
+                        .all(|f| f.apply_to_course(course_manifest)),
                     FilterOp::Any => other_filters
                         .iter()
-                        .map(|f| f.apply_to_course(course_manifest))
-                        .any(|x| x),
+                        .any(|f| f.apply_to_course(course_manifest)),
                 };
 
                 // If there were only course filters, return that result as is.
@@ -204,19 +200,16 @@ impl KeyValueFilter {
                 match *op {
                     FilterOp::All => filters
                         .iter()
-                        .map(|f| f.apply_to_lesson(course_manifest, lesson_manifest))
-                        .all(|x| x),
+                        .all(|f| f.apply_to_lesson(course_manifest, lesson_manifest)),
                     FilterOp::Any => filters
                         .iter()
-                        .map(|f| f.apply_to_lesson(course_manifest, lesson_manifest))
-                        .any(|x| x),
+                        .any(|f| f.apply_to_lesson(course_manifest, lesson_manifest)),
                 }
             }
         }
     }
 }
 
-// grcov-excl-start: Code coverage for this struct is flaky for some unknown reason.
 /// A filter on a course or lesson manifest.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
 #[ts(export)]
@@ -261,7 +254,6 @@ pub enum UnitFilter {
         depth: usize,
     },
 }
-// grcov-excl-stop
 
 impl UnitFilter {
     /// Returns whether the course with the given ID passes the course filter.

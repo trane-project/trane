@@ -473,7 +473,7 @@ impl TraneSimulation {
                     exercise_manifest.id,
                     score.clone(),
                     Utc::now().timestamp(),
-                )?; // grcov-excl-line
+                )?;
                 self.answer_history
                     .entry(exercise_manifest.id)
                     .or_default()

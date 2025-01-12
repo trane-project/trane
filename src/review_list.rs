@@ -52,7 +52,7 @@ impl LocalReviewList {
         let migrations = Self::migrations();
         migrations
             .to_latest(&mut connection)
-            .context("failed to initialize review list DB") // grcov-excl-line
+            .context("failed to initialize review list DB")
     }
 
     /// A constructor taking a connection manager.
@@ -117,17 +117,17 @@ impl LocalReviewList {
 impl ReviewList for LocalReviewList {
     fn add_to_review_list(&mut self, unit_id: Ustr) -> Result<(), ReviewListError> {
         self.add_to_review_list_helper(unit_id)
-            .map_err(|e| ReviewListError::AddUnit(unit_id, e)) // grcov-excl-line
+            .map_err(|e| ReviewListError::AddUnit(unit_id, e))
     }
 
     fn remove_from_review_list(&mut self, unit_id: Ustr) -> Result<(), ReviewListError> {
         self.remove_from_review_list_helper(unit_id)
-            .map_err(|e| ReviewListError::RemoveUnit(unit_id, e)) // grcov-excl-line
+            .map_err(|e| ReviewListError::RemoveUnit(unit_id, e))
     }
 
     fn get_review_list_entries(&self) -> Result<Vec<Ustr>, ReviewListError> {
         self.get_review_list_entries_helper()
-            .map_err(ReviewListError::GetEntries) // grcov-excl-line
+            .map_err(ReviewListError::GetEntries)
     }
 }
 

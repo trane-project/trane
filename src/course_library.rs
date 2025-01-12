@@ -195,9 +195,9 @@ impl LocalCourseLibrary {
     fn get_file_name(path: &Path) -> Result<String> {
         Ok(path
             .file_name()
-            .ok_or(anyhow!("cannot get file name from DirEntry"))? // grcov-excl-line
+            .ok_or(anyhow!("cannot get file name from DirEntry"))?
             .to_str()
-            .ok_or(anyhow!("invalid dir entry {}", path.display()))? // grcov-excl-line
+            .ok_or(anyhow!("invalid dir entry {}", path.display()))?
             .to_string())
     }
 
@@ -231,7 +231,7 @@ impl LocalCourseLibrary {
             &exercise_manifest.name,
             exercise_manifest.description.as_deref(),
             None,
-        )?; // grcov-excl-line
+        )?;
 
         // Add the exercise to the unit graph and exercise map.
         self.unit_graph
@@ -284,7 +284,7 @@ impl LocalCourseLibrary {
                     lesson_manifest,
                     exercise_manifest.clone(),
                     index_writer,
-                )?; // grcov-excl-line
+                )?;
             }
         }
 
@@ -316,7 +316,7 @@ impl LocalCourseLibrary {
                         lesson_manifest,
                         exercise_manifest,
                         index_writer,
-                    )?; // grcov-excl-line
+                    )?;
                 }
             }
         }
@@ -330,7 +330,7 @@ impl LocalCourseLibrary {
             &lesson_manifest.name,
             lesson_manifest.description.as_deref(),
             lesson_manifest.metadata.as_ref(),
-        )?; // grcov-excl-line
+        )?;
         Ok(())
     }
 
@@ -363,7 +363,7 @@ impl LocalCourseLibrary {
                 course_root,
                 &course_manifest,
                 &self.user_preferences,
-            )?; // grcov-excl-line
+            )?;
             for (lesson_manifest, exercise_manifests) in generated_course.lessons {
                 // All the generated lessons will use the root of the course as their root.
                 self.process_lesson_manifest(
@@ -372,7 +372,7 @@ impl LocalCourseLibrary {
                     &lesson_manifest,
                     index_writer,
                     Some(&exercise_manifests),
-                )?; // grcov-excl-line
+                )?;
             }
 
             // Update the course manifest's metadata, material, and instructions if needed.
@@ -414,7 +414,7 @@ impl LocalCourseLibrary {
                         &lesson_manifest,
                         index_writer,
                         None,
-                    )?; // grcov-excl-line
+                    )?;
                 }
             }
         }
@@ -429,7 +429,7 @@ impl LocalCourseLibrary {
             &course_manifest.name,
             course_manifest.description.as_deref(),
             course_manifest.metadata.as_ref(),
-        )?; // grcov-excl-line
+        )?;
         Ok(())
     }
 
@@ -496,7 +496,7 @@ impl LocalCourseLibrary {
                         dir_entry.path().parent().unwrap(),
                         course_manifest,
                         &mut index_writer,
-                    )?; // grcov-excl-line
+                    )?;
                 }
             }
         }
@@ -508,7 +508,7 @@ impl LocalCourseLibrary {
                 .index
                 .reader_builder()
                 .reload_policy(ReloadPolicy::OnCommitWithDelay)
-                .try_into()?, // grcov-excl-line
+                .try_into()?,
         );
 
         // Compute the lessons in a course not dependent on any other lesson in the course. This
@@ -525,7 +525,7 @@ impl LocalCourseLibrary {
         // Retrieve a searcher from the reader and parse the query.
         if self.reader.is_none() {
             // This should never happen since the reader is initialized in the constructor.
-            return Ok(Vec::new()); // grcov-excl-line
+            return Ok(Vec::new());
         }
         let searcher = self.reader.as_ref().unwrap().searcher();
         let id_field = Self::schema_field(ID_SCHEMA_FIELD)?;
@@ -681,7 +681,7 @@ impl CourseLibrary for LocalCourseLibrary {
 
     fn search(&self, query: &str) -> Result<Vec<Ustr>, CourseLibraryError> {
         self.search_helper(query)
-            .map_err(|e| CourseLibraryError::Search(query.into(), e)) // grcov-excl-line
+            .map_err(|e| CourseLibraryError::Search(query.into(), e))
     }
 }
 

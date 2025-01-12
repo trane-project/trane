@@ -472,7 +472,7 @@ impl KnowledgeBaseLesson {
                     &files,
                 )
             })
-            .collect::<Result<Vec<_>>>()?; // grcov-excl-line
+            .collect::<Result<Vec<_>>>()?;
         Ok((lesson, exercises))
     }
 }

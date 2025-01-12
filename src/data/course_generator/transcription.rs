@@ -726,13 +726,13 @@ impl TranscriptionConfig {
             let file_name = path
                 .file_name()
                 .and_then(|name| name.to_str())
-                .ok_or(anyhow!("Failed to get the file name"))? // grcov-excl-line
+                .ok_or(anyhow!("Failed to get the file name"))?
                 .to_string();
 
             // Ignore any non-JSON files.
             if !Path::new(&file_name)
                 .extension()
-                .map_or(false, |ext| ext.eq_ignore_ascii_case("json"))
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("json"))
             {
                 continue;
             }

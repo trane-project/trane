@@ -228,7 +228,7 @@ impl Trane {
             let default_prefs = UserPreferences::default();
             let prefs_json = serde_json::to_string_pretty(&default_prefs)? + "\n";
             file.write_all(prefs_json.as_bytes())
-                .context("failed to write to user_preferences.json file")?; // grcov-excl-line
+                .context("failed to write to user_preferences.json file")?;
         } else if !user_prefs_path.is_file() {
             bail!("user preferences file must be a regular file");
         }
@@ -326,10 +326,6 @@ impl Trane {
         self.scheduler_data.clone()
     }
 }
-
-// grcov-excl-start: The following implementation blocks simply expose the interfaces already
-// implemented and tested by the various submodules. Therefore, the next line excludes this section
-// from the final report.
 
 impl Blacklist for Trane {
     fn add_to_blacklist(&mut self, unit_id: Ustr) -> Result<(), BlacklistError> {
@@ -661,8 +657,6 @@ impl UnitGraph for Trane {
         self.unit_graph.read().generate_dot_graph()
     }
 }
-
-// grcov-excl-stop
 
 #[cfg(test)]
 mod test {
