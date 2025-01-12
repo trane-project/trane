@@ -13,7 +13,7 @@ pub mod knowledge_base_builder;
 #[cfg_attr(coverage, coverage(off))]
 pub mod music;
 
-use anyhow::{ensure, Result};
+use anyhow::{ensure, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{create_dir_all, File},
@@ -85,15 +85,8 @@ impl ExerciseBuilder {
         exercise_directory: &PathBuf,
         manifest_template: ExerciseManifestBuilder,
     ) -> Result<()> {
-        // Verify that the directory doesn't already exist and create it.
-        ensure!(
-            !exercise_directory.is_dir(),
-            "exercise directory {} already exists",
-            exercise_directory.display(),
-        );
+        // Create the directory and write the exercise manifest.
         create_dir_all(exercise_directory)?;
-
-        // Write the exercise manifest.
         let manifest = (self.manifest_closure)(manifest_template).build()?;
         let manifest_json = serde_json::to_string_pretty(&manifest)? + "\n";
         let manifest_path = exercise_directory.join("exercise_manifest.json");
@@ -111,6 +104,12 @@ impl ExerciseBuilder {
             "cannot verify files mentioned in the manifest for exercise {}",
             manifest.id,
         );
+
+        #[cfg_attr(coverage, coverage(off))]
+        manifest.verify_paths(exercise_directory).context(format!(
+            "failed to verify files for exercise {}",
+            manifest.id
+        ))?;
         Ok(())
     }
 }
@@ -143,15 +142,8 @@ impl LessonBuilder {
         lesson_directory: &PathBuf,
         manifest_template: LessonManifestBuilder,
     ) -> Result<()> {
-        // Verify that the directory doesn't already exist and create it.
-        ensure!(
-            !lesson_directory.is_dir(),
-            "lesson directory {} already exists",
-            lesson_directory.display(),
-        );
+        // Create the directory and write the lesson manifest.
         create_dir_all(lesson_directory)?;
-
-        // Write the lesson manifest.
         let manifest = (self.manifest_closure)(manifest_template).build()?;
         let manifest_json = serde_json::to_string_pretty(&manifest)? + "\n";
         let manifest_path = lesson_directory.join("lesson_manifest.json");
@@ -202,16 +194,9 @@ pub struct CourseBuilder {
 impl CourseBuilder {
     /// Writes the files needed for this course to the given directory.
     pub fn build(&self, parent_directory: &Path) -> Result<()> {
-        // Verify that the directory doesn't already exist and create it.
+        // Create the directory and write the course manifest.
         let course_directory = parent_directory.join(&self.directory_name);
-        ensure!(
-            !course_directory.is_dir(),
-            "course directory {} already exists",
-            course_directory.display(),
-        );
         create_dir_all(&course_directory)?;
-
-        // Write the course manifest.
         let manifest_json = serde_json::to_string_pretty(&self.course_manifest)? + "\n";
         let manifest_path = course_directory.join("course_manifest.json");
         let mut manifest_file = File::create(manifest_path)?;
