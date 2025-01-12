@@ -2,11 +2,11 @@
 //! store the results of a student's attempt at mastering an exercise, the options avaialble to
 //! control the behavior of the scheduler, among other things.
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
+#![cfg_attr(coverage, feature(coverage_attribute))]
 
 pub mod course_generator;
 pub mod filter;
-#[cfg_attr(coverage_nightly, coverage(off))]
+#[cfg_attr(coverage, coverage(off))]
 pub mod music;
 
 use anyhow::{bail, Result};

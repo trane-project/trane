@@ -36,7 +36,8 @@
 //!
 //>@lp-example-3
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
+#![cfg_attr(coverage, feature(coverage_attribute))]
+
 // Use pedantic warnings but disable some that are not useful.
 #![warn(clippy::pedantic)]
 #![allow(clippy::doc_markdown)]
@@ -328,7 +329,7 @@ impl Trane {
     }
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
+#[cfg_attr(coverage, coverage(off))]
 impl Blacklist for Trane {
     fn add_to_blacklist(&mut self, unit_id: Ustr) -> Result<(), BlacklistError> {
         // Make sure to invalidate any cached scores for the given unit.
@@ -585,7 +586,7 @@ impl TranscriptionDownloader for Trane {
 }
 
 impl UnitGraph for Trane {
-    #[cfg_attr(coverage_nightly, coverage(off))]
+    #[cfg_attr(coverage, coverage(off))]
     fn add_course(&mut self, course_id: Ustr) -> Result<(), UnitGraphError> {
         self.unit_graph.write().add_course(course_id)
     }
