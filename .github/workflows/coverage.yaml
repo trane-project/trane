@@ -25,6 +25,9 @@ jobs:
           toolchain: stable
           override: true
 
+      - name: Install llvm tools
+        runs: rustup component add llvm-tools-preview
+
       - name: Run tests with code coverage information 
         uses: actions-rs/cargo@v1
         with:
@@ -33,8 +36,11 @@ jobs:
         env:
           RUSTC_BOOTSTRAP: '1'
           CARGO_INCREMENTAL: '0'
-          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cllvm-args=--inline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-          RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cllvm-args=--inline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+          RUSTFLAGS: '-Cinstrument-coverage'
+          RUSTDOCFLAGS: '-Cinstrument-coverage'
+          LLVM_PROFILE_FILE: 'trane-%p-%m.profraw'
+          # RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cllvm-args=--inline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+          # RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cllvm-args=--inline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
           
       - name: Run grcov 
         id: coverage
