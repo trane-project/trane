@@ -36,7 +36,7 @@
 //!
 //>@lp-example-3
 
-#![cfg_attr(coverage, feature(coverage_attribute))]
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 
 // Use pedantic warnings but disable some that are not useful.
 #![warn(clippy::pedantic)]
