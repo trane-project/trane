@@ -26,6 +26,7 @@ use crate::data::{CourseManifest, ExerciseManifestBuilder, LessonManifestBuilder
 #[derive(Display)]
 #[strum(serialize_all = "snake_case")]
 #[allow(missing_docs)]
+#[cfg_attr(coverage, coverage(off))]
 pub enum TraneMetadata {
     Skill,
 }
@@ -53,7 +54,7 @@ impl AssetBuilder {
         );
 
         // Create any parent directories to the asset path to support specifying a directory in the
-        // path.
+        // asset path.
         create_dir_all(asset_path.parent().unwrap())?;
 
         // Write the asset file.
@@ -153,11 +154,9 @@ impl LessonBuilder {
         }
 
         // Verify that all paths mentioned in the manifest are valid.
-        ensure!(
-            manifest.verify_paths(lesson_directory)?,
-            "cannot verify files mentioned in the manifest for lesson {}",
-            manifest.id,
-        );
+        manifest
+            .verify_paths(lesson_directory)
+            .context(format!("failed to verify files for lesson {}", manifest.id))?;
         Ok(())
     }
 }
@@ -205,12 +204,12 @@ impl CourseBuilder {
         }
 
         // Verify that all paths mentioned in the manifest are valid.
-        ensure!(
-            self.course_manifest
-                .verify_paths(course_directory.as_path())?,
-            "cannot verify files mentioned in the manifest for course {}",
-            self.course_manifest.id,
-        );
+        self.course_manifest
+            .verify_paths(&course_directory)
+            .context(format!(
+                "failed to verify files for course {}",
+                self.course_manifest.id
+            ))?;
         Ok(())
     }
 }
@@ -237,6 +236,23 @@ mod test {
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
         assert_eq!(contents, "asset1 contents");
+        Ok(())
+    }
+
+    /// Verifies the asset builder fails if there's an existing file.
+    #[test]
+    fn asset_builer_existing() -> Result<()> {
+        // Create the file first.
+        let temp_dir = tempfile::tempdir()?;
+        let asset_path = temp_dir.path().join("asset1.md");
+        File::create(&asset_path)?;
+
+        // Creating the asset builder should fail.
+        let asset_builder = AssetBuilder {
+            file_name: "asset1.md".to_string(),
+            contents: "asset1 contents".to_string(),
+        };
+        assert!(asset_builder.build(temp_dir.path()).is_err());
         Ok(())
     }
 
