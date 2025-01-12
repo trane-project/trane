@@ -49,3 +49,5 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: ${{ steps.coverage.outputs.report }}
+        env:
+          LLVM_PROFILE_FILE: 'trane-%p-%m.profraw'
