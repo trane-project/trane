@@ -4,8 +4,6 @@
 //! hand. This module contains utilities to make it easier to generate these files, specially for
 //! testing purposes.
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
-
 use anyhow::{ensure, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::{

@@ -3,8 +3,6 @@
 //! Transcription courses include references to external assets. Manually downloading them is a
 //! cumbersome process, so this module automates the process.
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
-
 use std::{
     path::{Path, PathBuf},
     process::{Command, Stdio},
