@@ -732,7 +732,7 @@ impl TranscriptionConfig {
             // Ignore any non-JSON files.
             if !Path::new(&file_name)
                 .extension()
-                .map_or(false, |ext| ext.eq_ignore_ascii_case("json"))
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("json"))
             {
                 continue;
             }
