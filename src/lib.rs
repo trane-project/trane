@@ -401,7 +401,7 @@ impl CourseLibrary for Trane {
     }
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
+#[cfg_attr(coverage, coverage(off))]
 impl ExerciseScheduler for Trane {
     fn get_exercise_batch(
         &self,
@@ -440,7 +440,7 @@ impl ExerciseScheduler for Trane {
     }
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
+#[cfg_attr(coverage, coverage(off))]
 impl FilterManager for Trane {
     fn get_filter(&self, id: &str) -> Option<SavedFilter> {
         self.filter_manager.read().get_filter(id)
@@ -451,7 +451,7 @@ impl FilterManager for Trane {
     }
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
+#[cfg_attr(coverage, coverage(off))]
 impl PracticeStats for Trane {
     fn get_scores(
         &self,
@@ -485,7 +485,7 @@ impl PracticeStats for Trane {
     }
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
+#[cfg_attr(coverage, coverage(off))]
 impl PreferencesManager for Trane {
     fn get_user_preferences(&self) -> Result<UserPreferences, PreferencesManagerError> {
         self.preferences_manager.read().get_user_preferences()
@@ -501,7 +501,7 @@ impl PreferencesManager for Trane {
     }
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
+#[cfg_attr(coverage, coverage(off))]
 impl RepositoryManager for Trane {
     fn add_repo(
         &mut self,
@@ -528,7 +528,7 @@ impl RepositoryManager for Trane {
     }
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
+#[cfg_attr(coverage, coverage(off))]
 impl ReviewList for Trane {
     fn add_to_review_list(&mut self, unit_id: Ustr) -> Result<(), ReviewListError> {
         self.review_list.write().add_to_review_list(unit_id)
@@ -543,7 +543,7 @@ impl ReviewList for Trane {
     }
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
+#[cfg_attr(coverage, coverage(off))]
 impl StudySessionManager for Trane {
     fn get_study_session(&self, id: &str) -> Option<data::filter::StudySession> {
         self.study_session_manager.read().get_study_session(id)
@@ -554,7 +554,7 @@ impl StudySessionManager for Trane {
     }
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
+#[cfg_attr(coverage, coverage(off))]
 impl TranscriptionDownloader for Trane {
     fn is_transcription_asset_downloaded(&self, exercise_id: Ustr) -> bool {
         self.transcription_downloader
@@ -585,23 +585,20 @@ impl TranscriptionDownloader for Trane {
     }
 }
 
+#[cfg_attr(coverage, coverage(off))]
 impl UnitGraph for Trane {
-    #[cfg_attr(coverage, coverage(off))]
     fn add_course(&mut self, course_id: Ustr) -> Result<(), UnitGraphError> {
         self.unit_graph.write().add_course(course_id)
     }
 
-    #[cfg_attr(coverage_nightly, coverage(off))]
     fn add_lesson(&mut self, lesson_id: Ustr, course_id: Ustr) -> Result<(), UnitGraphError> {
         self.unit_graph.write().add_lesson(lesson_id, course_id)
     }
 
-    #[cfg_attr(coverage_nightly, coverage(off))]
     fn add_exercise(&mut self, exercise_id: Ustr, lesson_id: Ustr) -> Result<(), UnitGraphError> {
         self.unit_graph.write().add_exercise(exercise_id, lesson_id)
     }
 
-    #[cfg_attr(coverage_nightly, coverage(off))]
     fn add_dependencies(
         &mut self,
         unit_id: Ustr,
@@ -613,77 +610,62 @@ impl UnitGraph for Trane {
             .add_dependencies(unit_id, unit_type, dependencies)
     }
 
-    #[cfg_attr(coverage_nightly, coverage(off))]
     fn add_superseded(&mut self, unit_id: Ustr, superseded: &[Ustr]) {
         self.unit_graph.write().add_superseded(unit_id, superseded);
     }
 
-    #[cfg_attr(coverage_nightly, coverage(off))]
     fn get_unit_type(&self, unit_id: Ustr) -> Option<UnitType> {
         self.unit_graph.read().get_unit_type(unit_id)
     }
 
-    #[cfg_attr(coverage_nightly, coverage(off))]
     fn get_course_lessons(&self, course_id: Ustr) -> Option<UstrSet> {
         self.unit_graph.read().get_course_lessons(course_id)
     }
 
-    #[cfg_attr(coverage_nightly, coverage(off))]
     fn get_starting_lessons(&self, course_id: Ustr) -> Option<UstrSet> {
         self.unit_graph.read().get_starting_lessons(course_id)
     }
 
-    #[cfg_attr(coverage_nightly, coverage(off))]
     fn update_starting_lessons(&mut self) {
         self.unit_graph.write().update_starting_lessons();
     }
 
-    #[cfg_attr(coverage_nightly, coverage(off))]
     fn get_lesson_course(&self, lesson_id: Ustr) -> Option<Ustr> {
         self.unit_graph.read().get_lesson_course(lesson_id)
     }
 
-    #[cfg_attr(coverage_nightly, coverage(off))]
     fn get_lesson_exercises(&self, lesson_id: Ustr) -> Option<UstrSet> {
         self.unit_graph.read().get_lesson_exercises(lesson_id)
     }
 
-    #[cfg_attr(coverage_nightly, coverage(off))]
     fn get_exercise_lesson(&self, exercise_id: Ustr) -> Option<Ustr> {
         self.unit_graph.read().get_exercise_lesson(exercise_id)
     }
 
-    #[cfg_attr(coverage_nightly, coverage(off))]
     fn get_dependencies(&self, unit_id: Ustr) -> Option<UstrSet> {
         self.unit_graph.read().get_dependencies(unit_id)
     }
 
-    #[cfg_attr(coverage_nightly, coverage(off))]
     fn get_dependents(&self, unit_id: Ustr) -> Option<UstrSet> {
         self.unit_graph.read().get_dependents(unit_id)
     }
 
-    #[cfg_attr(coverage_nightly, coverage(off))]
     fn get_dependency_sinks(&self) -> UstrSet {
         self.unit_graph.read().get_dependency_sinks()
     }
 
-    #[cfg_attr(coverage_nightly, coverage(off))]
     fn get_superseded(&self, unit_id: Ustr) -> Option<UstrSet> {
         self.unit_graph.read().get_superseded(unit_id)
     }
 
-    #[cfg_attr(coverage_nightly, coverage(off))]
     fn get_superseding(&self, unit_id: Ustr) -> Option<UstrSet> {
         self.unit_graph.read().get_superseding(unit_id)
     }
 
-    #[cfg_attr(coverage_nightly, coverage(off))]
     fn check_cycles(&self) -> Result<(), UnitGraphError> {
         self.unit_graph.read().check_cycles()
     }
 
-    #[cfg_attr(coverage_nightly, coverage(off))]
     fn generate_dot_graph(&self) -> String {
         self.unit_graph.read().generate_dot_graph()
     }
