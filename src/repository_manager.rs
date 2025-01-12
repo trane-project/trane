@@ -63,26 +63,23 @@ impl LocalRepositoryManager {
         Ok(url
             .path_segments()
             .and_then(Iterator::last)
-            .ok_or(anyhow!("invalid repository URL"))? // grcov-excl-line
+            .ok_or(anyhow!("invalid repository URL"))?
             .trim_end_matches(".git")
             .into())
     }
 
     /// Reads the repository metadata from the given path.
     fn read_metadata(path: &Path) -> Result<RepositoryMetadata> {
-        // grcov-excl-start: Can rely on serde_json to handle errors.
         let repo = serde_json::from_str::<RepositoryMetadata>(
             &fs::read_to_string(path)
                 .context(format!("failed to read metadata file {}", path.display()))?,
         )
         .context(format!("failed to parse metadata file {}", path.display()))?;
         Ok(repo)
-        // grcov-excl-stop
     }
 
     /// Writes the repository metadata to metadata directory.
     fn write_metadata(&self, metadata: &RepositoryMetadata) -> Result<()> {
-        // grcov-excl-start: Can rely on serde_json to handle errors.
         let path = self
             .metadata_directory
             .join(format!("{}.json", metadata.id));
@@ -95,7 +92,6 @@ impl LocalRepositoryManager {
             .context("failed to serialize repository metadata")?;
         fs::write(&path, buf).context(format!("failed to write metadata to {}", path.display()))?;
         Ok(())
-        // grcov-excl-stop
     }
 
     /// Clones the repository at the given URL into the given directory. If the directory already
@@ -112,18 +108,18 @@ impl LocalRepositoryManager {
             fs::remove_dir_all(&clone_dir).context(format!(
                 "cannot remove repository directory {}",
                 clone_dir.display()
-            ))?; // grcov-excl-line
+            ))?;
         }
         fs::create_dir_all(&clone_dir).context(format!(
             "cannot create repository directory {}",
             clone_dir.display()
-        ))?; // grcov-excl-line
+        ))?;
         fs_extra::copy_items(
             &[temp_clone_path.to_str().unwrap()],
             &self.download_directory,
             &fs_extra::dir::CopyOptions::new().copy_inside(true),
         )
-        .context("failed to copy repository")?; // grcov-excl-line
+        .context("failed to copy repository")?;
         Ok(())
     }
 
@@ -146,8 +142,6 @@ impl LocalRepositoryManager {
         let read_repo_dir = fs::read_dir(&repo_dir)?;
         for entry in read_repo_dir {
             // Ignore any directories, invalid files, or files that are not JSON.
-            // grcov-excl-start: These error conditions are not possible if the directory is
-            // properly managed by Trane.
             if entry.is_err() {
                 continue;
             }
@@ -155,7 +149,6 @@ impl LocalRepositoryManager {
             if !entry.path().is_file() || entry.path().extension().unwrap_or_default() != "json" {
                 continue;
             }
-            // grcov-excl-stop
 
             // Read the repository metadata and add it to the map.
             let repo_metadata = Self::read_metadata(&entry.path())?;

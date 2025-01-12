@@ -255,7 +255,7 @@ impl ScoreCache {
                     let avg_score: f32 = valid_exercises
                         .iter()
                         .map(|id| self.get_exercise_score(*id))
-                        .sum::<Result<f32>>()? // grcov-excl-line
+                        .sum::<Result<f32>>()?
                         / valid_exercises.len() as f32;
                     Ok(Some(avg_score))
                 }
@@ -312,7 +312,7 @@ impl ScoreCache {
                         }
                         true
                     })
-                    .collect::<Result<Vec<_>>>()?; // grcov-excl-line
+                    .collect::<Result<Vec<_>>>()?;
 
                 // Return an invalid score if all the lesson scores are invalid. This can happen if
                 // all the lessons in the course are blacklisted.
@@ -352,9 +352,9 @@ impl ScoreCache {
             UnitType::Course => self.get_course_score(unit_id),
             UnitType::Lesson => self.get_lesson_score(unit_id),
             UnitType::Exercise => match self.get_exercise_score(unit_id) {
-                Err(e) => Err(e), // grcov-excl-line
+                Err(e) => Err(e),
                 Ok(score) => Ok(Some(score)),
-            }, // grcov-excl-line
+            },
         }
     }
 }

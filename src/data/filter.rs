@@ -210,7 +210,6 @@ impl KeyValueFilter {
     }
 }
 
-// grcov-excl-start: Code coverage for this struct is flaky for some unknown reason.
 /// A filter on a course or lesson manifest.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
 #[ts(export)]
@@ -255,7 +254,6 @@ pub enum UnitFilter {
         depth: usize,
     },
 }
-// grcov-excl-stop
 
 impl UnitFilter {
     /// Returns whether the course with the given ID passes the course filter.

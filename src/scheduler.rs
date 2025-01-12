@@ -284,16 +284,16 @@ impl DepthFirstScheduler {
                     depth: (item.depth + 1) as f32,
                     score: self
                         .score_cache
-                        .get_unit_score(exercise_id)? // grcov-excl-line
+                        .get_unit_score(exercise_id)?
                         .unwrap_or_default(),
                     num_trials: self
                         .score_cache
-                        .get_num_trials(exercise_id)? // grcov-excl-line
+                        .get_num_trials(exercise_id)?
                         .unwrap_or_default(),
                     frequency: self.data.get_exercise_frequency(exercise_id),
                 })
             })
-            .collect::<Result<Vec<Candidate>>>()?; // grcov-excl-line
+            .collect::<Result<Vec<Candidate>>>()?;
 
         // Calculate the average score of the candidates.
         let avg_score = candidates.iter().map(|c| c.score).sum::<f32>() / (candidates.len() as f32);
@@ -709,7 +709,7 @@ impl DepthFirstScheduler {
         let (candidates, _) = self.get_candidates_from_lesson_helper(&StackItem {
             unit_id: lesson_id,
             depth: 0,
-        })?; // grcov-excl-line
+        })?;
         Ok(candidates)
     }
 
@@ -746,11 +746,11 @@ impl DepthFirstScheduler {
                         depth: 0.0,
                         score: self
                             .score_cache
-                            .get_unit_score(unit_id)? // grcov-excl-line
+                            .get_unit_score(unit_id)?
                             .unwrap_or_default(),
                         num_trials: self
                             .score_cache
-                            .get_num_trials(unit_id)? // grcov-excl-line
+                            .get_num_trials(unit_id)?
                             .unwrap_or_default(),
                         frequency: *self.data.frequency_map.read().get(&unit_id).unwrap_or(&0),
                     });
@@ -839,14 +839,14 @@ impl ExerciseScheduler for DepthFirstScheduler {
         // Retrieve an initial batch of candidates based on the type of the filter.
         let initial_candidates = self
             .get_initial_candidates(filter)
-            .map_err(ExerciseSchedulerError::GetExerciseBatch)?; // grcov-excl-line
+            .map_err(ExerciseSchedulerError::GetExerciseBatch)?;
 
         // Sort the candidates into buckets, select the right number from each, and convert them
         // into a final batch of exercises.
         let final_candidates = self
             .filter
             .filter_candidates(&initial_candidates)
-            .map_err(ExerciseSchedulerError::GetExerciseBatch)?; // grcov-excl-line
+            .map_err(ExerciseSchedulerError::GetExerciseBatch)?;
 
         // Increment the frequency of the exercises in the batch. These exercises will have a lower
         // chance of being selected in the future,so that exercises that have not been selected as
@@ -877,8 +877,6 @@ impl ExerciseScheduler for DepthFirstScheduler {
         Ok(())
     }
 
-    // grcov-excl-start: These methods simply call similar methods on the cache, which are already
-    // tested.
     fn invalidate_cached_score(&self, unit_id: Ustr) {
         self.score_cache.invalidate_cached_score(unit_id);
     }
@@ -887,7 +885,6 @@ impl ExerciseScheduler for DepthFirstScheduler {
         self.score_cache
             .invalidate_cached_scores_with_prefix(prefix);
     }
-    // grcov-excl-stop
 
     fn get_scheduler_options(&self) -> SchedulerOptions {
         self.data.options.clone()

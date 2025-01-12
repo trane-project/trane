@@ -29,14 +29,14 @@ impl LocalPreferencesManager {
         let raw_preferences =
             &fs::read_to_string(&self.path).context("failed to read user preferences")?;
         let preferences = serde_json::from_str::<UserPreferences>(raw_preferences)
-            .context("invalid user preferences")?; // grcov-excl-line
+            .context("invalid user preferences")?;
         Ok(preferences)
     }
 
     /// Helper function to set the user preferences to the given value.
     fn set_user_preferences_helper(&self, preferences: &UserPreferences) -> Result<()> {
         let pretty_json =
-            serde_json::to_string_pretty(preferences).context("invalid user preferences")?; // grcov-excl-line
+            serde_json::to_string_pretty(preferences).context("invalid user preferences")?;
         fs::write(&self.path, pretty_json).context("failed to write user preferences")
     }
 }

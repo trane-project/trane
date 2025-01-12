@@ -2,7 +2,6 @@
 
 use crate::data::music::notes::Note;
 
-// grcov-excl-start: These functions return constant values, so there's no need to test them.
 impl Note {
     /// Returns all the notes in the circle of fifths.
     #[must_use]
@@ -137,4 +136,3 @@ impl Note {
         }
     }
 }
-// grcov-excl-stop

@@ -39,13 +39,10 @@ impl LocalCourseLibrary {
 }
 
 impl TranscriptionLinkStore for LocalCourseLibrary {
-    // grcov-excl-start: Hard to test without creating a full library. Functions called are
-    // tested separately.
     fn get_transcription_link(&self, exercise_id: Ustr) -> Option<TranscriptionLink> {
         let exercise_manifest = self.get_exercise_manifest(exercise_id)?;
         Self::extract_transcription_link(&exercise_manifest)
     }
-    // grcov-excl-stop
 }
 
 /// Downloads transcription assets to local storage.
@@ -117,7 +114,6 @@ impl LocalTranscriptionDownloader {
     /// Verifies that a binary is installed. The argument should be something simple, like a version
     /// flag, that will exit quickly.
     fn verify_binary(name: &str, arg: &str) -> Result<()> {
-        // grcov-excl-start: Hard to test this function since errors require removing the binary.
         let status = Command::new(name)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
@@ -131,7 +127,6 @@ impl LocalTranscriptionDownloader {
             bail!("command \"{}\" failed", name);
         }
         Ok(())
-        // grcov-excl-stop
     }
 
     /// Checks that the prerequisites to use the downloader are met.

@@ -27,7 +27,6 @@ pub const EXAMPLE_SUFFIX: &str = ".example.md";
 /// The extension of files containing exceptions.
 pub const EXCEPTION_SUFFIX: &str = ".exception.md";
 
-// grcov-excl-start: not meeting coverage requirements for some reason.
 /// The types of literacy lessons that can be generated.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
 #[ts(export)]
@@ -39,7 +38,6 @@ pub enum LiteracyLesson {
     /// tutor's dictation.
     Dictation,
 }
-// grcov-excl-stop
 
 /// The configuration to create a course that teaches literacy based on the provided material.
 /// Material can be of two types.
@@ -120,7 +118,7 @@ impl LiteracyConfig {
             if let Some(CourseGenerator::Literacy(config)) = &course_manifest.generator_config {
                 config.generate_dictation
             } else {
-                false // grcov-excl-line
+                false
             };
         if !generate_dictation {
             return None;

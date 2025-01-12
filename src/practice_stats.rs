@@ -94,7 +94,7 @@ impl LocalPracticeStats {
         let migrations = Self::migrations();
         migrations
             .to_latest(&mut connection)
-            .context("failed to initialize practice stats DB") //grcov-excl-line
+            .context("failed to initialize practice stats DB")
     }
 
     /// A constructor taking a `SQLite` connection manager.
@@ -123,7 +123,7 @@ impl LocalPracticeStats {
             "SELECT score, timestamp from practice_stats WHERE unit_uid = (
                 SELECT unit_uid FROM uids WHERE unit_id = $1)
                 ORDER BY timestamp DESC LIMIT ?2;",
-        )?; // grcov-excl-line
+        )?;
 
         // Convert the results into a vector of `ExerciseTrial` objects.
         #[allow(clippy::let_and_return)]
@@ -132,9 +132,9 @@ impl LocalPracticeStats {
                 let score = row.get(0)?;
                 let timestamp = row.get(1)?;
                 rusqlite::Result::Ok(ExerciseTrial { score, timestamp })
-            })? // grcov-excl-line
+            })?
             .map(|r| r.context("failed to retrieve scores from practice stats DB"))
-            .collect::<Result<Vec<ExerciseTrial>, _>>()?; // grcov-excl-line
+            .collect::<Result<Vec<ExerciseTrial>, _>>()?;
         Ok(rows)
     }
 
@@ -148,19 +148,19 @@ impl LocalPracticeStats {
         // Update the mapping of unit ID to unique integer ID.
         let connection = self.pool.get()?;
         let mut uid_stmt =
-            connection.prepare_cached("INSERT OR IGNORE INTO uids(unit_id) VALUES ($1);")?; // grcov-excl-line
+            connection.prepare_cached("INSERT OR IGNORE INTO uids(unit_id) VALUES ($1);")?;
         uid_stmt.execute(params![exercise_id.as_str()])?;
 
         // Insert the exercise trial into the database.
         let mut stmt = connection.prepare_cached(
             "INSERT INTO practice_stats (unit_uid, score, timestamp) VALUES (
                 (SELECT unit_uid FROM uids WHERE unit_id = $1), $2, $3);",
-        )?; // grcov-excl-line
+        )?;
         stmt.execute(params![
             exercise_id.as_str(),
             score.float_score(),
             timestamp
-        ])?; // grcov-excl-line
+        ])?;
         Ok(())
     }
 
@@ -172,7 +172,7 @@ impl LocalPracticeStats {
         let uids = uid_stmt
             .query_map([], |row| row.get(0))?
             .map(|r| r.context("failed to retrieve UIDs from practice stats DB"))
-            .collect::<Result<Vec<i64>, _>>()?; // grcov-excl-line
+            .collect::<Result<Vec<i64>, _>>()?;
 
         // Delete the oldest trials for each UID but keep the most recent `num_scores` trials.
         for uid in uids {
@@ -180,7 +180,7 @@ impl LocalPracticeStats {
                 "DELETE FROM practice_stats WHERE unit_uid = $1 AND timestamp NOT IN (
                     SELECT timestamp FROM practice_stats WHERE unit_uid = $1
                     ORDER BY timestamp DESC LIMIT ?2);",
-            )?; // grcov-excl-line
+            )?;
             let _ = stmt.execute(params![uid, num_scores])?;
         }
 
@@ -198,7 +198,7 @@ impl LocalPracticeStats {
         let uids = uid_stmt
             .query_map(params![format!("{}%", prefix)], |row| row.get(0))?
             .map(|r| r.context("failed to retrieve UIDs from practice stats DB"))
-            .collect::<Result<Vec<i64>, _>>()?; // grcov-excl-line
+            .collect::<Result<Vec<i64>, _>>()?;
 
         // Delete all the trials for those units.
         for uid in uids {
@@ -220,7 +220,7 @@ impl PracticeStats for LocalPracticeStats {
         num_scores: usize,
     ) -> Result<Vec<ExerciseTrial>, PracticeStatsError> {
         self.get_scores_helper(exercise_id, num_scores)
-            .map_err(|e| PracticeStatsError::GetScores(exercise_id, e)) // grcov-excl-line
+            .map_err(|e| PracticeStatsError::GetScores(exercise_id, e))
     }
 
     fn record_exercise_score(
@@ -230,19 +230,17 @@ impl PracticeStats for LocalPracticeStats {
         timestamp: i64,
     ) -> Result<(), PracticeStatsError> {
         self.record_exercise_score_helper(exercise_id, &score, timestamp)
-            .map_err(|e| PracticeStatsError::RecordScore(exercise_id, e)) // grcov-excl-line
+            .map_err(|e| PracticeStatsError::RecordScore(exercise_id, e))
     }
 
     fn trim_scores(&mut self, num_scores: usize) -> Result<(), PracticeStatsError> {
         self.trim_scores_helper(num_scores)
-            .map_err(PracticeStatsError::TrimScores) // grcov-excl-line
+            .map_err(PracticeStatsError::TrimScores)
     }
 
     fn remove_scores_with_prefix(&mut self, prefix: &str) -> Result<(), PracticeStatsError> {
-        // grcov-excl-start
         self.remove_scores_with_prefix_helper(prefix)
             .map_err(|e| PracticeStatsError::RemovePrefix(prefix.to_string(), e))
-        // grcov-excl-stop
     }
 }
 
