@@ -205,7 +205,6 @@ impl LocalCourseLibrary {
     // and agree with each other.
     #[cfg_attr(coverage, coverage(off))]
     fn verify_exercise_manifest(
-        &mut self,
         lesson_manifest: &LessonManifest,
         exercise_manifest: &ExerciseManifest,
     ) -> Result<()> {
@@ -233,7 +232,7 @@ impl LocalCourseLibrary {
         exercise_manifest: ExerciseManifest,
         index_writer: &mut IndexWriter,
     ) -> Result<()> {
-        self.verify_exercise_manifest(lesson_manifest, &exercise_manifest)?;
+        LocalCourseLibrary::verify_exercise_manifest(lesson_manifest, &exercise_manifest)?;
 
         // Add the exercise manifest to the search index.
         Self::add_to_index_writer(
@@ -257,7 +256,6 @@ impl LocalCourseLibrary {
     /// agree with each other.
     #[cfg_attr(coverage, coverage(off))]
     fn verify_lesson_manifest(
-        &mut self,
         course_manifest: &CourseManifest,
         lesson_manifest: &LessonManifest,
     ) -> Result<()> {
@@ -283,7 +281,7 @@ impl LocalCourseLibrary {
         index_writer: &mut IndexWriter,
         generated_exercises: Option<&Vec<ExerciseManifest>>,
     ) -> Result<()> {
-        self.verify_lesson_manifest(course_manifest, lesson_manifest)?;
+        LocalCourseLibrary::verify_lesson_manifest(course_manifest, lesson_manifest)?;
 
         // Add the lesson, the dependencies, and the superseded units explicitly listed in the
         // lesson manifest.
@@ -315,26 +313,28 @@ impl LocalCourseLibrary {
         // lesson's root. Each exercise in the lesson must be contained in a directory that is a
         // direct descendant of its root. Therefore, all the exercise manifests will be found at a
         // depth of two.
-        for entry in WalkDir::new(lesson_root).min_depth(2).max_depth(2) {
-            if let Ok(exercise_dir_entry) = entry {
-                // Ignore any entries which are not directories.
-                if exercise_dir_entry.path().is_dir() {
-                    continue;
-                }
-
-                // Ignore any files which are not named `exercise_manifest.json`.
-                let file_name = Self::get_file_name(exercise_dir_entry.path())?;
-                if file_name != EXERCISE_MANIFEST_FILENAME {
-                    continue;
-                }
-
-                // Open the exercise manifest and process it.
-                let mut exercise_manifest: ExerciseManifest =
-                    Self::open_manifest(exercise_dir_entry.path())?;
-                exercise_manifest = exercise_manifest
-                    .normalize_paths(exercise_dir_entry.path().parent().unwrap())?;
-                self.process_exercise_manifest(lesson_manifest, exercise_manifest, index_writer)?;
+        for entry in WalkDir::new(lesson_root)
+            .min_depth(2)
+            .max_depth(2)
+            .into_iter()
+            .flatten()
+        {
+            // Ignore any entries which are not directories.
+            if entry.path().is_dir() {
+                continue;
             }
+
+            // Ignore any files which are not named `exercise_manifest.json`.
+            let file_name = Self::get_file_name(entry.path())?;
+            if file_name != EXERCISE_MANIFEST_FILENAME {
+                continue;
+            }
+
+            // Open the exercise manifest and process it.
+            let mut exercise_manifest: ExerciseManifest = Self::open_manifest(entry.path())?;
+            exercise_manifest =
+                exercise_manifest.normalize_paths(entry.path().parent().unwrap())?;
+            self.process_exercise_manifest(lesson_manifest, exercise_manifest, index_writer)?;
         }
 
         // Add the lesson manifest to the lesson map and the search index.
@@ -352,7 +352,7 @@ impl LocalCourseLibrary {
 
     /// Verifies that the IDs mentioned in the course manifest are valid.
     #[cfg_attr(coverage, coverage(off))]
-    fn verify_course_manifest(&mut self, course_manifest: &CourseManifest) -> Result<()> {
+    fn verify_course_manifest(course_manifest: &CourseManifest) -> Result<()> {
         ensure!(!course_manifest.id.is_empty(), "ID in manifest is empty",);
         Ok(())
     }
@@ -365,7 +365,7 @@ impl LocalCourseLibrary {
         mut course_manifest: CourseManifest,
         index_writer: &mut IndexWriter,
     ) -> Result<()> {
-        self.verify_course_manifest(&course_manifest)?;
+        LocalCourseLibrary::verify_course_manifest(&course_manifest)?;
 
         // Add the course, the dependencies, and the superseded units explicitly listed in the
         // manifest.
@@ -411,32 +411,33 @@ impl LocalCourseLibrary {
         // course's root. Each lesson in the course must be contained in a directory that is a
         // direct descendant of its root. Therefore, all the lesson manifests will be found at a
         // depth of two.
-        for entry in WalkDir::new(course_root).min_depth(2).max_depth(2) {
-            if let Ok(lesson_dir_entry) = entry {
-                // Ignore any entries which are not directories.
-                if lesson_dir_entry.path().is_dir() {
-                    continue;
-                }
-
-                // Ignore any files which are not named `lesson_manifest.json`.
-                let file_name = Self::get_file_name(lesson_dir_entry.path())?;
-                if file_name != LESSON_MANIFEST_FILENAME {
-                    continue;
-                }
-
-                // Open the lesson manifest and process it.
-                let mut lesson_manifest: LessonManifest =
-                    Self::open_manifest(lesson_dir_entry.path())?;
-                lesson_manifest =
-                    lesson_manifest.normalize_paths(lesson_dir_entry.path().parent().unwrap())?;
-                self.process_lesson_manifest(
-                    lesson_dir_entry.path().parent().unwrap(),
-                    &course_manifest,
-                    &lesson_manifest,
-                    index_writer,
-                    None,
-                )?;
+        for entry in WalkDir::new(course_root)
+            .min_depth(2)
+            .max_depth(2)
+            .into_iter()
+            .flatten()
+        {
+            // Ignore any entries which are not directories.
+            if entry.path().is_dir() {
+                continue;
             }
+
+            // Ignore any files which are not named `lesson_manifest.json`.
+            let file_name = Self::get_file_name(entry.path())?;
+            if file_name != LESSON_MANIFEST_FILENAME {
+                continue;
+            }
+
+            // Open the lesson manifest and process it.
+            let mut lesson_manifest: LessonManifest = Self::open_manifest(entry.path())?;
+            lesson_manifest = lesson_manifest.normalize_paths(entry.path().parent().unwrap())?;
+            self.process_lesson_manifest(
+                entry.path().parent().unwrap(),
+                &course_manifest,
+                &lesson_manifest,
+                index_writer,
+                None,
+            )?;
         }
 
         // Add the course manifest to the course map and the search index. This needs to happen at
@@ -484,37 +485,38 @@ impl LocalCourseLibrary {
         // Start a search from the library root. Courses can be located at any level within the
         // library root. However, the course manifests, assets, and its lessons and exercises follow
         // a fixed structure.
-        for entry in WalkDir::new(library_root).min_depth(2) {
-            if let Ok(dir_entry) = entry {
-                // Ignore any entries which are not directories.
-                if dir_entry.path().is_dir() {
-                    continue;
-                }
-
-                // Ignore any files which are not named `course_manifest.json`.
-                let file_name = Self::get_file_name(dir_entry.path())?;
-                if file_name != COURSE_MANIFEST_FILENAME {
-                    continue;
-                }
-
-                // Ignore any directory that matches the list of paths to ignore.
-                if ignored_paths
-                    .iter()
-                    .any(|ignored_path| dir_entry.path().starts_with(ignored_path))
-                {
-                    continue;
-                }
-
-                // Open the course manifest and process it.
-                let mut course_manifest: CourseManifest = Self::open_manifest(dir_entry.path())?;
-                course_manifest =
-                    course_manifest.normalize_paths(dir_entry.path().parent().unwrap())?;
-                library.process_course_manifest(
-                    dir_entry.path().parent().unwrap(),
-                    course_manifest,
-                    &mut index_writer,
-                )?;
+        for entry in WalkDir::new(library_root)
+            .min_depth(2)
+            .into_iter()
+            .flatten()
+        {
+            // Ignore any entries which are not directories.
+            if entry.path().is_dir() {
+                continue;
             }
+
+            // Ignore any files which are not named `course_manifest.json`.
+            let file_name = Self::get_file_name(entry.path())?;
+            if file_name != COURSE_MANIFEST_FILENAME {
+                continue;
+            }
+
+            // Ignore any directory that matches the list of paths to ignore.
+            if ignored_paths
+                .iter()
+                .any(|ignored_path| entry.path().starts_with(ignored_path))
+            {
+                continue;
+            }
+
+            // Open the course manifest and process it.
+            let mut course_manifest: CourseManifest = Self::open_manifest(entry.path())?;
+            course_manifest = course_manifest.normalize_paths(entry.path().parent().unwrap())?;
+            library.process_course_manifest(
+                entry.path().parent().unwrap(),
+                course_manifest,
+                &mut index_writer,
+            )?;
         }
 
         // Commit the search index writer and initialize the reader in the course library.
