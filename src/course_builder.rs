@@ -30,9 +30,6 @@ pub enum TraneMetadata {
     Skill,
 }
 
-#[cfg_attr(coverage, coverage(off))]
-impl TraneMetadata{}
-
 /// A builder to generate plain-text asset files.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AssetBuilder {
