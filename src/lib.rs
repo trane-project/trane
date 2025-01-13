@@ -66,6 +66,7 @@ pub mod review_list;
 pub mod scheduler;
 pub mod scorer;
 pub mod study_session_manager;
+#[cfg_attr(coverage, coverage(off))]
 pub mod testutil;
 pub mod transcription_downloader;
 
