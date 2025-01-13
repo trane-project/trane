@@ -866,10 +866,12 @@ impl ExerciseScheduler for DepthFirstScheduler {
         Ok(())
     }
 
+    #[cfg_attr(coverage, coverage(off))]
     fn invalidate_cached_score(&self, unit_id: Ustr) {
         self.score_cache.invalidate_cached_score(unit_id);
     }
 
+    #[cfg_attr(coverage, coverage(off))]
     fn invalidate_cached_scores_with_prefix(&self, prefix: &str) {
         self.score_cache
             .invalidate_cached_scores_with_prefix(prefix);
