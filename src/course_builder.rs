@@ -26,10 +26,12 @@ use crate::data::{CourseManifest, ExerciseManifestBuilder, LessonManifestBuilder
 #[derive(Display)]
 #[strum(serialize_all = "snake_case")]
 #[allow(missing_docs)]
-#[cfg_attr(coverage, coverage(off))]
 pub enum TraneMetadata {
     Skill,
 }
+
+#[cfg_attr(coverage, coverage(off))]
+impl TraneMetadata{}
 
 /// A builder to generate plain-text asset files.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
