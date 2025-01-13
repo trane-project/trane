@@ -201,16 +201,15 @@ impl LocalCourseLibrary {
             .to_string())
     }
 
-    /// Adds an exercise to the course library given its manifest and the manifest of the lesson to
-    /// which it belongs.
-    fn process_exercise_manifest(
+    // Verifies that the IDs mentioned in the exercise manifest and its lesson manifest are valid
+    // and agree with each other.
+    #[cfg_attr(coverage, coverage(off))]
+    fn verify_exercise_manifest(
         &mut self,
         lesson_manifest: &LessonManifest,
-        exercise_manifest: ExerciseManifest,
-        index_writer: &mut IndexWriter,
+        exercise_manifest: &ExerciseManifest,
     ) -> Result<()> {
-        // Verify that the IDs mentioned in the manifests are valid and agree with each other.
-        ensure!(!exercise_manifest.id.is_empty(), "ID in manifest is empty",);
+        ensure!(!exercise_manifest.id.is_empty(), "ID in manifest is empty");
         ensure!(
             exercise_manifest.lesson_id == lesson_manifest.id,
             "lesson_id in manifest for exercise {} does not match the manifest for lesson {}",
@@ -223,6 +222,18 @@ impl LocalCourseLibrary {
             exercise_manifest.id,
             lesson_manifest.course_id,
         );
+        Ok(())
+    }
+
+    /// Adds an exercise to the course library given its manifest and the manifest of the lesson to
+    /// which it belongs.
+    fn process_exercise_manifest(
+        &mut self,
+        lesson_manifest: &LessonManifest,
+        exercise_manifest: ExerciseManifest,
+        index_writer: &mut IndexWriter,
+    ) -> Result<()> {
+        self.verify_exercise_manifest(lesson_manifest, &exercise_manifest)?;
 
         // Add the exercise manifest to the search index.
         Self::add_to_index_writer(
@@ -242,6 +253,25 @@ impl LocalCourseLibrary {
         Ok(())
     }
 
+    /// Verifes that the IDs mentioned in the lesson manifest and its course manifestsare valid and
+    /// agree with each other.
+    #[cfg_attr(coverage, coverage(off))]
+    fn verify_lesson_manifest(
+        &mut self,
+        course_manifest: &CourseManifest,
+        lesson_manifest: &LessonManifest,
+    ) -> Result<()> {
+        // Verify that the IDs mentioned in the manifests are valid and agree with each other.
+        ensure!(!lesson_manifest.id.is_empty(), "ID in manifest is empty",);
+        ensure!(
+            lesson_manifest.course_id == course_manifest.id,
+            "course_id in manifest for lesson {} does not match the manifest for course {}",
+            lesson_manifest.id,
+            course_manifest.id,
+        );
+        Ok(())
+    }
+
     /// Adds a lesson to the course library given its manifest and the manifest of the course to
     /// which it belongs. It also traverses the given `DirEntry` and adds all the exercises in the
     /// lesson.
@@ -253,14 +283,7 @@ impl LocalCourseLibrary {
         index_writer: &mut IndexWriter,
         generated_exercises: Option<&Vec<ExerciseManifest>>,
     ) -> Result<()> {
-        // Verify that the IDs mentioned in the manifests are valid and agree with each other.
-        ensure!(!lesson_manifest.id.is_empty(), "ID in manifest is empty",);
-        ensure!(
-            lesson_manifest.course_id == course_manifest.id,
-            "course_id in manifest for lesson {} does not match the manifest for course {}",
-            lesson_manifest.id,
-            course_manifest.id,
-        );
+        self.verify_lesson_manifest(course_manifest, lesson_manifest)?;
 
         // Add the lesson, the dependencies, and the superseded units explicitly listed in the
         // lesson manifest.
@@ -293,31 +316,24 @@ impl LocalCourseLibrary {
         // direct descendant of its root. Therefore, all the exercise manifests will be found at a
         // depth of two.
         for entry in WalkDir::new(lesson_root).min_depth(2).max_depth(2) {
-            match entry {
-                Err(_) => continue,
-                Ok(exercise_dir_entry) => {
-                    // Ignore any entries which are not directories.
-                    if exercise_dir_entry.path().is_dir() {
-                        continue;
-                    }
-
-                    // Ignore any files which are not named `exercise_manifest.json`.
-                    let file_name = Self::get_file_name(exercise_dir_entry.path())?;
-                    if file_name != EXERCISE_MANIFEST_FILENAME {
-                        continue;
-                    }
-
-                    // Open the exercise manifest and process it.
-                    let mut exercise_manifest: ExerciseManifest =
-                        Self::open_manifest(exercise_dir_entry.path())?;
-                    exercise_manifest = exercise_manifest
-                        .normalize_paths(exercise_dir_entry.path().parent().unwrap())?;
-                    self.process_exercise_manifest(
-                        lesson_manifest,
-                        exercise_manifest,
-                        index_writer,
-                    )?;
+            if let Ok(exercise_dir_entry) = entry {
+                // Ignore any entries which are not directories.
+                if exercise_dir_entry.path().is_dir() {
+                    continue;
                 }
+
+                // Ignore any files which are not named `exercise_manifest.json`.
+                let file_name = Self::get_file_name(exercise_dir_entry.path())?;
+                if file_name != EXERCISE_MANIFEST_FILENAME {
+                    continue;
+                }
+
+                // Open the exercise manifest and process it.
+                let mut exercise_manifest: ExerciseManifest =
+                    Self::open_manifest(exercise_dir_entry.path())?;
+                exercise_manifest = exercise_manifest
+                    .normalize_paths(exercise_dir_entry.path().parent().unwrap())?;
+                self.process_exercise_manifest(lesson_manifest, exercise_manifest, index_writer)?;
             }
         }
 
@@ -334,6 +350,13 @@ impl LocalCourseLibrary {
         Ok(())
     }
 
+    /// Verifies that the IDs mentioned in the course manifest are valid.
+    #[cfg_attr(coverage, coverage(off))]
+    fn verify_course_manifest(&mut self, course_manifest: &CourseManifest) -> Result<()> {
+        ensure!(!course_manifest.id.is_empty(), "ID in manifest is empty",);
+        Ok(())
+    }
+
     /// Adds a course to the course library given its manifest. It also traverses the given
     /// `DirEntry` and adds all the lessons in the course.
     fn process_course_manifest(
@@ -342,7 +365,7 @@ impl LocalCourseLibrary {
         mut course_manifest: CourseManifest,
         index_writer: &mut IndexWriter,
     ) -> Result<()> {
-        ensure!(!course_manifest.id.is_empty(), "ID in manifest is empty",);
+        self.verify_course_manifest(&course_manifest)?;
 
         // Add the course, the dependencies, and the superseded units explicitly listed in the
         // manifest.
@@ -389,33 +412,30 @@ impl LocalCourseLibrary {
         // direct descendant of its root. Therefore, all the lesson manifests will be found at a
         // depth of two.
         for entry in WalkDir::new(course_root).min_depth(2).max_depth(2) {
-            match entry {
-                Err(_) => continue,
-                Ok(lesson_dir_entry) => {
-                    // Ignore any entries which are not directories.
-                    if lesson_dir_entry.path().is_dir() {
-                        continue;
-                    }
-
-                    // Ignore any files which are not named `lesson_manifest.json`.
-                    let file_name = Self::get_file_name(lesson_dir_entry.path())?;
-                    if file_name != LESSON_MANIFEST_FILENAME {
-                        continue;
-                    }
-
-                    // Open the lesson manifest and process it.
-                    let mut lesson_manifest: LessonManifest =
-                        Self::open_manifest(lesson_dir_entry.path())?;
-                    lesson_manifest = lesson_manifest
-                        .normalize_paths(lesson_dir_entry.path().parent().unwrap())?;
-                    self.process_lesson_manifest(
-                        lesson_dir_entry.path().parent().unwrap(),
-                        &course_manifest,
-                        &lesson_manifest,
-                        index_writer,
-                        None,
-                    )?;
+            if let Ok(lesson_dir_entry) = entry {
+                // Ignore any entries which are not directories.
+                if lesson_dir_entry.path().is_dir() {
+                    continue;
                 }
+
+                // Ignore any files which are not named `lesson_manifest.json`.
+                let file_name = Self::get_file_name(lesson_dir_entry.path())?;
+                if file_name != LESSON_MANIFEST_FILENAME {
+                    continue;
+                }
+
+                // Open the lesson manifest and process it.
+                let mut lesson_manifest: LessonManifest =
+                    Self::open_manifest(lesson_dir_entry.path())?;
+                lesson_manifest =
+                    lesson_manifest.normalize_paths(lesson_dir_entry.path().parent().unwrap())?;
+                self.process_lesson_manifest(
+                    lesson_dir_entry.path().parent().unwrap(),
+                    &course_manifest,
+                    &lesson_manifest,
+                    index_writer,
+                    None,
+                )?;
             }
         }
 
@@ -465,39 +485,35 @@ impl LocalCourseLibrary {
         // library root. However, the course manifests, assets, and its lessons and exercises follow
         // a fixed structure.
         for entry in WalkDir::new(library_root).min_depth(2) {
-            match entry {
-                Err(_) => continue,
-                Ok(dir_entry) => {
-                    // Ignore any entries which are not directories.
-                    if dir_entry.path().is_dir() {
-                        continue;
-                    }
-
-                    // Ignore any files which are not named `course_manifest.json`.
-                    let file_name = Self::get_file_name(dir_entry.path())?;
-                    if file_name != COURSE_MANIFEST_FILENAME {
-                        continue;
-                    }
-
-                    // Ignore any directory that matches the list of paths to ignore.
-                    if ignored_paths
-                        .iter()
-                        .any(|ignored_path| dir_entry.path().starts_with(ignored_path))
-                    {
-                        continue;
-                    }
-
-                    // Open the course manifest and process it.
-                    let mut course_manifest: CourseManifest =
-                        Self::open_manifest(dir_entry.path())?;
-                    course_manifest =
-                        course_manifest.normalize_paths(dir_entry.path().parent().unwrap())?;
-                    library.process_course_manifest(
-                        dir_entry.path().parent().unwrap(),
-                        course_manifest,
-                        &mut index_writer,
-                    )?;
+            if let Ok(dir_entry) = entry {
+                // Ignore any entries which are not directories.
+                if dir_entry.path().is_dir() {
+                    continue;
                 }
+
+                // Ignore any files which are not named `course_manifest.json`.
+                let file_name = Self::get_file_name(dir_entry.path())?;
+                if file_name != COURSE_MANIFEST_FILENAME {
+                    continue;
+                }
+
+                // Ignore any directory that matches the list of paths to ignore.
+                if ignored_paths
+                    .iter()
+                    .any(|ignored_path| dir_entry.path().starts_with(ignored_path))
+                {
+                    continue;
+                }
+
+                // Open the course manifest and process it.
+                let mut course_manifest: CourseManifest = Self::open_manifest(dir_entry.path())?;
+                course_manifest =
+                    course_manifest.normalize_paths(dir_entry.path().parent().unwrap())?;
+                library.process_course_manifest(
+                    dir_entry.path().parent().unwrap(),
+                    course_manifest,
+                    &mut index_writer,
+                )?;
             }
         }
 
