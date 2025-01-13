@@ -38,6 +38,7 @@ impl LocalCourseLibrary {
     }
 }
 
+#[cfg_attr(coverage, coverage(off))]
 impl TranscriptionLinkStore for LocalCourseLibrary {
     fn get_transcription_link(&self, exercise_id: Ustr) -> Option<TranscriptionLink> {
         let exercise_manifest = self.get_exercise_manifest(exercise_id)?;
@@ -113,6 +114,7 @@ impl LocalTranscriptionDownloader {
 
     /// Verifies that a binary is installed. The argument should be something simple, like a version
     /// flag, that will exit quickly.
+    #[cfg_attr(coverage, coverage(off))]
     fn verify_binary(name: &str, arg: &str) -> Result<()> {
         let status = Command::new(name)
             .stdin(Stdio::null())

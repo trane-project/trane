@@ -7,13 +7,11 @@
 //! development, so the format of the manifests is not stable yet. Generating the files by code
 //! makes it easier to make updates to the files as the format changes.
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
-
 pub mod knowledge_base_builder;
 #[cfg_attr(coverage, coverage(off))]
 pub mod music;
 
-use anyhow::{ensure, Result};
+use anyhow::{ensure, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{create_dir_all, File},
@@ -55,7 +53,7 @@ impl AssetBuilder {
         );
 
         // Create any parent directories to the asset path to support specifying a directory in the
-        // path.
+        // asset path.
         create_dir_all(asset_path.parent().unwrap())?;
 
         // Write the asset file.
@@ -85,15 +83,8 @@ impl ExerciseBuilder {
         exercise_directory: &PathBuf,
         manifest_template: ExerciseManifestBuilder,
     ) -> Result<()> {
-        // Verify that the directory doesn't already exist and create it.
-        ensure!(
-            !exercise_directory.is_dir(),
-            "exercise directory {} already exists",
-            exercise_directory.display(),
-        );
+        // Create the directory and write the exercise manifest.
         create_dir_all(exercise_directory)?;
-
-        // Write the exercise manifest.
         let manifest = (self.manifest_closure)(manifest_template).build()?;
         let manifest_json = serde_json::to_string_pretty(&manifest)? + "\n";
         let manifest_path = exercise_directory.join("exercise_manifest.json");
@@ -106,11 +97,10 @@ impl ExerciseBuilder {
         }
 
         // Verify that all paths mentioned in the manifest are valid.
-        ensure!(
-            manifest.verify_paths(exercise_directory)?,
-            "cannot verify files mentioned in the manifest for exercise {}",
-            manifest.id,
-        );
+        manifest.verify_paths(exercise_directory).context(format!(
+            "failed to verify files for exercise {}",
+            manifest.id
+        ))?;
         Ok(())
     }
 }
@@ -143,15 +133,8 @@ impl LessonBuilder {
         lesson_directory: &PathBuf,
         manifest_template: LessonManifestBuilder,
     ) -> Result<()> {
-        // Verify that the directory doesn't already exist and create it.
-        ensure!(
-            !lesson_directory.is_dir(),
-            "lesson directory {} already exists",
-            lesson_directory.display(),
-        );
+        // Create the directory and write the lesson manifest.
         create_dir_all(lesson_directory)?;
-
-        // Write the lesson manifest.
         let manifest = (self.manifest_closure)(manifest_template).build()?;
         let manifest_json = serde_json::to_string_pretty(&manifest)? + "\n";
         let manifest_path = lesson_directory.join("lesson_manifest.json");
@@ -170,11 +153,9 @@ impl LessonBuilder {
         }
 
         // Verify that all paths mentioned in the manifest are valid.
-        ensure!(
-            manifest.verify_paths(lesson_directory)?,
-            "cannot verify files mentioned in the manifest for lesson {}",
-            manifest.id,
-        );
+        manifest
+            .verify_paths(lesson_directory)
+            .context(format!("failed to verify files for lesson {}", manifest.id))?;
         Ok(())
     }
 }
@@ -202,16 +183,9 @@ pub struct CourseBuilder {
 impl CourseBuilder {
     /// Writes the files needed for this course to the given directory.
     pub fn build(&self, parent_directory: &Path) -> Result<()> {
-        // Verify that the directory doesn't already exist and create it.
+        // Create the directory and write the course manifest.
         let course_directory = parent_directory.join(&self.directory_name);
-        ensure!(
-            !course_directory.is_dir(),
-            "course directory {} already exists",
-            course_directory.display(),
-        );
         create_dir_all(&course_directory)?;
-
-        // Write the course manifest.
         let manifest_json = serde_json::to_string_pretty(&self.course_manifest)? + "\n";
         let manifest_path = course_directory.join("course_manifest.json");
         let mut manifest_file = File::create(manifest_path)?;
@@ -229,12 +203,12 @@ impl CourseBuilder {
         }
 
         // Verify that all paths mentioned in the manifest are valid.
-        ensure!(
-            self.course_manifest
-                .verify_paths(course_directory.as_path())?,
-            "cannot verify files mentioned in the manifest for course {}",
-            self.course_manifest.id,
-        );
+        self.course_manifest
+            .verify_paths(&course_directory)
+            .context(format!(
+                "failed to verify files for course {}",
+                self.course_manifest.id
+            ))?;
         Ok(())
     }
 }
@@ -261,6 +235,23 @@ mod test {
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
         assert_eq!(contents, "asset1 contents");
+        Ok(())
+    }
+
+    /// Verifies the asset builder fails if there's an existing file.
+    #[test]
+    fn asset_builer_existing() -> Result<()> {
+        // Create the file first.
+        let temp_dir = tempfile::tempdir()?;
+        let asset_path = temp_dir.path().join("asset1.md");
+        File::create(&asset_path)?;
+
+        // Creating the asset builder should fail.
+        let asset_builder = AssetBuilder {
+            file_name: "asset1.md".to_string(),
+            contents: "asset1 contents".to_string(),
+        };
+        assert!(asset_builder.build(temp_dir.path()).is_err());
         Ok(())
     }
 

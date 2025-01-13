@@ -501,13 +501,7 @@ impl DepthFirstScheduler {
             }
             let unit_type = unit_type.unwrap();
 
-            // Handle exercises. All of them should be skipped as the search only considers lessons
-            // and courses.
-            if unit_type == UnitType::Exercise {
-                continue;
-            }
-
-            // Handle courses.
+            // Handle courses and lessons. Exercises are skipped by the search.
             if unit_type == UnitType::Course {
                 // Retrieve the starting lessons in the course and add them to the stack.
                 let starting_lessons: Vec<Ustr> = self
@@ -539,62 +533,64 @@ impl DepthFirstScheduler {
                 // The course has pending lessons, so it cannot be marked as visited yet. Simply
                 // continue with the search.
                 continue;
-            }
+            } else if unit_type == UnitType::Lesson {
+                // If the searched reached this point, the unit must be a lesson.
+                visited.insert(curr_unit.unit_id);
 
-            // If the searched reached this point, the unit must be a lesson.
-            visited.insert(curr_unit.unit_id);
+                // Update the number of lessons pending to be processed.
+                let course_id = self.data.get_course_id(curr_unit.unit_id)?;
+                let pending_lessons = pending_course_lessons
+                    .entry(course_id)
+                    .or_insert_with(|| self.data.get_num_lessons_in_course(course_id));
+                *pending_lessons -= 1;
 
-            // Update the number of lessons pending to be processed.
-            let course_id = self.data.get_course_id(curr_unit.unit_id)?;
-            let pending_lessons = pending_course_lessons
-                .entry(course_id)
-                .or_insert_with(|| self.data.get_num_lessons_in_course(course_id));
-            *pending_lessons -= 1;
-
-            // Check whether there are pending lessons.
-            if *pending_lessons == 0 {
-                // Once all the lessons in the course have been visited, re-add the course to the
-                // stack, so the search can continue exploring its dependents.
-                stack.push(StackItem {
-                    unit_id: course_id,
-                    depth: curr_unit.depth + 1,
-                });
-            }
-
-            // Retrieve the valid dependents of the lesson, and directly skip the lesson if needed.
-            let valid_deps =
-                self.get_valid_dependents(curr_unit.unit_id, curr_unit.depth, metadata_filter);
-            if self.skip_lesson(curr_unit.unit_id, metadata_filter) {
-                Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
-                continue;
-            }
-
-            // Retrieve the candidates from the lesson and add them to the list of candidates.
-            let (candidates, avg_score) = self.get_candidates_from_lesson_helper(&curr_unit)?;
-            let num_candidates = candidates.len();
-            all_candidates.extend(candidates);
-
-            // The average score is considered valid only if at least one candidate was retrieved.
-            // Compare it against the passing score to decide whether the search should continue
-            // past this lesson.
-            if num_candidates > 0
-                && avg_score
-                    < self
-                        .data
-                        .options
-                        .passing_score
-                        .compute_score(curr_unit.depth)
-            {
-                // If the search reaches a dead-end and there are already enough candidates,
-                // terminate the search. Otherwise, continue with the search.
-                if all_candidates.len() >= max_candidates {
-                    break;
+                // Check whether there are pending lessons.
+                if *pending_lessons == 0 {
+                    // Once all the lessons in the course have been visited, re-add the course to
+                    // the stack, so the search can continue exploring its dependents.
+                    stack.push(StackItem {
+                        unit_id: course_id,
+                        depth: curr_unit.depth + 1,
+                    });
                 }
-                continue;
-            }
 
-            // The search should continue past this lesson. Add its valid dependents to the stack.
-            Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
+                // Retrieve the valid dependents of the lesson, and directly skip the lesson if
+                // needed.
+                let valid_deps =
+                    self.get_valid_dependents(curr_unit.unit_id, curr_unit.depth, metadata_filter);
+                if self.skip_lesson(curr_unit.unit_id, metadata_filter) {
+                    Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
+                    continue;
+                }
+
+                // Retrieve the candidates from the lesson and add them to the list of candidates.
+                let (candidates, avg_score) = self.get_candidates_from_lesson_helper(&curr_unit)?;
+                let num_candidates = candidates.len();
+                all_candidates.extend(candidates);
+
+                // The average score is considered valid only if at least one candidate was
+                // retrieved. Compare it against the passing score to decide whether the search
+                // should continue past this lesson.
+                if num_candidates > 0
+                    && avg_score
+                        < self
+                            .data
+                            .options
+                            .passing_score
+                            .compute_score(curr_unit.depth)
+                {
+                    // If the search reaches a dead-end and there are already enough candidates,
+                    // terminate the search. Otherwise, continue with the search.
+                    if all_candidates.len() >= max_candidates {
+                        break;
+                    }
+                    continue;
+                }
+
+                // The search should continue past this lesson. Add its valid dependents to the
+                // stack.
+                Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
+            }
         }
 
         Ok(all_candidates)
@@ -644,61 +640,54 @@ impl DepthFirstScheduler {
             }
             let unit_type = unit_type.unwrap();
 
-            // Handle courses. They should be skipped, as all the courses that should be considered
-            // were already handled when their starting lessons were added to the stack.
-            if unit_type == UnitType::Course {
-                continue;
-            }
-
-            // Handle exercises. They should be skipped as well, as only lessons should be
-            // traversed.
-            if unit_type == UnitType::Exercise {
-                continue;
-            }
-
-            // If the searched reached this point, the unit must be a lesson. Ignore lessons from
-            // other courses that might have been added to the stack.
-            let lesson_course_id = self
-                .data
-                .get_lesson_course(curr_unit.unit_id)
-                .unwrap_or_default();
-            if !course_ids.contains(&lesson_course_id) {
-                continue;
-            }
-
-            // Retrieve the valid dependents of the lesson, and directly skip the lesson if needed.
-            let valid_deps = self.get_valid_dependents(curr_unit.unit_id, curr_unit.depth, None);
-            if self.skip_lesson(curr_unit.unit_id, None) {
-                Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
-                continue;
-            }
-
-            // Retrieve the candidates from the lesson and add them to the list of candidates.
-            let (candidates, avg_score) = self.get_candidates_from_lesson_helper(&curr_unit)?;
-            let num_candidates = candidates.len();
-            all_candidates.extend(candidates);
-
-            // The average score is considered valid only if at least one candidate was retrieved.
-            // Compare it against the passing score to decide whether the search should continue
-            // past this lesson.
-            if num_candidates > 0
-                && avg_score
-                    < self
-                        .data
-                        .options
-                        .passing_score
-                        .compute_score(curr_unit.depth)
-            {
-                // If the search reaches a dead-end and there are already enough candidates,
-                // terminate the search. Continue otherwise.
-                if all_candidates.len() >= max_candidates {
-                    break;
+            // Only handle lessons. Other courses and exercises are skipped by the search.
+            if unit_type == UnitType::Lesson {
+                // If the searched reached this point, the unit must be a lesson. Ignore lessons
+                // from other courses that might have been added to the stack.
+                let lesson_course_id = self
+                    .data
+                    .get_lesson_course(curr_unit.unit_id)
+                    .unwrap_or_default();
+                if !course_ids.contains(&lesson_course_id) {
+                    continue;
                 }
-                continue;
-            }
 
-            // Add the lesson's valid dependents to the stack.
-            Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
+                // Retrieve the valid dependents of the lesson, and directly skip the lesson if
+                // needed.
+                let valid_deps =
+                    self.get_valid_dependents(curr_unit.unit_id, curr_unit.depth, None);
+                if self.skip_lesson(curr_unit.unit_id, None) {
+                    Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
+                    continue;
+                }
+
+                // Retrieve the candidates from the lesson and add them to the list of candidates.
+                let (candidates, avg_score) = self.get_candidates_from_lesson_helper(&curr_unit)?;
+                let num_candidates = candidates.len();
+                all_candidates.extend(candidates);
+
+                // The average score is considered valid only if at least one candidate was
+                // retrieved. Compare it against the passing score to decide whether the search
+                // should continue past this lesson.
+                if num_candidates > 0
+                    && avg_score
+                        < self
+                            .data
+                            .options
+                            .passing_score
+                            .compute_score(curr_unit.depth)
+                {
+                    // If the search reaches a dead-end and there are already enough candidates,
+                    // terminate the search. Continue otherwise.
+                    if all_candidates.len() >= max_candidates {
+                        break;
+                    }
+                    continue;
+                }
+
+                // Add the lesson's valid dependents to the stack.
+                Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
+            }
         }
 
         Ok(all_candidates)
@@ -877,10 +866,12 @@ impl ExerciseScheduler for DepthFirstScheduler {
         Ok(())
     }
 
+    #[cfg_attr(coverage, coverage(off))]
     fn invalidate_cached_score(&self, unit_id: Ustr) {
         self.score_cache.invalidate_cached_score(unit_id);
     }
 
+    #[cfg_attr(coverage, coverage(off))]
     fn invalidate_cached_scores_with_prefix(&self, prefix: &str) {
         self.score_cache
             .invalidate_cached_scores_with_prefix(prefix);

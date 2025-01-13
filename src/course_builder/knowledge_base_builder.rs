@@ -10,7 +10,7 @@ use std::{
     collections::{BTreeMap, HashSet},
     fs::{self, create_dir_all, File},
     io::Write,
-    path::Path,
+    path::{Path, PathBuf},
 };
 use ustr::Ustr;
 
@@ -148,9 +148,9 @@ pub struct CourseBuilder {
 }
 
 impl CourseBuilder {
-    /// Writes the files needed for this course to the given directory.
-    pub fn build(&self, parent_directory: &Path) -> Result<()> {
-        // Verify that the directory doesn't already exist and create it.
+    /// Creates the directory for the course.
+    #[cfg_attr(coverage, coverage(off))]
+    fn create_course_directory(&self, parent_directory: &Path) -> Result<PathBuf> {
         let course_directory = parent_directory.join(&self.directory_name);
         ensure!(
             !course_directory.is_dir(),
@@ -158,8 +158,13 @@ impl CourseBuilder {
             course_directory.display(),
         );
         create_dir_all(&course_directory)?;
+        Ok(course_directory)
+    }
 
-        // Write all the assets.
+    /// Writes the files needed for this course to the given directory.
+    pub fn build(&self, parent_directory: &Path) -> Result<()> {
+        // Create the directory and write all the assets to it.
+        let course_directory = self.create_course_directory(parent_directory)?;
         for builder in &self.assets {
             builder.build(&course_directory)?;
         }
