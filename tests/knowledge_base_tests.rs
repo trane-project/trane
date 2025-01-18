@@ -178,8 +178,12 @@ fn all_exercises_visited() -> Result<()> {
 
     // Initialize the Trane library.
     let temp_dir = TempDir::new()?;
+    let course1_path = temp_dir.path().join(&course1_builder.directory_name);
     let mut trane =
         init_knowledge_base_simulation(temp_dir.path(), &vec![course1_builder, course2_builder])?;
+
+    // Write a non-lesson directory in one of the courses to verify it's skipped.
+    std::fs::create_dir_all(course1_path.join("not_lesson_directory"))?;
 
     // Run the simulation.
     let exercise_ids = trane.get_all_exercise_ids(None);
