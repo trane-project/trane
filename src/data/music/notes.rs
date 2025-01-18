@@ -96,6 +96,7 @@ impl Display for Note {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use super::*;
 

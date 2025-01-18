@@ -357,6 +357,7 @@ impl ScoreCache {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use anyhow::Result;
     use lazy_static::lazy_static;

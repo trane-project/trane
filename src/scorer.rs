@@ -172,6 +172,7 @@ unsafe impl Send for SimpleScorer {}
 unsafe impl Sync for SimpleScorer {}
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use chrono::Utc;
 

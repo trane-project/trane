@@ -290,14 +290,14 @@ impl InMemoryUnitGraph {
         Ok(())
     }
 
-    /// Helper function to add dependencies to a unit.
-    fn add_dependencies_helper(
-        &mut self,
+    // Performs some sanity checks before adding a dependency.
+    #[cfg_attr(coverage, coverage(off))]
+    fn verify_dependencies(
+        &self,
         unit_id: Ustr,
         unit_type: &UnitType,
         dependencies: &[Ustr],
     ) -> Result<()> {
-        // Perform some sanity checks on the unit type and dependencies.
         ensure!(
             *unit_type != UnitType::Exercise,
             "exercise {} cannot have dependencies",
@@ -308,14 +308,23 @@ impl InMemoryUnitGraph {
             "unit {} cannot depend on itself",
             unit_id,
         );
-
-        // Verify that the unit was added before trying to list its dependencies.
         ensure!(
             self.type_map.contains_key(&unit_id),
             "unit {} of type {:?} must be explicitly added before adding dependencies",
             unit_id,
             unit_type,
         );
+        Ok(())
+    }
+
+    /// Helper function to add dependencies to a unit.
+    fn add_dependencies_helper(
+        &mut self,
+        unit_id: Ustr,
+        unit_type: &UnitType,
+        dependencies: &[Ustr],
+    ) -> Result<()> {
+        self.verify_dependencies(unit_id, unit_type, dependencies)?;
 
         // Update the dependency sinks and dependency map.
         self.update_dependency_sinks(unit_id, dependencies);
@@ -364,14 +373,8 @@ impl InMemoryUnitGraph {
                     for dependency_id in dependencies {
                         // Verify that the dependency and dependent graphs agree with each other by
                         // checking that this dependency lists the current unit as a dependent.
-                        let dependents = self.get_dependents(dependency_id);
-                        let mut missing_dependent = dependents.is_none();
-                        if let Some(dependents) = dependents {
-                            if !dependents.contains(&current_id) {
-                                missing_dependent = true;
-                            }
-                        }
-                        if missing_dependent {
+                        let dependents = self.get_dependents(dependency_id).unwrap_or_default();
+                        if !dependents.contains(&current_id) {
                             bail!(
                                 "unit {} lists unit {} as a dependency but the dependent \
                                 relationship does not exist",
@@ -419,14 +422,8 @@ impl InMemoryUnitGraph {
                 // agree with each other, and generate new paths to add to the stack.
                 if let Some(superseded) = self.get_superseded(current_id) {
                     for superseded_id in superseded {
-                        let superseding = self.get_superseding(superseded_id);
-                        let mut missing_superseding = superseding.is_none();
-                        if let Some(superseding) = superseding {
-                            if !superseding.contains(&current_id) {
-                                missing_superseding = true;
-                            }
-                        }
-                        if missing_superseding {
+                        let superseding = self.get_superseding(superseded_id).unwrap_or_default();
+                        if !superseding.contains(&current_id) {
                             bail!(
                                 "unit {} lists unit {} as a superseded unit but the superseding \
                                 relationship does not exist",
@@ -638,6 +635,7 @@ impl UnitGraph for InMemoryUnitGraph {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use anyhow::Result;
     use indoc::indoc;

@@ -202,6 +202,7 @@ impl GenerateManifests for MusicPieceConfig {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use super::*;
 

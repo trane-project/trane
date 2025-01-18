@@ -340,6 +340,7 @@ impl CandidateFilter {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use ustr::Ustr;
 

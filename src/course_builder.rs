@@ -214,6 +214,7 @@ impl CourseBuilder {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use anyhow::Result;
     use std::io::Read;
@@ -324,5 +325,11 @@ mod test {
         assert!(lesson_dir.join("lesson_manifest.json").is_file());
         assert!(exercise_dir.join("exercise_manifest.json").is_file());
         Ok(())
+    }
+
+    /// Tests the Display implementation of TraneMetadata to satisfy coverage.
+    #[test]
+    fn trane_metadata_display() {
+        assert_eq!("skill", TraneMetadata::Skill.to_string());
     }
 }

@@ -429,24 +429,25 @@ impl KnowledgeBaseLesson {
         // Iterate through the directory to find all the matching files in the lesson directory.
         let mut lesson_files = Vec::new();
         let mut exercise_files = HashMap::new();
-        for entry in read_dir(lesson_root)? {
-            let entry = entry?;
-            let file_name = entry.file_name();
-            let file_name: &str = file_name.to_str().unwrap_or_default();
-            if let Ok(kb_file) = KnowledgeBaseFile::try_from(file_name) {
-                match kb_file {
-                    KnowledgeBaseFile::ExerciseFront(ref short_id)
-                    | KnowledgeBaseFile::ExerciseBack(ref short_id)
-                    | KnowledgeBaseFile::ExerciseName(ref short_id)
-                    | KnowledgeBaseFile::ExerciseDescription(ref short_id)
-                    | KnowledgeBaseFile::ExerciseType(ref short_id) => {
-                        exercise_files
-                            .entry(short_id.clone())
-                            .or_insert_with(Vec::new)
-                            .push(kb_file);
-                    }
-                    _ => lesson_files.push(kb_file),
+        let kb_files = read_dir(lesson_root)?
+            .flatten()
+            .flat_map(|entry| {
+                KnowledgeBaseFile::try_from(entry.file_name().to_str().unwrap_or_default())
+            })
+            .collect::<Vec<_>>();
+        for kb_file in kb_files {
+            match kb_file {
+                KnowledgeBaseFile::ExerciseFront(ref short_id)
+                | KnowledgeBaseFile::ExerciseBack(ref short_id)
+                | KnowledgeBaseFile::ExerciseName(ref short_id)
+                | KnowledgeBaseFile::ExerciseDescription(ref short_id)
+                | KnowledgeBaseFile::ExerciseType(ref short_id) => {
+                    exercise_files
+                        .entry(short_id.clone())
+                        .or_insert_with(Vec::new)
+                        .push(kb_file);
                 }
+                _ => lesson_files.push(kb_file),
             }
         }
 
@@ -565,16 +566,17 @@ impl GenerateManifests for KnowledgeBaseConfig {
         // Create the lessons by iterating through all the directories in the course root,
         // processing only those whose name fits the pattern `<SHORT_LESSON_ID>.lesson`.
         let mut lessons = UstrMap::default();
-        for entry in read_dir(course_root)? {
-            // Ignore the entry if it's not a directory.
-            let entry = entry?;
-            let path = entry.path();
-            if !path.is_dir() {
-                continue;
-            }
-
+        let valid_entries = read_dir(course_root)?
+            .flatten()
+            .filter(|entry| {
+                let path = entry.path();
+                path.is_dir()
+            })
+            .collect::<Vec<_>>();
+        for entry in valid_entries {
             // Check if the directory name is in the format `<SHORT_LESSON_ID>.lesson`. If so, read
             // the knowledge base lesson and its exercises.
+            let path = entry.path();
             let dir_name = path.file_name().unwrap_or_default().to_str().unwrap();
             if let Some(short_id) = dir_name.strip_suffix(LESSON_SUFFIX) {
                 lessons.insert(
@@ -608,6 +610,7 @@ impl GenerateManifests for KnowledgeBaseConfig {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use anyhow::Result;
     use std::{

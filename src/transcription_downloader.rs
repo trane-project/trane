@@ -229,6 +229,7 @@ impl TranscriptionDownloader for LocalTranscriptionDownloader {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use std::{
         path::{self, Path},

@@ -128,9 +128,13 @@ fn init_knowledge_base_simulation(
     course_builders: &[CourseBuilder],
 ) -> Result<Trane> {
     // Build the courses.
-    course_builders
-        .iter()
-        .try_for_each(|course_builder| course_builder.build(library_root))?;
+    for builder in course_builders {
+        let course_root = library_root.join(&builder.directory_name);
+        builder.build(library_root)?;
+
+        // Write a non-lesson directory to the the courses to verify it's skipped.
+        std::fs::create_dir_all(course_root.join("not_a_lesson_directory"))?;
+    }
 
     // Initialize the Trane library.
     let trane = Trane::new_local(library_root, library_root)?;

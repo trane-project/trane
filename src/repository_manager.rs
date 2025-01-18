@@ -140,12 +140,7 @@ impl LocalRepositoryManager {
 
         // Read the repository directory and add all the repositories to the map.
         let read_repo_dir = fs::read_dir(&repo_dir)?;
-        for entry in read_repo_dir {
-            // Ignore any directories, invalid files, or files that are not JSON.
-            if entry.is_err() {
-                continue;
-            }
-            let entry = entry.unwrap();
+        for entry in read_repo_dir.flatten() {
             if !entry.path().is_file() || entry.path().extension().unwrap_or_default() != "json" {
                 continue;
             }
@@ -268,6 +263,7 @@ impl RepositoryManager for LocalRepositoryManager {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use std::os::unix::prelude::PermissionsExt;
 
@@ -521,6 +517,15 @@ mod test {
         setup_directories(library_root.path())?;
         let mut manager = LocalRepositoryManager::new(library_root.path())?;
         manager.add_repo(REPO_URL, None)?;
+
+        // Add a non JSON file to verify it is ignored.
+        let ignored_file = library_root
+            .path()
+            .join(TRANE_CONFIG_DIR_PATH)
+            .join(REPOSITORY_DIRECTORY)
+            .join("ignored_file.txt");
+        fs::write(ignored_file, "This file should be ignored")?;
+
         let _ = LocalRepositoryManager::new(library_root.path())?;
         Ok(())
     }

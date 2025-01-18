@@ -406,6 +406,7 @@ pub enum ExerciseFilter {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use chrono::{Duration, Utc};
     use std::collections::BTreeMap;

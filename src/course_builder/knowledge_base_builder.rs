@@ -407,6 +407,7 @@ impl SimpleKnowledgeBaseCourse {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use std::collections::BTreeMap;
 
