@@ -325,4 +325,10 @@ mod test {
         assert!(exercise_dir.join("exercise_manifest.json").is_file());
         Ok(())
     }
+
+    /// Tests the Display implementation of TraneMetadata to satisfy coverage.
+    #[test]
+    fn trane_metadata_display() {
+        assert_eq!("skill", TraneMetadata::Skill.to_string());
+    }
 }

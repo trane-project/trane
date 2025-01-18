@@ -290,14 +290,14 @@ impl InMemoryUnitGraph {
         Ok(())
     }
 
-    /// Helper function to add dependencies to a unit.
-    fn add_dependencies_helper(
-        &mut self,
+    // Performs some sanity checks before adding a dependency.
+    #[cfg_attr(coverage, coverage(off))]
+    fn verify_dependencies(
+        &self,
         unit_id: Ustr,
         unit_type: &UnitType,
-        dependencies: &[Ustr],
+        dependencies: &[Ustr]
     ) -> Result<()> {
-        // Perform some sanity checks on the unit type and dependencies.
         ensure!(
             *unit_type != UnitType::Exercise,
             "exercise {} cannot have dependencies",
@@ -308,14 +308,23 @@ impl InMemoryUnitGraph {
             "unit {} cannot depend on itself",
             unit_id,
         );
-
-        // Verify that the unit was added before trying to list its dependencies.
         ensure!(
             self.type_map.contains_key(&unit_id),
             "unit {} of type {:?} must be explicitly added before adding dependencies",
             unit_id,
             unit_type,
         );
+        Ok(())
+    }
+
+    /// Helper function to add dependencies to a unit.
+    fn add_dependencies_helper(
+        &mut self,
+        unit_id: Ustr,
+        unit_type: &UnitType,
+        dependencies: &[Ustr],
+    ) -> Result<()> {
+        self.verify_dependencies(unit_id, unit_type, dependencies)?; 
 
         // Update the dependency sinks and dependency map.
         self.update_dependency_sinks(unit_id, dependencies);
