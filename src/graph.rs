@@ -296,7 +296,7 @@ impl InMemoryUnitGraph {
         &self,
         unit_id: Ustr,
         unit_type: &UnitType,
-        dependencies: &[Ustr]
+        dependencies: &[Ustr],
     ) -> Result<()> {
         ensure!(
             *unit_type != UnitType::Exercise,
@@ -324,7 +324,7 @@ impl InMemoryUnitGraph {
         unit_type: &UnitType,
         dependencies: &[Ustr],
     ) -> Result<()> {
-        self.verify_dependencies(unit_id, unit_type, dependencies)?; 
+        self.verify_dependencies(unit_id, unit_type, dependencies)?;
 
         // Update the dependency sinks and dependency map.
         self.update_dependency_sinks(unit_id, dependencies);

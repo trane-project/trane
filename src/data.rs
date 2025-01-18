@@ -1148,7 +1148,7 @@ mod test {
         Ok(())
     }
 
-    /// Verifies the `VerifyPaths` trait works for a `SoundSlice` asset.
+    /// Tests that the `VerifyPaths` trait works for a `SoundSlice` asset.
     #[test]
     fn soundslice_verify_paths() -> Result<()> {
         let soundslice = ExerciseAsset::SoundSliceAsset {
@@ -1167,9 +1167,9 @@ mod test {
         Ok(())
     }
 
-    /// Verifies the `VerifyPaths` trait works for a flashcard asset.
+    /// Tests that the `VerifyPaths` trait works for a flashcard asset.
     #[test]
-    fn verify_flashcard_assets() -> Result<()> {
+    fn flashcard_verify_paths() -> Result<()> {
         // Verify a flashcard with no back.
         let temp_dir = tempfile::tempdir()?;
         let front_file = tempfile::NamedTempFile::new_in(temp_dir.path())?;
@@ -1186,6 +1186,19 @@ mod test {
             back_path: Some(back_file.path().as_os_str().to_str().unwrap().to_string()),
         };
         assert!(flashcard_asset.verify_paths(temp_dir.path())?);
+        Ok(())
+    }
+
+    /// Tests that the `VerifyPaths` trait works for a literacy asset.
+    #[test]
+    fn literacy_verify_paths() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let literacy_asset = ExerciseAsset::LiteracyAsset {
+            lesson_type: LiteracyLesson::Reading,
+            examples: vec!["C".to_string(), "D".to_string()],
+            exceptions: vec!["E".to_string()],
+        };
+        assert!(literacy_asset.verify_paths(temp_dir.path())?);
         Ok(())
     }
 
