@@ -373,14 +373,8 @@ impl InMemoryUnitGraph {
                     for dependency_id in dependencies {
                         // Verify that the dependency and dependent graphs agree with each other by
                         // checking that this dependency lists the current unit as a dependent.
-                        let dependents = self.get_dependents(dependency_id);
-                        let mut missing_dependent = dependents.is_none();
-                        if let Some(dependents) = dependents {
-                            if !dependents.contains(&current_id) {
-                                missing_dependent = true;
-                            }
-                        }
-                        if missing_dependent {
+                        let dependents = self.get_dependents(dependency_id).unwrap_or_default();
+                        if !dependents.contains(&current_id) {
                             bail!(
                                 "unit {} lists unit {} as a dependency but the dependent \
                                 relationship does not exist",
@@ -428,14 +422,8 @@ impl InMemoryUnitGraph {
                 // agree with each other, and generate new paths to add to the stack.
                 if let Some(superseded) = self.get_superseded(current_id) {
                     for superseded_id in superseded {
-                        let superseding = self.get_superseding(superseded_id);
-                        let mut missing_superseding = superseding.is_none();
-                        if let Some(superseding) = superseding {
-                            if !superseding.contains(&current_id) {
-                                missing_superseding = true;
-                            }
-                        }
-                        if missing_superseding {
+                        let superseding = self.get_superseding(superseded_id).unwrap_or_default();
+                        if !superseding.contains(&current_id) {
                             bail!(
                                 "unit {} lists unit {} as a superseded unit but the superseding \
                                 relationship does not exist",
