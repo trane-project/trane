@@ -1052,6 +1052,7 @@ pub struct UserPreferences {
 //>@user-preferences
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use crate::data::*;
 

@@ -81,6 +81,7 @@ impl StudySessionManager for LocalStudySessionManager {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use anyhow::{Ok, Result};
     use std::{os::unix::prelude::PermissionsExt, path::Path};

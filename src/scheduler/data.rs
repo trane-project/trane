@@ -368,6 +368,7 @@ impl SchedulerData {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use anyhow::Result;
     use chrono::Duration;

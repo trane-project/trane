@@ -875,6 +875,7 @@ impl GenerateManifests for TranscriptionConfig {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use anyhow::Result;
     use indoc::indoc;

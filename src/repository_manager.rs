@@ -263,6 +263,7 @@ impl RepositoryManager for LocalRepositoryManager {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use std::os::unix::prelude::PermissionsExt;
 

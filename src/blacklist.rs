@@ -203,6 +203,7 @@ impl Blacklist for LocalBlacklist {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use anyhow::Result;
     use r2d2_sqlite::SqliteConnectionManager;

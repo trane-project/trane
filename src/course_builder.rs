@@ -214,6 +214,7 @@ impl CourseBuilder {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use anyhow::Result;
     use std::io::Read;

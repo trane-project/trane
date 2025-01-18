@@ -245,6 +245,7 @@ impl PracticeStats for LocalPracticeStats {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use anyhow::{Ok, Result};
     use r2d2_sqlite::SqliteConnectionManager;

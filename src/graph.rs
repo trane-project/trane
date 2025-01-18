@@ -635,6 +635,7 @@ impl UnitGraph for InMemoryUnitGraph {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use anyhow::Result;
     use indoc::indoc;

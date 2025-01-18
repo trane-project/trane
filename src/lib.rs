@@ -672,6 +672,7 @@ impl UnitGraph for Trane {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use anyhow::Result;
     use std::{fs::*, os::unix::prelude::PermissionsExt, thread, time::Duration};

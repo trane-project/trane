@@ -228,6 +228,7 @@ impl GenerateManifests for LiteracyConfig {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use anyhow::Result;
     use std::{collections::BTreeMap, fs, path::Path};
