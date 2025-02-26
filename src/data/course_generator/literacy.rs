@@ -115,7 +115,7 @@ impl LiteracyFile {
         reader
             .read_to_string(&mut contents)
             .context(format!("cannot read literacy markdown file {display}"))?;
-        Ok(contents.lines().map(|s| s.to_string()).collect())
+        Ok(contents.lines().map(ToString::to_string).collect())
     }
 }
 
