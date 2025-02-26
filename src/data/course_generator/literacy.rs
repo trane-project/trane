@@ -261,7 +261,6 @@ impl LiteracyLesson {
     /// Detectes whether the given ID is one of the short IDs for one of the lesson of the course
     /// and returns the full ID of the reading lesson. Otherwise, it returns the ID as is.
     fn compute_full_reading_lesson_id(
-        &self,
         course_id: Ustr,
         short_id: Ustr,
         short_ids: &UstrSet,
@@ -277,7 +276,6 @@ impl LiteracyLesson {
     /// Detects whether the given ID is one of the short IDs for one of the lesson of the course
     /// and returns the full ID of the dictation lesson. Otherwise, it returns the ID as is.k
     fn compute_full_dictation_lesson_id(
-        &self,
         course_id: Ustr,
         short_id: Ustr,
         short_ids: &UstrSet,
@@ -299,15 +297,15 @@ impl LiteracyLesson {
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Create the lesson manifest.
         let lesson_id =
-            self.compute_full_reading_lesson_id(course_manifest.id, short_id, short_ids);
+            Self::compute_full_reading_lesson_id(course_manifest.id, short_id, short_ids);
         let dependencies = self
             .dependencies
             .iter()
-            .map(|id| self.compute_full_reading_lesson_id(course_manifest.id, *id, short_ids))
+            .map(|id| Self::compute_full_reading_lesson_id(course_manifest.id, *id, short_ids))
             .collect::<Vec<_>>();
         let lesson_manifest = LessonManifest {
             id: format!("{lesson_id}::reading").into(),
-            dependencies: dependencies,
+            dependencies,
             superseded: vec![],
             course_id: course_manifest.id,
             name: format!("{} - Reading", course_manifest.name),
@@ -346,9 +344,9 @@ impl LiteracyLesson {
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Create the lesson manifest.
         let lesson_id =
-            self.compute_full_dictation_lesson_id(course_manifest.id, short_id, short_ids);
+            Self::compute_full_dictation_lesson_id(course_manifest.id, short_id, short_ids);
         let reading_lesson_id =
-            self.compute_full_reading_lesson_id(course_manifest.id, short_id, short_ids);
+            Self::compute_full_reading_lesson_id(course_manifest.id, short_id, short_ids);
         let lesson_manifest = LessonManifest {
             id: lesson_id,
             dependencies: vec![reading_lesson_id],
