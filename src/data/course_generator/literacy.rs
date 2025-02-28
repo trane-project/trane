@@ -296,31 +296,23 @@ impl LiteracyLesson {
 
     /// Detectes whether the given ID is one of the short IDs for one of the lesson of the course
     /// and returns the full ID of the reading lesson. Otherwise, it returns the ID as is.
-    fn compute_full_reading_lesson_id(
-        course_id: Ustr,
-        short_id: Ustr,
-        short_ids: &UstrSet,
-    ) -> Ustr {
-        if short_ids.contains(&short_id) {
-            let full_id = format!("{course_id}::{short_id}::reading");
+    fn full_reading_lesson_id(course_id: Ustr, lesson_id: Ustr, short_ids: &UstrSet) -> Ustr {
+        if short_ids.contains(&lesson_id) {
+            let full_id = format!("{course_id}::{lesson_id}::reading");
             full_id.into()
         } else {
-            short_id
+            lesson_id
         }
     }
 
     /// Detects whether the given ID is one of the short IDs for one of the lesson of the course
     /// and returns the full ID of the dictation lesson. Otherwise, it returns the ID as is.k
-    fn compute_full_dictation_lesson_id(
-        course_id: Ustr,
-        short_id: Ustr,
-        short_ids: &UstrSet,
-    ) -> Ustr {
-        if short_ids.contains(&short_id) {
-            let full_id = format!("{course_id}::{short_id}::dictation");
+    fn full_dictation_lesson_id(course_id: Ustr, lesson_id: Ustr, short_ids: &UstrSet) -> Ustr {
+        if short_ids.contains(&lesson_id) {
+            let full_id = format!("{course_id}::{lesson_id}::dictation");
             full_id.into()
         } else {
-            short_id
+            lesson_id
         }
     }
 
@@ -332,12 +324,11 @@ impl LiteracyLesson {
         short_ids: &UstrSet,
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Create the lesson manifest.
-        let lesson_id =
-            Self::compute_full_reading_lesson_id(course_manifest.id, short_id, short_ids);
+        let lesson_id = Self::full_reading_lesson_id(course_manifest.id, short_id, short_ids);
         let dependencies = self
             .dependencies
             .iter()
-            .map(|id| Self::compute_full_reading_lesson_id(course_manifest.id, *id, short_ids))
+            .map(|id| Self::full_reading_lesson_id(course_manifest.id, *id, short_ids))
             .collect::<Vec<_>>();
         let lesson_manifest = LessonManifest {
             id: lesson_id,
@@ -379,10 +370,9 @@ impl LiteracyLesson {
         short_ids: &UstrSet,
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Create the lesson manifest.
-        let lesson_id =
-            Self::compute_full_dictation_lesson_id(course_manifest.id, short_id, short_ids);
+        let lesson_id = Self::full_dictation_lesson_id(course_manifest.id, short_id, short_ids);
         let reading_lesson_id =
-            Self::compute_full_reading_lesson_id(course_manifest.id, short_id, short_ids);
+            Self::full_reading_lesson_id(course_manifest.id, short_id, short_ids);
         let lesson_manifest = LessonManifest {
             id: lesson_id,
             dependencies: vec![reading_lesson_id],
@@ -505,12 +495,54 @@ mod test {
     use anyhow::Result;
     use pretty_assertions::assert_eq;
     use std::{collections::BTreeMap, fs, path::Path};
+    use ustr::{Ustr, UstrSet};
 
     use crate::data::{
-        course_generator::literacy::{LiteracyConfig, LiteracyLessonType},
+        course_generator::literacy::{LiteracyConfig, LiteracyLesson, LiteracyLessonType},
         CourseGenerator, CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseType,
         GenerateManifests, GeneratedCourse, LessonManifest, UserPreferences,
     };
+
+    /// Verifies that lesson IDs are generated correctly.
+    #[test]
+    fn full_lesson_ids() {
+        let course_id = Ustr::from("course_id");
+        let short_id = Ustr::from("lesson_id");
+        let not_in_short_ids = "other_course_id::other_lesson_id".into();
+        let short_ids: UstrSet = vec!["lesson_id".into()].into_iter().collect();
+
+        // Reading lesson is one of the short IDs.
+        let reading_lesson_id =
+            LiteracyLesson::full_reading_lesson_id(course_id, short_id, &short_ids);
+        assert_eq!(
+            reading_lesson_id,
+            Ustr::from("course_id::lesson_id::reading"),
+        );
+
+        // Reading lesson is not one of the short IDs.
+        let reading_lesson_id =
+            LiteracyLesson::full_reading_lesson_id(course_id, not_in_short_ids, &short_ids);
+        assert_eq!(
+            reading_lesson_id,
+            Ustr::from("other_course_id::other_lesson_id")
+        );
+
+        // Dictation lesson is one of the short IDs.
+        let dictation_lesson_id =
+            LiteracyLesson::full_dictation_lesson_id(course_id, short_id, &short_ids);
+        assert_eq!(
+            dictation_lesson_id,
+            Ustr::from("course_id::lesson_id::dictation"),
+        );
+
+        // Dictation lesson is not one of the short IDs.
+        let dictation_lesson_id =
+            LiteracyLesson::full_dictation_lesson_id(course_id, not_in_short_ids, &short_ids);
+        assert_eq!(
+            dictation_lesson_id,
+            Ustr::from("other_course_id::other_lesson_id")
+        );
+    }
 
     /// Generates a set of test lessons, each with the given number of examples and exceptions.
     /// Each lesson will depend on the previous one to verify the generation of dependencies.
