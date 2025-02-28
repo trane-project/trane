@@ -285,11 +285,6 @@ impl LiteracyLesson {
             })
             .collect::<Vec<_>>();
 
-        // TODO: figure out how to deal with empty short IDs.
-        // // Remove exercises for the empty short ID. This can happen if the user has a file named
-        // // `.front.md`, for example.
-        // exercise_files.remove("");
-
         // Create the literacy lesson.
         Self::create_lesson(lesson_root, short_lesson_id, &lesson_files)
     }
@@ -504,10 +499,12 @@ impl GenerateManifests for LiteracyConfig {
             let path = entry.path();
             let dir_name = path.file_name().unwrap_or_default().to_str().unwrap();
             if let Some(short_id) = dir_name.strip_suffix(LESSON_SUFFIX) {
-                lessons.insert(
-                    short_id.into(),
-                    LiteracyLesson::open_lesson(&path, short_id.into())?,
-                );
+                if !short_id.is_empty() {
+                    lessons.insert(
+                        short_id.into(),
+                        LiteracyLesson::open_lesson(&path, short_id.into())?,
+                    );
+                }
             }
         }
 
