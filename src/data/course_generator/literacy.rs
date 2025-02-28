@@ -400,7 +400,7 @@ impl LiteracyLesson {
 
         // Create the exercise manifest.
         let exercise_manifest = ExerciseManifest {
-            id: format!("{}::exercise", lesson_id).into(),
+            id: format!("{lesson_id}::exercise").into(),
             lesson_id: lesson_manifest.id,
             course_id: course_manifest.id,
             name: format!("{} - Dictation", course_manifest.name),
