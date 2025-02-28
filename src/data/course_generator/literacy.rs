@@ -344,11 +344,12 @@ impl LiteracyLesson {
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Generate basic info for the lesson.
         let lesson_id = Self::full_reading_lesson_id(course_manifest.id, short_id, short_ids);
-        let dependencies = self
+        let mut dependencies = self
             .dependencies
             .iter()
             .map(|id| Self::full_reading_lesson_id(course_manifest.id, *id, short_ids))
             .collect::<Vec<_>>();
+        dependencies.sort();
         let course_name = Self::course_name(course_manifest);
         let lesson_name = self.lesson_name(&course_name, &LiteracyLessonType::Reading);
 
@@ -396,13 +397,31 @@ impl LiteracyLesson {
         let lesson_id = Self::full_dictation_lesson_id(course_manifest.id, short_id, short_ids);
         let reading_lesson_id =
             Self::full_reading_lesson_id(course_manifest.id, short_id, short_ids);
+        // The dependencies are the dictation lessons of the other lessons in the course that are
+        // marked as a dependency of this lesson. Exclude dependencies outside the course. The
+        // reading lesson is always a dependency of the dictation lesson.
+        let mut dependencies = self
+            .dependencies
+            .iter()
+            .filter_map(|id| {
+                let full_dependency =
+                    Self::full_dictation_lesson_id(course_manifest.id, *id, short_ids);
+                if full_dependency == *id {
+                    None
+                } else {
+                    Some(full_dependency)
+                }
+            })
+            .collect::<Vec<_>>();
+        dependencies.push(reading_lesson_id);
+        dependencies.sort();
         let course_name = Self::course_name(course_manifest);
         let lesson_name = self.lesson_name(&course_name, &LiteracyLessonType::Dictation);
 
         // Create the lesson manifest.
         let lesson_manifest = LessonManifest {
             id: lesson_id,
-            dependencies: vec![reading_lesson_id],
+            dependencies,
             superseded: vec![],
             course_id: course_manifest.id,
             name: lesson_name.clone(),
@@ -709,12 +728,17 @@ mod test {
         num_simple_exceptions: u8,
     ) -> Result<()> {
         for i in 0..num_lessons {
-            // Create the lesson directory and make lesson depend on the previous one.
+            // Create the lesson directory and make lesson depend on the previous one. Add another
+            // dependency that is outside the course to verify that functionality.
             let lesson_dir = root_dir.join(format!("lesson_{i}.lesson"));
             fs::create_dir_all(&lesson_dir)?;
-            if i > 0 {
+            if i == 0 {
                 let dependencies_file = lesson_dir.join("lesson.dependencies.json");
-                let dependencies_content = format!("[\"lesson_{}\"]", i - 1);
+                let dependencies_content = "[\"other_lesson\"]";
+                fs::write(&dependencies_file, dependencies_content)?;
+            } else {
+                let dependencies_file = lesson_dir.join("lesson.dependencies.json");
+                let dependencies_content = format!("[\"lesson_{}\", \"other_lesson\"]", i - 1);
                 fs::write(&dependencies_file, dependencies_content)?;
             }
 
@@ -827,7 +851,7 @@ mod test {
                 (
                     LessonManifest {
                         id: "literacy_course::lesson_0::reading".into(),
-                        dependencies: vec![],
+                        dependencies: vec!["other_lesson".into()],
                         superseded: vec![],
                         course_id: "literacy_course".into(),
                         name: "Literacy Course - lesson_0 - Reading".into(),
@@ -866,7 +890,10 @@ mod test {
                 (
                     LessonManifest {
                         id: "literacy_course::lesson_1::dictation".into(),
-                        dependencies: vec!["literacy_course::lesson_1::reading".into()],
+                        dependencies: vec![
+                            "literacy_course::lesson_0::dictation".into(),
+                            "literacy_course::lesson_1::reading".into(),
+                        ],
                         superseded: vec![],
                         course_id: "literacy_course".into(),
                         name: "Literacy Course - lesson_1 - Dictation".into(),
@@ -905,7 +932,10 @@ mod test {
                 (
                     LessonManifest {
                         id: "literacy_course::lesson_1::reading".into(),
-                        dependencies: vec!["literacy_course::lesson_0::reading".into()],
+                        dependencies: vec![
+                            "literacy_course::lesson_0::reading".into(),
+                            "other_lesson".into(),
+                        ],
                         superseded: vec![],
                         course_id: "literacy_course".into(),
                         name: "Literacy Course - lesson_1 - Reading".into(),
@@ -988,7 +1018,7 @@ mod test {
                 (
                     LessonManifest {
                         id: "literacy_course::lesson_0::reading".into(),
-                        dependencies: vec![],
+                        dependencies: vec!["other_lesson".into()],
                         superseded: vec![],
                         course_id: "literacy_course".into(),
                         name: "Literacy Course - lesson_0 - Reading".into(),
@@ -1027,7 +1057,10 @@ mod test {
                 (
                     LessonManifest {
                         id: "literacy_course::lesson_1::reading".into(),
-                        dependencies: vec!["literacy_course::lesson_0::reading".into()],
+                        dependencies: vec![
+                            "literacy_course::lesson_0::reading".into(),
+                            "other_lesson".into(),
+                        ],
                         superseded: vec![],
                         course_id: "literacy_course".into(),
                         name: "Literacy Course - lesson_1 - Reading".into(),
