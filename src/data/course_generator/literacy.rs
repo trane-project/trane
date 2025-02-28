@@ -316,6 +316,28 @@ impl LiteracyLesson {
         }
     }
 
+    // Returns the name of the course, returning the ID if the name is empty.
+    fn course_name(course_manifest: &CourseManifest) -> String {
+        if course_manifest.name.is_empty() {
+            course_manifest.id.to_string()
+        } else {
+            course_manifest.name.clone()
+        }
+    }
+
+    // Retuns the name of the lesson, returning a sane default if the name is empty.
+    fn lesson_name(&self, course_name: &str, lesson_type: &LiteracyLessonType) -> String {
+        let lesson_type = match lesson_type {
+            LiteracyLessonType::Reading => "Reading",
+            LiteracyLessonType::Dictation => "Dictation",
+        };
+        if let Some(name) = &self.name {
+            format!("{course_name} - {name} - {lesson_type}")
+        } else {
+            format!("{course_name} - {} - {lesson_type}", self.short_id)
+        }
+    }
+
     /// Generates the manifests for the reading lesson.
     fn generate_reading_lesson(
         &self,
@@ -323,20 +345,29 @@ impl LiteracyLesson {
         short_id: Ustr,
         short_ids: &UstrSet,
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
-        // Create the lesson manifest.
+        // Generate basic info for the lesson.
         let lesson_id = Self::full_reading_lesson_id(course_manifest.id, short_id, short_ids);
         let dependencies = self
             .dependencies
             .iter()
             .map(|id| Self::full_reading_lesson_id(course_manifest.id, *id, short_ids))
             .collect::<Vec<_>>();
+        let course_name = Self::course_name(course_manifest);
+        let lesson_name = self.lesson_name(&course_name, &LiteracyLessonType::Reading);
+        let description = if self.description.is_some() {
+            self.description.clone()
+        } else {
+            None
+        };
+
+        // Create the lesson manifest.
         let lesson_manifest = LessonManifest {
             id: lesson_id,
             dependencies,
             superseded: vec![],
             course_id: course_manifest.id,
-            name: format!("{} - Reading", course_manifest.name),
-            description: None,
+            name: lesson_name.clone(),
+            description: description.clone(),
             metadata: Some(BTreeMap::from([(
                 LESSON_METADATA.to_string(),
                 vec!["reading".to_string()],
@@ -350,8 +381,8 @@ impl LiteracyLesson {
             id: format!("{lesson_id}::exercise").into(),
             lesson_id: lesson_manifest.id,
             course_id: course_manifest.id,
-            name: format!("{} - Reading", course_manifest.name),
-            description: None,
+            name: lesson_name,
+            description,
             exercise_type: ExerciseType::Procedural,
             exercise_asset: ExerciseAsset::LiteracyAsset {
                 lesson_type: LiteracyLessonType::Reading,
@@ -369,17 +400,26 @@ impl LiteracyLesson {
         short_id: Ustr,
         short_ids: &UstrSet,
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
-        // Create the lesson manifest.
+        // Generate basic info for the lesson.
         let lesson_id = Self::full_dictation_lesson_id(course_manifest.id, short_id, short_ids);
         let reading_lesson_id =
             Self::full_reading_lesson_id(course_manifest.id, short_id, short_ids);
+        let course_name = Self::course_name(course_manifest);
+        let lesson_name = self.lesson_name(&course_name, &LiteracyLessonType::Dictation);
+        let description = if self.description.is_some() {
+            self.description.clone()
+        } else {
+            None
+        };
+
+        // Create the lesson manifest.
         let lesson_manifest = LessonManifest {
             id: lesson_id,
             dependencies: vec![reading_lesson_id],
             superseded: vec![],
             course_id: course_manifest.id,
-            name: format!("{} - Dictation", course_manifest.name),
-            description: None,
+            name: lesson_name.clone(),
+            description: description.clone(),
             metadata: Some(BTreeMap::from([(
                 LESSON_METADATA.to_string(),
                 vec!["dictation".to_string()],
@@ -393,8 +433,8 @@ impl LiteracyLesson {
             id: format!("{lesson_id}::exercise").into(),
             lesson_id: lesson_manifest.id,
             course_id: course_manifest.id,
-            name: format!("{} - Dictation", course_manifest.name),
-            description: None,
+            name: lesson_name,
+            description,
             exercise_type: ExerciseType::Procedural,
             exercise_asset: ExerciseAsset::LiteracyAsset {
                 lesson_type: LiteracyLessonType::Dictation,
@@ -637,7 +677,7 @@ mod test {
                         dependencies: vec!["literacy_course::lesson_0::reading".into()],
                         superseded: vec![],
                         course_id: "literacy_course".into(),
-                        name: "Literacy Course - Dictation".into(),
+                        name: "Literacy Course - lesson_0 - Dictation".into(),
                         description: None,
                         metadata: Some(BTreeMap::from([(
                             "literacy_lesson".to_string(),
@@ -650,7 +690,7 @@ mod test {
                         id: "literacy_course::lesson_0::dictation::exercise".into(),
                         lesson_id: "literacy_course::lesson_0::dictation".into(),
                         course_id: "literacy_course".into(),
-                        name: "Literacy Course - Dictation".into(),
+                        name: "Literacy Course - lesson_0 - Dictation".into(),
                         description: None,
                         exercise_type: ExerciseType::Procedural,
                         exercise_asset: ExerciseAsset::LiteracyAsset {
@@ -676,7 +716,7 @@ mod test {
                         dependencies: vec![],
                         superseded: vec![],
                         course_id: "literacy_course".into(),
-                        name: "Literacy Course - Reading".into(),
+                        name: "Literacy Course - lesson_0 - Reading".into(),
                         description: None,
                         metadata: Some(BTreeMap::from([(
                             "literacy_lesson".to_string(),
@@ -689,7 +729,7 @@ mod test {
                         id: "literacy_course::lesson_0::reading::exercise".into(),
                         lesson_id: "literacy_course::lesson_0::reading".into(),
                         course_id: "literacy_course".into(),
-                        name: "Literacy Course - Reading".into(),
+                        name: "Literacy Course - lesson_0 - Reading".into(),
                         description: None,
                         exercise_type: ExerciseType::Procedural,
                         exercise_asset: ExerciseAsset::LiteracyAsset {
@@ -715,7 +755,7 @@ mod test {
                         dependencies: vec!["literacy_course::lesson_1::reading".into()],
                         superseded: vec![],
                         course_id: "literacy_course".into(),
-                        name: "Literacy Course - Dictation".into(),
+                        name: "Literacy Course - lesson_1 - Dictation".into(),
                         description: None,
                         metadata: Some(BTreeMap::from([(
                             "literacy_lesson".to_string(),
@@ -728,7 +768,7 @@ mod test {
                         id: "literacy_course::lesson_1::dictation::exercise".into(),
                         lesson_id: "literacy_course::lesson_1::dictation".into(),
                         course_id: "literacy_course".into(),
-                        name: "Literacy Course - Dictation".into(),
+                        name: "Literacy Course - lesson_1 - Dictation".into(),
                         description: None,
                         exercise_type: ExerciseType::Procedural,
                         exercise_asset: ExerciseAsset::LiteracyAsset {
@@ -754,7 +794,7 @@ mod test {
                         dependencies: vec!["literacy_course::lesson_0::reading".into()],
                         superseded: vec![],
                         course_id: "literacy_course".into(),
-                        name: "Literacy Course - Reading".into(),
+                        name: "Literacy Course - lesson_1 - Reading".into(),
                         description: None,
                         metadata: Some(BTreeMap::from([(
                             "literacy_lesson".to_string(),
@@ -767,7 +807,7 @@ mod test {
                         id: "literacy_course::lesson_1::reading::exercise".into(),
                         lesson_id: "literacy_course::lesson_1::reading".into(),
                         course_id: "literacy_course".into(),
-                        name: "Literacy Course - Reading".into(),
+                        name: "Literacy Course - lesson_1 - Reading".into(),
                         description: None,
                         exercise_type: ExerciseType::Procedural,
                         exercise_asset: ExerciseAsset::LiteracyAsset {
@@ -837,7 +877,7 @@ mod test {
                         dependencies: vec![],
                         superseded: vec![],
                         course_id: "literacy_course".into(),
-                        name: "Literacy Course - Reading".into(),
+                        name: "Literacy Course - lesson_0 - Reading".into(),
                         description: None,
                         metadata: Some(BTreeMap::from([(
                             "literacy_lesson".to_string(),
@@ -850,7 +890,7 @@ mod test {
                         id: "literacy_course::lesson_0::reading::exercise".into(),
                         lesson_id: "literacy_course::lesson_0::reading".into(),
                         course_id: "literacy_course".into(),
-                        name: "Literacy Course - Reading".into(),
+                        name: "Literacy Course - lesson_0 - Reading".into(),
                         description: None,
                         exercise_type: ExerciseType::Procedural,
                         exercise_asset: ExerciseAsset::LiteracyAsset {
@@ -876,7 +916,7 @@ mod test {
                         dependencies: vec!["literacy_course::lesson_0::reading".into()],
                         superseded: vec![],
                         course_id: "literacy_course".into(),
-                        name: "Literacy Course - Reading".into(),
+                        name: "Literacy Course - lesson_1 - Reading".into(),
                         description: None,
                         metadata: Some(BTreeMap::from([(
                             "literacy_lesson".to_string(),
@@ -889,7 +929,7 @@ mod test {
                         id: "literacy_course::lesson_1::reading::exercise".into(),
                         lesson_id: "literacy_course::lesson_1::reading".into(),
                         course_id: "literacy_course".into(),
-                        name: "Literacy Course - Reading".into(),
+                        name: "Literacy Course - lesson_1 - Reading".into(),
                         description: None,
                         exercise_type: ExerciseType::Procedural,
                         exercise_asset: ExerciseAsset::LiteracyAsset {
