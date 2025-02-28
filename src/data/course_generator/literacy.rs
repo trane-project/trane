@@ -344,14 +344,14 @@ impl LiteracyLesson {
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Generate basic info for the lesson.
         let lesson_id = Self::full_reading_lesson_id(course_manifest.id, short_id, short_ids);
+        let course_name = Self::course_name(course_manifest);
+        let lesson_name = self.lesson_name(&course_name, &LiteracyLessonType::Reading);
         let mut dependencies = self
             .dependencies
             .iter()
             .map(|id| Self::full_reading_lesson_id(course_manifest.id, *id, short_ids))
             .collect::<Vec<_>>();
         dependencies.sort();
-        let course_name = Self::course_name(course_manifest);
-        let lesson_name = self.lesson_name(&course_name, &LiteracyLessonType::Reading);
 
         // Create the lesson manifest.
         let lesson_manifest = LessonManifest {
@@ -393,13 +393,15 @@ impl LiteracyLesson {
         short_id: Ustr,
         short_ids: &UstrSet,
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
-        // Generate basic info for the lesson.
+        // Generate basic info for the lesson. The dependencies are the dictation lessons of the
+        // other lessons in the course that are marked as a dependency of this lesson. Exclude
+        // dependencies outside the course. The reading lesson is always a dependency of the
+        // dictation lesson.
         let lesson_id = Self::full_dictation_lesson_id(course_manifest.id, short_id, short_ids);
+        let course_name = Self::course_name(course_manifest);
+        let lesson_name = self.lesson_name(&course_name, &LiteracyLessonType::Dictation);
         let reading_lesson_id =
             Self::full_reading_lesson_id(course_manifest.id, short_id, short_ids);
-        // The dependencies are the dictation lessons of the other lessons in the course that are
-        // marked as a dependency of this lesson. Exclude dependencies outside the course. The
-        // reading lesson is always a dependency of the dictation lesson.
         let mut dependencies = self
             .dependencies
             .iter()
@@ -415,8 +417,6 @@ impl LiteracyLesson {
             .collect::<Vec<_>>();
         dependencies.push(reading_lesson_id);
         dependencies.sort();
-        let course_name = Self::course_name(course_manifest);
-        let lesson_name = self.lesson_name(&course_name, &LiteracyLessonType::Dictation);
 
         // Create the lesson manifest.
         let lesson_manifest = LessonManifest {
