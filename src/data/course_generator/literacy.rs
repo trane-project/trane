@@ -97,7 +97,8 @@ impl LiteracyFile {
     /// Opens a file that contains an example or exception stored as markdown.
     pub fn open_md(path: &Path) -> Result<String> {
         let display = path.display();
-        let file = File::open(path).context(format!("cannot open literacy file {display}"))?;
+        let file =
+            File::open(path).context(format!("cannot open literacy markdown file {display}"))?;
         let mut reader = BufReader::new(file);
         let mut contents = String::new();
         reader
@@ -109,13 +110,19 @@ impl LiteracyFile {
     /// Opens a file that contains one example or exception per line.
     pub fn open_md_list(path: &Path) -> Result<Vec<String>> {
         let display = path.display();
-        let file = File::open(path).context(format!("cannot open literacy file {display}"))?;
+        let file =
+            File::open(path).context(format!("cannot open literacy markdown file {display}"))?;
         let mut reader = BufReader::new(file);
         let mut contents = String::new();
         reader
             .read_to_string(&mut contents)
             .context(format!("cannot read literacy markdown file {display}"))?;
-        Ok(contents.lines().map(ToString::to_string).collect())
+        Ok(contents
+            .lines()
+            .map(ToString::to_string)
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect())
     }
 }
 
@@ -266,12 +273,6 @@ impl LiteracyLesson {
         // Examples and exceptions are sorted to have predictable outputs.
         lesson.examples.sort();
         lesson.exceptions.sort();
-
-        // Make sure there is at least one example in the lesson.
-        if lesson.examples.is_empty() {
-            return Err(anyhow!("No examples found in the lesson"));
-        }
-
         Ok(lesson)
     }
 
@@ -447,12 +448,10 @@ impl LiteracyLesson {
         short_id: Ustr,
         short_ids: &UstrSet,
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
-        let generate_dictation =
-            if let Some(CourseGenerator::Literacy(config)) = &course_manifest.generator_config {
-                config.generate_dictation
-            } else {
-                false
-            };
+        let mut generate_dictation = false;
+        if let Some(CourseGenerator::Literacy(config)) = &course_manifest.generator_config {
+            generate_dictation = config.generate_dictation;
+        }
 
         if generate_dictation {
             vec![
