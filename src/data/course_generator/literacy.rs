@@ -94,7 +94,7 @@ impl LiteracyFile {
         serde_json::from_reader(reader).context(format!("cannot parse literacy file {display}"))
     }
 
-    // Opens a file that contains an example or exception stored as markdown.
+    /// Opens a file that contains an example or exception stored as markdown.
     pub fn open_md(path: &Path) -> Result<String> {
         let display = path.display();
         let file = File::open(path).context(format!("cannot open literacy file {display}"))?;
