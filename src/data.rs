@@ -16,7 +16,7 @@ use ustr::Ustr;
 
 use crate::data::course_generator::{
     knowledge_base::KnowledgeBaseConfig,
-    literacy::{LiteracyConfig, LiteracyLesson},
+    literacy::{LiteracyConfig, LiteracyLessonType},
     music_piece::MusicPieceConfig,
     transcription::{TranscriptionConfig, TranscriptionLink, TranscriptionPreferences},
 };
@@ -576,7 +576,7 @@ pub enum ExerciseAsset {
     /// An asset representing a literacy exercise.
     LiteracyAsset {
         /// The type of the lesson.
-        lesson_type: LiteracyLesson,
+        lesson_type: LiteracyLessonType,
 
         /// The examples to use in the lesson's exercise.
         #[serde(default)]
@@ -1195,7 +1195,7 @@ mod test {
     fn literacy_verify_paths() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
         let literacy_asset = ExerciseAsset::LiteracyAsset {
-            lesson_type: LiteracyLesson::Reading,
+            lesson_type: LiteracyLessonType::Reading,
             examples: vec!["C".to_string(), "D".to_string()],
             exceptions: vec!["E".to_string()],
         };
