@@ -351,11 +351,6 @@ impl LiteracyLesson {
             .collect::<Vec<_>>();
         let course_name = Self::course_name(course_manifest);
         let lesson_name = self.lesson_name(&course_name, &LiteracyLessonType::Reading);
-        let description = if self.description.is_some() {
-            self.description.clone()
-        } else {
-            None
-        };
 
         // Create the lesson manifest.
         let lesson_manifest = LessonManifest {
@@ -364,7 +359,7 @@ impl LiteracyLesson {
             superseded: vec![],
             course_id: course_manifest.id,
             name: lesson_name.clone(),
-            description: description.clone(),
+            description: self.description.clone(),
             metadata: Some(BTreeMap::from([(
                 LESSON_METADATA.to_string(),
                 vec!["reading".to_string()],
@@ -379,7 +374,7 @@ impl LiteracyLesson {
             lesson_id: lesson_manifest.id,
             course_id: course_manifest.id,
             name: lesson_name,
-            description,
+            description: self.description.clone(),
             exercise_type: ExerciseType::Procedural,
             exercise_asset: ExerciseAsset::LiteracyAsset {
                 lesson_type: LiteracyLessonType::Reading,
@@ -403,11 +398,6 @@ impl LiteracyLesson {
             Self::full_reading_lesson_id(course_manifest.id, short_id, short_ids);
         let course_name = Self::course_name(course_manifest);
         let lesson_name = self.lesson_name(&course_name, &LiteracyLessonType::Dictation);
-        let description = if self.description.is_some() {
-            self.description.clone()
-        } else {
-            None
-        };
 
         // Create the lesson manifest.
         let lesson_manifest = LessonManifest {
@@ -416,7 +406,7 @@ impl LiteracyLesson {
             superseded: vec![],
             course_id: course_manifest.id,
             name: lesson_name.clone(),
-            description: description.clone(),
+            description: self.description.clone(),
             metadata: Some(BTreeMap::from([(
                 LESSON_METADATA.to_string(),
                 vec!["dictation".to_string()],
@@ -431,7 +421,7 @@ impl LiteracyLesson {
             lesson_id: lesson_manifest.id,
             course_id: course_manifest.id,
             name: lesson_name,
-            description,
+            description: self.description.clone(),
             exercise_type: ExerciseType::Procedural,
             exercise_asset: ExerciseAsset::LiteracyAsset {
                 lesson_type: LiteracyLessonType::Dictation,
@@ -578,6 +568,74 @@ mod test {
         assert_eq!(
             dictation_lesson_id,
             Ustr::from("other_course_id::other_lesson_id")
+        );
+    }
+
+    /// Verifies creating the course name.
+    #[test]
+    fn course_name() {
+        // Manifest with a name.
+        let course_manifest = CourseManifest {
+            id: "course_id".into(),
+            name: "Course Name".into(),
+            dependencies: vec![],
+            superseded: vec![],
+            description: None,
+            authors: None,
+            metadata: None,
+            course_material: None,
+            course_instructions: None,
+            generator_config: None,
+        };
+        assert_eq!(LiteracyLesson::course_name(&course_manifest), "Course Name");
+
+        // Manifest with an empty name.
+        let course_manifest = CourseManifest {
+            id: "course_id".into(),
+            name: "".into(),
+            dependencies: vec![],
+            superseded: vec![],
+            description: None,
+            authors: None,
+            metadata: None,
+            course_material: None,
+            course_instructions: None,
+            generator_config: None,
+        };
+        assert_eq!(LiteracyLesson::course_name(&course_manifest), "course_id");
+    }
+
+    /// Verifies creating the lesson name.
+    #[test]
+    fn lesson_name() {
+        // Lesson with a name.
+        let lesson = LiteracyLesson {
+            short_id: Ustr::from("lesson_id"),
+            dependencies: vec![],
+            name: Some("Lesson Name".to_string()),
+            description: None,
+            instructions: None,
+            examples: vec![],
+            exceptions: vec![],
+        };
+        assert_eq!(
+            lesson.lesson_name("Course Name", &LiteracyLessonType::Reading),
+            "Course Name - Lesson Name - Reading"
+        );
+
+        // Lesson without a name.
+        let lesson = LiteracyLesson {
+            short_id: Ustr::from("lesson_id"),
+            dependencies: vec![],
+            name: None,
+            description: None,
+            instructions: None,
+            examples: vec![],
+            exceptions: vec![],
+        };
+        assert_eq!(
+            lesson.lesson_name("Course Name", &LiteracyLessonType::Reading),
+            "Course Name - lesson_id - Reading"
         );
     }
 
