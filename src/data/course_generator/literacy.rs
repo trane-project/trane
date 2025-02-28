@@ -180,6 +180,7 @@ pub enum LiteracyLessonType {
 ///
 /// An instruction file can be created by creating a file named `lesson.instructions.md` in the
 /// lesson directory.
+#[derive(Clone, Debug, PartialEq)]
 pub struct LiteracyLesson {
     /// The short ID of the lesson, which is used to easily identify the lesson and to generate the
     /// final lesson ID.
@@ -535,7 +536,7 @@ mod test {
 
     use crate::data::{
         course_generator::literacy::{LiteracyConfig, LiteracyLesson, LiteracyLessonType},
-        CourseGenerator, CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseType,
+        BasicAsset, CourseGenerator, CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseType,
         GenerateManifests, GeneratedCourse, LessonManifest, UserPreferences,
     };
 
@@ -578,6 +579,65 @@ mod test {
             dictation_lesson_id,
             Ustr::from("other_course_id::other_lesson_id")
         );
+    }
+
+    /// Verifies creating a literacy lesson from a directory with all possible files.
+    #[test]
+    fn open_lesson() -> Result<()> {
+        // Create a temporary directory for the test.
+        let temp_dir = tempfile::tempdir()?;
+        let lesson_dir = temp_dir.path().join("lesson_0.lesson");
+        fs::create_dir_all(&lesson_dir)?;
+
+        // Create the files in the lesson directory.
+        fs::write(
+            lesson_dir.join("lesson.dependencies.json"),
+            "[\"other_course\"]",
+        )?;
+        fs::write(lesson_dir.join("lesson.name.json"), "\"Lesson 0\"")?;
+        fs::write(
+            lesson_dir.join("lesson.description.json"),
+            "\"Description\"",
+        )?;
+        fs::write(lesson_dir.join("lesson.instructions.md"), "Instructions")?;
+        fs::write(lesson_dir.join("example_0.example.md"), "Example 0")?;
+        fs::write(lesson_dir.join("example_1.example.md"), "Example 1")?;
+        fs::write(lesson_dir.join("exception_0.exception.md"), "Exception 0")?;
+        fs::write(lesson_dir.join("exception_1.exception.md"), "Exception 1")?;
+        fs::write(
+            lesson_dir.join("simple_examples.md"),
+            "Simple Example 0\nSimple Example 1",
+        )?;
+        fs::write(
+            lesson_dir.join("simple_exceptions.md"),
+            "Simple Exception 0\nSimple Exception 1",
+        )?;
+
+        // Open the lesson and verify its contents.
+        let lesson = LiteracyLesson::open_lesson(&lesson_dir, Ustr::from("lesson_0"))?;
+        let want = LiteracyLesson {
+            short_id: Ustr::from("lesson_0"),
+            dependencies: vec![Ustr::from("other_course")],
+            name: Some("Lesson 0".to_string()),
+            description: Some("Description".to_string()),
+            instructions: Some(BasicAsset::InlinedAsset {
+                content: "Instructions".to_string(),
+            }),
+            examples: vec![
+                "Example 0".to_string(),
+                "Example 1".to_string(),
+                "Simple Example 0".to_string(),
+                "Simple Example 1".to_string(),
+            ],
+            exceptions: vec![
+                "Exception 0".to_string(),
+                "Exception 1".to_string(),
+                "Simple Exception 0".to_string(),
+                "Simple Exception 1".to_string(),
+            ],
+        };
+        assert_eq!(lesson, want);
+        Ok(())
     }
 
     /// Generates a set of test lessons, each with the given number of examples and exceptions.
