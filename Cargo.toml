@@ -39,6 +39,9 @@ url = "2.5.2"
 ustr = { version = "1.0.0", features = ["serde"] }
 walkdir = "2.5.0"
 
+[dev-dependencies]
+pretty_assertions = "0.4"
+
 [profile.bench]
 debug = true
 
