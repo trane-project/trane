@@ -64,6 +64,7 @@ pub mod practice_stats;
 pub mod preferences_manager;
 pub mod repository_manager;
 pub mod review_list;
+pub mod rewarder;
 pub mod scheduler;
 pub mod scorer;
 pub mod study_session_manager;
@@ -298,6 +299,7 @@ impl Trane {
             course_library: course_library.clone(),
             unit_graph: unit_graph.clone(),
             practice_stats: practice_stats.clone(),
+            practice_rewards: practice_rewards.clone(),
             blacklist: blacklist.clone(),
             review_list: review_list.clone(),
             filter_manager: filter_manager.clone(),

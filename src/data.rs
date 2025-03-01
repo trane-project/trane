@@ -947,6 +947,9 @@ pub struct SchedulerOptions {
 
     /// The number of trials to retrieve from the practice stats to compute an exercise's score.
     pub num_trials: usize,
+
+    /// The number of rewards to retrieve from the practice rewards to compute a unit's reward.
+    pub num_rewards: usize,
 }
 
 impl SchedulerOptions {
@@ -1039,6 +1042,7 @@ impl Default for SchedulerOptions {
             passing_score: PassingScoreOptions::default(),
             superseding_score: 3.75,
             num_trials: 10,
+            num_rewards: 10,
         }
     }
 }
