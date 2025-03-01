@@ -316,6 +316,7 @@ impl TranscriptionConfig {
             name: format!("{} - Singing", course_manifest.name),
             description: Some(SINGING_DESCRIPTION.to_string()),
             dependencies,
+            dependency_weights: None,
             superseded: vec![],
             metadata: Some(BTreeMap::from([
                 (LESSON_METADATA.to_string(), vec!["singing".to_string()]),
@@ -407,6 +408,7 @@ impl TranscriptionConfig {
             name: format!("{} - Advanced Singing", course_manifest.name),
             description: Some(ADVANCED_SINGING_DESCRIPTION.to_string()),
             dependencies: vec![Self::singing_lesson_id(course_manifest.id)],
+            dependency_weights: None,
             superseded: vec![Self::singing_lesson_id(course_manifest.id)],
             metadata: Some(BTreeMap::from([
                 (
@@ -524,6 +526,7 @@ impl TranscriptionConfig {
             ),
             description: Some(TRANSCRIPTION_DESCRIPTION.to_string()),
             dependencies,
+            dependency_weights: None,
             superseded: vec![],
             metadata: Some(BTreeMap::from([
                 (
@@ -650,6 +653,7 @@ impl TranscriptionConfig {
                 Self::transcription_lesson_id(course_manifest.id, instrument),
                 Self::advanced_singing_lesson_id(course_manifest.id),
             ],
+            dependency_weights: None,
             superseded: vec![Self::transcription_lesson_id(
                 course_manifest.id,
                 instrument,
@@ -1173,6 +1177,7 @@ mod test {
             name: "Test".to_string(),
             description: None,
             dependencies: vec![],
+            dependency_weights: None,
             superseded: vec![],
             authors: None,
             metadata: None,
@@ -1230,6 +1235,7 @@ mod test {
             name: "Test".to_string(),
             description: None,
             dependencies: vec![],
+            dependency_weights: None,
             superseded: vec![],
             authors: None,
             metadata: None,
