@@ -74,6 +74,7 @@ pub mod transcription_downloader;
 use anyhow::{bail, ensure, Context, Result};
 use error::*;
 use parking_lot::RwLock;
+use practice_rewards::{LocalPracticeRewards, PracticeRewards};
 use preferences_manager::{LocalPreferencesManager, PreferencesManager};
 use review_list::{LocalReviewList, ReviewList};
 use std::{
@@ -107,6 +108,9 @@ pub const TRANE_CONFIG_DIR_PATH: &str = ".trane";
 
 /// The path to the `SQLite` database containing the results of previous exercise trials.
 pub const PRACTICE_STATS_PATH: &str = "practice_stats.db";
+
+/// The path to the `SQLite` database containing the rewards for lessons and courses.
+pub const PRACTICE_REWARDS_PATH: &str = "practice_rewards.db";
 
 /// The path to the `SQLite` database containing the list of units to ignore during scheduling.
 pub const BLACKLIST_PATH: &str = "blacklist.db";
@@ -150,6 +154,9 @@ pub struct Trane {
 
     /// The object managing the information on previous exercise trials.
     practice_stats: Arc<RwLock<dyn PracticeStats + Send + Sync>>,
+
+    /// The object managing rewards for lessons and courses.
+    practice_rewards: Arc<RwLock<dyn PracticeRewards + Send + Sync>>,
 
     /// The object managing the user preferences.
     preferences_manager: Arc<RwLock<dyn PreferencesManager + Send + Sync>>,
@@ -266,6 +273,9 @@ impl Trane {
         let practice_stats = Arc::new(RwLock::new(LocalPracticeStats::new_from_disk(
             config_path.join(PRACTICE_STATS_PATH).to_str().unwrap(),
         )?));
+        let practice_rewards = Arc::new(RwLock::new(LocalPracticeRewards::new_from_disk(
+            config_path.join(PRACTICE_REWARDS_PATH).to_str().unwrap(),
+        )?));
         let blacklist = Arc::new(RwLock::new(LocalBlacklist::new_from_disk(
             config_path.join(BLACKLIST_PATH).to_str().unwrap(),
         )?));
@@ -300,6 +310,7 @@ impl Trane {
             filter_manager,
             library_root: library_root.to_str().unwrap().to_string(),
             practice_stats,
+            practice_rewards,
             preferences_manager,
             repo_manager,
             review_list,
@@ -453,6 +464,40 @@ impl FilterManager for Trane {
 }
 
 #[cfg_attr(coverage, coverage(off))]
+impl PracticeRewards for Trane {
+    fn get_rewards(
+        &self,
+        unit_id: Ustr,
+        num_rewards: usize,
+    ) -> Result<Vec<data::UnitReward>, PracticeRewardsError> {
+        self.practice_rewards
+            .read()
+            .get_rewards(unit_id, num_rewards)
+    }
+
+    fn record_unit_reward(
+        &mut self,
+        unit_id: Ustr,
+        reward: f32,
+        timestamp: i64,
+    ) -> Result<(), PracticeRewardsError> {
+        self.practice_rewards
+            .write()
+            .record_unit_reward(unit_id, reward, timestamp)
+    }
+
+    fn trim_rewards(&mut self, num_rewards: usize) -> Result<(), PracticeRewardsError> {
+        self.practice_rewards.write().trim_rewards(num_rewards)
+    }
+
+    fn remove_rewards_with_prefix(&mut self, prefix: &str) -> Result<(), PracticeRewardsError> {
+        self.practice_rewards
+            .write()
+            .remove_rewards_with_prefix(prefix)
+    }
+}
+
+#[cfg_attr(coverage, coverage(off))]
 impl PracticeStats for Trane {
     fn get_scores(
         &self,
@@ -485,7 +530,6 @@ impl PracticeStats for Trane {
             .remove_scores_with_prefix(prefix)
     }
 }
-
 #[cfg_attr(coverage, coverage(off))]
 impl PreferencesManager for Trane {
     fn get_user_preferences(&self) -> Result<UserPreferences, PreferencesManagerError> {

@@ -1420,4 +1420,14 @@ mod test {
         };
         assert_eq!(trial, trial.clone());
     }
+
+    /// Verifies the clone method for the `UnitReward` struct. Written to satisfy code coverage.
+    #[test]
+    fn unit_reward_clone() {
+        let reward = UnitReward {
+            timestamp: 1,
+            reward: 1.0,
+        };
+        assert_eq!(reward, reward.clone());
+    }
 }
