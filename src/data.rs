@@ -117,6 +117,7 @@ pub struct ExerciseTrial {
 /// The reward assigned to a single exercise. Rewards are used to adjust an exercise's score based
 /// on performance of related exercises.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
+#[ts(export)]
 pub struct UnitReward {
     /// The reward assigned to the exercise. The value can be negative, zero, or positive.
     pub reward: f32,
