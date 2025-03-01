@@ -65,24 +65,38 @@ impl UnitScorer {
         }
     }
 
-    /// Removes the cached score for the given unit.
+    /// Removes the cached score for the given unit and all units affected by an update to its
+    /// score.
     pub(super) fn invalidate_cached_score(&self, unit_id: Ustr) {
-        // Remove the unit from the exercise, lesson, and course caches. This is safe to do even
-        // though the unit is at most in one cache because the different types of units are
-        // disjoint.
+        // Remove the unit itself from the cache.
         self.exercise_cache.borrow_mut().remove(&unit_id);
-        self.lesson_cache.borrow_mut().remove(&unit_id);
-        self.course_cache.borrow_mut().remove(&unit_id);
+        let is_lesson = self.lesson_cache.borrow_mut().remove(&unit_id).is_some();
+        let is_course = self.course_cache.borrow_mut().remove(&unit_id).is_some();
 
-        // If the unit is an exercise, invalidate the cached score of its lesson and course. If the
-        // unit is a lesson, invalidate the cached score of its course.
-        if let Some(lesson_id) = self.data.unit_graph.read().get_exercise_lesson(unit_id) {
-            self.lesson_cache.borrow_mut().remove(&lesson_id);
-            if let Some(course_id) = self.data.unit_graph.read().get_lesson_course(lesson_id) {
-                self.course_cache.borrow_mut().remove(&course_id);
+        if is_lesson {
+            // Invalidate the scores of all exercises in the lesson.
+            let exercises = self.data.unit_graph.read().get_lesson_exercises(unit_id);
+            if let Some(exercise_ids) = exercises {
+                for exercise_id in exercise_ids {
+                    self.exercise_cache.borrow_mut().remove(&exercise_id);
+                }
             }
-        } else if let Some(course_id) = self.data.unit_graph.read().get_lesson_course(unit_id) {
-            self.course_cache.borrow_mut().remove(&course_id);
+        }
+        if is_course {
+            // Invalidate the scores of all lessons in the course and all exercises in those
+            // lessons.
+            let lessons = self.data.unit_graph.read().get_course_lessons(unit_id);
+            if let Some(lesson_ids) = lessons {
+                for lesson_id in lesson_ids {
+                    self.lesson_cache.borrow_mut().remove(&lesson_id);
+                    let exercises = self.data.unit_graph.read().get_lesson_exercises(lesson_id);
+                    if let Some(exercise_ids) = exercises {
+                        for exercise_id in exercise_ids {
+                            self.exercise_cache.borrow_mut().remove(&exercise_id);
+                        }
+                    }
+                }
+            }
         }
     }
 
