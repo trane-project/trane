@@ -44,6 +44,23 @@ pub enum ExerciseSchedulerError {
 /// An error returned when dealing with the practice stats.
 #[derive(Debug, Error)]
 #[allow(missing_docs)]
+pub enum PracticeRewardsError {
+    #[error("cannot get rewards for unit {0}: {1}")]
+    GetRewards(Ustr, #[source] anyhow::Error),
+
+    #[error("cannot record reward for unit {0}: {1}")]
+    RecordReward(Ustr, #[source] anyhow::Error),
+
+    #[error("cannot trim rewards: {0}")]
+    TrimReward(#[source] anyhow::Error),
+
+    #[error("cannot remove rewards from units matching prefix {0}: {1}")]
+    RemovePrefix(String, #[source] anyhow::Error),
+}
+
+/// An error returned when dealing with the practice stats.
+#[derive(Debug, Error)]
+#[allow(missing_docs)]
 pub enum PracticeStatsError {
     #[error("cannot get scores for unit {0}: {1}")]
     GetScores(Ustr, #[source] anyhow::Error),

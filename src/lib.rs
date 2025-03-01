@@ -59,6 +59,7 @@ pub mod error;
 pub mod filter_manager;
 pub mod graph;
 pub mod mantra_miner;
+pub mod practice_rewards;
 pub mod practice_stats;
 pub mod preferences_manager;
 pub mod repository_manager;

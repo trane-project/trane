@@ -114,6 +114,17 @@ pub struct ExerciseTrial {
 }
 //>@lp-example-4
 
+/// The reward assigned to a single exercise. Rewards are used to adjust an exercise's score based
+/// on performance of related exercises.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
+pub struct UnitReward {
+    /// The reward assigned to the exercise. The value can be negative, zero, or positive.
+    pub reward: f32,
+
+    /// The timestamp at which the reward was assigned.
+    pub timestamp: i64,
+}
+
 /// The type of the units stored in the dependency graph.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
 #[ts(export)]
