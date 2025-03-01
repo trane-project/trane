@@ -350,7 +350,7 @@ pub struct CourseManifest {
     /// calculating rewards. The dependencies with the highest value will receive the full reward,
     /// while those with a lower value will receive a proportional part of the reward. For example,
     /// if two dependencies, with weights 2 and 1, are assigned a reward of 4, then the first
-    /// dependency will receive a reward of 4 , while the second will receive a reward of 2. A value
+    /// dependency will receive a reward of 4, while the second will receive a reward of 2. A value
     /// of 0 will disable propagations of rewards along that edge in the unit graph. If not set,
     /// every dependency will be assigned a weight of 1.
     #[builder(default)]
@@ -477,7 +477,7 @@ pub struct LessonManifest {
     /// calculating rewards. The dependencies with the highest value will receive the full reward,
     /// while those with a lower value will receive a proportional part of the reward. For example,
     /// if two dependencies, with weights 2 and 1, are assigned a reward of 4, then the first
-    /// dependency will receive a reward of 4 , while the second will receive a reward of 2. A value
+    /// dependency will receive a reward of 4, while the second will receive a reward of 2. A value
     /// of 0 will disable propagations of rewards along that edge in the unit graph. If not set,
     /// every dependency will be assigned a weight of 1.
     #[builder(default)]
