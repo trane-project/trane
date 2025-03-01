@@ -15,6 +15,7 @@ use crate::{
     },
     filter_manager::FilterManager,
     graph::UnitGraph,
+    practice_rewards::PracticeRewards,
     practice_stats::PracticeStats,
     review_list::ReviewList,
 };
@@ -33,6 +34,9 @@ pub struct SchedulerData {
 
     /// The list of previous exercise results.
     pub practice_stats: Arc<RwLock<dyn PracticeStats>>,
+
+    /// The rewards for units based on performance of related units.
+    pub practice_rewards: Arc<RwLock<dyn PracticeRewards>>,
 
     /// The list of units to skip during scheduling.
     pub blacklist: Arc<RwLock<dyn Blacklist>>,

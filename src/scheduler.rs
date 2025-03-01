@@ -20,9 +20,9 @@
 //! into a list of fixed size. The result is combined, shuffled, and becomes the final batch
 //! presented to the student.
 
-mod cache;
 pub mod data;
 mod filter;
+mod unit_scorer;
 
 use anyhow::Result;
 use chrono::Utc;
@@ -35,7 +35,7 @@ use crate::{
         ExerciseManifest, MasteryScore, SchedulerOptions, UnitType,
     },
     error::ExerciseSchedulerError,
-    scheduler::{cache::ScoreCache, data::SchedulerData, filter::CandidateFilter},
+    scheduler::{data::SchedulerData, filter::CandidateFilter, unit_scorer::UnitScorer},
 };
 
 /// The scheduler returns early if the search reaches a dead end and the number of candidates is
@@ -139,7 +139,7 @@ pub struct DepthFirstScheduler {
     /// A cache of unit scores. Scores are cached to avoid unnecessary computation, an issue that
     /// was found during profiling of Trane's performance. The memory footprint of Trane is low, so
     /// the trade-off is worth it.
-    score_cache: ScoreCache,
+    score_cache: UnitScorer,
 
     /// The filter used to build the final batch of exercises among the candidates found during the
     /// graph search.
@@ -152,7 +152,7 @@ impl DepthFirstScheduler {
     pub fn new(data: SchedulerData) -> Self {
         Self {
             data: data.clone(),
-            score_cache: ScoreCache::new(data.clone(), data.options.clone()),
+            score_cache: UnitScorer::new(data.clone(), data.options.clone()),
             filter: CandidateFilter::new(data),
         }
     }
@@ -818,6 +818,17 @@ impl DepthFirstScheduler {
 
         Ok(candidates)
     }
+
+    /// Returns a list of tuples containing a lesson or course ID and the corresponding reward based
+    /// on the score for the given exercise.
+    fn propagate_rewards(
+        _exercise_id: Ustr,
+        _score: MasteryScore,
+        _timestamp: i64,
+    ) -> Vec<(Ustr, f32)> {
+        // TODO: fill the logic. Empty rewards for now.
+        vec![]
+    }
 }
 
 impl ExerciseScheduler for DepthFirstScheduler {
@@ -857,12 +868,25 @@ impl ExerciseScheduler for DepthFirstScheduler {
         self.data
             .practice_stats
             .write()
-            .record_exercise_score(exercise_id, score, timestamp)
+            .record_exercise_score(exercise_id, score.clone(), timestamp)
             .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?;
 
-        // Any cached score for this exercise and its parent lesson is now invalid. Remove it from
-        // the exercise and lesson caches.
+        // Propagate the rewards along the unit graph and store them.
+        let rewards = Self::propagate_rewards(exercise_id, score, timestamp);
+        for (unit_id, reward) in &rewards {
+            self.data
+                .practice_rewards
+                .write()
+                .record_unit_reward(*unit_id, *reward, timestamp)
+                .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?;
+        }
+
+        // Any cached score for this exercise and the units affected by the reward system should be
+        // invalidated.
         self.score_cache.invalidate_cached_score(exercise_id);
+        for (unit_id, _) in &rewards {
+            self.score_cache.invalidate_cached_score(*unit_id);
+        }
         Ok(())
     }
 

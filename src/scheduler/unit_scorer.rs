@@ -1,6 +1,5 @@
 //@<lp-example-2
-//! Defines a cache that is used to retrieve unit scores and stores previously computed exercise and
-//! lesson scores
+//! Defines the system used to retrieve scores and rewards for units and come up with a final score.
 //!
 //! During performance testing, it was found that caching scores scores significantly improved the
 //! performance of exercise scheduling.
@@ -12,6 +11,7 @@ use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
     data::{SchedulerOptions, UnitType},
+    rewarder::{UnitRewarder, WeightedRewarder},
     scheduler::SchedulerData,
     scorer::{ExerciseScorer, SimpleScorer},
 };
@@ -26,8 +26,9 @@ pub(super) struct CachedScore {
     num_trials: usize,
 }
 
-/// A cache of unit scores used to improve the performance of computing them during scheduling.
-pub(super) struct ScoreCache {
+/// Contains the logic to score units based on their previous scores and rewards, as well as the
+/// logic to cache those scores for efficiency.
+pub(super) struct UnitScorer {
     /// A mapping of exercise ID to cached score.
     exercise_cache: RefCell<UstrMap<CachedScore>>,
 
@@ -43,11 +44,14 @@ pub(super) struct ScoreCache {
     /// The options used to schedule exercises.
     options: SchedulerOptions,
 
-    /// The scorer used to compute the score of an exercise based on its previous trials.
-    scorer: Box<dyn ExerciseScorer + Send + Sync>,
+    /// The object used to compute the score of an exercise based on its previous trials.
+    exercise_scorer: Box<dyn ExerciseScorer + Send + Sync>,
+
+    /// The object used to compute the reward of a unit based on its previous rewards.
+    unit_rewarder: Box<dyn UnitRewarder + Send + Sync>,
 }
 
-impl ScoreCache {
+impl UnitScorer {
     /// Constructs a new score cache.
     pub(super) fn new(data: SchedulerData, options: SchedulerOptions) -> Self {
         Self {
@@ -56,7 +60,8 @@ impl ScoreCache {
             course_cache: RefCell::new(UstrMap::default()),
             data,
             options,
-            scorer: Box::new(SimpleScorer {}),
+            exercise_scorer: Box::new(SimpleScorer {}),
+            unit_rewarder: Box::new(WeightedRewarder {}),
         }
     }
 
@@ -83,12 +88,15 @@ impl ScoreCache {
 
     /// Removes the cached score for any unit with the given prefix.
     pub(super) fn invalidate_cached_scores_with_prefix(&self, prefix: &str) {
-        // Remove the unit from the exercise and lesson caches. This is safe to do even though the
-        // unit is at most in one cache because the caches are disjoint.
+        // Remove the unit from the exercise, lesson, and course caches. This is safe to do even
+        // though the unit is at most in one cache because the caches are disjoint.
         self.exercise_cache
             .borrow_mut()
             .retain(|unit_id, _| !unit_id.starts_with(prefix));
         self.lesson_cache
+            .borrow_mut()
+            .retain(|unit_id, _| !unit_id.starts_with(prefix));
+        self.course_cache
             .borrow_mut()
             .retain(|unit_id, _| !unit_id.starts_with(prefix));
     }
@@ -108,15 +116,53 @@ impl ScoreCache {
             .read()
             .get_scores(exercise_id, self.options.num_trials)
             .unwrap_or_default();
-        let score = self.scorer.score(&scores)?;
+        let score = self.exercise_scorer.score(&scores)?;
+
+        // Retrieve the rewards for this exercise's lesson and course and compute the reward.
+        let lesson_id = self
+            .data
+            .unit_graph
+            .read()
+            .get_exercise_lesson(exercise_id)
+            .unwrap_or_default();
+        let lesson_rewards = self
+            .data
+            .practice_rewards
+            .read()
+            .get_rewards(lesson_id, self.options.num_rewards)
+            .unwrap_or_default();
+        let course_id = self
+            .data
+            .unit_graph
+            .read()
+            .get_lesson_course(lesson_id)
+            .unwrap_or_default();
+        let course_rewards = self
+            .data
+            .practice_rewards
+            .read()
+            .get_rewards(course_id, self.options.num_rewards)
+            .unwrap_or_default();
+        let reward = self
+            .unit_rewarder
+            .reward(&course_rewards, &lesson_rewards)
+            .unwrap_or_default();
+
+        // The final score is the sum of the score and the reward. Do not add a reward for exercises
+        // with no previous scores.
+        let final_score = if scores.is_empty() {
+            score
+        } else {
+            score + reward
+        };
         self.exercise_cache.borrow_mut().insert(
             exercise_id,
             CachedScore {
-                score,
+                score: final_score,
                 num_trials: scores.len(),
             },
         );
-        Ok(score)
+        Ok(final_score)
     }
 
     /// Returns the number of trials that were considered when computing the score for the given
@@ -367,7 +413,7 @@ mod test {
     use crate::{
         blacklist::Blacklist,
         data::{MasteryScore, SchedulerOptions},
-        scheduler::{cache::CachedScore, ExerciseScheduler, ScoreCache},
+        scheduler::{unit_scorer::CachedScore, ExerciseScheduler, UnitScorer},
         testutil::*,
     };
 
@@ -429,7 +475,7 @@ mod test {
         let temp_dir = tempfile::tempdir()?;
         let mut library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
         let scheduler_data = library.get_scheduler_data();
-        let cache = ScoreCache::new(scheduler_data, SchedulerOptions::default());
+        let cache = UnitScorer::new(scheduler_data, SchedulerOptions::default());
 
         let course_id = Ustr::from("0");
         library.add_to_blacklist(course_id)?;
@@ -443,7 +489,7 @@ mod test {
         let temp_dir = tempfile::tempdir()?;
         let library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
         let scheduler_data = library.get_scheduler_data();
-        let cache = ScoreCache::new(scheduler_data, SchedulerOptions::default());
+        let cache = UnitScorer::new(scheduler_data, SchedulerOptions::default());
 
         // Insert scores for every exercise to ensure course 0 has been superseded.
         library.score_exercise(Ustr::from("0::0::0"), MasteryScore::Five, 1)?;
@@ -468,7 +514,7 @@ mod test {
         let temp_dir = tempfile::tempdir()?;
         let library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
         let scheduler_data = library.get_scheduler_data();
-        let cache = ScoreCache::new(scheduler_data, SchedulerOptions::default());
+        let cache = UnitScorer::new(scheduler_data, SchedulerOptions::default());
 
         // Insert scores for every exercise to ensure lesson 1::0 has been superseded.
         library.score_exercise(Ustr::from("0::0::0"), MasteryScore::Five, 1)?;
@@ -493,7 +539,7 @@ mod test {
         let temp_dir = tempfile::tempdir()?;
         let library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
         let scheduler_data = library.get_scheduler_data();
-        let cache = ScoreCache::new(scheduler_data, SchedulerOptions::default());
+        let cache = UnitScorer::new(scheduler_data, SchedulerOptions::default());
 
         // Insert some scores into the exercise and lesson caches.
         cache.exercise_cache.borrow_mut().insert(
@@ -547,7 +593,7 @@ mod test {
         let temp_dir = tempfile::tempdir()?;
         let library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
         let scheduler_data = library.get_scheduler_data();
-        let cache = ScoreCache::new(scheduler_data, SchedulerOptions::default());
+        let cache = UnitScorer::new(scheduler_data, SchedulerOptions::default());
         let exercise_id = Ustr::from("0::0::0");
         library.score_exercise(exercise_id, MasteryScore::Four, 1)?;
         library.score_exercise(exercise_id, MasteryScore::Five, 2)?;

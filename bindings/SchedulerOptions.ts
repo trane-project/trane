@@ -48,4 +48,8 @@ superseding_score: number,
 /**
  * The number of trials to retrieve from the practice stats to compute an exercise's score.
  */
-num_trials: number, };
+num_trials: number, 
+/**
+ * The number of rewards to retrieve from the practice rewards to compute a unit's reward.
+ */
+num_rewards: number, };

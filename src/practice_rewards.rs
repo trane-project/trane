@@ -1,9 +1,17 @@
 //! Defines how the rewards for lessons and courses are stored in the database.
 //!
-//! Rewards are propagated to lessons and courses related to exercises. The purpose is to model how
-//! good or bad performance in one exercise reflects the performance in related exercises. Good
-//! scores in one exercises positively reward the scores in its dependencies. Bad scores in one
-//! exercise negatively reward the scores in its dependents.
+//! A reward is a positive or negative number that is used to adjust the score of a unit. While
+//! scores are based on the performance of individual exercises, rewards are assigned based on the
+//! results of other exercises and propagated to connected lessons and courses.
+//! 
+//! The purpose is to model how good or bad performance in one exercise reflects the performance in
+//! related exercises. Good scores in one exercise positively reward the scores in its dependencies
+//! (that is, they flow down the unit graph). Bad scores in one exercise negatively reward the
+//! scores in its dependents (that is, they flow up the unit graph).
+//! 
+//! As a result, rewarded exercises are not shown to the student as aften as they would otherwise be
+//! and penalized exercises are shown more often, allowing for faster review of already mastered
+//! material and more practice of material whose dependencies are not fully mastered.
 
 use anyhow::{Context, Ok, Result};
 use r2d2::Pool;
