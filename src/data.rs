@@ -346,6 +346,18 @@ pub struct CourseManifest {
     #[ts(as = "Vec<String>")]
     pub dependencies: Vec<Ustr>,
 
+    /// A map of dependency IDs to an value representing the weight of the dependency when
+    /// calculating rewards. The dependencies with the highest value will receive the full reward,
+    /// while those with a lower value will receive a proportional part of the reward. For example,
+    /// if two dependencies, with weights 2 and 1, are assigned a reward of 4, then the first
+    /// dependency will receive a reward of 4, while the second will receive a reward of 2. A value
+    /// of 0 will disable propagations of rewards along that edge in the unit graph. If not set,
+    /// every dependency will be assigned a weight of 1.
+    #[builder(default)]
+    #[serde(default)]
+    #[ts(as = "Option<BTreeMap<String, u8>>")]
+    pub dependency_weights: Option<BTreeMap<Ustr, u8>>,
+
     /// The IDs of the courses or lessons that this course supersedes. If this course is mastered,
     /// then exercises from the superseded courses or lessons will no longer be shown to the
     /// student.
@@ -460,6 +472,18 @@ pub struct LessonManifest {
     #[serde(default)]
     #[ts(as = "Vec<String>")]
     pub dependencies: Vec<Ustr>,
+
+    /// A map of dependency IDs to an value representing the weight of the dependency when
+    /// calculating rewards. The dependencies with the highest value will receive the full reward,
+    /// while those with a lower value will receive a proportional part of the reward. For example,
+    /// if two dependencies, with weights 2 and 1, are assigned a reward of 4, then the first
+    /// dependency will receive a reward of 4, while the second will receive a reward of 2. A value
+    /// of 0 will disable propagations of rewards along that edge in the unit graph. If not set,
+    /// every dependency will be assigned a weight of 1.
+    #[builder(default)]
+    #[serde(default)]
+    #[ts(as = "Option<BTreeMap<String, u8>>")]
+    pub dependency_weights: Option<BTreeMap<Ustr, u8>>,
 
     ///The IDs of the courses or lessons that this lesson supersedes. If this lesson is mastered,
     /// then exercises from the superseded courses or lessons will no longer be shown to the

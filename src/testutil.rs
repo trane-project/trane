@@ -244,6 +244,7 @@ impl TestCourse {
                 id: course_id,
                 name: format!("Course {course_id}"),
                 dependencies: self.dependencies.iter().map(TestId::to_ustr).collect(),
+                dependency_weights: None,
                 superseded: self.superseded.iter().map(TestId::to_ustr).collect(),
                 description: Some(format!("Description for course {course_id}")),
                 authors: None,
