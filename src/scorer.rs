@@ -7,7 +7,7 @@ use lazy_static::lazy_static;
 use crate::data::ExerciseTrial;
 
 /// The initial weight for an individual trial.
-const INITIAL_WEIGHT: f32 = 10.0;
+const INITIAL_WEIGHT: f32 = 1.0;
 
 /// The weight of a trial is adjusted based on the index of the trial in the list. The first trial
 /// has the initial weight, and the weight decreases with each subsequent trial by this factor.
@@ -15,7 +15,7 @@ const WEIGHT_INDEX_FACTOR: f32 = 0.8;
 
 /// The minimum weight of a score. This weight is also assigned when there's an issue calculating
 /// the number of days since the trial (e.g., the score's timestamp is after the current timestamp).
-const MIN_WEIGHT: f32 = 1.0;
+const MIN_WEIGHT: f32 = 0.1;
 
 // A list of precomputed weights at compile-time to save on computation time.
 lazy_static! {
