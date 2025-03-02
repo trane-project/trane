@@ -77,6 +77,7 @@ pub struct ExponentialDecayScorer {}
 
 impl ExponentialDecayScorer {
     /// Returns the number of days between trials.
+    #[inline]
     fn day_diffs(previous_trials: &[ExerciseTrial]) -> Vec<f32> {
         let mut now_plus_trials = vec![ExerciseTrial {
             timestamp: Utc::now().timestamp(),
@@ -100,6 +101,7 @@ impl ExponentialDecayScorer {
     }
 
     /// Returns the decay rates for each score based on the number of trials.
+    #[inline]
     fn decay_rates(num_trials: usize) -> Vec<f32> {
         (0..num_trials)
             .map(|i| (INITIAL_DECAY_RATE * DECAY_RATE_ADJUSTMENT_FACTOR.powf(i as f32)).abs())
@@ -108,6 +110,7 @@ impl ExponentialDecayScorer {
     }
 
     /// Returns the minimum score for each trial based on the number of trials.
+    #[inline]
     fn min_scores(num_trials: usize) -> Vec<f32> {
         (0..num_trials)
             .map(|i| {
@@ -119,8 +122,9 @@ impl ExponentialDecayScorer {
     }
 
     /// Performs the exponential decay on the score based on the number of days since the trial with
-    /// the given minimum score and decay rate. Dec
-    fn compute_exponential_decay(
+    /// the given minimum score and decay rate.
+    #[inline]
+    fn exponential_decay(
         initial_score: f32,
         num_days: f32,
         min_score: f32,
@@ -137,6 +141,7 @@ impl ExponentialDecayScorer {
     }
 
     /// Returns the weights to used to compute the weighted average of the scores.
+    #[inline]
     fn compute_score_weights(num_trials: usize) -> Vec<f32> {
         (0..num_trials)
             .map(|i| {
@@ -183,7 +188,7 @@ impl ExerciseScorer for ExponentialDecayScorer {
             .zip(decay_rates.iter())
             .zip(min_scores.iter())
             .map(|(((trial, num_days), decay_rate), min_score)| {
-                Self::compute_exponential_decay(trial.score, *num_days, *min_score, *decay_rate)
+                Self::exponential_decay(trial.score, *num_days, *min_score, *decay_rate)
             })
             .collect();
 
