@@ -142,7 +142,7 @@ impl ExponentialDecayScorer {
 
     /// Returns the weights to used to compute the weighted average of the scores.
     #[inline]
-    fn compute_score_weights(num_trials: usize) -> Vec<f32> {
+    fn score_weights(num_trials: usize) -> Vec<f32> {
         (0..num_trials)
             .map(|i| {
                 let weight = INITIAL_WEIGHT * WEIGHT_INDEX_FACTOR.powf(i as f32);
@@ -153,7 +153,7 @@ impl ExponentialDecayScorer {
 
     /// Returns the weighted average of the scores.
     #[inline]
-    fn compute_weighted_average(scores: &[f32], weights: &[f32]) -> f32 {
+    fn weighted_average(scores: &[f32], weights: &[f32]) -> f32 {
         // weighted average = (cross product of scores and their weights) / (sum of weights)
         let cross_product: f32 = scores.iter().zip(weights.iter()).map(|(s, w)| s * *w).sum();
         let weight_sum = weights.iter().sum::<f32>();
@@ -193,8 +193,8 @@ impl ExerciseScorer for ExponentialDecayScorer {
             .collect();
 
         // Run a weighted average on the scores to compute the final score.
-        let weights = Self::compute_score_weights(previous_trials.len());
-        Ok(Self::compute_weighted_average(&scores, &weights))
+        let weights = Self::score_weights(previous_trials.len());
+        Ok(Self::weighted_average(&scores, &weights))
     }
 }
 
