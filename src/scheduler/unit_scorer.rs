@@ -69,10 +69,20 @@ impl UnitScorer {
     /// score.
     pub(super) fn invalidate_cached_score(&self, unit_id: Ustr) {
         // Remove the unit itself from the cache.
-        self.exercise_cache.borrow_mut().remove(&unit_id);
+        let is_exercise = self.exercise_cache.borrow_mut().remove(&unit_id).is_some();
         let is_lesson = self.lesson_cache.borrow_mut().remove(&unit_id).is_some();
         let is_course = self.course_cache.borrow_mut().remove(&unit_id).is_some();
 
+        if is_exercise {
+            // If the unit is an exercise, invalidate the cached score of its lesson and course. If
+            // the unit is a lesson, invalidate the cached score of its course.
+            if let Some(lesson_id) = self.data.unit_graph.read().get_exercise_lesson(unit_id) {
+                self.lesson_cache.borrow_mut().remove(&lesson_id);
+                if let Some(course_id) = self.data.unit_graph.read().get_lesson_course(lesson_id) {
+                    self.course_cache.borrow_mut().remove(&course_id);
+                }
+            }
+        }
         if is_lesson {
             // Invalidate the scores of all exercises in the lesson.
             let exercises = self.data.unit_graph.read().get_lesson_exercises(unit_id);
