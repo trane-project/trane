@@ -96,7 +96,7 @@ impl LocalPracticeStats {
             .to_latest(&mut connection)
             .context("failed to initialize practice stats DB")
     }
-    
+
     /// Create a connection pool and initialize the database.
     fn new(connection_manager: SqliteConnectionManager) -> Result<LocalPracticeStats> {
         let pool = db_utils::new_connection_pool(connection_manager)?;
@@ -104,7 +104,7 @@ impl LocalPracticeStats {
         stats.init()?;
         Ok(stats)
     }
-   
+
     /// A constructor taking the path to a database file.
     pub fn new_from_disk(db_path: &str) -> Result<LocalPracticeStats> {
         Self::new(db_utils::new_connection_manager(db_path))

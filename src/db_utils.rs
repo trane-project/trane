@@ -20,7 +20,6 @@ pub fn new_connection_manager(db_path: &str) -> SqliteConnectionManager {
 }
 
 /// Returns a new connection pool with appropriate setting.
-#[must_use]
 pub fn new_connection_pool(
     connection_manager: SqliteConnectionManager,
 ) -> Result<r2d2::Pool<SqliteConnectionManager>, r2d2::Error> {
