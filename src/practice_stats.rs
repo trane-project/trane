@@ -97,10 +97,9 @@ impl LocalPracticeStats {
             .context("failed to initialize practice stats DB")
     }
 
-    /// A constructor taking a `SQLite` connection manager.
+    /// Creates a connection pool and initializes the database.
     fn new(connection_manager: SqliteConnectionManager) -> Result<LocalPracticeStats> {
-        // Create a connection pool and initialize the database.
-        let pool = Pool::new(connection_manager)?;
+        let pool = db_utils::new_connection_pool(connection_manager)?;
         let mut stats = LocalPracticeStats { pool };
         stats.init()?;
         Ok(stats)

@@ -67,10 +67,9 @@ impl LocalBlacklist {
         Ok(())
     }
 
-    /// A constructor taking a connection manager.
+    /// Creates a connection pool and initializes the database and in-memory cache.
     fn new(connection_manager: SqliteConnectionManager) -> Result<LocalBlacklist> {
-        // Initialize the pool and the blacklist database.
-        let pool = Pool::new(connection_manager)?;
+        let pool = db_utils::new_connection_pool(connection_manager)?;
         let mut blacklist = LocalBlacklist {
             cache: RwLock::new(UstrMap::default()),
             pool,

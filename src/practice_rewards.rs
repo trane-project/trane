@@ -91,10 +91,9 @@ impl LocalPracticeRewards {
             .context("failed to initialize practice rewards DB")
     }
 
-    /// A constructor taking a `SQLite` connection manager.
+    /// Creates a connection pool and initializes the database.
     fn new(connection_manager: SqliteConnectionManager) -> Result<LocalPracticeRewards> {
-        // Create a connection pool and initialize the database.
-        let pool = Pool::new(connection_manager)?;
+        let pool = db_utils::new_connection_pool(connection_manager)?;
         let mut rewards = LocalPracticeRewards { pool };
         rewards.init()?;
         Ok(rewards)
