@@ -11,7 +11,7 @@ use rusqlite::{params, Connection};
 use rusqlite_migration::{Migrations, M};
 use ustr::Ustr;
 
-use crate::error::ReviewListError;
+use crate::{db_utils, error::ReviewListError};
 
 /// An interface to store and read a list of units that need review.
 pub trait ReviewList {
@@ -55,10 +55,9 @@ impl LocalReviewList {
             .context("failed to initialize review list DB")
     }
 
-    /// A constructor taking a connection manager.
+    /// Initializes the pool and the review list database.
     fn new(connection_manager: SqliteConnectionManager) -> Result<LocalReviewList> {
-        // Initialize the pool and the review list database.
-        let pool = Pool::new(connection_manager)?;
+        let pool = db_utils::new_connection_pool(connection_manager)?;
         let mut review_list = LocalReviewList { pool };
         review_list.init()?;
         Ok(review_list)
