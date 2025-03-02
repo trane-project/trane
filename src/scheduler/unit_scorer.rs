@@ -73,9 +73,9 @@ impl UnitScorer {
         let is_lesson = self.lesson_cache.borrow_mut().remove(&unit_id).is_some();
         let is_course = self.course_cache.borrow_mut().remove(&unit_id).is_some();
 
+        // If the unit is an exercise, invalidate the cached score of its lesson and course. If the
+        // unit is a lesson, invalidate the cached score of its course.
         if is_exercise {
-            // If the unit is an exercise, invalidate the cached score of its lesson and course. If
-            // the unit is a lesson, invalidate the cached score of its course.
             if let Some(lesson_id) = self.data.unit_graph.read().get_exercise_lesson(unit_id) {
                 self.lesson_cache.borrow_mut().remove(&lesson_id);
                 if let Some(course_id) = self.data.unit_graph.read().get_lesson_course(lesson_id) {
@@ -83,8 +83,9 @@ impl UnitScorer {
                 }
             }
         }
+
+        // Invalidate the scores of all exercises in the lesson.
         if is_lesson {
-            // Invalidate the scores of all exercises in the lesson.
             let exercises = self.data.unit_graph.read().get_lesson_exercises(unit_id);
             if let Some(exercise_ids) = exercises {
                 for exercise_id in exercise_ids {
@@ -92,9 +93,10 @@ impl UnitScorer {
                 }
             }
         }
+
+        // Invalidate the scores of all lessons in the course and all exercises in those
+        // lessons.
         if is_course {
-            // Invalidate the scores of all lessons in the course and all exercises in those
-            // lessons.
             let lessons = self.data.unit_graph.read().get_course_lessons(unit_id);
             if let Some(lesson_ids) = lessons {
                 for lesson_id in lesson_ids {
