@@ -46,11 +46,151 @@ const LONG_TERM_ADJUSTMENT_FACTOR: f32 = 0.005;
 /// The adjusted score is never less than this factor of the original score.
 const MIN_ADJUSTMENT_FACTOR: f32 = 0.75;
 
+/// The initial decay rate for the score of a trial. This is the rate at which the score decreases
+/// with each passing day.
+const INITIAL_DECAY_RATE: f32 = 0.2;
+
+/// The factor at which the decay rate is adjusted for each additional trial. This simulates how
+/// skill performance deteriorates more slowly after repeated practice.
+const DECAY_RATE_ADJUSTMENT_FACTOR: f32 = 0.8;
+
+/// The initial minimum score for an exercise after exponential decay is applied as a factor of the
+/// original score.
+const INITIAL_MIN_SCORE_FACTOR: f32 = 0.25;
+
+/// The minimum score factor will be adjusted by this factor with additional trials. This is to
+/// simulate how the performance floor of a skill increases with practice.
+const MIN_SCORE_ADJUSTMENT_FACTOR: f32 = 1.05;
+
+/// The maximum score for an exercise after exponential decay is applied as a factor of the original
+/// score and the adjustment increases the minimum score. It always should be less than 1.0.
+const MAX_MIN_SCORE_FACTOR: f32 = 0.9;
+
 /// A trait exposing a function to score an exercise based on the results of previous trials.
 pub trait ExerciseScorer {
     /// Returns a score (between 0.0 and 5.0) for the exercise based on the results and timestamps
-    /// of previous trials.
+    /// of previous trials. The trials are assumed to be sorted in descending order by timestamp.
     fn score(&self, previous_trials: &[ExerciseTrial]) -> Result<f32>;
+}
+
+pub struct ExponentialDecayScorer {}
+
+impl ExponentialDecayScorer {
+    /// Returns the number of days between trials.
+    fn day_diffs(previous_trials: &[ExerciseTrial]) -> Vec<f32> {
+        let mut now_plus_trials = vec![ExerciseTrial {
+            timestamp: Utc::now().timestamp(),
+            score: 0.0,
+        }];
+        now_plus_trials.extend(previous_trials.iter().cloned());
+        now_plus_trials
+            .windows(2)
+            .map(|w| {
+                let t1 = Utc
+                    .timestamp_opt(w[0].timestamp, 0)
+                    .earliest()
+                    .unwrap_or_default();
+                let t2 = Utc
+                    .timestamp_opt(w[1].timestamp, 0)
+                    .earliest()
+                    .unwrap_or_default();
+                (t1 - t2).num_days() as f32
+            })
+            .collect()
+    }
+
+    /// Returns the decay rates for each score based on the number of trials.
+    fn decay_rates(num_trials: usize) -> Vec<f32> {
+        (0..num_trials)
+            .map(|i| (INITIAL_DECAY_RATE * DECAY_RATE_ADJUSTMENT_FACTOR.powf(i as f32)).abs())
+            .rev()
+            .collect()
+    }
+
+    /// Returns the minimum score for each trial based on the number of trials.
+    fn min_scores(num_trials: usize) -> Vec<f32> {
+        (0..num_trials)
+            .map(|i| {
+                (INITIAL_MIN_SCORE_FACTOR * MIN_SCORE_ADJUSTMENT_FACTOR.powf(i as f32))
+                    .min(MAX_MIN_SCORE_FACTOR)
+            })
+            .rev()
+            .collect()
+    }
+
+    /// Performs the exponential decay on the score based on the number of days since the trial with
+    /// the given minimum score and decay rate. Dec
+    fn compute_exponential_decay(
+        initial_score: f32,
+        num_days: f32,
+        min_score: f32,
+        decay_rate: f32,
+    ) -> f32 {
+        // If the number of days is negative, return the score as is.
+        if num_days < 0.0 {
+            return initial_score;
+        }
+
+        // Compute the exponential decay using the formula:
+        // S(num_days) = min_score + (initial_score - min_score) * e^(-decay_rate * num_days)
+        (initial_score - min_score) * (-decay_rate * num_days).exp() + min_score
+    }
+
+    /// Returns the weights to used to compute the weighted average of the scores.
+    fn compute_score_weights(num_trials: usize) -> Vec<f32> {
+        (0..num_trials)
+            .map(|i| {
+                let weight = INITIAL_WEIGHT * WEIGHT_INDEX_FACTOR.powf(i as f32);
+                weight.max(MIN_WEIGHT)
+            })
+            .collect()
+    }
+
+    /// Returns the weighted average of the scores.
+    #[inline]
+    fn compute_weighted_average(scores: &[f32], weights: &[f32]) -> f32 {
+        // weighted average = (cross product of scores and their weights) / (sum of weights)
+        let cross_product: f32 = scores.iter().zip(weights.iter()).map(|(s, w)| s * *w).sum();
+        let weight_sum = weights.iter().sum::<f32>();
+        cross_product / weight_sum
+    }
+}
+
+impl ExerciseScorer for ExponentialDecayScorer {
+    fn score(&self, previous_trials: &[ExerciseTrial]) -> Result<f32> {
+        // An exercise with no previous trials is assigned a score of 0.0.
+        if previous_trials.is_empty() {
+            return Ok(0.0);
+        }
+
+        // Check the sorting of the trials is in descending order by timestamp.
+        if previous_trials
+            .windows(2)
+            .any(|w| w[0].timestamp < w[1].timestamp)
+        {
+            return Err(anyhow!(
+                "Exercise trials are not sorted in descending order by timestamp"
+            ));
+        }
+
+        // Compute the scores by running exponential decay on each trial.
+        let days = Self::day_diffs(previous_trials);
+        let decay_rates = Self::decay_rates(previous_trials.len());
+        let min_scores = Self::min_scores(previous_trials.len());
+        let scores: Vec<f32> = previous_trials
+            .iter()
+            .zip(days.iter())
+            .zip(decay_rates.iter())
+            .zip(min_scores.iter())
+            .map(|(((trial, num_days), decay_rate), min_score)| {
+                Self::compute_exponential_decay(trial.score, *num_days, *min_score, *decay_rate)
+            })
+            .collect();
+
+        // Run a weighted average on the scores to compute the final score.
+        let weights = Self::compute_score_weights(previous_trials.len());
+        Ok(Self::compute_weighted_average(&scores, &weights))
+    }
 }
 
 /// A simple scorer that computes a score based on the weighted average of previous scores.
