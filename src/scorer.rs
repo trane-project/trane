@@ -43,6 +43,9 @@ pub trait ExerciseScorer {
     fn score(&self, previous_trials: &[ExerciseTrial]) -> Result<f32>;
 }
 
+/// A scorer that uses an exponential decay function to compute the score of an exercise. As more
+/// trials are completed, the decay rate decreases and the minimum score increases to simulate how
+/// skills are retained better with more practice.
 pub struct ExponentialDecayScorer {}
 
 impl ExponentialDecayScorer {
