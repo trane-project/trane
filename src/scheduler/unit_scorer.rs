@@ -13,7 +13,7 @@ use crate::{
     data::{SchedulerOptions, UnitType},
     rewarder::{UnitRewarder, WeightedRewarder},
     scheduler::SchedulerData,
-    scorer::{ExerciseScorer, SimpleScorer},
+    scorer::{ExerciseScorer, ExponentialDecayScorer},
 };
 
 /// Stores information about a cached score.
@@ -60,7 +60,7 @@ impl UnitScorer {
             course_cache: RefCell::new(UstrMap::default()),
             data,
             options,
-            exercise_scorer: Box::new(SimpleScorer {}),
+            exercise_scorer: Box::new(ExponentialDecayScorer {}),
             unit_rewarder: Box::new(WeightedRewarder {}),
         }
     }
@@ -432,6 +432,7 @@ impl UnitScorer {
 #[cfg_attr(coverage, coverage(off))]
 mod test {
     use anyhow::Result;
+    use chrono::Utc;
     use lazy_static::lazy_static;
     use std::collections::BTreeMap;
     use ustr::Ustr;
@@ -511,21 +512,22 @@ mod test {
 
     /// Verifies that the score of a superseded course is None and is correctly cached.
     #[test]
-    fn superseded_course_score_cached() -> Result<()> {
+    fn superseded_course_cached() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
         let library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
         let scheduler_data = library.get_scheduler_data();
         let cache = UnitScorer::new(scheduler_data, SchedulerOptions::default());
 
         // Insert scores for every exercise to ensure course 0 has been superseded.
-        library.score_exercise(Ustr::from("0::0::0"), MasteryScore::Five, 1)?;
-        library.score_exercise(Ustr::from("0::0::1"), MasteryScore::Five, 1)?;
-        library.score_exercise(Ustr::from("0::1::0"), MasteryScore::Five, 1)?;
-        library.score_exercise(Ustr::from("0::1::1"), MasteryScore::Five, 1)?;
-        library.score_exercise(Ustr::from("1::0::0"), MasteryScore::Five, 1)?;
-        library.score_exercise(Ustr::from("1::0::1"), MasteryScore::Five, 1)?;
-        library.score_exercise(Ustr::from("1::1::0"), MasteryScore::Five, 1)?;
-        library.score_exercise(Ustr::from("1::1::1"), MasteryScore::Five, 1)?;
+        let ts = Utc::now().timestamp();
+        library.score_exercise(Ustr::from("0::0::0"), MasteryScore::Five, ts)?;
+        library.score_exercise(Ustr::from("0::0::1"), MasteryScore::Five, ts)?;
+        library.score_exercise(Ustr::from("0::1::0"), MasteryScore::Five, ts)?;
+        library.score_exercise(Ustr::from("0::1::1"), MasteryScore::Five, ts)?;
+        library.score_exercise(Ustr::from("1::0::0"), MasteryScore::Five, ts)?;
+        library.score_exercise(Ustr::from("1::0::1"), MasteryScore::Five, ts)?;
+        library.score_exercise(Ustr::from("1::1::0"), MasteryScore::Five, ts)?;
+        library.score_exercise(Ustr::from("1::1::1"), MasteryScore::Five, ts)?;
 
         // Get the scores for course 0 twice. Once to populate the cache and once to retrieve the
         // cached value.
@@ -543,14 +545,15 @@ mod test {
         let cache = UnitScorer::new(scheduler_data, SchedulerOptions::default());
 
         // Insert scores for every exercise to ensure lesson 1::0 has been superseded.
-        library.score_exercise(Ustr::from("0::0::0"), MasteryScore::Five, 1)?;
-        library.score_exercise(Ustr::from("0::0::1"), MasteryScore::Five, 1)?;
-        library.score_exercise(Ustr::from("0::1::0"), MasteryScore::Five, 1)?;
-        library.score_exercise(Ustr::from("0::1::1"), MasteryScore::Five, 1)?;
-        library.score_exercise(Ustr::from("1::0::0"), MasteryScore::Five, 1)?;
-        library.score_exercise(Ustr::from("1::0::1"), MasteryScore::Five, 1)?;
-        library.score_exercise(Ustr::from("1::1::0"), MasteryScore::Five, 1)?;
-        library.score_exercise(Ustr::from("1::1::1"), MasteryScore::Five, 1)?;
+        let ts = Utc::now().timestamp();
+        library.score_exercise(Ustr::from("0::0::0"), MasteryScore::Five, ts)?;
+        library.score_exercise(Ustr::from("0::0::1"), MasteryScore::Five, ts)?;
+        library.score_exercise(Ustr::from("0::1::0"), MasteryScore::Five, ts)?;
+        library.score_exercise(Ustr::from("0::1::1"), MasteryScore::Five, ts)?;
+        library.score_exercise(Ustr::from("1::0::0"), MasteryScore::Five, ts)?;
+        library.score_exercise(Ustr::from("1::0::1"), MasteryScore::Five, ts)?;
+        library.score_exercise(Ustr::from("1::1::0"), MasteryScore::Five, ts)?;
+        library.score_exercise(Ustr::from("1::1::1"), MasteryScore::Five, ts)?;
 
         // Get the scores for lesson 1::0 twice. Once to populate the cache and once to retrieve the
         // cached value.
