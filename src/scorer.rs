@@ -360,7 +360,7 @@ mod test {
         assert_eq!(3.5751967, score);
     }
 
-    /// Verify scoring an exercise with an invalid timestamp still returns a sane score.
+    /// Verifies scoring an exercise with an invalid timestamp still returns a sane score.
     #[test]
     fn invalid_timestamp() -> Result<()> {
         // The timestamp is before the Unix epoch.
