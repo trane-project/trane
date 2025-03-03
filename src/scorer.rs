@@ -277,6 +277,23 @@ mod test {
         assert_eq!(adjusted_score, initial_score * min_score_factor);
     }
 
+    /// Verifies exponential decay returns the original score when the number of days is negative.
+    #[test]
+    fn exponential_decay_negative_days() {
+        let initial_score = 5.0;
+        let num_days = -1.0;
+        let min_score_factor = 0.5;
+        let decay_rate = 0.2;
+
+        let adjusted_score = ExponentialDecayScorer::exponential_decay(
+            initial_score,
+            num_days,
+            min_score_factor,
+            decay_rate,
+        );
+        assert_eq!(adjusted_score, initial_score);
+    }
+
     /// Verifies the score for an exercise with no previous trials is 0.0.
     #[test]
     fn no_previous_trials() {
