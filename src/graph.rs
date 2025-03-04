@@ -338,7 +338,12 @@ impl InMemoryUnitGraph {
         dependencies: &[Ustr],
         weights: &[f32],
     ) -> Result<()> {
+        // Sanity checks.
         self.verify_dependencies(unit_id, unit_type, dependencies)?;
+        ensure!(
+            dependencies.len() == weights.len(),
+            "dependencies and weights must have the same length"
+        );
 
         // Update the dependency sinks and dependency map.
         self.update_dependency_sinks(unit_id, dependencies);
@@ -849,6 +854,19 @@ mod test {
         assert!(sinks.contains(&course1_id));
 
         graph.check_cycles()?;
+        Ok(())
+    }
+    /// Verifies the length of the weights is checked against the dependencies.
+    #[test]
+    fn unmatched_weights() -> Result<()> {
+        let mut graph = InMemoryUnitGraph::default();
+        let course1_id = Ustr::from("course1");
+        let course2_id = Ustr::from("course2");
+        graph.add_course(course1_id)?;
+        graph.add_course(course2_id)?;
+        assert!(graph
+            .add_dependencies(course2_id, UnitType::Course, &[course1_id], &[1.0, 0.5])
+            .is_err());
         Ok(())
     }
 
