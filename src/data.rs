@@ -122,6 +122,10 @@ pub struct UnitReward {
     /// The reward assigned to the exercise. The value can be negative, zero, or positive.
     pub reward: f32,
 
+    /// The weight assigned to the reward. Rewards from closer units are given more weight than
+    /// those from distant units.
+    pub weight: f32,
+
     /// The timestamp at which the reward was assigned.
     pub timestamp: i64,
 }
@@ -1456,6 +1460,7 @@ mod test {
         let reward = UnitReward {
             timestamp: 1,
             reward: 1.0,
+            weight: 1.0,
         };
         assert_eq!(reward, reward.clone());
     }

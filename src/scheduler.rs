@@ -32,7 +32,7 @@ use ustr::{Ustr, UstrMap, UstrSet};
 use crate::{
     data::{
         filter::{ExerciseFilter, KeyValueFilter, UnitFilter},
-        ExerciseManifest, MasteryScore, SchedulerOptions, UnitType,
+        ExerciseManifest, MasteryScore, SchedulerOptions, UnitReward, UnitType,
     },
     error::ExerciseSchedulerError,
     scheduler::{data::SchedulerData, filter::CandidateFilter, unit_scorer::UnitScorer},
@@ -877,7 +877,14 @@ impl ExerciseScheduler for DepthFirstScheduler {
             self.data
                 .practice_rewards
                 .write()
-                .record_unit_reward(*unit_id, *reward, timestamp)
+                .record_unit_reward(
+                    *unit_id,
+                    &UnitReward {
+                        reward: *reward,
+                        weight: 1.0,
+                        timestamp,
+                    },
+                )
                 .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?;
         }
 

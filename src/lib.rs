@@ -480,12 +480,11 @@ impl PracticeRewards for Trane {
     fn record_unit_reward(
         &mut self,
         unit_id: Ustr,
-        reward: f32,
-        timestamp: i64,
+        reward: &data::UnitReward,
     ) -> Result<(), PracticeRewardsError> {
         self.practice_rewards
             .write()
-            .record_unit_reward(unit_id, reward, timestamp)
+            .record_unit_reward(unit_id, reward)
     }
 
     fn trim_rewards(&mut self, num_rewards: usize) -> Result<(), PracticeRewardsError> {
