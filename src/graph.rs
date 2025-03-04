@@ -68,6 +68,7 @@ pub trait UnitGraph {
         unit_id: Ustr,
         unit_type: UnitType,
         dependencies: &[Ustr],
+        weights: &[f32],
     ) -> Result<(), UnitGraphError>;
 
     /// Adds the list of superseded units for the given unit to the graph.
@@ -98,11 +99,17 @@ pub trait UnitGraph {
     /// Returns the lesson to which the given exercise belongs.
     fn get_exercise_lesson(&self, exercise_id: Ustr) -> Option<Ustr>;
 
-    /// Returns the dependencies of the given unit.
+    /// Returns the weights of the dependencies of the given unit.
     fn get_dependencies(&self, unit_id: Ustr) -> Option<UstrSet>;
+
+    /// Returns the dependency weights of the given unit.
+    fn get_dependency_weights(&self, unit_id: Ustr) -> Option<UstrMap<f32>>;
 
     /// Returns all the units which depend on the given unit.
     fn get_dependents(&self, unit_id: Ustr) -> Option<UstrSet>;
+
+    /// Returns the weights of the dependents of the given unit.
+    fn get_dependent_weights(&self, unit_id: Ustr) -> Option<UstrMap<f32>>;
 
     /// Returns the dependency sinks of the graph. A dependency sink is a unit with no dependencies
     /// from which a walk of the entire unit graph needs to start. Because the lessons in a course
@@ -164,8 +171,14 @@ pub struct InMemoryUnitGraph {
     /// The mapping of a unit to its dependencies.
     dependency_graph: UstrMap<UstrSet>,
 
+    /// The mapping of a unit to the weights of its dependencies.
+    dependency_weights: UstrMap<UstrMap<f32>>,
+
     /// The mapping of a unit to all its dependents.
     dependent_graph: UstrMap<UstrSet>,
+
+    /// The mapping of a unit to the weights of its dependents.
+    dependent_weights: UstrMap<UstrMap<f32>>,
 
     /// The set of all dependency sinks in the graph.
     dependency_sinks: UstrSet,
@@ -323,8 +336,14 @@ impl InMemoryUnitGraph {
         unit_id: Ustr,
         unit_type: &UnitType,
         dependencies: &[Ustr],
+        weights: &[f32],
     ) -> Result<()> {
+        // Sanity checks.
         self.verify_dependencies(unit_id, unit_type, dependencies)?;
+        ensure!(
+            dependencies.len() == weights.len(),
+            "dependencies and weights must have the same length"
+        );
 
         // Update the dependency sinks and dependency map.
         self.update_dependency_sinks(unit_id, dependencies);
@@ -339,6 +358,25 @@ impl InMemoryUnitGraph {
                 .entry(*dependency_id)
                 .or_default()
                 .insert(unit_id);
+        }
+
+        // Update the dependency and dependent weights.
+        let dependency_and_weights: Vec<(Ustr, f32)> = dependencies
+            .iter()
+            .zip(weights.iter())
+            .map(|(dep, weight)| (*dep, *weight))
+            .collect();
+        if !dependency_and_weights.is_empty() {
+            self.dependency_weights
+                .entry(unit_id)
+                .or_default()
+                .extend(dependency_and_weights.clone());
+            for (id, weight) in dependency_and_weights {
+                self.dependent_weights
+                    .entry(id)
+                    .or_default()
+                    .insert(unit_id, weight);
+            }
         }
         Ok(())
     }
@@ -470,8 +508,9 @@ impl UnitGraph for InMemoryUnitGraph {
         unit_id: Ustr,
         unit_type: UnitType,
         dependencies: &[Ustr],
+        weights: &[f32],
     ) -> Result<(), UnitGraphError> {
-        self.add_dependencies_helper(unit_id, &unit_type, dependencies)
+        self.add_dependencies_helper(unit_id, &unit_type, dependencies, weights)
             .map_err(|e| UnitGraphError::AddDependencies(unit_id, unit_type, e))
     }
 
@@ -546,8 +585,16 @@ impl UnitGraph for InMemoryUnitGraph {
         self.dependency_graph.get(&unit_id).cloned()
     }
 
+    fn get_dependency_weights(&self, unit_id: Ustr) -> Option<UstrMap<f32>> {
+        self.dependency_weights.get(&unit_id).cloned()
+    }
+
     fn get_dependents(&self, unit_id: Ustr) -> Option<UstrSet> {
         self.dependent_graph.get(&unit_id).cloned()
+    }
+
+    fn get_dependent_weights(&self, unit_id: Ustr) -> Option<UstrMap<f32>> {
+        self.dependent_weights.get(&unit_id).cloned()
     }
 
     fn get_dependency_sinks(&self) -> UstrSet {
@@ -652,7 +699,7 @@ mod test {
         let mut graph = InMemoryUnitGraph::default();
         let id = Ustr::from("id1");
         graph.add_course(id)?;
-        graph.add_dependencies(id, UnitType::Course, &[])?;
+        graph.add_dependencies(id, UnitType::Course, &[], &[])?;
         assert_eq!(graph.get_unit_type(id), Some(UnitType::Course));
         Ok(())
     }
@@ -670,7 +717,7 @@ mod test {
         let lesson2_exercise2_id = Ustr::from("course1::lesson2::exercise2");
 
         graph.add_course(course_id)?;
-        graph.add_dependencies(course_id, UnitType::Course, &[])?;
+        graph.add_dependencies(course_id, UnitType::Course, &[], &[])?;
         graph.add_lesson(lesson1_id, course_id)?;
         graph.add_exercise(lesson1_exercise1_id, lesson1_id)?;
         graph.add_exercise(lesson1_exercise2_id, lesson1_id)?;
@@ -726,65 +773,80 @@ mod test {
         graph.add_course(course3_id)?;
         graph.add_course(course4_id)?;
         graph.add_course(course5_id)?;
-        graph.add_dependencies(course1_id, UnitType::Course, &[])?;
-        graph.add_dependencies(course2_id, UnitType::Course, &[course1_id])?;
-        graph.add_dependencies(course3_id, UnitType::Course, &[course1_id])?;
-        graph.add_dependencies(course4_id, UnitType::Course, &[course2_id])?;
-        graph.add_dependencies(course5_id, UnitType::Course, &[course3_id])?;
+        graph.add_dependencies(course1_id, UnitType::Course, &[], &[])?;
+        graph.add_dependencies(course2_id, UnitType::Course, &[course1_id], &[1.0])?;
+        graph.add_dependencies(course3_id, UnitType::Course, &[course1_id], &[1.0])?;
+        graph.add_dependencies(course4_id, UnitType::Course, &[course2_id], &[1.0])?;
+        graph.add_dependencies(course5_id, UnitType::Course, &[course3_id], &[1.0])?;
 
         {
             let dependents = graph.get_dependents(course1_id).unwrap();
             assert_eq!(dependents.len(), 2);
             assert!(dependents.contains(&course2_id));
             assert!(dependents.contains(&course3_id));
+            let dependent_weights = graph.get_dependent_weights(course1_id).unwrap();
+            assert_eq!(dependent_weights.len(), 2);
+            assert_eq!(dependent_weights[&course2_id], 1.0);
+            assert_eq!(dependent_weights[&course3_id], 1.0);
 
             assert!(graph.get_dependencies(course1_id).unwrap().is_empty());
+            assert!(graph.get_dependency_weights(course1_id).is_none());
         }
 
         {
             let dependents = graph.get_dependents(course2_id).unwrap();
             assert_eq!(dependents.len(), 1);
             assert!(dependents.contains(&course4_id));
+            let dependent_weights = graph.get_dependent_weights(course2_id).unwrap();
+            assert_eq!(dependent_weights.len(), 1);
+            assert_eq!(dependent_weights[&course4_id], 1.0);
 
             let dependencies = graph.get_dependencies(course2_id).unwrap();
             assert_eq!(dependencies.len(), 1);
             assert!(dependencies.contains(&course1_id));
-        }
-
-        {
-            let dependents = graph.get_dependents(course2_id).unwrap();
-            assert_eq!(dependents.len(), 1);
-            assert!(dependents.contains(&course4_id));
-
-            let dependencies = graph.get_dependencies(course2_id).unwrap();
-            assert_eq!(dependencies.len(), 1);
-            assert!(dependencies.contains(&course1_id));
+            let dependency_weights = graph.get_dependency_weights(course2_id).unwrap();
+            assert_eq!(dependency_weights.len(), 1);
+            assert_eq!(dependency_weights[&course1_id], 1.0);
         }
 
         {
             let dependents = graph.get_dependents(course3_id).unwrap();
             assert_eq!(dependents.len(), 1);
             assert!(dependents.contains(&course5_id));
+            let dependent_weights = graph.get_dependent_weights(course3_id).unwrap();
+            assert_eq!(dependent_weights.len(), 1);
+            assert_eq!(dependent_weights[&course5_id], 1.0);
 
             let dependencies = graph.get_dependencies(course3_id).unwrap();
             assert_eq!(dependencies.len(), 1);
             assert!(dependencies.contains(&course1_id));
+            let dependency_weights = graph.get_dependency_weights(course3_id).unwrap();
+            assert_eq!(dependency_weights.len(), 1);
+            assert_eq!(dependency_weights[&course1_id], 1.0);
         }
 
         {
             assert!(graph.get_dependents(course4_id).is_none());
+            assert!(graph.get_dependent_weights(course4_id).is_none());
 
             let dependencies = graph.get_dependencies(course4_id).unwrap();
             assert_eq!(dependencies.len(), 1);
             assert!(dependencies.contains(&course2_id));
+            let dependency_weights = graph.get_dependency_weights(course4_id).unwrap();
+            assert_eq!(dependency_weights.len(), 1);
+            assert_eq!(dependency_weights[&course2_id], 1.0);
         }
 
         {
             assert!(graph.get_dependents(course5_id).is_none());
+            assert!(graph.get_dependent_weights(course5_id).is_none());
 
             let dependencies = graph.get_dependencies(course5_id).unwrap();
             assert_eq!(dependencies.len(), 1);
             assert!(dependencies.contains(&course3_id));
+            let dependency_weights = graph.get_dependency_weights(course5_id).unwrap();
+            assert_eq!(dependency_weights.len(), 1);
+            assert_eq!(dependency_weights[&course3_id], 1.0);
         }
 
         let sinks = graph.get_dependency_sinks();
@@ -792,6 +854,20 @@ mod test {
         assert!(sinks.contains(&course1_id));
 
         graph.check_cycles()?;
+        Ok(())
+    }
+
+    /// Verifies the length of the weights is checked against the dependencies.
+    #[test]
+    fn unmatched_weights() -> Result<()> {
+        let mut graph = InMemoryUnitGraph::default();
+        let course1_id = Ustr::from("course1");
+        let course2_id = Ustr::from("course2");
+        graph.add_course(course1_id)?;
+        graph.add_course(course2_id)?;
+        assert!(graph
+            .add_dependencies(course2_id, UnitType::Course, &[course1_id], &[1.0, 0.5])
+            .is_err());
         Ok(())
     }
 
@@ -814,11 +890,21 @@ mod test {
         graph.add_lesson(course3_lesson1_id, course3_id)?;
         graph.add_lesson(course3_lesson2_id, course3_id)?;
 
-        graph.add_dependencies(course1_id, UnitType::Course, &[])?;
-        graph.add_dependencies(course1_lesson2_id, UnitType::Lesson, &[course1_lesson1_id])?;
-        graph.add_dependencies(course2_id, UnitType::Course, &[course1_id])?;
-        graph.add_dependencies(course3_id, UnitType::Course, &[course2_id])?;
-        graph.add_dependencies(course3_lesson2_id, UnitType::Lesson, &[course3_lesson1_id])?;
+        graph.add_dependencies(course1_id, UnitType::Course, &[], &[])?;
+        graph.add_dependencies(
+            course1_lesson2_id,
+            UnitType::Lesson,
+            &[course1_lesson1_id],
+            &[1.0],
+        )?;
+        graph.add_dependencies(course2_id, UnitType::Course, &[course1_id], &[1.0])?;
+        graph.add_dependencies(course3_id, UnitType::Course, &[course2_id], &[1.0])?;
+        graph.add_dependencies(
+            course3_lesson2_id,
+            UnitType::Lesson,
+            &[course3_lesson1_id],
+            &[1.0],
+        )?;
         graph.update_starting_lessons();
 
         let dot = graph.generate_dot_graph();
@@ -887,14 +973,14 @@ mod test {
         graph.add_course(course3_id)?;
         graph.add_course(course4_id)?;
         graph.add_course(course5_id)?;
-        graph.add_dependencies(course1_id, UnitType::Course, &[])?;
-        graph.add_dependencies(course2_id, UnitType::Course, &[course1_id])?;
-        graph.add_dependencies(course3_id, UnitType::Course, &[course1_id])?;
-        graph.add_dependencies(course4_id, UnitType::Course, &[course2_id])?;
-        graph.add_dependencies(course5_id, UnitType::Course, &[course3_id])?;
+        graph.add_dependencies(course1_id, UnitType::Course, &[], &[])?;
+        graph.add_dependencies(course2_id, UnitType::Course, &[course1_id], &[1.0])?;
+        graph.add_dependencies(course3_id, UnitType::Course, &[course1_id], &[1.0])?;
+        graph.add_dependencies(course4_id, UnitType::Course, &[course2_id], &[1.0])?;
+        graph.add_dependencies(course5_id, UnitType::Course, &[course3_id], &[1.0])?;
 
         // Add a cycle, which should be detected when calling `check_cycles`.
-        graph.add_dependencies(course1_id, UnitType::Course, &[course5_id])?;
+        graph.add_dependencies(course1_id, UnitType::Course, &[course5_id], &[1.0])?;
         assert!(graph.check_cycles().is_err());
 
         Ok(())
@@ -928,7 +1014,7 @@ mod test {
         graph.add_course(course_id).unwrap();
         graph.add_lesson(lesson1_id, course_id).unwrap();
         graph.add_lesson(lesson2_id, course_id).unwrap();
-        graph.add_dependencies(lesson2_id, UnitType::Lesson, &[lesson1_id])?;
+        graph.add_dependencies(lesson2_id, UnitType::Lesson, &[lesson1_id], &[1.0])?;
 
         // Manually remove the dependent relationship to trigger the check and make the cycle
         // detection fail.

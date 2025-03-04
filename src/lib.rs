@@ -650,10 +650,11 @@ impl UnitGraph for Trane {
         unit_id: Ustr,
         unit_type: UnitType,
         dependencies: &[Ustr],
+        weights: &[f32],
     ) -> Result<(), UnitGraphError> {
         self.unit_graph
             .write()
-            .add_dependencies(unit_id, unit_type, dependencies)
+            .add_dependencies(unit_id, unit_type, dependencies, weights)
     }
 
     fn add_superseded(&mut self, unit_id: Ustr, superseded: &[Ustr]) {
@@ -692,8 +693,16 @@ impl UnitGraph for Trane {
         self.unit_graph.read().get_dependencies(unit_id)
     }
 
+    fn get_dependency_weights(&self, unit_id: Ustr) -> Option<UstrMap<f32>> {
+        self.unit_graph.read().get_dependency_weights(unit_id)
+    }
+
     fn get_dependents(&self, unit_id: Ustr) -> Option<UstrSet> {
         self.unit_graph.read().get_dependents(unit_id)
+    }
+
+    fn get_dependent_weights(&self, unit_id: Ustr) -> Option<UstrMap<f32>> {
+        self.unit_graph.read().get_dependent_weights(unit_id)
     }
 
     fn get_dependency_sinks(&self) -> UstrSet {
