@@ -856,6 +856,7 @@ mod test {
         graph.check_cycles()?;
         Ok(())
     }
+
     /// Verifies the length of the weights is checked against the dependencies.
     #[test]
     fn unmatched_weights() -> Result<()> {
