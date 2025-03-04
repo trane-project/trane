@@ -361,15 +361,17 @@ impl InMemoryUnitGraph {
             .zip(weights.iter())
             .map(|(dep, weight)| (*dep, *weight))
             .collect();
-        self.dependency_weights
-            .entry(unit_id)
-            .or_default()
-            .extend(dependency_and_weights.clone());
-        for (id, weight) in dependency_and_weights {
-            self.dependent_weights
-                .entry(id)
+        if !dependency_and_weights.is_empty() {
+            self.dependency_weights
+                .entry(unit_id)
                 .or_default()
-                .insert(unit_id, weight);
+                .extend(dependency_and_weights.clone());
+            for (id, weight) in dependency_and_weights {
+                self.dependent_weights
+                    .entry(id)
+                    .or_default()
+                    .insert(unit_id, weight);
+            }
         }
         Ok(())
     }
@@ -777,54 +779,69 @@ mod test {
             assert_eq!(dependents.len(), 2);
             assert!(dependents.contains(&course2_id));
             assert!(dependents.contains(&course3_id));
+            let dependent_weights = graph.get_dependent_weights(course1_id).unwrap();
+            assert_eq!(dependent_weights.len(), 2);
+            assert_eq!(dependent_weights[&course2_id], 1.0);
+            assert_eq!(dependent_weights[&course3_id], 1.0);
 
             assert!(graph.get_dependencies(course1_id).unwrap().is_empty());
+            assert!(graph.get_dependency_weights(course1_id).is_none());
         }
 
         {
             let dependents = graph.get_dependents(course2_id).unwrap();
             assert_eq!(dependents.len(), 1);
             assert!(dependents.contains(&course4_id));
+            let dependent_weights = graph.get_dependent_weights(course2_id).unwrap();
+            assert_eq!(dependent_weights.len(), 1);
+            assert_eq!(dependent_weights[&course4_id], 1.0);
 
             let dependencies = graph.get_dependencies(course2_id).unwrap();
             assert_eq!(dependencies.len(), 1);
             assert!(dependencies.contains(&course1_id));
-        }
-
-        {
-            let dependents = graph.get_dependents(course2_id).unwrap();
-            assert_eq!(dependents.len(), 1);
-            assert!(dependents.contains(&course4_id));
-
-            let dependencies = graph.get_dependencies(course2_id).unwrap();
-            assert_eq!(dependencies.len(), 1);
-            assert!(dependencies.contains(&course1_id));
+            let dependency_weights = graph.get_dependency_weights(course2_id).unwrap();
+            assert_eq!(dependency_weights.len(), 1);
+            assert_eq!(dependency_weights[&course1_id], 1.0);
         }
 
         {
             let dependents = graph.get_dependents(course3_id).unwrap();
             assert_eq!(dependents.len(), 1);
             assert!(dependents.contains(&course5_id));
+            let dependent_weights = graph.get_dependent_weights(course3_id).unwrap();
+            assert_eq!(dependent_weights.len(), 1);
+            assert_eq!(dependent_weights[&course5_id], 1.0);
 
             let dependencies = graph.get_dependencies(course3_id).unwrap();
             assert_eq!(dependencies.len(), 1);
             assert!(dependencies.contains(&course1_id));
+            let dependency_weights = graph.get_dependency_weights(course3_id).unwrap();
+            assert_eq!(dependency_weights.len(), 1);
+            assert_eq!(dependency_weights[&course1_id], 1.0);
         }
 
         {
             assert!(graph.get_dependents(course4_id).is_none());
+            assert!(graph.get_dependent_weights(course4_id).is_none());
 
             let dependencies = graph.get_dependencies(course4_id).unwrap();
             assert_eq!(dependencies.len(), 1);
             assert!(dependencies.contains(&course2_id));
+            let dependency_weights = graph.get_dependency_weights(course4_id).unwrap();
+            assert_eq!(dependency_weights.len(), 1);
+            assert_eq!(dependency_weights[&course2_id], 1.0);
         }
 
         {
             assert!(graph.get_dependents(course5_id).is_none());
+            assert!(graph.get_dependent_weights(course5_id).is_none());
 
             let dependencies = graph.get_dependencies(course5_id).unwrap();
             assert_eq!(dependencies.len(), 1);
             assert!(dependencies.contains(&course3_id));
+            let dependency_weights = graph.get_dependency_weights(course5_id).unwrap();
+            assert_eq!(dependency_weights.len(), 1);
+            assert_eq!(dependency_weights[&course3_id], 1.0);
         }
 
         let sinks = graph.get_dependency_sinks();
