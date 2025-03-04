@@ -736,3 +736,31 @@ impl GetUnitGraph for LocalCourseLibrary {
         self.unit_graph.clone()
     }
 }
+
+#[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
+mod test {
+    use std::collections::BTreeMap;
+
+    /// Verifies that the weights are converted correctly.
+    #[test]
+    fn convert_weights() {
+        let dependencies = vec!["a".into(), "b".into(), "c".into(), "d".into()];
+        let weights = Some(BTreeMap::from([
+            ("a".into(), 1),
+            ("b".into(), 2),
+            ("d".into(), 4),
+        ]));
+        let converted_weights =
+            super::LocalCourseLibrary::convert_weights(&dependencies, weights.as_ref());
+        assert_eq!(converted_weights, vec![0.25, 0.5, 1.0, 1.0]);
+    }
+
+    /// Verifies that the weights are converted correctly when no weights are provided.
+    #[test]
+    fn convert_weights_empty() {
+        let dependencies = vec!["a".into(), "b".into(), "c".into()];
+        let converted_weights = super::LocalCourseLibrary::convert_weights(&dependencies, None);
+        assert_eq!(converted_weights, vec![1.0, 1.0, 1.0]);
+    }
+}
