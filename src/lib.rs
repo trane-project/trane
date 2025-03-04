@@ -56,6 +56,7 @@ pub mod course_library;
 pub mod data;
 pub mod db_utils;
 pub mod error;
+pub mod exercise_scorer;
 pub mod filter_manager;
 pub mod graph;
 pub mod mantra_miner;
@@ -64,9 +65,8 @@ pub mod practice_stats;
 pub mod preferences_manager;
 pub mod repository_manager;
 pub mod review_list;
-pub mod rewarder;
+pub mod reward_scorer;
 pub mod scheduler;
-pub mod scorer;
 pub mod study_session_manager;
 #[cfg_attr(coverage, coverage(off))]
 pub mod testutil;

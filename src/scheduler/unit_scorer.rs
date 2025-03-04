@@ -11,9 +11,9 @@ use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
     data::{SchedulerOptions, UnitType},
-    rewarder::{UnitRewarder, WeightedRewarder},
+    exercise_scorer::{ExerciseScorer, ExponentialDecayScorer},
+    reward_scorer::{RewardScorer, WeightedRewardScorer},
     scheduler::SchedulerData,
-    scorer::{ExerciseScorer, ExponentialDecayScorer},
 };
 
 /// Stores information about a cached score.
@@ -48,7 +48,7 @@ pub(super) struct UnitScorer {
     exercise_scorer: Box<dyn ExerciseScorer + Send + Sync>,
 
     /// The object used to compute the reward of a unit based on its previous rewards.
-    unit_rewarder: Box<dyn UnitRewarder + Send + Sync>,
+    unit_rewarder: Box<dyn RewardScorer + Send + Sync>,
 }
 
 impl UnitScorer {
@@ -61,7 +61,7 @@ impl UnitScorer {
             data,
             options,
             exercise_scorer: Box::new(ExponentialDecayScorer {}),
-            unit_rewarder: Box::new(WeightedRewarder {}),
+            unit_rewarder: Box::new(WeightedRewardScorer {}),
         }
     }
 
@@ -171,7 +171,7 @@ impl UnitScorer {
             .unwrap_or_default();
         let reward = self
             .unit_rewarder
-            .reward(&course_rewards, &lesson_rewards)
+            .score_rewards(&course_rewards, &lesson_rewards)
             .unwrap_or_default();
 
         // The final score is the sum of the score and the reward. Do not add a reward for exercises
