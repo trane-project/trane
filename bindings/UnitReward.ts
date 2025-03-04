@@ -10,6 +10,11 @@ export type UnitReward = {
  */
 reward: number, 
 /**
+ * The weight assigned to the reward. Rewards from closer units are given more weight than
+ * those from distant units.
+ */
+weight: number, 
+/**
  * The timestamp at which the reward was assigned.
  */
 timestamp: bigint, };
