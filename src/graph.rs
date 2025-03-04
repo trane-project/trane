@@ -98,12 +98,18 @@ pub trait UnitGraph {
     /// Returns the lesson to which the given exercise belongs.
     fn get_exercise_lesson(&self, exercise_id: Ustr) -> Option<Ustr>;
 
-    /// Returns the dependencies of the given unit.
+    /// Returns the weights of the dependencies of the given unit.
     fn get_dependencies(&self, unit_id: Ustr) -> Option<UstrSet>;
 
+    /// Returns the dependency weights of the given unit.
+    fn get_dependency_weights(&self, unit_id: Ustr) -> Option<UstrMap<f32>>;
+    
     /// Returns all the units which depend on the given unit.
     fn get_dependents(&self, unit_id: Ustr) -> Option<UstrSet>;
 
+    /// Returns the weights of the dependents of the given unit.
+    fn get_dependent_weights(&self, unit_id: Ustr) -> Option<UstrMap<f32>>;
+    
     /// Returns the dependency sinks of the graph. A dependency sink is a unit with no dependencies
     /// from which a walk of the entire unit graph needs to start. Because the lessons in a course
     /// implicitly depend on their course, properly initialized lessons do not belong to this set.
@@ -164,8 +170,14 @@ pub struct InMemoryUnitGraph {
     /// The mapping of a unit to its dependencies.
     dependency_graph: UstrMap<UstrSet>,
 
+    /// The mapping of a unit to the weights of its dependencies.
+    dependency_weights: UstrMap<UstrMap<f32>>,
+
     /// The mapping of a unit to all its dependents.
     dependent_graph: UstrMap<UstrSet>,
+
+    /// The mapping of a unit to the weights of its dependents.
+    dependent_weights: UstrMap<UstrMap<f32>>,
 
     /// The set of all dependency sinks in the graph.
     dependency_sinks: UstrSet,
@@ -546,8 +558,16 @@ impl UnitGraph for InMemoryUnitGraph {
         self.dependency_graph.get(&unit_id).cloned()
     }
 
+    fn get_dependency_weights(&self, unit_id: Ustr) -> Option<UstrMap<f32>> {
+        todo!()
+    }
+
     fn get_dependents(&self, unit_id: Ustr) -> Option<UstrSet> {
         self.dependent_graph.get(&unit_id).cloned()
+    }
+
+    fn get_dependent_weights(&self, unit_id: Ustr) -> Option<UstrMap<f32>> {
+        todo!()
     }
 
     fn get_dependency_sinks(&self) -> UstrSet {
