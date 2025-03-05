@@ -179,7 +179,7 @@ impl UnitScorer {
         let final_score = if scores.is_empty() {
             score
         } else {
-            score + reward
+            (score + reward).clamp(0.0, 5.0)
         };
         self.exercise_cache.borrow_mut().insert(
             exercise_id,
