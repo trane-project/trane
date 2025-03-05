@@ -5,6 +5,13 @@ use chrono::{TimeZone, Utc};
 
 use crate::data::ExerciseTrial;
 
+/// A trait exposing a function to score an exercise based on the results of previous trials.
+pub trait ExerciseScorer {
+    /// Returns a score (between 0.0 and 5.0) for the exercise based on the results and timestamps
+    /// of previous trials. The trials are assumed to be sorted in descending order by timestamp.
+    fn score(&self, previous_trials: &[ExerciseTrial]) -> Result<f32>;
+}
+
 /// The initial decay rate for the score of a trial. This is the rate at which the score decreases
 /// with each passing day.
 const INITIAL_DECAY_RATE: f32 = 0.2;
@@ -35,13 +42,6 @@ const WEIGHT_INDEX_FACTOR: f32 = 0.8;
 /// The minimum weight of a score. This weight is also assigned when there's an issue calculating
 /// the number of days since the trial (e.g., the score's timestamp is after the current timestamp).
 const MIN_WEIGHT: f32 = 0.1;
-
-/// A trait exposing a function to score an exercise based on the results of previous trials.
-pub trait ExerciseScorer {
-    /// Returns a score (between 0.0 and 5.0) for the exercise based on the results and timestamps
-    /// of previous trials. The trials are assumed to be sorted in descending order by timestamp.
-    fn score(&self, previous_trials: &[ExerciseTrial]) -> Result<f32>;
-}
 
 /// A scorer that uses an exponential decay function to compute the score of an exercise. As more
 /// trials are completed, the decay rate decreases and the minimum score increases to simulate how
@@ -179,7 +179,7 @@ impl ExerciseScorer for ExponentialDecayScorer {
 mod test {
     use chrono::Utc;
 
-    use crate::{data::ExerciseTrial, scorer::*};
+    use crate::{data::ExerciseTrial, exercise_scorer::*};
 
     const SECONDS_IN_DAY: i64 = 60 * 60 * 24;
     const SCORER: ExponentialDecayScorer = ExponentialDecayScorer {};
