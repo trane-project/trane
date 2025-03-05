@@ -46,9 +46,9 @@ impl RewardPropagator {
         }
     }
 
+    // Gets the next units to visit, depending on the sign of the reward.
     fn get_next_units(&self, unit_id: Ustr, reward: f32) -> Vec<Ustr> {
         if reward > 0.0 {
-            // Get the dependencies of the unit.
             self.data
                 .unit_graph
                 .read()
@@ -57,7 +57,6 @@ impl RewardPropagator {
                 .into_iter()
                 .collect()
         } else {
-            // Get the dependents of the unit.
             self.data
                 .unit_graph
                 .read()
