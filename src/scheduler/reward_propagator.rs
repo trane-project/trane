@@ -76,7 +76,7 @@ impl RewardPropagator {
         timestamp: i64,
     ) -> Vec<(Ustr, UnitReward)> {
         // Get the lesson and course for this exercise.
-        let lesson_id = self.data.get_course_id(exercise_id).unwrap_or_default();
+        let lesson_id = self.data.get_lesson_id(exercise_id).unwrap_or_default();
         let course_id = self.data.get_course_id(lesson_id).unwrap_or_default();
         if lesson_id.is_empty() || course_id.is_empty() {
             return vec![];
