@@ -22,17 +22,19 @@
 
 pub mod data;
 mod filter;
+mod reward_propagator;
 mod unit_scorer;
 
 use anyhow::Result;
 use chrono::Utc;
 use rand::{seq::SliceRandom, thread_rng};
+use reward_propagator::RewardPropagator;
 use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
     data::{
         filter::{ExerciseFilter, KeyValueFilter, UnitFilter},
-        ExerciseManifest, MasteryScore, SchedulerOptions, UnitReward, UnitType,
+        ExerciseManifest, MasteryScore, SchedulerOptions, UnitType,
     },
     error::ExerciseSchedulerError,
     scheduler::{data::SchedulerData, filter::CandidateFilter, unit_scorer::UnitScorer},
@@ -136,10 +138,12 @@ pub struct DepthFirstScheduler {
     /// course library and provides convenient functions.
     data: SchedulerData,
 
-    /// A cache of unit scores. Scores are cached to avoid unnecessary computation, an issue that
-    /// was found during profiling of Trane's performance. The memory footprint of Trane is low, so
-    /// the trade-off is worth it.
-    score_cache: UnitScorer,
+    /// Contains the logic for computing the scores of exercises, lessons, and courses, as well as
+    /// for deciding whether the dependencies of a unit are satisfied.
+    unit_scorer: UnitScorer,
+
+    /// Contains the logic for propagating rewards through the graph.
+    reward_propagator: RewardPropagator,
 
     /// The filter used to build the final batch of exercises among the candidates found during the
     /// graph search.
@@ -152,7 +156,8 @@ impl DepthFirstScheduler {
     pub fn new(data: SchedulerData) -> Self {
         Self {
             data: data.clone(),
-            score_cache: UnitScorer::new(data.clone(), data.options.clone()),
+            unit_scorer: UnitScorer::new(data.clone(), data.options.clone()),
+            reward_propagator: RewardPropagator { data: data.clone() },
             filter: CandidateFilter::new(data),
         }
     }
@@ -283,11 +288,11 @@ impl DepthFirstScheduler {
                     lesson_id: item.unit_id, // It's assumed that the item is a lesson.
                     depth: (item.depth + 1) as f32,
                     score: self
-                        .score_cache
+                        .unit_scorer
                         .get_unit_score(exercise_id)?
                         .unwrap_or_default(),
                     num_trials: self
-                        .score_cache
+                        .unit_scorer
                         .get_num_trials(exercise_id)?
                         .unwrap_or_default(),
                     frequency: self.data.get_exercise_frequency(exercise_id),
@@ -336,16 +341,16 @@ impl DepthFirstScheduler {
         }
 
         // The dependency is considered as satisfied if it's been superseded by another unit.
-        let superseding = self.score_cache.get_superseding_recursive(dependency_id);
+        let superseding = self.unit_scorer.get_superseding_recursive(dependency_id);
         if let Some(superseding) = superseding {
-            if self.score_cache.is_superseded(dependency_id, &superseding) {
+            if self.unit_scorer.is_superseded(dependency_id, &superseding) {
                 return true;
             }
         }
 
         // Finally, dependencies with a score equal or greater than the passing score are considered
         // as satisfied.
-        let score = self.score_cache.get_unit_score(dependency_id);
+        let score = self.unit_scorer.get_unit_score(dependency_id);
         if let Ok(Some(score)) = score {
             score >= self.data.options.passing_score.compute_score(depth)
         } else {
@@ -408,11 +413,11 @@ impl DepthFirstScheduler {
 
         // Check if the course has been superseded by another unit.
         let superseding_units = self
-            .score_cache
+            .unit_scorer
             .get_superseding_recursive(course_id)
             .unwrap_or_default();
         let is_superseded = self
-            .score_cache
+            .unit_scorer
             .is_superseded(course_id, &superseding_units);
 
         // The course should be skipped if the course is blacklisted, does not pass the filter, has
@@ -434,21 +439,21 @@ impl DepthFirstScheduler {
 
         // Check if the lesson has been superseded by another unit.
         let superseding_units = self
-            .score_cache
+            .unit_scorer
             .get_superseding_recursive(lesson_id)
             .unwrap_or_default();
         let is_lesson_superseded = self
-            .score_cache
+            .unit_scorer
             .is_superseded(lesson_id, &superseding_units);
 
         // Check if the lesson's course has been superseded by another unit.
         let course_id = self.data.get_lesson_course(lesson_id).unwrap_or_default();
         let superseding_units = self
-            .score_cache
+            .unit_scorer
             .get_superseding_recursive(course_id)
             .unwrap_or_default();
         let is_course_superseded = self
-            .score_cache
+            .unit_scorer
             .is_superseded(course_id, &superseding_units);
 
         // The lesson should be skipped if it is blacklisted, does not pass the filter or if it or
@@ -734,11 +739,11 @@ impl DepthFirstScheduler {
                         lesson_id,
                         depth: 0.0,
                         score: self
-                            .score_cache
+                            .unit_scorer
                             .get_unit_score(unit_id)?
                             .unwrap_or_default(),
                         num_trials: self
-                            .score_cache
+                            .unit_scorer
                             .get_num_trials(unit_id)?
                             .unwrap_or_default(),
                         frequency: *self.data.frequency_map.read().get(&unit_id).unwrap_or(&0),
@@ -818,17 +823,6 @@ impl DepthFirstScheduler {
 
         Ok(candidates)
     }
-
-    /// Returns a list of tuples containing a lesson or course ID and the corresponding reward based
-    /// on the score for the given exercise.
-    fn propagate_rewards(
-        _exercise_id: Ustr,
-        _score: MasteryScore,
-        _timestamp: i64,
-    ) -> Vec<(Ustr, f32)> {
-        // TODO: fill the logic. Empty rewards for now.
-        vec![]
-    }
 }
 
 impl ExerciseScheduler for DepthFirstScheduler {
@@ -849,7 +843,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
             .map_err(ExerciseSchedulerError::GetExerciseBatch)?;
 
         // Increment the frequency of the exercises in the batch. These exercises will have a lower
-        // chance of being selected in the future,so that exercises that have not been selected as
+        // chance of being selected in the future, so that exercises that have not been selected as
         // often have a higher chance of being selected.
         for exercise_manifest in &final_candidates {
             self.data.increment_exercise_frequency(exercise_manifest.id);
@@ -872,39 +866,34 @@ impl ExerciseScheduler for DepthFirstScheduler {
             .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?;
 
         // Propagate the rewards along the unit graph and store them.
-        let rewards = Self::propagate_rewards(exercise_id, score, timestamp);
+        let rewards = self
+            .reward_propagator
+            .propagate_rewards(exercise_id, &score, timestamp);
         for (unit_id, reward) in &rewards {
             self.data
                 .practice_rewards
                 .write()
-                .record_unit_reward(
-                    *unit_id,
-                    &UnitReward {
-                        reward: *reward,
-                        weight: 1.0,
-                        timestamp,
-                    },
-                )
+                .record_unit_reward(*unit_id, reward)
                 .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?;
         }
 
         // Any cached score for this exercise and the units affected by the reward system should be
         // invalidated.
-        self.score_cache.invalidate_cached_score(exercise_id);
+        self.unit_scorer.invalidate_cached_score(exercise_id);
         for (unit_id, _) in &rewards {
-            self.score_cache.invalidate_cached_score(*unit_id);
+            self.unit_scorer.invalidate_cached_score(*unit_id);
         }
         Ok(())
     }
 
     #[cfg_attr(coverage, coverage(off))]
     fn invalidate_cached_score(&self, unit_id: Ustr) {
-        self.score_cache.invalidate_cached_score(unit_id);
+        self.unit_scorer.invalidate_cached_score(unit_id);
     }
 
     #[cfg_attr(coverage, coverage(off))]
     fn invalidate_cached_scores_with_prefix(&self, prefix: &str) {
-        self.score_cache
+        self.unit_scorer
             .invalidate_cached_scores_with_prefix(prefix);
     }
 

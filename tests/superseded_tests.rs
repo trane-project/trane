@@ -558,7 +558,7 @@ fn scheduler_respects_superseded_lesson_chain() -> Result<()> {
     Ok(())
 }
 
-/// Verifies that the superseded courses are dealt with correctly during scheduling.
+/// Verifies that scheduling deals correctly with superseded courses.
 #[test]
 fn scheduler_ignores_superseded_exercises() -> Result<()> {
     // Initialize test course library.
@@ -566,8 +566,8 @@ fn scheduler_ignores_superseded_exercises() -> Result<()> {
     let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Run the simulation, filtering only the  exercises in the superseded lessons and giving them a
-    // score of 1. This will have the effect of bringing down the average score of all athe
-    // exercises in the course.
+    // score of 1. This will have the effect of bringing down the average score of all the exercises
+    // in the course.
     let superseded_lesson_ids = [TestId(6, Some(0), None), TestId(6, Some(1), None)];
     let mut simulation = TraneSimulation::new(2000, Box::new(|_| Some(MasteryScore::One)));
     simulation.run_simulation(
@@ -599,10 +599,10 @@ fn scheduler_ignores_superseded_exercises() -> Result<()> {
     }
 
     // Run the simulation, filtering only the  exercises in the superseding lesson and giving them a
-    // score of four. This will have the effect of bringing up the average score of the course and
+    // high score. This will have the effect of bringing up the average score of the course and
     // ensuring the previous lessons are superseded.
     let superseding_lesson_ids = [TestId(6, Some(2), None)];
-    let mut simulation = TraneSimulation::new(2000, Box::new(|_| Some(MasteryScore::Four)));
+    let mut simulation = TraneSimulation::new(2000, Box::new(|_| Some(MasteryScore::Five)));
     simulation.run_simulation(
         &mut trane,
         &vec![],
@@ -631,11 +631,11 @@ fn scheduler_ignores_superseded_exercises() -> Result<()> {
         }
     }
 
-    // Run the simulation again, giving a score of 4 to all exercises. If the superseded exercises
+    // Run the simulation again, giving a high score to all exercises. If the superseded exercises
     // were ignored correctly, the dependent course should have been scheduled. If they were not
     // ignored correctly, the previous steps ensured the average score of the course is too low to
     // consider the course as mastered.
-    let mut simulation = TraneSimulation::new(2000, Box::new(|_| Some(MasteryScore::Four)));
+    let mut simulation = TraneSimulation::new(2000, Box::new(|_| Some(MasteryScore::Five)));
     let dependant_course = TestId(7, None, None);
     simulation.run_simulation(&mut trane, &vec![], &None)?;
     for exercise_id in &exercise_ids {

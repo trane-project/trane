@@ -54,6 +54,17 @@ pub struct SchedulerData {
 }
 
 impl SchedulerData {
+    /// Returns the ID of the lesson to which the exercise with the given ID belongs.
+    #[inline]
+    pub fn get_lesson_id(&self, exercise_id: Ustr) -> Result<Ustr> {
+        self.unit_graph
+            .read()
+            .get_exercise_lesson(exercise_id)
+            .ok_or(anyhow!(
+                "missing lesson ID for exercise with ID {exercise_id}"
+            ))
+    }
+
     /// Returns the ID of the course to which the lesson with the given ID belongs.
     #[inline]
     pub fn get_course_id(&self, lesson_id: Ustr) -> Result<Ustr> {
@@ -70,7 +81,7 @@ impl SchedulerData {
         self.unit_graph.read().get_unit_type(unit_id)
     }
 
-    /// Returns the type of the given unit. Returns an error if the type is not known.
+    /// Returns the type of the given unit. Returns an error if the type is unknown.
     #[inline]
     pub fn get_unit_type_strict(&self, unit_id: Ustr) -> Result<UnitType> {
         self.unit_graph
