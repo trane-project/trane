@@ -22,10 +22,10 @@ use crate::{
 const INITIAL_WEIGHT: f32 = 1.0;
 
 /// The minimum weight of the rewards. Once the propagation reaches this weight, it stops.
-const MIN_WEIGHT: f32 = 0.01;
+const MIN_WEIGHT: f32 = 0.2;
 
 /// The factor by which the weight decreases with each traversal of the graph.
-const WEIGHT_FACTOR: f32 = 0.8;
+const WEIGHT_FACTOR: f32 = 0.7;
 
 /// Contains the logic to rewards through the graph when submitting a score.
 pub(super) struct RewardPropagator {
