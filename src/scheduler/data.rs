@@ -59,7 +59,7 @@ impl SchedulerData {
     pub fn get_lesson_id(&self, exercise_id: Ustr) -> Result<Ustr> {
         self.unit_graph
             .read()
-            .get_lesson_course(exercise_id)
+            .get_exercise_lesson(exercise_id)
             .ok_or(anyhow!(
                 "missing lesson ID for exercise with ID {exercise_id}"
             ))
