@@ -95,10 +95,8 @@ impl RewardScorer for WeightedRewardScorer {
             Ok(Self::weighted_average(&lesson_rewards, &lesson_weights))
         } else if previous_lesson_rewards.is_empty() {
             // If there are only course rewards, compute the weighted average of the course rewards.
-            Ok(Self::weighted_average(
-                &course_rewards,
-                &Self::score_weights(previous_course_rewards),
-            ))
+            let course_weights = Self::score_weights(previous_course_rewards);
+            Ok(Self::weighted_average(&course_rewards, &course_weights))
         } else {
             // If there are both course and lesson rewards, compute the lesson and course scores
             // separately and then combine them into a single score using another weighted average.
@@ -124,4 +122,111 @@ unsafe impl Sync for WeightedRewardScorer {}
 
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
-mod test {}
+mod test {
+    use crate::{
+        data::UnitReward,
+        reward_scorer::{RewardScorer, WeightedRewardScorer},
+    };
+
+    /// Verfies calculating the reward when no rewards are present.
+    #[test]
+    fn test_no_rewards() {
+        let scorer = WeightedRewardScorer {};
+        let result = scorer.score_rewards(&[], &[]).unwrap();
+        assert_eq!(result, 0.0);
+    }
+
+    /// Verifies calculating the reward when only lesson rewards are present.
+    #[test]
+    fn test_only_lesson_rewards() {
+        let scorer = WeightedRewardScorer {};
+        let lesson_rewards = vec![
+            UnitReward {
+                reward: 1.0,
+                weight: 1.0,
+                timestamp: 3,
+            },
+            UnitReward {
+                reward: 2.0,
+                weight: 1.0,
+                timestamp: 2,
+            },
+        ];
+        let result = scorer.score_rewards(&[], &lesson_rewards).unwrap();
+        assert!((result - 1.444).abs() < 0.001);
+    }
+
+    /// Verifies calculating the reward when only course rewards are present.
+    #[test]
+    fn test_only_course_rewards() {
+        let scorer = WeightedRewardScorer {};
+        let course_rewards = vec![
+            UnitReward {
+                reward: 1.0,
+                weight: 1.0,
+                timestamp: 3,
+            },
+            UnitReward {
+                reward: 2.0,
+                weight: 1.0,
+                timestamp: 2,
+            },
+        ];
+        let result = scorer.score_rewards(&course_rewards, &[]).unwrap();
+        assert!((result - 1.444).abs() < 0.001);
+    }
+
+    /// Verifies calculating the reward when both course and lesson rewards are present.
+    #[test]
+    fn test_both_rewards() {
+        let scorer = WeightedRewardScorer {};
+        let course_rewards = vec![
+            UnitReward {
+                reward: 1.0,
+                weight: 1.0,
+                timestamp: 3,
+            },
+            UnitReward {
+                reward: 2.0,
+                weight: 1.0,
+                timestamp: 2,
+            },
+        ];
+        let lesson_rewards = vec![
+            UnitReward {
+                reward: 3.0,
+                weight: 1.0,
+                timestamp: 3,
+            },
+            UnitReward {
+                reward: 4.0,
+                weight: 1.0,
+                timestamp: 2,
+            },
+        ];
+        let result = scorer
+            .score_rewards(&course_rewards, &lesson_rewards)
+            .unwrap();
+        assert!((result - 2.8444).abs() < 0.001);
+    }
+
+    /// Verifies calculating the reward when the weight is below the minimum weight.
+    #[test]
+    fn test_min_weight() {
+        let scorer = WeightedRewardScorer {};
+        let lesson_rewards = vec![
+            UnitReward {
+                reward: 2.0,
+                weight: 1.0,
+                timestamp: 3,
+            },
+            UnitReward {
+                reward: 1.0,
+                weight: 0.0001,
+                timestamp: 2,
+            },
+        ];
+        let result = scorer.score_rewards(&[], &lesson_rewards).unwrap();
+        assert!((result - 1.99).abs() < 0.001);
+    }
+}
