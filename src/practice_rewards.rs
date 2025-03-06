@@ -25,7 +25,7 @@ use crate::{data::UnitReward, db_utils, error::PracticeRewardsError};
 /// Contains functions to retrieve and record rewards for lessons and courses.
 pub trait PracticeRewards {
     /// Retrieves the last given number of rewards of a particular lesson or course. The rewards are
-    /// returned in descending order according to the timestamp.
+    /// in descending order according to the timestamp.
     fn get_rewards(
         &self,
         unit_id: Ustr,
@@ -33,7 +33,7 @@ pub trait PracticeRewards {
     ) -> Result<Vec<UnitReward>, PracticeRewardsError>;
 
     /// Records the reward assigned to the unit. Only lessons and courses should have rewards.
-    /// However, the enforcement of this requirement is left to the caller.
+    /// However, the caller must enforce this requirement.
     fn record_unit_reward(
         &mut self,
         unit_id: Ustr,
@@ -151,31 +151,38 @@ impl LocalPracticeRewards {
             reward.weight,
             reward.timestamp
         ])?;
+
+        // Delete the oldest trials and keep the most recent 10 rewards. Otherwise, the database can
+        // grow indefinitely.
+        let mut stmt = connection.prepare_cached(
+            "DELETE FROM practice_rewards WHERE id IN (
+                    SELECT id FROM practice_rewards WHERE unit_uid = (
+                        SELECT unit_uid FROM uids WHERE unit_id = $1)
+                    ORDER BY timestamp DESC LIMIT -1 OFFSET 10
+                );",
+        )?;
+        let _ = stmt.execute(params![unit_id.as_str()])?;
+
         Ok(())
     }
 
-    /// Helper function to trim the number of rewards for each unit.
+    /// Helper function to trim the number of rewards for each unit to the given number. If the
+    /// number of rewards is less than the given number, the method deletes no rewards.
     fn trim_rewards_helper(&mut self, num_rewards: usize) -> Result<()> {
-        // Get all the UIDs from the database.
         let connection = self.pool.get()?;
-        let mut uid_stmt = connection.prepare_cached("SELECT unit_uid from uids")?;
-        let uids = uid_stmt
+        for row in connection
+            .prepare("SELECT unit_uid FROM uids")?
             .query_map([], |row| row.get(0))?
-            .map(|r| r.context("failed to retrieve UIDs from practice rewards DB"))
-            .collect::<Result<Vec<i64>, _>>()?;
-
-        // Delete the oldest trials for each UID but keep the most recent `num_reards` trials.
-        for uid in uids {
-            let mut stmt = connection.prepare_cached(
-                "DELETE FROM practice_rewards WHERE unit_uid = $1 AND timestamp NOT IN (
-                    SELECT timestamp FROM practice_rewards WHERE unit_uid = $1
-                    ORDER BY timestamp DESC LIMIT ?2);",
+        {
+            let unit_uid: i64 = row?;
+            connection.execute(
+                "DELETE FROM practice_rewards WHERE id IN (
+                    SELECT id FROM practice_rewards WHERE unit_uid = ?1
+                    ORDER BY timestamp DESC LIMIT -1 OFFSET ?2
+                )",
+                params![unit_uid, num_rewards],
             )?;
-            let _ = stmt.execute(params![uid, num_rewards])?;
         }
-
-        // Call the `VACUUM` command to reclaim the space freed by the deleted trials.
-        connection.execute_batch("VACUUM;")?;
         Ok(())
     }
 
@@ -328,6 +335,29 @@ mod test {
         Ok(())
     }
 
+    /// Verifies older rewards are trimmed when the number of rewards exceeds the limit.
+    #[test]
+    fn many_rewards() -> Result<()> {
+        let mut practice_rewards = new_tests_rewards()?;
+        let unit_id = Ustr::from("unit_123");
+        for i in 0..20 {
+            practice_rewards.record_unit_reward(
+                unit_id,
+                &UnitReward {
+                    reward: i as f32,
+                    weight: 1.0,
+                    timestamp: i as i64,
+                },
+            )?;
+        }
+
+        let rewards = practice_rewards.get_rewards(unit_id, 10)?;
+        let expected_rewards: Vec<f32> = (10..20).rev().map(|i| i as f32).collect();
+        let expected_weights: Vec<f32> = vec![1.0; 10];
+        assert_rewards(&expected_rewards, &expected_weights, &rewards);
+        Ok(())
+    }
+
     /// Verifies retrieving an empty list of rewards for a unit with no previous rewards.
     #[test]
     fn no_records() -> Result<()> {
@@ -366,6 +396,7 @@ mod test {
                 timestamp: 3,
             },
         )?;
+        assert_eq!(3, practice_rewards.get_rewards(unit1_id, 10)?.len());
 
         let unit2_id = Ustr::from("unit2");
         practice_rewards.record_unit_reward(
@@ -392,9 +423,9 @@ mod test {
                 timestamp: 3,
             },
         )?;
+        assert_eq!(3, practice_rewards.get_rewards(unit2_id, 10)?.len());
 
         practice_rewards.trim_rewards(2)?;
-
         let rewards = practice_rewards.get_rewards(unit1_id, 10)?;
         assert_rewards(&[5.0, 4.0], &[1.0, 1.0], &rewards);
         let rewards = practice_rewards.get_rewards(unit2_id, 10)?;
