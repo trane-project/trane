@@ -38,11 +38,11 @@ impl RewardPropagator {
     /// Sets the initial reward for the given score.
     fn initial_reward(score: &MasteryScore) -> f32 {
         match score {
-            MasteryScore::Five => 2.0,
-            MasteryScore::Four => 1.0,
+            MasteryScore::Five => 1.0,
+            MasteryScore::Four => 0.5,
             MasteryScore::Three => -0.5,
             MasteryScore::Two => -1.0,
-            MasteryScore::One => -2.0,
+            MasteryScore::One => -1.5,
         }
     }
 
@@ -137,5 +137,21 @@ impl RewardPropagator {
                 });
         }
         results.into_iter().collect()
+    }
+}
+
+#[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
+mod test {
+    use crate::{data::MasteryScore, scheduler::reward_propagator::RewardPropagator};
+
+    /// Verifies the initial reward for each score.
+    #[test]
+    fn initial_reward() {
+        assert_eq!(RewardPropagator::initial_reward(&MasteryScore::Five), 1.0);
+        assert_eq!(RewardPropagator::initial_reward(&MasteryScore::Four), 0.5);
+        assert_eq!(RewardPropagator::initial_reward(&MasteryScore::Three), -0.5);
+        assert_eq!(RewardPropagator::initial_reward(&MasteryScore::Two), -1.0);
+        assert_eq!(RewardPropagator::initial_reward(&MasteryScore::One), -1.5);
     }
 }
