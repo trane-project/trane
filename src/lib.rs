@@ -481,7 +481,7 @@ impl PracticeRewards for Trane {
         &mut self,
         unit_id: Ustr,
         reward: &data::UnitReward,
-    ) -> Result<(), PracticeRewardsError> {
+    ) -> Result<bool, PracticeRewardsError> {
         self.practice_rewards
             .write()
             .record_unit_reward(unit_id, reward)

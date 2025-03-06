@@ -13,12 +13,14 @@
 //! and penalized exercises are shown more often, allowing for faster review of already mastered
 //! material and more practice of material whose dependencies are not fully mastered.
 
+use std::collections::VecDeque;
+
 use anyhow::{Context, Ok, Result};
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::params;
 use rusqlite_migration::{Migrations, M};
-use ustr::Ustr;
+use ustr::{Ustr, UstrMap};
 
 use crate::{data::UnitReward, db_utils, error::PracticeRewardsError};
 
@@ -33,12 +35,13 @@ pub trait PracticeRewards {
     ) -> Result<Vec<UnitReward>, PracticeRewardsError>;
 
     /// Records the reward assigned to the unit. Only lessons and courses should have rewards.
-    /// However, the caller must enforce this requirement.
+    /// However, the caller must enforce this requirement. If the returned value is false, the
+    /// reward was not recorded because it was similar to a previous reward.
     fn record_unit_reward(
         &mut self,
         unit_id: Ustr,
         reward: &UnitReward,
-    ) -> Result<(), PracticeRewardsError>;
+    ) -> Result<bool, PracticeRewardsError>;
 
     /// Deletes all rewards of the given unit except for the last given number with the aim of
     /// keeping the storage size under check.
@@ -48,10 +51,60 @@ pub trait PracticeRewards {
     fn remove_rewards_with_prefix(&mut self, prefix: &str) -> Result<(), PracticeRewardsError>;
 }
 
+/// Number of seconds in a day.
+const SECONDS_IN_DAY: i64 = 86_400;
+
+/// The maximum difference in weights between two rewards to consider them similar.
+const WEIGHT_EPSILON: f32 = 0.1;
+
+/// The maximum number of rewards per unit to keep in the cache.
+const MAX_CACHE_SIZE: usize = 10;
+
+/// A cached list of the most recent rewards. Rewards propagate when scoring every exercise, which
+/// means a lot of them will be repeated. This cache checks if there's a similar reward and skips
+/// the current reward otherwise.
+struct RewardCache {
+    /// A map of unit IDs to a list of rewards.
+    cache: UstrMap<VecDeque<UnitReward>>,
+}
+
+impl RewardCache {
+    /// Checks if the cache contains a similar reward. Two rewards are considered similar if their
+    /// reward value is the same, their timestamp is within a day of each other, and their weight
+    /// differs by less than the epsilon.
+    fn has_similar_reward(&self, unit_id: Ustr, reward: &UnitReward) -> bool {
+        self.cache
+            .get(&unit_id)
+            .and_then(|rewards| {
+                rewards.iter().find(|r| {
+                    r.reward == reward.reward
+                        && (r.timestamp - reward.timestamp).abs() < SECONDS_IN_DAY
+                        && (r.weight - reward.weight).abs() < WEIGHT_EPSILON
+                })
+            })
+            .is_some()
+    }
+
+    /// Stores the new reward. Replaces the oldest reward in the cache with the given reward if the
+    /// cache is full. Assumes that the cache is already sorted by ascending timestamp.
+    fn add_new_reward(&mut self, unit_id: Ustr, reward: UnitReward) {
+        let rewards = self.cache.get(&unit_id).cloned().unwrap_or_default();
+        let mut new_rewards = rewards;
+        if new_rewards.len() >= MAX_CACHE_SIZE {
+            new_rewards.pop_front();
+        }
+        new_rewards.push_back(reward);
+        self.cache.insert(unit_id, new_rewards);
+    }
+}
+
 /// An implementation of [`PracticeRewards`] backed by `SQLite`.
 pub struct LocalPracticeRewards {
     /// A pool of connections to the database.
     pool: Pool<SqliteConnectionManager>,
+
+    /// A cache of previous rewards to avoid storing the same reward multiple times.
+    cache: RewardCache,
 }
 
 impl LocalPracticeRewards {
@@ -94,7 +147,12 @@ impl LocalPracticeRewards {
     /// Creates a connection pool and initializes the database.
     fn new(connection_manager: SqliteConnectionManager) -> Result<LocalPracticeRewards> {
         let pool = db_utils::new_connection_pool(connection_manager)?;
-        let mut rewards = LocalPracticeRewards { pool };
+        let mut rewards = LocalPracticeRewards {
+            pool,
+            cache: RewardCache {
+                cache: UstrMap::default(),
+            },
+        };
         rewards.init()?;
         Ok(rewards)
     }
@@ -133,7 +191,12 @@ impl LocalPracticeRewards {
     }
 
     /// Helper function to record a reward to the database.
-    fn record_unit_reward_helper(&mut self, unit_id: Ustr, reward: &UnitReward) -> Result<()> {
+    fn record_unit_reward_helper(&mut self, unit_id: Ustr, reward: &UnitReward) -> Result<bool> {
+        // Check the cache and exit early if there is a similar reward.
+        if self.cache.has_similar_reward(unit_id, reward) {
+            return Ok(false);
+        }
+
         // Update the mapping of unit ID to unique integer ID.
         let connection = self.pool.get()?;
         let mut uid_stmt =
@@ -152,18 +215,21 @@ impl LocalPracticeRewards {
             reward.timestamp
         ])?;
 
-        // Delete the oldest trials and keep the most recent 10 rewards. Otherwise, the database can
+        // Update the cache with the new reward.
+        self.cache.add_new_reward(unit_id, reward.clone());
+
+        // Delete the oldest trials and keep the most recent 20 rewards. Otherwise, the database can
         // grow indefinitely.
         let mut stmt = connection.prepare_cached(
             "DELETE FROM practice_rewards WHERE id IN (
                     SELECT id FROM practice_rewards WHERE unit_uid = (
                         SELECT unit_uid FROM uids WHERE unit_id = $1)
-                    ORDER BY timestamp DESC LIMIT -1 OFFSET 10
+                    ORDER BY timestamp DESC LIMIT -1 OFFSET 20
                 );",
         )?;
         let _ = stmt.execute(params![unit_id.as_str()])?;
 
-        Ok(())
+        Ok(true)
     }
 
     /// Helper function to trim the number of rewards for each unit to the given number. If the
@@ -190,18 +256,15 @@ impl LocalPracticeRewards {
     fn remove_rewards_with_prefix_helper(&mut self, prefix: &str) -> Result<()> {
         // Get all the UIDs for the units that match the prefix.
         let connection = self.pool.get()?;
-        let mut uid_stmt =
-            connection.prepare_cached("SELECT unit_uid FROM uids WHERE unit_id LIKE $1;")?;
-        let uids = uid_stmt
+        for row in connection
+            .prepare("SELECT unit_uid FROM uids WHERE unit_id LIKE ?1")?
             .query_map(params![format!("{}%", prefix)], |row| row.get(0))?
-            .map(|r| r.context("failed to retrieve UIDs from practice rewards DB"))
-            .collect::<Result<Vec<i64>, _>>()?;
-
-        // Delete all the trials for those units.
-        for uid in uids {
-            let mut stmt =
-                connection.prepare_cached("DELETE FROM practice_rewards WHERE unit_uid = $1;")?;
-            let _ = stmt.execute(params![uid])?;
+        {
+            let unit_uid: i64 = row?;
+            connection.execute(
+                "DELETE FROM practice_rewards WHERE unit_uid = ?1;",
+                params![unit_uid],
+            )?;
         }
 
         // Call the `VACUUM` command to reclaim the space freed by the deleted trials.
@@ -224,7 +287,7 @@ impl PracticeRewards for LocalPracticeRewards {
         &mut self,
         unit_id: Ustr,
         reward: &UnitReward,
-    ) -> Result<(), PracticeRewardsError> {
+    ) -> Result<bool, PracticeRewardsError> {
         self.record_unit_reward_helper(unit_id, reward)
             .map_err(|e| PracticeRewardsError::RecordReward(unit_id, e))
     }
