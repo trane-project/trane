@@ -13,13 +13,12 @@
 //! and penalized exercises are shown more often, allowing for faster review of already mastered
 //! material and more practice of material whose dependencies are not fully mastered.
 
-use std::collections::VecDeque;
-
 use anyhow::{Context, Ok, Result};
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::params;
 use rusqlite_migration::{Migrations, M};
+use std::collections::VecDeque;
 use ustr::{Ustr, UstrMap};
 
 use crate::{data::UnitReward, db_utils, error::PracticeRewardsError};
