@@ -864,25 +864,24 @@ impl ExerciseScheduler for DepthFirstScheduler {
             .write()
             .record_exercise_score(exercise_id, score.clone(), timestamp)
             .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?;
+        self.unit_scorer.invalidate_cached_score(exercise_id);
 
         // Propagate the rewards along the unit graph and store them.
         let rewards = self
             .reward_propagator
             .propagate_rewards(exercise_id, &score, timestamp);
         for (unit_id, reward) in &rewards {
-            self.data
+            let updated = self
+                .data
                 .practice_rewards
                 .write()
                 .record_unit_reward(*unit_id, reward)
                 .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?;
+            if updated {
+                self.unit_scorer.invalidate_cached_score(*unit_id);
+            }
         }
 
-        // Any cached score for this exercise and the units affected by the reward system should be
-        // invalidated.
-        self.unit_scorer.invalidate_cached_score(exercise_id);
-        for (unit_id, _) in &rewards {
-            self.unit_scorer.invalidate_cached_score(*unit_id);
-        }
         Ok(())
     }
 

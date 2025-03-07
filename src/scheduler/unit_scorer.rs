@@ -48,7 +48,7 @@ pub(super) struct UnitScorer {
     exercise_scorer: Box<dyn ExerciseScorer + Send + Sync>,
 
     /// The object used to compute the reward of a unit based on its previous rewards.
-    unit_rewarder: Box<dyn RewardScorer + Send + Sync>,
+    reward_scorer: Box<dyn RewardScorer + Send + Sync>,
 }
 
 impl UnitScorer {
@@ -61,7 +61,7 @@ impl UnitScorer {
             data,
             options,
             exercise_scorer: Box::new(ExponentialDecayScorer {}),
-            unit_rewarder: Box::new(WeightedRewardScorer {}),
+            reward_scorer: Box::new(WeightedRewardScorer {}),
         }
     }
 
@@ -170,7 +170,7 @@ impl UnitScorer {
             .get_rewards(course_id, self.options.num_rewards)
             .unwrap_or_default();
         let reward = self
-            .unit_rewarder
+            .reward_scorer
             .score_rewards(&course_rewards, &lesson_rewards)
             .unwrap_or_default();
 
