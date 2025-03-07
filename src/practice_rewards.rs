@@ -473,7 +473,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit2_id,
             &UnitReward {
-                reward: 1.0,
+                reward: 2.0,
                 weight: 1.0,
                 timestamp: 2,
             },
@@ -492,7 +492,7 @@ mod test {
         let rewards = practice_rewards.get_rewards(unit1_id, 10)?;
         assert_rewards(&[5.0, 4.0], &[1.0, 1.0], &rewards);
         let rewards = practice_rewards.get_rewards(unit2_id, 10)?;
-        assert_rewards(&[3.0, 1.0], &[1.0, 1.0], &rewards);
+        assert_rewards(&[3.0, 2.0], &[1.0, 1.0], &rewards);
         Ok(())
     }
 
@@ -538,7 +538,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit2_id,
             &UnitReward {
-                reward: 1.0,
+                reward: 2.0,
                 weight: 1.0,
                 timestamp: 2,
             },
@@ -557,7 +557,7 @@ mod test {
         let rewards = practice_rewards.get_rewards(unit1_id, 10)?;
         assert_rewards(&[5.0, 4.0, 3.0], &[1.0, 1.0, 1.0], &rewards);
         let rewards = practice_rewards.get_rewards(unit2_id, 10)?;
-        assert_rewards(&[3.0, 1.0, 1.0], &[1.0, 1.0, 1.0], &rewards);
+        assert_rewards(&[3.0, 2.0, 1.0], &[1.0, 1.0, 1.0], &rewards);
         Ok(())
     }
 
@@ -603,7 +603,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit2_id,
             &UnitReward {
-                reward: 1.0,
+                reward: 2.0,
                 weight: 1.0,
                 timestamp: 2,
             },
@@ -629,7 +629,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit3_id,
             &UnitReward {
-                reward: 1.0,
+                reward: 2.0,
                 weight: 1.0,
                 timestamp: 2,
             },
@@ -648,9 +648,9 @@ mod test {
         let rewards = practice_rewards.get_rewards(unit1_id, 10)?;
         assert_rewards(&[], &[], &rewards);
         let rewards = practice_rewards.get_rewards(unit2_id, 10)?;
-        assert_rewards(&[3.0, 1.0, 1.0], &[1.0, 1.0, 1.0], &rewards);
+        assert_rewards(&[3.0, 2.0, 1.0], &[1.0, 1.0, 1.0], &rewards);
         let rewards = practice_rewards.get_rewards(unit3_id, 10)?;
-        assert_rewards(&[3.0, 1.0, 1.0], &[1.0, 1.0, 1.0], &rewards);
+        assert_rewards(&[3.0, 2.0, 1.0], &[1.0, 1.0, 1.0], &rewards);
 
         // Remove the prefix "unit". All the rewards should be removed.
         practice_rewards.remove_rewards_with_prefix("unit")?;
