@@ -21,7 +21,7 @@ pub trait RewardScorer {
 
 /// The absolute value of the reward decreases by this amount each day to avoid old rewards from
 /// affecting the score indefinitely.
-const DAY_ADJUSTMENT: f32 = 0.01;
+const DAY_ADJUSTMENT: f32 = 0.025;
 
 /// The weight of the course rewards in the final score.
 const COURSE_REWARDS_WEIGHT: f32 = 0.3;
@@ -165,7 +165,7 @@ mod test {
             },
         ];
         let adjusted_rewards = WeightedRewardScorer::adjusted_rewards(&rewards);
-        assert_eq!(adjusted_rewards, vec![0.99, -0.99]);
+        assert_eq!(adjusted_rewards, vec![0.975, -0.975]);
 
         // The absolute value of older rewards trends to zero.
         let rewards = vec![
@@ -209,7 +209,7 @@ mod test {
             },
         ];
         let result = scorer.score_rewards(&[], &lesson_rewards).unwrap();
-        assert!((result - 1.485).abs() < 0.001);
+        assert!((result - 1.462).abs() < 0.001);
     }
 
     /// Verifies calculating the reward when only course rewards are present.
@@ -229,7 +229,7 @@ mod test {
             },
         ];
         let result = scorer.score_rewards(&course_rewards, &[]).unwrap();
-        assert!((result - 1.485).abs() < 0.001);
+        assert!((result - 1.462).abs() < 0.001);
     }
 
     /// Verifies calculating the reward when both course and lesson rewards are present.
@@ -263,7 +263,7 @@ mod test {
         let result = scorer
             .score_rewards(&course_rewards, &lesson_rewards)
             .unwrap();
-        assert!((result - 2.767).abs() < 0.001);
+        assert!((result - 2.742).abs() < 0.001);
     }
 
     /// Verifies calculating the reward when the weight is below the minimum weight.
