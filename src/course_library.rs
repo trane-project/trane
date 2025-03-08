@@ -270,26 +270,6 @@ impl LocalCourseLibrary {
         Ok(())
     }
 
-    /// Converts the integer weights to float weights. The largest value is assigned a weight of
-    /// 1.0, and the rest are assigned proportional weights. Missing dependencies are assigned the
-    /// largest weight. If no weights are provided, each dependency is assigned a weight of 1.0.
-    fn convert_weights(dependencies: &[Ustr], weights: Option<&BTreeMap<Ustr, u8>>) -> Vec<f32> {
-        if let Some(weights) = weights {
-            let mut converted_weights = Vec::new();
-            let max_weight = *weights.values().max().unwrap_or(&1);
-            for dependency in dependencies {
-                if let Some(weight) = weights.get(dependency) {
-                    converted_weights.push(f32::from(*weight) / f32::from(max_weight));
-                } else {
-                    converted_weights.push(1.0);
-                }
-            }
-            converted_weights
-        } else {
-            vec![1.0; dependencies.len()]
-        }
-    }
-
     /// Adds a lesson to the course library given its manifest and the manifest of the course to
     /// which it belongs. It also traverses the given `DirEntry` and adds all the exercises in the
     /// lesson.
@@ -312,10 +292,6 @@ impl LocalCourseLibrary {
             lesson_manifest.id,
             UnitType::Lesson,
             &lesson_manifest.dependencies,
-            &Self::convert_weights(
-                &lesson_manifest.dependencies,
-                lesson_manifest.dependency_weights.as_ref(),
-            ),
         )?;
         self.unit_graph
             .write()
@@ -398,10 +374,6 @@ impl LocalCourseLibrary {
             course_manifest.id,
             UnitType::Course,
             &course_manifest.dependencies,
-            &Self::convert_weights(
-                &course_manifest.dependencies,
-                course_manifest.dependency_weights.as_ref(),
-            ),
         )?;
         self.unit_graph
             .write()
@@ -734,33 +706,5 @@ impl CourseLibrary for LocalCourseLibrary {
 impl GetUnitGraph for LocalCourseLibrary {
     fn get_unit_graph(&self) -> Arc<RwLock<InMemoryUnitGraph>> {
         self.unit_graph.clone()
-    }
-}
-
-#[cfg(test)]
-#[cfg_attr(coverage, coverage(off))]
-mod test {
-    use std::collections::BTreeMap;
-
-    /// Verifies that the weights are converted correctly.
-    #[test]
-    fn convert_weights() {
-        let dependencies = vec!["a".into(), "b".into(), "c".into(), "d".into()];
-        let weights = Some(BTreeMap::from([
-            ("a".into(), 1),
-            ("b".into(), 2),
-            ("d".into(), 4),
-        ]));
-        let converted_weights =
-            super::LocalCourseLibrary::convert_weights(&dependencies, weights.as_ref());
-        assert_eq!(converted_weights, vec![0.25, 0.5, 1.0, 1.0]);
-    }
-
-    /// Verifies that the weights are converted correctly when no weights are provided.
-    #[test]
-    fn convert_weights_empty() {
-        let dependencies = vec!["a".into(), "b".into(), "c".into()];
-        let converted_weights = super::LocalCourseLibrary::convert_weights(&dependencies, None);
-        assert_eq!(converted_weights, vec![1.0, 1.0, 1.0]);
     }
 }

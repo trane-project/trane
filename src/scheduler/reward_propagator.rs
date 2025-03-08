@@ -49,7 +49,7 @@ impl RewardPropagator {
         }
     }
 
-    // Gets the next units to visit, depending on the sign of the reward.
+    /// Gets the next units to visit, depending on the sign of the reward.
     fn get_next_units(&self, unit_id: Ustr, reward: f32) -> Vec<Ustr> {
         if reward > 0.0 {
             self.data

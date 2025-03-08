@@ -297,7 +297,6 @@ mod test {
                 id: "course1".into(),
                 name: "Course 1".into(),
                 dependencies: vec![],
-                dependency_weights: None,
                 superseded: vec![],
                 description: None,
                 authors: None,
