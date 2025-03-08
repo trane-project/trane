@@ -22,15 +22,16 @@ const DECAY_RATE_ADJUSTMENT_FACTOR: f32 = 0.8;
 
 /// The initial minimum score for an exercise after exponential decay is applied as a factor of the
 /// original score.
-const INITIAL_MIN_SCORE_FACTOR: f32 = 0.5;
+const INITIAL_MIN_SCORE_FACTOR: f32 = 0.75;
 
 /// The minimum score factor will be adjusted by this factor with additional trials. This is to
-/// simulate how the performance floor of a skill increases with practice.
+/// simulate how the performance floor of a skill increases with practice. The value must be greater
+/// than one.
 const MIN_SCORE_ADJUSTMENT_FACTOR: f32 = 1.05;
 
 /// The maximum score for an exercise after exponential decay is applied as a factor of the original
 /// score and the adjustment increases the minimum score. It always should be less than 1.0.
-const MAX_MIN_SCORE_FACTOR: f32 = 0.9;
+const MAX_MIN_SCORE_FACTOR: f32 = 0.95;
 
 /// The initial weight for an individual trial.
 const INITIAL_WEIGHT: f32 = 1.0;
@@ -39,8 +40,8 @@ const INITIAL_WEIGHT: f32 = 1.0;
 /// has the initial weight, and the weight decreases with each subsequent trial by this factor.
 const WEIGHT_INDEX_FACTOR: f32 = 0.8;
 
-/// The minimum weight of a score. This weight is also assigned when there's an issue calculating
-/// the number of days since the trial (e.g., the score's timestamp is after the current timestamp).
+/// The minimum weight of a score, also used when there's an issue calculating the number of days
+/// since the trial (e.g., the score's timestamp is after the current timestamp).
 const MIN_WEIGHT: f32 = 0.1;
 
 /// A scorer that uses an exponential decay function to compute the score of an exercise. As more
@@ -113,7 +114,7 @@ impl ExponentialDecayScorer {
         // min_score = initial_score * min_score_factor
         // S(num_days) = min_score + (initial_score - min_score) * e^(-decay_rate * num_days)
         let min_score = initial_score * min_score_factor;
-        (initial_score - min_score) * (-decay_rate * num_days).exp() + min_score
+        (min_score + (initial_score - min_score) * (-decay_rate * num_days).exp()).clamp(0.0, 5.0)
     }
 
     /// Returns the weights to used to compute the weighted average of the scores.
@@ -163,8 +164,8 @@ impl ExerciseScorer for ExponentialDecayScorer {
             .zip(days.iter())
             .zip(decay_rates.iter())
             .zip(min_score_factors.iter())
-            .map(|(((trial, num_days), decay_rate), min_score)| {
-                Self::exponential_decay(trial.score, num_days.abs(), *min_score, *decay_rate)
+            .map(|(((trial, num_days), decay_rate), factor)| {
+                Self::exponential_decay(trial.score, num_days.abs(), *factor, *decay_rate)
             })
             .collect();
 
@@ -241,6 +242,11 @@ mod test {
                 INITIAL_MIN_SCORE_FACTOR,
             ]
         );
+
+        // Assert that each value is greater than the next.
+        for i in 0..min_score_factors.len() - 1 {
+            assert!(min_score_factors[i] > min_score_factors[i + 1]);
+        }
     }
 
     /// Verifies exponential decay returns the original score when the number of days is zero.
@@ -357,7 +363,7 @@ mod test {
             },
         ];
         let score = SCORER.score(&trials).unwrap();
-        assert_eq!(3.5751967, score);
+        assert!((score - 3.726246).abs() < f32::EPSILON);
     }
 
     /// Verifies scoring an exercise with an invalid timestamp still returns a sane score.
@@ -369,7 +375,7 @@ mod test {
                 score: 5.0,
                 timestamp: generate_timestamp(1e10 as i64)
             },])?,
-            2.5
+            3.75
         );
         Ok(())
     }

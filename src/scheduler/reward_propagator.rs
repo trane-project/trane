@@ -27,7 +27,7 @@ const MIN_WEIGHT: f32 = 0.2;
 /// The factor by which the weight decreases with each traversal of the graph.
 const WEIGHT_FACTOR: f32 = 0.7;
 
-/// The factor by which the value of the reward decreases with each traversal of the graph.
+/// The factor by which the absolute value of the reward decreases with each traversal of the graph.
 const DEPTH_FACTOR: f32 = 0.9;
 
 /// Contains the logic to rewards through the graph when submitting a score.
