@@ -11,7 +11,6 @@
 //!    score, and the frequency with which the exercise has been scheduled in the past.
 
 use anyhow::Result;
-use lazy_static::lazy_static;
 use rand::{prelude::SliceRandom, thread_rng};
 use ustr::{UstrMap, UstrSet};
 
@@ -21,7 +20,7 @@ use crate::{
 };
 
 /// The initial weight of each candidate.
-const INITIAL_WEIGHT: f32 = 1.0;
+const MIN_WEIGHT: f32 = 25.0;
 
 /// The part of the weight that depends on the score will be the product of the difference between
 /// the score and the maximum score and this factor.
@@ -38,7 +37,7 @@ const MAX_DEPTH_WEIGHT: f32 = 200.0;
 /// value. Each time an exercise is scheduled, this portion of the weight is reduced by a factor.
 const MAX_FREQUENCY_WEIGHT: f32 = 200.0;
 
-/// The factor by which the weight is mulitiplied when the frequency is increased.
+/// The factor by which the weight is mulitiplied when the frequency of the exercise increases.
 const FREQUENCY_FACTOR: f32 = 0.5;
 
 /// The part of the weight that depends on the number of trials for that exercise will be capped at
@@ -48,38 +47,6 @@ const MAX_NUM_TRIALS_WEIGHT: f32 = 200.0;
 
 /// The factor by which the weight is mulitiplied when the number of trials is increased.
 const NUM_TRIALS_FACTOR: f32 = 0.5;
-
-lazy_static! {
-    /// A list of precomputed weights based on frequency to save on computation time. Candidates
-    /// with higher frequencies than the capacity of this array are assigned a weight of zero.
-    static ref PRECOMPUTED_FREQUENCY_WEIGHTS: [f32; 10] = [
-        MAX_FREQUENCY_WEIGHT,
-        MAX_FREQUENCY_WEIGHT * FREQUENCY_FACTOR,
-        MAX_FREQUENCY_WEIGHT * FREQUENCY_FACTOR.powf(2.0),
-        MAX_FREQUENCY_WEIGHT * FREQUENCY_FACTOR.powf(3.0),
-        MAX_FREQUENCY_WEIGHT * FREQUENCY_FACTOR.powf(4.0),
-        MAX_FREQUENCY_WEIGHT * FREQUENCY_FACTOR.powf(5.0),
-        MAX_FREQUENCY_WEIGHT * FREQUENCY_FACTOR.powf(6.0),
-        MAX_FREQUENCY_WEIGHT * FREQUENCY_FACTOR.powf(7.0),
-        MAX_FREQUENCY_WEIGHT * FREQUENCY_FACTOR.powf(8.0),
-        MAX_FREQUENCY_WEIGHT * FREQUENCY_FACTOR.powf(9.0),
-    ];
-
-    /// A list of precomputed weights based on the number of trials to save on computation time.
-    /// Candidates with more trials than the capacity of this array are assigned a weight of zero.
-    static ref PRECOMPUTED_NUM_TRIALS_WEIGHTS: [f32; 10] = [
-        MAX_NUM_TRIALS_WEIGHT,
-        MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR,
-        MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR.powf(2.0),
-        MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR.powf(3.0),
-        MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR.powf(4.0),
-        MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR.powf(5.0),
-        MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR.powf(6.0),
-        MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR.powf(7.0),
-        MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR.powf(8.0),
-        MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR.powf(9.0),
-    ];
-}
 
 /// The maximum weight that depends on the frequency of the lesson. The weight will be divided
 /// equally among all the exercises from the same lesson.
@@ -161,36 +128,30 @@ impl CandidateFilter {
         let mut rng = thread_rng();
         let selected: Vec<Candidate> = candidates
             .choose_multiple_weighted(&mut rng, num_to_select, |c| {
-                // Always assign an initial weight of to avoid assigning a zero weight.
-                let mut weight = INITIAL_WEIGHT;
-
                 // A portion of the score will depend on the score of the candidate. Lower scores
                 // are given more weight.
+                let mut weight = 0.0;
                 weight += SCORE_WEIGHT_FACTOR * (5.0 - c.score).max(0.0);
 
                 // A part of the score will depend on the number of hops that were needed to reach
                 // the candidate. It will be capped at a maximum.
-                weight += (DEPTH_WEIGHT_FACTOR * c.depth).max(MAX_DEPTH_WEIGHT);
+                weight += (DEPTH_WEIGHT_FACTOR * c.depth).clamp(0.0, MAX_DEPTH_WEIGHT);
 
                 // Increase the weight based on the frequency with which the exercise has been
                 // scheduled. Exercises that have been scheduled more often are assigned less
                 // weight.
-                weight += PRECOMPUTED_FREQUENCY_WEIGHTS
-                    .get(c.frequency)
-                    .unwrap_or(&0.0);
+                weight += MAX_FREQUENCY_WEIGHT * FREQUENCY_FACTOR.powf(c.frequency as f32);
 
                 // Increase the weight based on the number of trials for that exercise. Exercises
                 // with more trials are assigned less weight.
-                weight += PRECOMPUTED_NUM_TRIALS_WEIGHTS
-                    .get(c.num_trials)
-                    .unwrap_or(&0.0);
+                weight += MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR.powf(c.num_trials as f32);
 
                 // Increase the weight based on the number of candidates in the same lesson. The
                 // more candidates there are in the same lesson, the less weight each candidate is
                 // assigned.
                 weight += MAX_LESSON_FREQUENCY_WEIGHT / lesson_frequency[&c.lesson_id] as f32;
 
-                weight
+                weight.max(MIN_WEIGHT)
             })
             .unwrap()
             .cloned()
@@ -215,8 +176,8 @@ impl CandidateFilter {
         remainder: Vec<Candidate>,
         max_added: Option<usize>,
     ) {
-        // Do not fill batches past 3/4 of the batch size to avoid creating unbalanced batches.
-        if final_candidates.len() >= batch_size * 3 / 4 {
+        // Do not fill batches past 2/3 of the batch size to avoid creating unbalanced batches.
+        if final_candidates.len() >= batch_size * 2 / 3 {
             return;
         }
 

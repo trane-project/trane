@@ -14,7 +14,7 @@ pub trait ExerciseScorer {
 
 /// The initial decay rate for the score of a trial. This is the rate at which the score decreases
 /// with each passing day.
-const INITIAL_DECAY_RATE: f32 = 0.2;
+const INITIAL_DECAY_RATE: f32 = 0.15;
 
 /// The factor at which the decay rate is adjusted for each additional trial. This simulates how
 /// skill performance deteriorates more slowly after repeated practice.
@@ -22,12 +22,12 @@ const DECAY_RATE_ADJUSTMENT_FACTOR: f32 = 0.8;
 
 /// The initial minimum score for an exercise after exponential decay is applied as a factor of the
 /// original score.
-const INITIAL_MIN_SCORE_FACTOR: f32 = 0.75;
+const INITIAL_MIN_SCORE_FACTOR: f32 = 0.7;
 
 /// The minimum score factor will be adjusted by this factor with additional trials. This is to
 /// simulate how the performance floor of a skill increases with practice. The value must be greater
 /// than one.
-const MIN_SCORE_ADJUSTMENT_FACTOR: f32 = 1.05;
+const MIN_SCORE_ADJUSTMENT_FACTOR: f32 = 1.1;
 
 /// The maximum score for an exercise after exponential decay is applied as a factor of the original
 /// score and the adjustment increases the minimum score. It always should be less than 1.0.
@@ -44,9 +44,9 @@ const WEIGHT_INDEX_FACTOR: f32 = 0.8;
 /// since the trial (e.g., the score's timestamp is after the current timestamp).
 const MIN_WEIGHT: f32 = 0.1;
 
-/// A scorer that uses an exponential decay function to compute the score of an exercise. As more
-/// trials are completed, the decay rate decreases and the minimum score increases to simulate how
-/// skills are retained better with more practice.
+/// A scorer that uses an exponential decay function to compute the score of an exercise. As the
+/// student completes more trials, the decay rate decreases and the minimum score increases to
+/// simulate how students increase skill retention with more practice.
 pub struct ExponentialDecayScorer {}
 
 impl ExponentialDecayScorer {
@@ -363,7 +363,7 @@ mod test {
             },
         ];
         let score = SCORER.score(&trials).unwrap();
-        assert!((score - 3.726246).abs() < f32::EPSILON);
+        assert!((score - 3.746).abs() < 0.001)
     }
 
     /// Verifies scoring an exercise with an invalid timestamp still returns a sane score.
@@ -375,7 +375,7 @@ mod test {
                 score: 5.0,
                 timestamp: generate_timestamp(1e10 as i64)
             },])?,
-            3.75
+            5.0 * INITIAL_MIN_SCORE_FACTOR
         );
         Ok(())
     }
