@@ -34,8 +34,10 @@ pub trait PracticeRewards {
     ) -> Result<Vec<UnitReward>, PracticeRewardsError>;
 
     /// Records the reward assigned to the unit. Only lessons and courses should have rewards.
-    /// However, the caller must enforce this requirement. If the returned value is false, the
-    /// reward was not recorded because it was similar to a previous reward.
+    /// However, the caller must enforce this requirement. Because similar exercises can write
+    /// similar rewards in quick succession, the implementation can choose to skip the reward if it
+    /// is deemed too similar to another recent one. If that's the case, the function returns
+    /// `false`.
     fn record_unit_reward(
         &mut self,
         unit_id: Ustr,
