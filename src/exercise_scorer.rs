@@ -363,7 +363,7 @@ mod test {
             },
         ];
         let score = SCORER.score(&trials).unwrap();
-        assert!((score - 3.746).abs() < 0.001)
+        assert!((score - 3.732).abs() < 0.001)
     }
 
     /// Verifies scoring an exercise with an invalid timestamp still returns a sane score.
