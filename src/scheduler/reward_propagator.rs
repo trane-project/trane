@@ -18,6 +18,9 @@ use crate::{
     scheduler::data::SchedulerData,
 };
 
+/// The minimum absolute value of the reward. Propagation stops when this value is reached.
+const MIN_ABS_REWARD: f32 = 0.1;
+
 /// The initial weight of the rewards.
 const INITIAL_WEIGHT: f32 = 1.0;
 
@@ -70,6 +73,11 @@ impl RewardPropagator {
         }
     }
 
+    /// Returns whether propagation should stop along the path with the given reward and weight.
+    fn stop_propagation(reward: f32, weigh: f32) -> bool {
+        reward.abs() < MIN_ABS_REWARD || weigh < MIN_WEIGHT
+    }
+
     /// Propagates the given score through the graph.
     pub(super) fn propagate_rewards(
         &self,
@@ -107,12 +115,11 @@ impl RewardPropagator {
         // continue the search with updated rewards and weights.
         let mut results = UstrMap::default();
         while let Some((unit_id, unit_reward)) = queue.pop_front() {
-            // If the weight is less than the minimum, stop propagating.
-            if unit_reward.weight < MIN_WEIGHT {
+            // Check if propagation should continue and if the unit has already been visited. If
+            // not, push the unit into the results and continue the search.
+            if Self::stop_propagation(unit_reward.reward, unit_reward.weight) {
                 continue;
             }
-
-            // If the unit is already in the results, continue. Otherwise, add it to the results.
             if results.contains_key(&unit_id) {
                 continue;
             }
@@ -146,7 +153,10 @@ impl RewardPropagator {
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod test {
-    use crate::{data::MasteryScore, scheduler::reward_propagator::RewardPropagator};
+    use crate::{
+        data::MasteryScore,
+        scheduler::reward_propagator::{RewardPropagator, MIN_ABS_REWARD, MIN_WEIGHT},
+    };
 
     /// Verifies the initial reward for each score.
     #[test]
@@ -156,5 +166,26 @@ mod test {
         assert_eq!(RewardPropagator::initial_reward(&MasteryScore::Three), -0.5);
         assert_eq!(RewardPropagator::initial_reward(&MasteryScore::Two), -1.0);
         assert_eq!(RewardPropagator::initial_reward(&MasteryScore::One), -1.5);
+    }
+
+    /// Verifies stopping the propagation if the reward or weight is too small.
+    #[test]
+    fn stop_propagation() {
+        assert!(!RewardPropagator::stop_propagation(
+            MIN_ABS_REWARD,
+            MIN_WEIGHT
+        ));
+        assert!(RewardPropagator::stop_propagation(
+            MIN_ABS_REWARD - 0.001,
+            MIN_WEIGHT
+        ));
+        assert!(RewardPropagator::stop_propagation(
+            -MIN_ABS_REWARD + 0.001,
+            MIN_WEIGHT
+        ));
+        assert!(RewardPropagator::stop_propagation(
+            MIN_ABS_REWARD,
+            MIN_WEIGHT - 0.001
+        ));
     }
 }
