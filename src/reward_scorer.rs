@@ -4,6 +4,7 @@
 //! value can be positive or negative.
 
 use anyhow::Result;
+use chrono::{TimeZone, Utc};
 
 use crate::data::UnitReward;
 
@@ -18,15 +19,9 @@ pub trait RewardScorer {
     ) -> Result<f32>;
 }
 
-/// The initial time weight for the most recent reward, which is the first one in the list.
-const INITIAL_TIME_WEIGHT: f32 = 1.0;
-
-/// The first reward has the initial time weight, and the weight decreases with each older reward by
-/// this factor.
-const TIME_WEIGHT_FACTOR: f32 = 0.8;
-
-/// The minimum weight of a reward.
-const MIN_WEIGHT: f32 = 0.01;
+/// The absolute value of the reward decreases by this amount each day to avoid old rewards from
+/// affecting the score indefinitely.
+const DAY_ADJUSTMENT: f32 = 0.025;
 
 /// The weight of the course rewards in the final score.
 const COURSE_REWARDS_WEIGHT: f32 = 0.3;
@@ -40,18 +35,41 @@ const LESSON_REWARDS_WEIGHT: f32 = 0.7;
 pub struct WeightedRewardScorer {}
 
 impl WeightedRewardScorer {
-    /// Returns the weights to used to compute the weighted average of the rewards. The final weight
-    /// is computed as the product of the time and graph weight to compute a weight that reflects
-    /// the recency of the reward as well as the graph distance from the origin of the reward.
+    /// Returns the number of days since the reward.
     #[inline]
-    fn score_weights(rewards: &[UnitReward]) -> Vec<f32> {
+    fn days_since(rewards: &[UnitReward]) -> Vec<f32> {
         rewards
             .iter()
-            .enumerate()
-            .map(|(i, reward)| {
-                let weight =
-                    reward.weight * INITIAL_TIME_WEIGHT * TIME_WEIGHT_FACTOR.powf(i as f32);
-                weight.max(MIN_WEIGHT)
+            .map(|reward| {
+                let now = Utc::now();
+                let timestamp = Utc
+                    .timestamp_opt(reward.timestamp, 0)
+                    .earliest()
+                    .unwrap_or_default();
+                (now - timestamp).num_days() as f32
+            })
+            .collect()
+    }
+
+    /// Returns the weights of the rewards.
+    #[inline]
+    fn reward_weights(rewards: &[UnitReward]) -> Vec<f32> {
+        rewards.iter().map(|reward| reward.weight).collect()
+    }
+
+    /// Returns the adjusted rewards based on the number of days since the reward.
+    #[inline]
+    fn adjusted_rewards(rewards: &[UnitReward]) -> Vec<f32> {
+        let days = Self::days_since(rewards);
+        rewards
+            .iter()
+            .zip(days.iter())
+            .map(|(reward, day)| {
+                if reward.reward >= 0.0 {
+                    (reward.reward - (day * DAY_ADJUSTMENT)).max(0.0)
+                } else {
+                    (reward.reward + (day * DAY_ADJUSTMENT)).min(0.0)
+                }
             })
             .collect()
     }
@@ -76,34 +94,26 @@ impl RewardScorer for WeightedRewardScorer {
         previous_course_rewards: &[UnitReward],
         previous_lesson_rewards: &[UnitReward],
     ) -> Result<f32> {
-        // Extract the reward values from the input structs.
-        let lesson_rewards = previous_lesson_rewards
-            .iter()
-            .map(|r| r.reward)
-            .collect::<Vec<_>>();
-        let course_rewards = previous_course_rewards
-            .iter()
-            .map(|r| r.reward)
-            .collect::<Vec<_>>();
+        // Compute the lesson and course scores separately.
+        let course_score = Self::weighted_average(
+            &Self::adjusted_rewards(previous_course_rewards),
+            &Self::reward_weights(previous_course_rewards),
+        );
+        let lesson_score = Self::weighted_average(
+            &Self::adjusted_rewards(previous_lesson_rewards),
+            &Self::reward_weights(previous_lesson_rewards),
+        );
 
+        // Calculate the final value, depending on which rewards are present.
         if previous_course_rewards.is_empty() && previous_lesson_rewards.is_empty() {
-            // No rewards return a default value of 0.0.
             Ok(0.0)
         } else if previous_course_rewards.is_empty() {
-            // If there are only lesson rewards, compute the weighted average of the lesson rewards.
-            let lesson_weights = Self::score_weights(previous_lesson_rewards);
-            Ok(Self::weighted_average(&lesson_rewards, &lesson_weights))
+            Ok(lesson_score)
         } else if previous_lesson_rewards.is_empty() {
-            // If there are only course rewards, compute the weighted average of the course rewards.
-            let course_weights = Self::score_weights(previous_course_rewards);
-            Ok(Self::weighted_average(&course_rewards, &course_weights))
+            Ok(course_score)
         } else {
             // If there are both course and lesson rewards, compute the lesson and course scores
             // separately and then combine them into a single score using another weighted average.
-            let course_weights = Self::score_weights(previous_course_rewards);
-            let course_score = Self::weighted_average(&course_rewards, &course_weights);
-            let lesson_weights = Self::score_weights(previous_lesson_rewards);
-            let lesson_score = Self::weighted_average(&lesson_rewards, &lesson_weights);
             Ok(Self::weighted_average(
                 &[course_score, lesson_score],
                 &[COURSE_REWARDS_WEIGHT, LESSON_REWARDS_WEIGHT],
@@ -123,12 +133,58 @@ unsafe impl Sync for WeightedRewardScorer {}
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod test {
+    use chrono::Utc;
+
     use crate::{
         data::UnitReward,
         reward_scorer::{RewardScorer, WeightedRewardScorer},
     };
 
-    /// Verfies calculating the reward when no rewards are present.
+    const SECONDS_IN_DAY: i64 = 60 * 60 * 24;
+
+    /// Generates a timestamp equal to the timestamp from `num_days` ago.
+    fn generate_timestamp(num_days: i64) -> i64 {
+        let now = Utc::now().timestamp();
+        now - num_days * SECONDS_IN_DAY
+    }
+
+    /// Verifies adjusting the reward value based on the number of days since the reward.
+    #[test]
+    fn test_adjusted_rewards() {
+        // Recent rewards still have some value.
+        let rewards = vec![
+            UnitReward {
+                reward: 1.0,
+                weight: 1.0,
+                timestamp: generate_timestamp(1),
+            },
+            UnitReward {
+                reward: -1.0,
+                weight: 1.0,
+                timestamp: generate_timestamp(1),
+            },
+        ];
+        let adjusted_rewards = WeightedRewardScorer::adjusted_rewards(&rewards);
+        assert_eq!(adjusted_rewards, vec![0.975, -0.975]);
+
+        // The absolute value of older rewards trends to zero.
+        let rewards = vec![
+            UnitReward {
+                reward: 1.0,
+                weight: 1.0,
+                timestamp: 1,
+            },
+            UnitReward {
+                reward: -1.0,
+                weight: 1.0,
+                timestamp: 1,
+            },
+        ];
+        let adjusted_rewards = WeightedRewardScorer::adjusted_rewards(&rewards);
+        assert_eq!(adjusted_rewards, vec![0.0, 0.0]);
+    }
+
+    /// Verifies calculating the reward when no rewards are present.
     #[test]
     fn test_no_rewards() {
         let scorer = WeightedRewardScorer {};
@@ -144,16 +200,16 @@ mod test {
             UnitReward {
                 reward: 1.0,
                 weight: 1.0,
-                timestamp: 3,
+                timestamp: generate_timestamp(1),
             },
             UnitReward {
                 reward: 2.0,
                 weight: 1.0,
-                timestamp: 2,
+                timestamp: generate_timestamp(2),
             },
         ];
         let result = scorer.score_rewards(&[], &lesson_rewards).unwrap();
-        assert!((result - 1.444).abs() < 0.001);
+        assert!((result - 1.462).abs() < 0.001);
     }
 
     /// Verifies calculating the reward when only course rewards are present.
@@ -164,16 +220,16 @@ mod test {
             UnitReward {
                 reward: 1.0,
                 weight: 1.0,
-                timestamp: 3,
+                timestamp: generate_timestamp(1),
             },
             UnitReward {
                 reward: 2.0,
                 weight: 1.0,
-                timestamp: 2,
+                timestamp: generate_timestamp(2),
             },
         ];
         let result = scorer.score_rewards(&course_rewards, &[]).unwrap();
-        assert!((result - 1.444).abs() < 0.001);
+        assert!((result - 1.462).abs() < 0.001);
     }
 
     /// Verifies calculating the reward when both course and lesson rewards are present.
@@ -184,30 +240,30 @@ mod test {
             UnitReward {
                 reward: 1.0,
                 weight: 1.0,
-                timestamp: 3,
+                timestamp: generate_timestamp(1),
             },
             UnitReward {
                 reward: 2.0,
                 weight: 1.0,
-                timestamp: 2,
+                timestamp: generate_timestamp(2),
             },
         ];
         let lesson_rewards = vec![
             UnitReward {
-                reward: 3.0,
+                reward: 2.0,
                 weight: 1.0,
-                timestamp: 3,
+                timestamp: generate_timestamp(1),
             },
             UnitReward {
                 reward: 4.0,
-                weight: 1.0,
-                timestamp: 2,
+                weight: 2.0,
+                timestamp: generate_timestamp(2),
             },
         ];
         let result = scorer
             .score_rewards(&course_rewards, &lesson_rewards)
             .unwrap();
-        assert!((result - 2.8444).abs() < 0.001);
+        assert!((result - 2.742).abs() < 0.001);
     }
 
     /// Verifies calculating the reward when the weight is below the minimum weight.
@@ -218,15 +274,15 @@ mod test {
             UnitReward {
                 reward: 2.0,
                 weight: 1.0,
-                timestamp: 3,
+                timestamp: generate_timestamp(0),
             },
             UnitReward {
                 reward: 1.0,
                 weight: 0.0001,
-                timestamp: 2,
+                timestamp: generate_timestamp(0) - 1,
             },
         ];
         let result = scorer.score_rewards(&[], &lesson_rewards).unwrap();
-        assert!((result - 1.99).abs() < 0.001);
+        assert!((result - 1.999).abs() < 0.001);
     }
 }

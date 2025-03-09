@@ -27,6 +27,9 @@ const MIN_WEIGHT: f32 = 0.2;
 /// The factor by which the weight decreases with each traversal of the graph.
 const WEIGHT_FACTOR: f32 = 0.7;
 
+/// The factor by which the absolute value of the reward decreases with each traversal of the graph.
+const DEPTH_FACTOR: f32 = 0.9;
+
 /// Contains the logic to rewards through the graph when submitting a score.
 pub(super) struct RewardPropagator {
     /// The external data used by the scheduler. Contains pointers to the graph, blacklist, and
@@ -46,7 +49,7 @@ impl RewardPropagator {
         }
     }
 
-    // Gets the next units to visit, depending on the sign of the reward.
+    /// Gets the next units to visit, depending on the sign of the reward.
     fn get_next_units(&self, unit_id: Ustr, reward: f32) -> Vec<Ustr> {
         if reward > 0.0 {
             self.data
@@ -129,7 +132,7 @@ impl RewardPropagator {
                     queue.push_back((
                         *next_unit_id,
                         UnitReward {
-                            reward: unit_reward.reward,
+                            reward: unit_reward.reward * DEPTH_FACTOR,
                             weight: unit_reward.weight * WEIGHT_FACTOR,
                             timestamp,
                         },
