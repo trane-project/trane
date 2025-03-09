@@ -27,7 +27,7 @@ const INITIAL_MIN_SCORE_FACTOR: f32 = 0.7;
 /// The minimum score factor will be adjusted by this factor with additional trials. This is to
 /// simulate how the performance floor of a skill increases with practice. The value must be greater
 /// than one.
-const MIN_SCORE_ADJUSTMENT_FACTOR: f32 = 1.1;
+const MIN_SCORE_ADJUSTMENT_FACTOR: f32 = 1.05;
 
 /// The maximum score for an exercise after exponential decay is applied as a factor of the original
 /// score and the adjustment increases the minimum score. It always should be less than 1.0.

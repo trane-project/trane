@@ -19,7 +19,7 @@ use crate::{
     scheduler::{Candidate, SchedulerData},
 };
 
-/// The initial weight of each candidate.
+/// The minimum weight for each candidate.
 const MIN_WEIGHT: f32 = 25.0;
 
 /// The part of the weight that depends on the score will be the product of the difference between
