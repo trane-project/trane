@@ -7,7 +7,13 @@
 use anyhow::{anyhow, ensure, Context, Result};
 use parking_lot::RwLock;
 use serde::de::DeserializeOwned;
-use std::{collections::BTreeMap, fs::File, io::BufReader, path::Path, sync::Arc};
+use std::{
+    collections::BTreeMap,
+    fs::File,
+    io::BufReader,
+    path::{self, Path},
+    sync::Arc,
+};
 use tantivy::{
     collector::TopDocs,
     doc,
@@ -470,7 +476,7 @@ impl LocalCourseLibrary {
         let mut index_writer = library.index.writer(150_000_000)?;
 
         // Convert the list of paths to ignore into absolute paths.
-        let absolute_root = library_root.canonicalize()?;
+        let absolute_root = path::absolute(library_root)?;
         let ignored_paths = library
             .user_preferences
             .ignored_paths
