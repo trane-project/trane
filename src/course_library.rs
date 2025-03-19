@@ -317,20 +317,18 @@ impl LocalCourseLibrary {
 
         // Start a new search from the parent of the passed `DirEntry`, which corresponds to the
         // lesson's root. Each exercise in the lesson must be contained in a directory that is a
-        // direct descendant of its root. Therefore, all the exercise manifests will be found at a
-        // depth of two.
+        // direct descendant of the lesson's root. Therefore, all the exercise manifests will be
+        // found at a depth of two.
         for entry in WalkDir::new(lesson_root)
             .min_depth(2)
             .max_depth(2)
             .into_iter()
             .flatten()
         {
-            // Ignore any entries which are not directories.
+            // Ignore any entries that are not files named `exercise_manifest.json`.
             if entry.path().is_dir() {
                 continue;
             }
-
-            // Ignore any files which are not named `exercise_manifest.json`.
             let file_name = Self::get_file_name(entry.path())?;
             if file_name != EXERCISE_MANIFEST_FILENAME {
                 continue;
