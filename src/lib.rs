@@ -433,6 +433,10 @@ impl ExerciseScheduler for Trane {
         self.scheduler.score_exercise(exercise_id, score, timestamp)
     }
 
+    fn get_unit_score(&self, unit_id: Ustr) -> Result<Option<f32>, ExerciseSchedulerError> {
+        self.scheduler.get_unit_score(unit_id)
+    }
+
     fn invalidate_cached_score(&self, unit_id: Ustr) {
         self.scheduler.invalidate_cached_score(unit_id);
     }

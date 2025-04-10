@@ -67,6 +67,9 @@ pub trait ExerciseScheduler {
         timestamp: i64,
     ) -> Result<(), ExerciseSchedulerError>;
 
+    /// Gets the score for the given unit. The unit can be a course, lesson, or exercise.
+    fn get_unit_score(&self, unit_id: Ustr) -> Result<Option<f32>, ExerciseSchedulerError>;
+
     /// Removes any cached scores for the given unit. The score will be recomputed the next time the
     /// score is needed.
     ///
@@ -893,6 +896,12 @@ impl ExerciseScheduler for DepthFirstScheduler {
         }
 
         Ok(())
+    }
+
+    fn get_unit_score(&self, unit_id: Ustr) -> Result<Option<f32>, ExerciseSchedulerError> {
+        self.unit_scorer
+            .get_unit_score(unit_id)
+            .map_err(|e| ExerciseSchedulerError::GetUnitScore(unit_id, e))
     }
 
     #[cfg_attr(coverage, coverage(off))]

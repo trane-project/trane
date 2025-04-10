@@ -13,6 +13,7 @@ use std::{
     io::{BufReader, Read},
     path::Path,
 };
+use strum::Display;
 use ts_rs::TS;
 use ustr::{Ustr, UstrMap, UstrSet};
 
@@ -152,7 +153,7 @@ impl TryFrom<&str> for LiteracyFile {
 }
 
 /// The types of literacy lessons that can be generated.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
+#[derive(Clone, Debug, Deserialize, Display, PartialEq, Serialize, TS)]
 #[ts(export)]
 pub enum LiteracyLessonType {
     /// A lesson that takes examples and exceptions and asks the student to read them.
