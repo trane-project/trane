@@ -717,6 +717,9 @@ impl UnitGraph for Trane {
     }
 }
 
+unsafe impl Send for Trane {}
+unsafe impl Sync for Trane {}
+
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod test {
