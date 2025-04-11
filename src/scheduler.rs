@@ -535,12 +535,7 @@ impl DepthFirstScheduler {
                         metadata_filter,
                     );
                     Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
-                    continue;
                 }
-
-                // The course has pending lessons, so it cannot be marked as visited yet. Simply
-                // continue with the search.
-                continue;
             } else if unit_type == UnitType::Lesson {
                 // If the searched reached this point, the unit must be a lesson.
                 visited.insert(curr_unit.unit_id);

@@ -1,7 +1,7 @@
 //! End-to-end tests to verify that the music piece course generator works as expected.
 
 use anyhow::Result;
-use lazy_static::lazy_static;
+use std::sync::LazyLock;
 use tempfile::TempDir;
 use trane::{
     course_builder::{AssetBuilder, CourseBuilder},
@@ -14,83 +14,82 @@ use trane::{
 };
 use ustr::Ustr;
 
-lazy_static! {
-    static ref COURSE_ID: Ustr = Ustr::from("trane::test::music_piece_course");
-    static ref SOUNDSLICE_MUSIC_ASSET: MusicAsset =
-        MusicAsset::SoundSlice("soundslice_link".to_string());
-    static ref LOCAL_MUSIC_ASSET: MusicAsset = MusicAsset::LocalFile("music_sheet.pdf".to_string());
-    static ref COMPLEX_PASSAGE: TestPassage = TestPassage {
-        sub_passages: vec![
-            TestPassage {
-                sub_passages: vec![
-                    TestPassage {
-                        sub_passages: vec![
-                            TestPassage {
-                                sub_passages: vec![],
-                            },
-                            TestPassage {
-                                sub_passages: vec![],
-                            },
-                        ]
-                    },
-                    TestPassage {
-                        sub_passages: vec![
-                            TestPassage {
-                                sub_passages: vec![]
-                            },
-                            TestPassage {
-                                sub_passages: vec![]
-                            },
-                            TestPassage {
-                                sub_passages: vec![]
-                            },
-                        ]
-                    },
-                ]
-            },
-            TestPassage {
-                sub_passages: vec![
-                    TestPassage {
-                        sub_passages: vec![
-                            TestPassage {
-                                sub_passages: vec![]
-                            },
-                            TestPassage {
-                                sub_passages: vec![]
-                            },
-                            TestPassage {
-                                sub_passages: vec![]
-                            },
-                            TestPassage {
-                                sub_passages: vec![]
-                            },
-                        ]
-                    },
-                    TestPassage {
-                        sub_passages: vec![
-                            TestPassage {
-                                sub_passages: vec![]
-                            },
-                            TestPassage {
-                                sub_passages: vec![]
-                            },
-                        ]
-                    },
-                    TestPassage {
-                        sub_passages: vec![
-                            TestPassage {
-                                sub_passages: vec![]
-                            },
-                            TestPassage {
-                                sub_passages: vec![]
-                            },
-                        ]
-                    },
-                ]
-            },
-        ]
-    };
-}
+static COURSE_ID: LazyLock<Ustr> = LazyLock::new(|| Ustr::from("trane::test::music_piece_course"));
+static SOUNDSLICE_MUSIC_ASSET: LazyLock<MusicAsset> =
+    LazyLock::new(|| MusicAsset::SoundSlice("soundslice_link".to_string()));
+static LOCAL_MUSIC_ASSET: LazyLock<MusicAsset> =
+    LazyLock::new(|| MusicAsset::LocalFile("music_sheet.pdf".to_string()));
+static COMPLEX_PASSAGE: LazyLock<TestPassage> = LazyLock::new(|| TestPassage {
+    sub_passages: vec![
+        TestPassage {
+            sub_passages: vec![
+                TestPassage {
+                    sub_passages: vec![
+                        TestPassage {
+                            sub_passages: vec![],
+                        },
+                        TestPassage {
+                            sub_passages: vec![],
+                        },
+                    ],
+                },
+                TestPassage {
+                    sub_passages: vec![
+                        TestPassage {
+                            sub_passages: vec![],
+                        },
+                        TestPassage {
+                            sub_passages: vec![],
+                        },
+                        TestPassage {
+                            sub_passages: vec![],
+                        },
+                    ],
+                },
+            ],
+        },
+        TestPassage {
+            sub_passages: vec![
+                TestPassage {
+                    sub_passages: vec![
+                        TestPassage {
+                            sub_passages: vec![],
+                        },
+                        TestPassage {
+                            sub_passages: vec![],
+                        },
+                        TestPassage {
+                            sub_passages: vec![],
+                        },
+                        TestPassage {
+                            sub_passages: vec![],
+                        },
+                    ],
+                },
+                TestPassage {
+                    sub_passages: vec![
+                        TestPassage {
+                            sub_passages: vec![],
+                        },
+                        TestPassage {
+                            sub_passages: vec![],
+                        },
+                    ],
+                },
+                TestPassage {
+                    sub_passages: vec![
+                        TestPassage {
+                            sub_passages: vec![],
+                        },
+                        TestPassage {
+                            sub_passages: vec![],
+                        },
+                    ],
+                },
+            ],
+        },
+    ],
+});
 
 /// A simpler representation of a music passage for testing.
 #[derive(Clone)]

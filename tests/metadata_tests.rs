@@ -3,10 +3,8 @@
 //! For a more detailed explanation of the testing methodology, see the explanation in the
 //! basic_tests module.
 
-use std::collections::BTreeMap;
-
 use anyhow::{Ok, Result};
-use lazy_static::lazy_static;
+use std::{collections::BTreeMap, sync::LazyLock};
 use tempfile::TempDir;
 use trane::{
     course_library::CourseLibrary,
@@ -17,9 +15,9 @@ use trane::{
     testutil::*,
 };
 
-lazy_static! {
-    /// A simple set of courses to test the basic functionality of Trane.
-    static ref LIBRARY: Vec<TestCourse> = vec![
+/// A simple set of courses to test the basic functionality of Trane.
+static LIBRARY: LazyLock<Vec<TestCourse>> = LazyLock::new(|| {
+    vec![
         TestCourse {
             id: TestId(0, None, None),
             dependencies: vec![],
@@ -27,11 +25,11 @@ lazy_static! {
             metadata: BTreeMap::from([
                 (
                     "course_key_1".to_string(),
-                    vec!["course_key_1:value_1".to_string()]
+                    vec!["course_key_1:value_1".to_string()],
                 ),
                 (
                     "course_key_2".to_string(),
-                    vec!["course_key_2:value_1".to_string()]
+                    vec!["course_key_2:value_1".to_string()],
                 ),
             ]),
             lessons: vec![
@@ -42,11 +40,11 @@ lazy_static! {
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
-                            vec!["lesson_key_1:value_1".to_string()]
+                            vec!["lesson_key_1:value_1".to_string()],
                         ),
                         (
                             "lesson_key_2".to_string(),
-                            vec!["lesson_key_2:value_1".to_string()]
+                            vec!["lesson_key_2:value_1".to_string()],
                         ),
                     ]),
                     num_exercises: 10,
@@ -58,11 +56,11 @@ lazy_static! {
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
-                            vec!["lesson_key_1:value_2".to_string()]
+                            vec!["lesson_key_1:value_2".to_string()],
                         ),
                         (
                             "lesson_key_2".to_string(),
-                            vec!["lesson_key_2:value_2".to_string()]
+                            vec!["lesson_key_2:value_2".to_string()],
                         ),
                     ]),
                     num_exercises: 10,
@@ -76,11 +74,11 @@ lazy_static! {
             metadata: BTreeMap::from([
                 (
                     "course_key_1".to_string(),
-                    vec!["course_key_1:value_1".to_string()]
+                    vec!["course_key_1:value_1".to_string()],
                 ),
                 (
                     "course_key_2".to_string(),
-                    vec!["course_key_2:value_1".to_string()]
+                    vec!["course_key_2:value_1".to_string()],
                 ),
             ]),
             lessons: vec![
@@ -91,11 +89,11 @@ lazy_static! {
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
-                            vec!["lesson_key_1:value_3".to_string()]
+                            vec!["lesson_key_1:value_3".to_string()],
                         ),
                         (
                             "lesson_key_2".to_string(),
-                            vec!["lesson_key_2:value_3".to_string()]
+                            vec!["lesson_key_2:value_3".to_string()],
                         ),
                     ]),
                     num_exercises: 10,
@@ -107,11 +105,11 @@ lazy_static! {
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
-                            vec!["lesson_key_1:value_3".to_string()]
+                            vec!["lesson_key_1:value_3".to_string()],
                         ),
                         (
                             "lesson_key_2".to_string(),
-                            vec!["lesson_key_2:value_3".to_string()]
+                            vec!["lesson_key_2:value_3".to_string()],
                         ),
                     ]),
                     num_exercises: 10,
@@ -125,11 +123,11 @@ lazy_static! {
             metadata: BTreeMap::from([
                 (
                     "course_key_1".to_string(),
-                    vec!["course_key_1:value_2".to_string()]
+                    vec!["course_key_1:value_2".to_string()],
                 ),
                 (
                     "course_key_2".to_string(),
-                    vec!["course_key_2:value_2".to_string()]
+                    vec!["course_key_2:value_2".to_string()],
                 ),
             ]),
             lessons: vec![
@@ -140,11 +138,11 @@ lazy_static! {
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
-                            vec!["lesson_key_1:value_3".to_string()]
+                            vec!["lesson_key_1:value_3".to_string()],
                         ),
                         (
                             "lesson_key_2".to_string(),
-                            vec!["lesson_key_2:value_3".to_string()]
+                            vec!["lesson_key_2:value_3".to_string()],
                         ),
                     ]),
                     num_exercises: 10,
@@ -156,11 +154,11 @@ lazy_static! {
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
-                            vec!["lesson_key_1:value_4".to_string()]
+                            vec!["lesson_key_1:value_4".to_string()],
                         ),
                         (
                             "lesson_key_2".to_string(),
-                            vec!["lesson_key_2:value_4".to_string()]
+                            vec!["lesson_key_2:value_4".to_string()],
                         ),
                     ]),
                     num_exercises: 10,
@@ -172,11 +170,11 @@ lazy_static! {
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
-                            vec!["lesson_key_1:value_4".to_string()]
+                            vec!["lesson_key_1:value_4".to_string()],
                         ),
                         (
                             "lesson_key_2".to_string(),
-                            vec!["lesson_key_2:value_4".to_string()]
+                            vec!["lesson_key_2:value_4".to_string()],
                         ),
                     ]),
                     num_exercises: 10,
@@ -190,11 +188,11 @@ lazy_static! {
             metadata: BTreeMap::from([
                 (
                     "course_key_1".to_string(),
-                    vec!["course_key_1:value_3".to_string()]
+                    vec!["course_key_1:value_3".to_string()],
                 ),
                 (
                     "course_key_2".to_string(),
-                    vec!["course_key_2:value_3".to_string()]
+                    vec!["course_key_2:value_3".to_string()],
                 ),
             ]),
             lessons: vec![
@@ -205,11 +203,11 @@ lazy_static! {
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
-                            vec!["lesson_key_1:value_5".to_string()]
+                            vec!["lesson_key_1:value_5".to_string()],
                         ),
                         (
                             "lesson_key_2".to_string(),
-                            vec!["lesson_key_2:value_5".to_string()]
+                            vec!["lesson_key_2:value_5".to_string()],
                         ),
                     ]),
                     num_exercises: 10,
@@ -221,11 +219,11 @@ lazy_static! {
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
-                            vec!["lesson_key_1:value_6".to_string()]
+                            vec!["lesson_key_1:value_6".to_string()],
                         ),
                         (
                             "lesson_key_2".to_string(),
-                            vec!["lesson_key_2:value_6".to_string()]
+                            vec!["lesson_key_2:value_6".to_string()],
                         ),
                     ]),
                     num_exercises: 10,
@@ -237,11 +235,11 @@ lazy_static! {
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
-                            vec!["lesson_key_1:value_5".to_string()]
+                            vec!["lesson_key_1:value_5".to_string()],
                         ),
                         (
                             "lesson_key_2".to_string(),
-                            vec!["lesson_key_2:value_5".to_string()]
+                            vec!["lesson_key_2:value_5".to_string()],
                         ),
                     ]),
                     num_exercises: 10,
@@ -253,11 +251,11 @@ lazy_static! {
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
-                            vec!["lesson_key_1:value_5".to_string()]
+                            vec!["lesson_key_1:value_5".to_string()],
                         ),
                         (
                             "lesson_key_2".to_string(),
-                            vec!["lesson_key_2:value_5".to_string()]
+                            vec!["lesson_key_2:value_5".to_string()],
                         ),
                     ]),
                     num_exercises: 10,
@@ -266,19 +264,16 @@ lazy_static! {
         },
         TestCourse {
             id: TestId(5, None, None),
-            dependencies: vec![
-                TestId(3, None, None),
-                TestId(4, None, None)
-            ],
+            dependencies: vec![TestId(3, None, None), TestId(4, None, None)],
             superseded: vec![],
             metadata: BTreeMap::from([
                 (
                     "course_key_1".to_string(),
-                    vec!["course_key_1:value_2".to_string()]
+                    vec!["course_key_1:value_2".to_string()],
                 ),
                 (
                     "course_key_2".to_string(),
-                    vec!["course_key_2:value_2".to_string()]
+                    vec!["course_key_2:value_2".to_string()],
                 ),
             ]),
             lessons: vec![
@@ -289,38 +284,35 @@ lazy_static! {
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
-                            vec!["lesson_key_1:value_4".to_string()]
+                            vec!["lesson_key_1:value_4".to_string()],
                         ),
                         (
                             "lesson_key_2".to_string(),
-                            vec!["lesson_key_2:value_4".to_string()]
+                            vec!["lesson_key_2:value_4".to_string()],
                         ),
                     ]),
                     num_exercises: 10,
                 },
                 TestLesson {
                     id: TestId(5, Some(1), None),
-                    dependencies: vec![
-                        TestId(5, Some(0), None),
-                        TestId(3, Some(3), None),
-                    ],
+                    dependencies: vec![TestId(5, Some(0), None), TestId(3, Some(3), None)],
                     superseded: vec![],
                     metadata: BTreeMap::from([
                         (
                             "lesson_key_1".to_string(),
-                            vec!["lesson_key_1:value_5".to_string()]
+                            vec!["lesson_key_1:value_5".to_string()],
                         ),
                         (
                             "lesson_key_2".to_string(),
-                            vec!["lesson_key_2:value_5".to_string()]
+                            vec!["lesson_key_2:value_5".to_string()],
                         ),
                     ]),
                     num_exercises: 10,
                 },
             ],
         },
-    ];
-}
+    ]
+});
 
 ///  Verifies that only exercises in units that match the metadata filter using the logical op All
 /// are scheduled.

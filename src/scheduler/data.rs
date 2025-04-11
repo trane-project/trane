@@ -387,11 +387,10 @@ impl SchedulerData {
 mod test {
     use anyhow::Result;
     use chrono::Duration;
-    use lazy_static::lazy_static;
     use parking_lot::RwLock;
     use std::{
         collections::{BTreeMap, HashMap},
-        sync::Arc,
+        sync::{Arc, LazyLock},
     };
     use ustr::Ustr;
 
@@ -409,60 +408,58 @@ mod test {
 
     static NUM_EXERCISES: usize = 2;
 
-    lazy_static! {
-        /// A simple set of courses to test the basic functionality of Trane.
-        static ref TEST_LIBRARY: Vec<TestCourse> = vec![
-            TestCourse {
-                id: TestId(0, None, None),
-                dependencies: vec![],
-                superseded: vec![],
-                metadata: BTreeMap::from([
-                    (
-                        "course_key_1".to_string(),
-                        vec!["course_key_1:value_1".to_string()]
-                    ),
-                    (
-                        "course_key_2".to_string(),
-                        vec!["course_key_2:value_1".to_string()]
-                    ),
-                ]),
-                lessons: vec![
-                    TestLesson {
-                        id: TestId(0, Some(0), None),
-                        dependencies: vec![],
-                        superseded: vec![],
-                        metadata: BTreeMap::from([
-                            (
-                                "lesson_key_1".to_string(),
-                                vec!["lesson_key_1:value_1".to_string()]
-                            ),
-                            (
-                                "lesson_key_2".to_string(),
-                                vec!["lesson_key_2:value_1".to_string()]
-                            ),
-                        ]),
-                        num_exercises: NUM_EXERCISES,
-                    },
-                    TestLesson {
-                        id: TestId(0, Some(1), None),
-                        dependencies: vec![TestId(0, Some(0), None)],
-                        superseded: vec![],
-                        metadata: BTreeMap::from([
-                            (
-                                "lesson_key_1".to_string(),
-                                vec!["lesson_key_1:value_2".to_string()]
-                            ),
-                            (
-                                "lesson_key_2".to_string(),
-                                vec!["lesson_key_2:value_2".to_string()]
-                            ),
-                        ]),
-                        num_exercises: NUM_EXERCISES,
-                    },
-                ],
-            },
-        ];
-    }
+    /// A simple set of courses to test the basic functionality of Trane.
+    static TEST_LIBRARY: LazyLock<Vec<TestCourse>> = LazyLock::new(|| {
+        vec![TestCourse {
+            id: TestId(0, None, None),
+            dependencies: vec![],
+            superseded: vec![],
+            metadata: BTreeMap::from([
+                (
+                    "course_key_1".to_string(),
+                    vec!["course_key_1:value_1".to_string()],
+                ),
+                (
+                    "course_key_2".to_string(),
+                    vec!["course_key_2:value_1".to_string()],
+                ),
+            ]),
+            lessons: vec![
+                TestLesson {
+                    id: TestId(0, Some(0), None),
+                    dependencies: vec![],
+                    superseded: vec![],
+                    metadata: BTreeMap::from([
+                        (
+                            "lesson_key_1".to_string(),
+                            vec!["lesson_key_1:value_1".to_string()],
+                        ),
+                        (
+                            "lesson_key_2".to_string(),
+                            vec!["lesson_key_2:value_1".to_string()],
+                        ),
+                    ]),
+                    num_exercises: NUM_EXERCISES,
+                },
+                TestLesson {
+                    id: TestId(0, Some(1), None),
+                    dependencies: vec![TestId(0, Some(0), None)],
+                    superseded: vec![],
+                    metadata: BTreeMap::from([
+                        (
+                            "lesson_key_1".to_string(),
+                            vec!["lesson_key_1:value_2".to_string()],
+                        ),
+                        (
+                            "lesson_key_2".to_string(),
+                            vec!["lesson_key_2:value_2".to_string()],
+                        ),
+                    ]),
+                    num_exercises: NUM_EXERCISES,
+                },
+            ],
+        }]
+    });
 
     /// Verifies that the scheduler data correctly knows which units exist and their types.
     #[test]

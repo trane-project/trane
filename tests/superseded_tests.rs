@@ -3,10 +3,8 @@
 //! For a more detailed explanation of the testing methodology, see the explanation in the
 //! basic_tests module.
 
-use std::collections::BTreeMap;
-
 use anyhow::{Ok, Result};
-use lazy_static::lazy_static;
+use std::{collections::BTreeMap, sync::LazyLock};
 use tempfile::TempDir;
 use trane::{
     data::{
@@ -16,10 +14,10 @@ use trane::{
     testutil::*,
 };
 
-lazy_static! {
-    /// A simple set of courses to verify that superseded courses and lessons are dealt with
-    /// correctly.
-    static ref LIBRARY: Vec<TestCourse> = vec![
+/// A simple set of courses to verify that superseded courses and lessons are dealt with
+/// correctly.
+static LIBRARY: LazyLock<Vec<TestCourse>> = LazyLock::new(|| {
+    vec![
         TestCourse {
             id: TestId(0, None, None),
             dependencies: vec![],
@@ -193,18 +191,16 @@ lazy_static! {
             dependencies: vec![TestId(6, None, None)],
             superseded: vec![],
             metadata: BTreeMap::default(),
-            lessons: vec![
-                TestLesson {
-                    id: TestId(7, Some(0), None),
-                    dependencies: vec![],
-                    superseded: vec![],
-                    metadata: BTreeMap::default(),
-                    num_exercises: 10,
-                },
-            ],
+            lessons: vec![TestLesson {
+                id: TestId(7, Some(0), None),
+                dependencies: vec![],
+                superseded: vec![],
+                metadata: BTreeMap::default(),
+                num_exercises: 10,
+            }],
         },
-    ];
-}
+    ]
+});
 
 /// Verifies that the superseded courses are dealt with correctly during scheduling.
 #[test]
