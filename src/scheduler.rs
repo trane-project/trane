@@ -33,8 +33,8 @@ use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
     data::{
-        filter::{ExerciseFilter, KeyValueFilter, UnitFilter},
         ExerciseManifest, MasteryScore, SchedulerOptions, UnitType,
+        filter::{ExerciseFilter, KeyValueFilter, UnitFilter},
     },
     error::ExerciseSchedulerError,
     scheduler::{data::SchedulerData, filter::CandidateFilter, unit_scorer::UnitScorer},
@@ -66,6 +66,9 @@ pub trait ExerciseScheduler {
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<(), ExerciseSchedulerError>;
+
+    /// Gets the score for the given unit. The unit can be a course, lesson, or exercise.
+    fn get_unit_score(&self, unit_id: Ustr) -> Result<Option<f32>, ExerciseSchedulerError>;
 
     /// Removes any cached scores for the given unit. The score will be recomputed the next time the
     /// score is needed.
@@ -532,12 +535,7 @@ impl DepthFirstScheduler {
                         metadata_filter,
                     );
                     Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
-                    continue;
                 }
-
-                // The course has pending lessons, so it cannot be marked as visited yet. Simply
-                // continue with the search.
-                continue;
             } else if unit_type == UnitType::Lesson {
                 // If the searched reached this point, the unit must be a lesson.
                 visited.insert(curr_unit.unit_id);
@@ -893,6 +891,12 @@ impl ExerciseScheduler for DepthFirstScheduler {
         }
 
         Ok(())
+    }
+
+    fn get_unit_score(&self, unit_id: Ustr) -> Result<Option<f32>, ExerciseSchedulerError> {
+        self.unit_scorer
+            .get_unit_score(unit_id)
+            .map_err(|e| ExerciseSchedulerError::GetUnitScore(unit_id, e))
     }
 
     #[cfg_attr(coverage, coverage(off))]

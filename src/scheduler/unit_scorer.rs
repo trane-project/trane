@@ -5,7 +5,7 @@
 //! performance of exercise scheduling.
 //>@lp-example-2
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use std::cell::RefCell;
 use ustr::{Ustr, UstrMap, UstrSet};
 
@@ -433,22 +433,21 @@ impl UnitScorer {
 mod test {
     use anyhow::Result;
     use chrono::Utc;
-    use lazy_static::lazy_static;
-    use std::collections::BTreeMap;
+    use std::{collections::BTreeMap, sync::LazyLock};
     use ustr::Ustr;
 
     use crate::{
         blacklist::Blacklist,
         data::{MasteryScore, SchedulerOptions},
-        scheduler::{unit_scorer::CachedScore, ExerciseScheduler, UnitScorer},
+        scheduler::{ExerciseScheduler, UnitScorer, unit_scorer::CachedScore},
         testutil::*,
     };
 
     static NUM_EXERCISES: usize = 2;
 
-    lazy_static! {
-        /// A simple set of courses to test the basic functionality of Trane.
-        static ref TEST_LIBRARY: Vec<TestCourse> = vec![
+    /// A simple set of courses to test the basic functionality of Trane.
+    static TEST_LIBRARY: LazyLock<Vec<TestCourse>> = LazyLock::new(|| {
+        vec![
             TestCourse {
                 id: TestId(0, None, None),
                 dependencies: vec![],
@@ -493,8 +492,8 @@ mod test {
                     },
                 ],
             },
-        ];
-    }
+        ]
+    });
 
     /// Verifies that a score of `None` is returned for a blacklisted course.
     #[test]

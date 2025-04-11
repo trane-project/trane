@@ -4,7 +4,7 @@
 //! students want to only schedule exercises from a subset of the graph. This module allows them to
 //! re-use filters they have previously saved.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use std::{collections::HashMap, fs::File, io::BufReader};
 
 use crate::data::filter::SavedFilter;

@@ -6,19 +6,19 @@ use anyhow::Result;
 use rand::Rng;
 use tempfile::TempDir;
 use trane::{
+    Trane,
     course_builder::{
-        knowledge_base_builder::{CourseBuilder, ExerciseBuilder, LessonBuilder},
         AssetBuilder,
+        knowledge_base_builder::{CourseBuilder, ExerciseBuilder, LessonBuilder},
     },
     course_library::CourseLibrary,
     data::{
+        CourseGenerator, CourseManifest, MasteryScore,
         course_generator::knowledge_base::{
             KnowledgeBaseConfig, KnowledgeBaseExercise, KnowledgeBaseLesson,
         },
-        CourseGenerator, CourseManifest, MasteryScore,
     },
     testutil::TraneSimulation,
-    Trane,
 };
 use ustr::Ustr;
 

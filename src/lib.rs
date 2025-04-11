@@ -31,8 +31,8 @@
 //!   batch of exercises.
 //! - [`blacklist`]: Defines the list of units the student wishes to hide, either because their
 //!   material has already been mastered or they do not wish to learn it.
-//! - [`scorer`]: Calculates a score for an exercise based on the results and timestamps of previous
-//!   trials.
+//! - [`exercise_scorer`]: Calculates a score for an exercise based on the results and timestamps of
+//!   previous trials.
 //!
 //>@lp-example-3
 
@@ -72,14 +72,14 @@ pub mod study_session_manager;
 pub mod testutil;
 pub mod transcription_downloader;
 
-use anyhow::{bail, ensure, Context, Result};
+use anyhow::{Context, Result, bail, ensure};
 use error::*;
 use parking_lot::RwLock;
 use practice_rewards::{LocalPracticeRewards, PracticeRewards};
 use preferences_manager::{LocalPreferencesManager, PreferencesManager};
 use review_list::{LocalReviewList, ReviewList};
 use std::{
-    fs::{create_dir, File},
+    fs::{File, create_dir},
     io::Write,
     path::Path,
     sync::Arc,
@@ -92,16 +92,16 @@ use crate::{
     blacklist::{Blacklist, LocalBlacklist},
     course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary},
     data::{
-        filter::{ExerciseFilter, SavedFilter},
         CourseManifest, ExerciseManifest, ExerciseTrial, LessonManifest, MasteryScore,
         RepositoryMetadata, SchedulerOptions, SchedulerPreferences, UnitType, UserPreferences,
+        filter::{ExerciseFilter, SavedFilter},
     },
     filter_manager::{FilterManager, LocalFilterManager},
     graph::UnitGraph,
     mantra_miner::TraneMantraMiner,
     practice_stats::{LocalPracticeStats, PracticeStats},
     repository_manager::{LocalRepositoryManager, RepositoryManager},
-    scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseScheduler},
+    scheduler::{DepthFirstScheduler, ExerciseScheduler, data::SchedulerData},
 };
 
 /// The path to the folder inside each course library containing the user data.
@@ -433,6 +433,10 @@ impl ExerciseScheduler for Trane {
         self.scheduler.score_exercise(exercise_id, score, timestamp)
     }
 
+    fn get_unit_score(&self, unit_id: Ustr) -> Result<Option<f32>, ExerciseSchedulerError> {
+        self.scheduler.get_unit_score(unit_id)
+    }
+
     fn invalidate_cached_score(&self, unit_id: Ustr) {
         self.scheduler.invalidate_cached_score(unit_id);
     }
@@ -717,6 +721,9 @@ impl UnitGraph for Trane {
     }
 }
 
+unsafe impl Send for Trane {}
+unsafe impl Sync for Trane {}
+
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod test {
@@ -724,8 +731,8 @@ mod test {
     use std::{fs::*, os::unix::prelude::PermissionsExt, thread, time::Duration};
 
     use crate::{
+        FILTERS_DIR, STUDY_SESSIONS_DIR, TRANE_CONFIG_DIR_PATH, Trane, USER_PREFERENCES_PATH,
         data::{SchedulerOptions, SchedulerPreferences, UserPreferences},
-        Trane, FILTERS_DIR, STUDY_SESSIONS_DIR, TRANE_CONFIG_DIR_PATH, USER_PREFERENCES_PATH,
     };
 
     /// Verifies retrieving the root of a library.

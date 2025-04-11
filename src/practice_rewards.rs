@@ -17,7 +17,7 @@ use anyhow::{Context, Ok, Result};
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::params;
-use rusqlite_migration::{Migrations, M};
+use rusqlite_migration::{M, Migrations};
 use std::collections::VecDeque;
 use ustr::{Ustr, UstrMap};
 

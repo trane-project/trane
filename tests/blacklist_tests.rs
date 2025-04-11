@@ -4,23 +4,21 @@
 //! For a more detailed explanation of the testing methodology, see the explanation in the
 //! basic_tests module.
 
-use std::collections::BTreeMap;
-
 use anyhow::{Ok, Result};
-use lazy_static::lazy_static;
+use std::{collections::BTreeMap, sync::LazyLock};
 use tempfile::TempDir;
 use trane::{
     blacklist::Blacklist,
     data::{
-        filter::{ExerciseFilter, UnitFilter},
         MasteryScore,
+        filter::{ExerciseFilter, UnitFilter},
     },
     testutil::*,
 };
 
-lazy_static! {
-    /// A simple set of courses to verify that blacklisting works correctly.
-    static ref LIBRARY: Vec<TestCourse> = vec![
+/// A simple set of courses to verify that blacklisting works correctly.
+static LIBRARY: LazyLock<Vec<TestCourse>> = LazyLock::new(|| {
+    vec![
         TestCourse {
             id: TestId(0, None, None),
             dependencies: vec![],
@@ -116,8 +114,8 @@ lazy_static! {
                 },
             ],
         },
-    ];
-}
+    ]
+});
 
 /// Verifies that all the exercises are scheduled except for those belonging to the courses in the
 /// blacklist.

@@ -13,7 +13,7 @@ use std::{
     path::Path,
 };
 
-use anyhow::{bail, ensure, Result};
+use anyhow::{Result, bail, ensure};
 use chrono::Utc;
 use rand::Rng;
 use rayon::prelude::*;
@@ -21,15 +21,15 @@ use rayon::prelude::*;
 use ustr::{Ustr, UstrMap};
 
 use crate::{
+    TRANE_CONFIG_DIR_PATH, Trane, USER_PREFERENCES_PATH,
     blacklist::Blacklist,
     course_builder::{AssetBuilder, CourseBuilder, ExerciseBuilder, LessonBuilder},
     data::{
-        filter::ExerciseFilter, BasicAsset, CourseManifest, ExerciseAsset, ExerciseManifestBuilder,
-        ExerciseType, LessonManifestBuilder, MasteryScore, UserPreferences,
+        BasicAsset, CourseManifest, ExerciseAsset, ExerciseManifestBuilder, ExerciseType,
+        LessonManifestBuilder, MasteryScore, UserPreferences, filter::ExerciseFilter,
     },
     practice_stats::PracticeStats,
     scheduler::ExerciseScheduler,
-    Trane, TRANE_CONFIG_DIR_PATH, USER_PREFERENCES_PATH,
 };
 
 /// Represents the ID of a test unit. First element is the course ID, followed by optional lesson
@@ -541,33 +541,33 @@ pub fn assert_simulation_scores(
     let empty_scores = vec![];
     let simulation_scores = simulation_scores.get(&exercise_id).unwrap_or(&empty_scores);
     let most_recent_scores = simulation_scores.iter().rev().take(trane_scores.len());
-    let _: Vec<()> =
-        most_recent_scores
-            .zip(trane_scores.iter())
-            .map(|(simulation_score, trial)| {
-                let float_score = simulation_score.float_score();
-                assert!(
+    let _: Vec<()> = most_recent_scores
+        .zip(trane_scores.iter())
+        .map(|(simulation_score, trial)| {
+            let float_score = simulation_score.float_score();
+            assert!(
                 (trial.score - float_score).abs() < f32::EPSILON,
                 "Score from Trane ({}) does not match score from simulation ({}) for exercise {}",
-                trial.score, float_score, exercise_id,
+                trial.score,
+                float_score,
+                exercise_id,
             );
-            })
-            .collect();
+        })
+        .collect();
     Ok(())
 }
 
 #[cfg(test)]
 mod test {
-    use lazy_static::lazy_static;
-    use std::path::Path;
+    use std::{path::Path, sync::LazyLock};
 
     use crate::testutil::*;
 
     static NUM_EXERCISES: usize = 2;
 
-    lazy_static! {
-        /// A simple set of courses to test the basic functionality of Trane.
-        static ref TEST_LIBRARY: Vec<TestCourse> = vec![
+    /// A simple set of courses to test the basic functionality of Trane.
+    static TEST_LIBRARY: LazyLock<Vec<TestCourse>> = LazyLock::new(|| {
+        vec![
             TestCourse {
                 id: TestId(0, None, None),
                 dependencies: vec![],
@@ -575,11 +575,11 @@ mod test {
                 metadata: BTreeMap::from([
                     (
                         "course_key_1".to_string(),
-                        vec!["course_key_1:value_1".to_string()]
+                        vec!["course_key_1:value_1".to_string()],
                     ),
                     (
                         "course_key_2".to_string(),
-                        vec!["course_key_2:value_1".to_string()]
+                        vec!["course_key_2:value_1".to_string()],
                     ),
                 ]),
                 lessons: vec![
@@ -590,11 +590,11 @@ mod test {
                         metadata: BTreeMap::from([
                             (
                                 "lesson_key_1".to_string(),
-                                vec!["lesson_key_1:value_1".to_string()]
+                                vec!["lesson_key_1:value_1".to_string()],
                             ),
                             (
                                 "lesson_key_2".to_string(),
-                                vec!["lesson_key_2:value_1".to_string()]
+                                vec!["lesson_key_2:value_1".to_string()],
                             ),
                         ]),
                         num_exercises: NUM_EXERCISES,
@@ -606,11 +606,11 @@ mod test {
                         metadata: BTreeMap::from([
                             (
                                 "lesson_key_1".to_string(),
-                                vec!["lesson_key_1:value_2".to_string()]
+                                vec!["lesson_key_1:value_2".to_string()],
                             ),
                             (
                                 "lesson_key_2".to_string(),
-                                vec!["lesson_key_2:value_2".to_string()]
+                                vec!["lesson_key_2:value_2".to_string()],
                             ),
                         ]),
                         num_exercises: NUM_EXERCISES,
@@ -624,11 +624,11 @@ mod test {
                 metadata: BTreeMap::from([
                     (
                         "course_key_1".to_string(),
-                        vec!["course_key_1:value_1".to_string()]
+                        vec!["course_key_1:value_1".to_string()],
                     ),
                     (
                         "course_key_2".to_string(),
-                        vec!["course_key_2:value_1".to_string()]
+                        vec!["course_key_2:value_1".to_string()],
                     ),
                 ]),
                 lessons: vec![
@@ -639,11 +639,11 @@ mod test {
                         metadata: BTreeMap::from([
                             (
                                 "lesson_key_1".to_string(),
-                                vec!["lesson_key_1:value_3".to_string()]
+                                vec!["lesson_key_1:value_3".to_string()],
                             ),
                             (
                                 "lesson_key_2".to_string(),
-                                vec!["lesson_key_2:value_3".to_string()]
+                                vec!["lesson_key_2:value_3".to_string()],
                             ),
                         ]),
                         num_exercises: NUM_EXERCISES,
@@ -655,19 +655,19 @@ mod test {
                         metadata: BTreeMap::from([
                             (
                                 "lesson_key_1".to_string(),
-                                vec!["lesson_key_1:value_3".to_string()]
+                                vec!["lesson_key_1:value_3".to_string()],
                             ),
                             (
                                 "lesson_key_2".to_string(),
-                                vec!["lesson_key_2:value_3".to_string()]
+                                vec!["lesson_key_2:value_3".to_string()],
                             ),
                         ]),
                         num_exercises: NUM_EXERCISES,
                     },
                 ],
             },
-        ];
-    }
+        ]
+    });
 
     /// Verifies checking that a test exercise is in a test lesson.
     #[test]

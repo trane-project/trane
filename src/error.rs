@@ -39,6 +39,9 @@ pub enum ExerciseSchedulerError {
 
     #[error("cannot score exercise: {0}")]
     ScoreExercise(#[source] anyhow::Error),
+
+    #[error("cannot get score for unit {0}: {1}")]
+    GetUnitScore(Ustr, #[source] anyhow::Error),
 }
 
 /// An error returned when dealing with the practice stats.

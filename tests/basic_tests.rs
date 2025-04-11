@@ -27,17 +27,16 @@
 //! the student, that bad scores cause progress to stall, and that course and lesson filters are
 //! respected.
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::LazyLock};
 
 use anyhow::{Ok, Result};
 use chrono::{Duration, Utc};
-use lazy_static::lazy_static;
 use tempfile::TempDir;
 use trane::{
     course_library::CourseLibrary,
     data::{
-        filter::{ExerciseFilter, SessionPart, StudySession, StudySessionData, UnitFilter},
         MasteryScore, SchedulerOptions, UnitType, UserPreferences,
+        filter::{ExerciseFilter, SessionPart, StudySession, StudySessionData, UnitFilter},
     },
     review_list::ReviewList,
     scheduler::ExerciseScheduler,
@@ -45,9 +44,9 @@ use trane::{
 };
 use ustr::Ustr;
 
-lazy_static! {
-    /// A simple set of courses to test the basic functionality of Trane.
-    static ref LIBRARY: Vec<TestCourse> = vec![
+/// A simple set of courses to test the basic functionality of Trane.
+static LIBRARY: LazyLock<Vec<TestCourse>> = LazyLock::new(|| {
+    vec![
         TestCourse {
             id: TestId(0, None, None),
             dependencies: vec![],
@@ -162,7 +161,7 @@ lazy_static! {
             dependencies: vec![
                 // Depends on a missing course.
                 TestId(3, None, None),
-                TestId(4, None, None)
+                TestId(4, None, None),
             ],
             superseded: vec![],
             metadata: BTreeMap::default(),
@@ -216,11 +215,11 @@ lazy_static! {
             metadata: BTreeMap::from([
                 (
                     "course_key_1".to_string(),
-                    vec!["course_key_1:value_1".to_string()]
+                    vec!["course_key_1:value_1".to_string()],
                 ),
                 (
                     "course_key_2".to_string(),
-                    vec!["course_key_2:value_1".to_string()]
+                    vec!["course_key_2:value_1".to_string()],
                 ),
             ]),
             lessons: vec![
@@ -260,8 +259,8 @@ lazy_static! {
             // Course with no lessons.
             lessons: vec![],
         },
-    ];
-}
+    ]
+});
 
 /// A test that verifies that we retrieve the expected unit IDs.
 #[test]

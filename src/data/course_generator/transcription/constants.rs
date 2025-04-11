@@ -1,7 +1,8 @@
 //! Contains constants used by the transcription courses.
 
+use std::sync::LazyLock;
+
 use indoc::indoc;
-use lazy_static::lazy_static;
 use ustr::Ustr;
 
 /// The description of the singing lesson.
@@ -55,12 +56,13 @@ pub const ALBUM_METADATA: &str = "transcription_album";
 /// The metadata key indicating the instrument of the transcription lesson.
 pub const INSTRUMENT_METADATA: &str = "instrument";
 
-lazy_static! {
-    /// The instructions for the transcription course.
-    pub static ref COURSE_INSTRUCTIONS: Ustr = Ustr::from(include_str!("course_instructions.md"));
+/// The file where the course instructions are stored.
+pub static COURSE_INSTRUCTIONS: LazyLock<Ustr> =
+    LazyLock::new(|| Ustr::from(include_str!("course_instructions.md")));
 
-    /// The instructions for the singing lessons.
-    pub static ref SINGING_INSTRUCTIONS: Ustr = Ustr::from(indoc! {"
+/// The instructions for the singing course.
+pub static SINGING_INSTRUCTIONS: LazyLock<Ustr> = LazyLock::new(|| {
+    Ustr::from(indoc! {"
         First listen to the musical passage until you can audiate it clearly in your head. Then sing
         over the passage. At this stage it's not required to be accurate as possible. Rather, learn
         to sing the main elements of the passage and experiment with different melodies over it.
@@ -68,10 +70,24 @@ lazy_static! {
 
         There's no need to play on your instrument or write anything down, but you are free to do so
         if you wish.
-    "});
+    "})
+});
 
-    /// The instructions for the advanced singing lessons.
-    pub static ref ADVANCED_SINGING_INSTRUCTIONS: Ustr = Ustr::from(indoc! {"
+/// The instructions for the transcription course.
+pub static TRANSCRIPTION_INSTRUCTIONS: LazyLock<Ustr> = LazyLock::new(|| {
+    Ustr::from(indoc! {"
+        With the basic context implied by the passage now internalized in your ear, try to play over
+        it using your instrument. The goal at this point is not to accurately reproduce the passage,
+        but rather about learning to navigate that context and use it as a basis for improvisation.
+        You can focus on different elements or sections each time you practice.
+
+        There's no need to write anything down, but you are free to do so if you wish.
+    "})
+});
+
+/// The instructions for the advanced singing course.
+pub static ADVANCED_SINGING_INSTRUCTIONS: LazyLock<Ustr> = LazyLock::new(|| {
+    Ustr::from(indoc! {"
         Listen to the musical passage until you can audiate it and sing over it like you did in the
         singing lesson. In that lesson, the passage was used as a basis for improvisation. In this
         lesson, the passage should be sung with more detail and precision, and transposed up or down
@@ -80,20 +96,12 @@ lazy_static! {
 
         There's no need to play on your instrument or write anything down, but you are free to do so
         if you wish.
-    "});
+    "})
+});
 
-    /// The instructions for the transcription lessons.
-    pub static ref TRANSCRIPTION_INSTRUCTIONS: Ustr = Ustr::from(indoc! {"
-        With the basic context implied by the passage now internalized in your ear, try to play over
-        it using your instrument. The goal at this point is not to accurately reproduce the passage,
-        but rather about learning to navigate that context and use it as a basis for improvisation.
-        You can focus on different elements or sections each time you practice.
-
-        There's no need to write anything down, but you are free to do so if you wish.
-    "});
-
-    /// The instructions for the advanced transcription lessons.
-    pub static ref ADVANCED_TRANSCRIPTION_INSTRUCTIONS: Ustr = Ustr::from(indoc! {"
+/// The instructions for the advanced transcription course.
+pub static ADVANCED_TRANSCRIPTION_INSTRUCTIONS: LazyLock<Ustr> = LazyLock::new(|| {
+    Ustr::from(indoc! {"
         At this stage, you can sing and play over the context implied by the passage, and sing it
         with more detail and precision in a variety of keys. It's at this point that you can engage
         in what is traditionally called transcription.
@@ -105,5 +113,5 @@ lazy_static! {
         in the passage take precedence over the context implied by it.
 
         There's no need to write anything down, but you are free to do so if you wish.
-    "});
-}
+    "})
+});

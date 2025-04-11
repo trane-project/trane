@@ -2,13 +2,13 @@
 //!
 //! Currently, only the score and the timestamp are stored. From the results and timestamps of
 //! previous trials, a score for the exercise (in the range 0.0 to 5.0) is calculated. See the
-//! documentation in [scorer](crate::scorer) for more details.
+//! documentation in [exercise_scorer](crate::exercise_scorer) for more details.
 
 use anyhow::{Context, Ok, Result};
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::params;
-use rusqlite_migration::{Migrations, M};
+use rusqlite_migration::{M, Migrations};
 use ustr::Ustr;
 
 use crate::{

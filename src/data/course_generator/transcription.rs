@@ -7,7 +7,7 @@
 
 pub mod constants;
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use indoc::formatdoc;
 use serde::{Deserialize, Serialize};
 use std::{

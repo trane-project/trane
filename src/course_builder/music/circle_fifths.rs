@@ -11,7 +11,7 @@ use anyhow::Result;
 
 use crate::{
     course_builder::{AssetBuilder, CourseBuilder, LessonBuilder},
-    data::{music::notes::*, CourseManifest, LessonManifestBuilder},
+    data::{CourseManifest, LessonManifestBuilder, music::notes::*},
 };
 
 /// Generates a course builder that contains a lesson per key and which follows the circle of

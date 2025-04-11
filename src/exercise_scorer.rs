@@ -1,6 +1,6 @@
 //! Contains the logic to score an exercise based on the results and timestamps of previous trials.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::{TimeZone, Utc};
 
 use crate::data::ExerciseTrial;

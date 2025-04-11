@@ -155,7 +155,7 @@ impl RewardPropagator {
 mod test {
     use crate::{
         data::MasteryScore,
-        scheduler::reward_propagator::{RewardPropagator, MIN_ABS_REWARD, MIN_WEIGHT},
+        scheduler::reward_propagator::{MIN_ABS_REWARD, MIN_WEIGHT, RewardPropagator},
     };
 
     /// Verifies the initial reward for each score.

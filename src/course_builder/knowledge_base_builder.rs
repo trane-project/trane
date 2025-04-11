@@ -4,11 +4,11 @@
 //! hand. This module contains utilities to make it easier to generate these files, specially for
 //! testing purposes.
 
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashSet},
-    fs::{self, create_dir_all, File},
+    fs::{self, File, create_dir_all},
     io::Write,
     path::{Path, PathBuf},
 };
@@ -17,7 +17,7 @@ use ustr::Ustr;
 use crate::{
     course_builder::AssetBuilder,
     course_library::COURSE_MANIFEST_FILENAME,
-    data::{course_generator::knowledge_base::*, CourseManifest},
+    data::{CourseManifest, course_generator::knowledge_base::*},
 };
 
 /// A builder to generate a knowledge base exercise and associated assets.
@@ -415,7 +415,7 @@ mod test {
 
     use crate::{
         course_builder::knowledge_base_builder::*,
-        data::{course_generator::knowledge_base::KnowledgeBaseFile, ExerciseType},
+        data::{ExerciseType, course_generator::knowledge_base::KnowledgeBaseFile},
     };
 
     /// Creates a test lesson builder.

@@ -1,48 +1,47 @@
 //! End-to-end tests to verify that the transcription course generator works as expected.
 
 use anyhow::Result;
-use lazy_static::lazy_static;
 use std::collections::HashMap;
-
+use std::sync::LazyLock;
 use tempfile::TempDir;
 use trane::{
     course_builder::{AssetBuilder, CourseBuilder},
     course_library::CourseLibrary,
     data::{
+        CourseGenerator, CourseManifest, LessonManifestBuilder, MasteryScore, UserPreferences,
         course_generator::{
+            Instrument,
             transcription::{
                 TranscriptionAsset, TranscriptionConfig, TranscriptionPassages,
                 TranscriptionPreferences,
             },
-            Instrument,
         },
-        CourseGenerator, CourseManifest, LessonManifestBuilder, MasteryScore, UserPreferences,
     },
-    testutil::{assert_simulation_scores, init_simulation, TraneSimulation},
+    testutil::{TraneSimulation, assert_simulation_scores, init_simulation},
 };
 use ustr::Ustr;
 
-lazy_static! {
-    static ref COURSE0_ID: Ustr = Ustr::from("trane::test::transcription_course_0");
-    static ref COURSE1_ID: Ustr = Ustr::from("trane::test::transcription_course_1");
-    static ref USER_PREFS: UserPreferences = UserPreferences {
-        transcription: Some(TranscriptionPreferences {
-            instruments: vec![
-                Instrument {
-                    name: "Guitar".to_string(),
-                    id: "guitar".to_string(),
-                },
-                Instrument {
-                    name: "Piano".to_string(),
-                    id: "piano".to_string(),
-                },
-            ],
-            ..Default::default()
-        }),
-        ignored_paths: vec![],
-        scheduler: None,
-    };
-}
+static COURSE0_ID: LazyLock<Ustr> =
+    LazyLock::new(|| Ustr::from("trane::test::transcription_course_0"));
+static COURSE1_ID: LazyLock<Ustr> =
+    LazyLock::new(|| Ustr::from("trane::test::transcription_course_1"));
+static USER_PREFS: LazyLock<UserPreferences> = LazyLock::new(|| UserPreferences {
+    transcription: Some(TranscriptionPreferences {
+        instruments: vec![
+            Instrument {
+                name: "Guitar".to_string(),
+                id: "guitar".to_string(),
+            },
+            Instrument {
+                name: "Piano".to_string(),
+                id: "piano".to_string(),
+            },
+        ],
+        ..Default::default()
+    }),
+    ignored_paths: vec![],
+    scheduler: None,
+});
 
 /// Returns a course builder with a transcription generator.
 fn transcription_builder(

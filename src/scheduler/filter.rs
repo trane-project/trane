@@ -306,8 +306,8 @@ mod test {
     use ustr::Ustr;
 
     use crate::scheduler::{
-        filter::{CandidateFilter, MIN_DYNAMIC_BATCH_SIZE},
         Candidate,
+        filter::{CandidateFilter, MIN_DYNAMIC_BATCH_SIZE},
     };
 
     /// Verifies that the batch size is adjusted based on the number of candidates.

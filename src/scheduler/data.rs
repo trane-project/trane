@@ -1,6 +1,6 @@
 //! Defines the data used by the scheduler and several convenience functions.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::{DateTime, Utc};
 use parking_lot::RwLock;
 use std::sync::Arc;
@@ -10,8 +10,8 @@ use crate::{
     blacklist::Blacklist,
     course_library::CourseLibrary,
     data::{
-        filter::{KeyValueFilter, SavedFilter, SessionPart, StudySessionData, UnitFilter},
         CourseManifest, ExerciseManifest, LessonManifest, SchedulerOptions, UnitType,
+        filter::{KeyValueFilter, SavedFilter, SessionPart, StudySessionData, UnitFilter},
     },
     filter_manager::FilterManager,
     graph::UnitGraph,
@@ -387,21 +387,20 @@ impl SchedulerData {
 mod test {
     use anyhow::Result;
     use chrono::Duration;
-    use lazy_static::lazy_static;
     use parking_lot::RwLock;
     use std::{
         collections::{BTreeMap, HashMap},
-        sync::Arc,
+        sync::{Arc, LazyLock},
     };
     use ustr::Ustr;
 
     use crate::{
         data::{
+            UnitType,
             filter::{
                 FilterType, KeyValueFilter, SavedFilter, SessionPart, StudySession,
                 StudySessionData, UnitFilter,
             },
-            UnitType,
         },
         filter_manager::LocalFilterManager,
         testutil::*,
@@ -409,60 +408,58 @@ mod test {
 
     static NUM_EXERCISES: usize = 2;
 
-    lazy_static! {
-        /// A simple set of courses to test the basic functionality of Trane.
-        static ref TEST_LIBRARY: Vec<TestCourse> = vec![
-            TestCourse {
-                id: TestId(0, None, None),
-                dependencies: vec![],
-                superseded: vec![],
-                metadata: BTreeMap::from([
-                    (
-                        "course_key_1".to_string(),
-                        vec!["course_key_1:value_1".to_string()]
-                    ),
-                    (
-                        "course_key_2".to_string(),
-                        vec!["course_key_2:value_1".to_string()]
-                    ),
-                ]),
-                lessons: vec![
-                    TestLesson {
-                        id: TestId(0, Some(0), None),
-                        dependencies: vec![],
-                        superseded: vec![],
-                        metadata: BTreeMap::from([
-                            (
-                                "lesson_key_1".to_string(),
-                                vec!["lesson_key_1:value_1".to_string()]
-                            ),
-                            (
-                                "lesson_key_2".to_string(),
-                                vec!["lesson_key_2:value_1".to_string()]
-                            ),
-                        ]),
-                        num_exercises: NUM_EXERCISES,
-                    },
-                    TestLesson {
-                        id: TestId(0, Some(1), None),
-                        dependencies: vec![TestId(0, Some(0), None)],
-                        superseded: vec![],
-                        metadata: BTreeMap::from([
-                            (
-                                "lesson_key_1".to_string(),
-                                vec!["lesson_key_1:value_2".to_string()]
-                            ),
-                            (
-                                "lesson_key_2".to_string(),
-                                vec!["lesson_key_2:value_2".to_string()]
-                            ),
-                        ]),
-                        num_exercises: NUM_EXERCISES,
-                    },
-                ],
-            },
-        ];
-    }
+    /// A simple set of courses to test the basic functionality of Trane.
+    static TEST_LIBRARY: LazyLock<Vec<TestCourse>> = LazyLock::new(|| {
+        vec![TestCourse {
+            id: TestId(0, None, None),
+            dependencies: vec![],
+            superseded: vec![],
+            metadata: BTreeMap::from([
+                (
+                    "course_key_1".to_string(),
+                    vec!["course_key_1:value_1".to_string()],
+                ),
+                (
+                    "course_key_2".to_string(),
+                    vec!["course_key_2:value_1".to_string()],
+                ),
+            ]),
+            lessons: vec![
+                TestLesson {
+                    id: TestId(0, Some(0), None),
+                    dependencies: vec![],
+                    superseded: vec![],
+                    metadata: BTreeMap::from([
+                        (
+                            "lesson_key_1".to_string(),
+                            vec!["lesson_key_1:value_1".to_string()],
+                        ),
+                        (
+                            "lesson_key_2".to_string(),
+                            vec!["lesson_key_2:value_1".to_string()],
+                        ),
+                    ]),
+                    num_exercises: NUM_EXERCISES,
+                },
+                TestLesson {
+                    id: TestId(0, Some(1), None),
+                    dependencies: vec![TestId(0, Some(0), None)],
+                    superseded: vec![],
+                    metadata: BTreeMap::from([
+                        (
+                            "lesson_key_1".to_string(),
+                            vec!["lesson_key_1:value_2".to_string()],
+                        ),
+                        (
+                            "lesson_key_2".to_string(),
+                            vec!["lesson_key_2:value_2".to_string()],
+                        ),
+                    ]),
+                    num_exercises: NUM_EXERCISES,
+                },
+            ],
+        }]
+    });
 
     /// Verifies that the scheduler data correctly knows which units exist and their types.
     #[test]
@@ -500,9 +497,11 @@ mod test {
             value: "value".into(),
             filter_type: FilterType::Include,
         };
-        assert!(scheduler_data
-            .unit_passes_filter(Ustr::from("0::0::0"), Some(&metadata_filter))
-            .is_err());
+        assert!(
+            scheduler_data
+                .unit_passes_filter(Ustr::from("0::0::0"), Some(&metadata_filter))
+                .is_err()
+        );
         Ok(())
     }
 
@@ -581,22 +580,24 @@ mod test {
         );
 
         // Verify that trying to retrieve an unknown saved filter returns an error.
-        assert!(scheduler_data
-            .get_session_filter(
-                &StudySessionData {
-                    start_time,
-                    definition: StudySession {
-                        id: "session".to_string(),
-                        description: "Session".to_string(),
-                        parts: vec![SessionPart::SavedFilter {
-                            filter_id: "unknown_filter".into(),
-                            duration: 1,
-                        }],
+        assert!(
+            scheduler_data
+                .get_session_filter(
+                    &StudySessionData {
+                        start_time,
+                        definition: StudySession {
+                            id: "session".to_string(),
+                            description: "Session".to_string(),
+                            parts: vec![SessionPart::SavedFilter {
+                                filter_id: "unknown_filter".into(),
+                                duration: 1,
+                            }],
+                        },
                     },
-                },
-                start_time
-            )
-            .is_err());
+                    start_time
+                )
+                .is_err()
+        );
 
         Ok(())
     }
@@ -610,9 +611,11 @@ mod test {
         let scheduler_data = library.get_scheduler_data();
 
         // Verify an empty list is returned when an unknown unit is passed.
-        assert!(scheduler_data
-            .all_valid_exercises(Ustr::from("unknown"))
-            .is_empty());
+        assert!(
+            scheduler_data
+                .all_valid_exercises(Ustr::from("unknown"))
+                .is_empty()
+        );
 
         // Get the valid exercises when the ID is an exercise.
         assert_eq!(
@@ -625,9 +628,11 @@ mod test {
             .blacklist
             .write()
             .add_to_blacklist(Ustr::from("0::0::0"))?;
-        assert!(scheduler_data
-            .all_valid_exercises(Ustr::from("0::0::0"))
-            .is_empty());
+        assert!(
+            scheduler_data
+                .all_valid_exercises(Ustr::from("0::0::0"))
+                .is_empty()
+        );
 
         // Get the valid exercises when the ID is a lesson.
         let mut valid_exercises = scheduler_data.all_valid_exercises(Ustr::from("0::1"));
@@ -642,9 +647,11 @@ mod test {
             .blacklist
             .write()
             .add_to_blacklist(Ustr::from("0::1"))?;
-        assert!(scheduler_data
-            .all_valid_exercises(Ustr::from("0::1"))
-            .is_empty());
+        assert!(
+            scheduler_data
+                .all_valid_exercises(Ustr::from("0::1"))
+                .is_empty()
+        );
 
         // Get the valid exercises when the ID is a course.
         assert_eq!(
@@ -657,9 +664,11 @@ mod test {
             .blacklist
             .write()
             .add_to_blacklist(Ustr::from("0"))?;
-        assert!(scheduler_data
-            .all_valid_exercises(Ustr::from("0"))
-            .is_empty());
+        assert!(
+            scheduler_data
+                .all_valid_exercises(Ustr::from("0"))
+                .is_empty()
+        );
 
         Ok(())
     }
