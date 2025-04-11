@@ -31,8 +31,8 @@
 //!   batch of exercises.
 //! - [`blacklist`]: Defines the list of units the student wishes to hide, either because their
 //!   material has already been mastered or they do not wish to learn it.
-//! - [`scorer`]: Calculates a score for an exercise based on the results and timestamps of previous
-//!   trials.
+//! - [`exercise_scorer`]: Calculates a score for an exercise based on the results and timestamps of
+//!   previous trials.
 //!
 //>@lp-example-3
 

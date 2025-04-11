@@ -56,6 +56,7 @@ pub const ALBUM_METADATA: &str = "transcription_album";
 /// The metadata key indicating the instrument of the transcription lesson.
 pub const INSTRUMENT_METADATA: &str = "instrument";
 
+/// The file where the course instructions are stored.
 pub static COURSE_INSTRUCTIONS: LazyLock<Ustr> =
     LazyLock::new(|| Ustr::from(include_str!("course_instructions.md")));
 
