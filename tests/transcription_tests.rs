@@ -8,16 +8,16 @@ use trane::{
     course_builder::{AssetBuilder, CourseBuilder},
     course_library::CourseLibrary,
     data::{
+        CourseGenerator, CourseManifest, LessonManifestBuilder, MasteryScore, UserPreferences,
         course_generator::{
+            Instrument,
             transcription::{
                 TranscriptionAsset, TranscriptionConfig, TranscriptionPassages,
                 TranscriptionPreferences,
             },
-            Instrument,
         },
-        CourseGenerator, CourseManifest, LessonManifestBuilder, MasteryScore, UserPreferences,
     },
-    testutil::{assert_simulation_scores, init_simulation, TraneSimulation},
+    testutil::{TraneSimulation, assert_simulation_scores, init_simulation},
 };
 use ustr::Ustr;
 

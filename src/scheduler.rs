@@ -33,8 +33,8 @@ use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
     data::{
-        filter::{ExerciseFilter, KeyValueFilter, UnitFilter},
         ExerciseManifest, MasteryScore, SchedulerOptions, UnitType,
+        filter::{ExerciseFilter, KeyValueFilter, UnitFilter},
     },
     error::ExerciseSchedulerError,
     scheduler::{data::SchedulerData, filter::CandidateFilter, unit_scorer::UnitScorer},

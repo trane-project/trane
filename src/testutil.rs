@@ -13,7 +13,7 @@ use std::{
     path::Path,
 };
 
-use anyhow::{bail, ensure, Result};
+use anyhow::{Result, bail, ensure};
 use chrono::Utc;
 use rand::Rng;
 use rayon::prelude::*;
@@ -21,15 +21,15 @@ use rayon::prelude::*;
 use ustr::{Ustr, UstrMap};
 
 use crate::{
+    TRANE_CONFIG_DIR_PATH, Trane, USER_PREFERENCES_PATH,
     blacklist::Blacklist,
     course_builder::{AssetBuilder, CourseBuilder, ExerciseBuilder, LessonBuilder},
     data::{
-        filter::ExerciseFilter, BasicAsset, CourseManifest, ExerciseAsset, ExerciseManifestBuilder,
-        ExerciseType, LessonManifestBuilder, MasteryScore, UserPreferences,
+        BasicAsset, CourseManifest, ExerciseAsset, ExerciseManifestBuilder, ExerciseType,
+        LessonManifestBuilder, MasteryScore, UserPreferences, filter::ExerciseFilter,
     },
     practice_stats::PracticeStats,
     scheduler::ExerciseScheduler,
-    Trane, TRANE_CONFIG_DIR_PATH, USER_PREFERENCES_PATH,
 };
 
 /// Represents the ID of a test unit. First element is the course ID, followed by optional lesson
@@ -541,18 +541,19 @@ pub fn assert_simulation_scores(
     let empty_scores = vec![];
     let simulation_scores = simulation_scores.get(&exercise_id).unwrap_or(&empty_scores);
     let most_recent_scores = simulation_scores.iter().rev().take(trane_scores.len());
-    let _: Vec<()> =
-        most_recent_scores
-            .zip(trane_scores.iter())
-            .map(|(simulation_score, trial)| {
-                let float_score = simulation_score.float_score();
-                assert!(
+    let _: Vec<()> = most_recent_scores
+        .zip(trane_scores.iter())
+        .map(|(simulation_score, trial)| {
+            let float_score = simulation_score.float_score();
+            assert!(
                 (trial.score - float_score).abs() < f32::EPSILON,
                 "Score from Trane ({}) does not match score from simulation ({}) for exercise {}",
-                trial.score, float_score, exercise_id,
+                trial.score,
+                float_score,
+                exercise_id,
             );
-            })
-            .collect();
+        })
+        .collect();
     Ok(())
 }
 

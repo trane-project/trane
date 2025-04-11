@@ -5,7 +5,7 @@
 //! performance of exercise scheduling.
 //>@lp-example-2
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use std::cell::RefCell;
 use ustr::{Ustr, UstrMap, UstrSet};
 
@@ -439,7 +439,7 @@ mod test {
     use crate::{
         blacklist::Blacklist,
         data::{MasteryScore, SchedulerOptions},
-        scheduler::{unit_scorer::CachedScore, ExerciseScheduler, UnitScorer},
+        scheduler::{ExerciseScheduler, UnitScorer, unit_scorer::CachedScore},
         testutil::*,
     };
 

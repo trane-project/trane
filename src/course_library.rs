@@ -4,7 +4,7 @@
 //! courses that the student wishes to practice together. Courses, lessons, and exercises are
 //! defined by their manifest files (see [data](crate::data)).
 
-use anyhow::{anyhow, ensure, Context, Result};
+use anyhow::{Context, Result, anyhow, ensure};
 use parking_lot::RwLock;
 use serde::de::DeserializeOwned;
 use std::{
@@ -15,11 +15,11 @@ use std::{
     sync::Arc,
 };
 use tantivy::{
+    Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocument,
     collector::TopDocs,
     doc,
     query::QueryParser,
-    schema::{Field, Schema, Value, STORED, TEXT},
-    Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocument,
+    schema::{Field, STORED, Schema, TEXT, Value},
 };
 use ustr::{Ustr, UstrMap, UstrSet};
 use walkdir::WalkDir;

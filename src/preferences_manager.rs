@@ -3,7 +3,7 @@
 use anyhow::{Context, Result};
 use std::{fs, path::PathBuf};
 
-use crate::{data::UserPreferences, PreferencesManagerError};
+use crate::{PreferencesManagerError, data::UserPreferences};
 
 /// A trait for managing user preferences.
 pub trait PreferencesManager {
@@ -64,9 +64,9 @@ mod tests {
     use tempfile::tempdir;
 
     use crate::{
+        USER_PREFERENCES_PATH,
         data::UserPreferences,
         preferences_manager::{LocalPreferencesManager, PreferencesManager},
-        USER_PREFERENCES_PATH,
     };
 
     /// Verifies setting and getting user preferences using the local filesystem.

@@ -7,10 +7,10 @@ use trane::{
     course_builder::{AssetBuilder, CourseBuilder},
     course_library::CourseLibrary,
     data::{
-        course_generator::music_piece::{MusicAsset, MusicPassage, MusicPieceConfig},
         CourseGenerator, CourseManifest, LessonManifestBuilder, MasteryScore,
+        course_generator::music_piece::{MusicAsset, MusicPassage, MusicPieceConfig},
     },
-    testutil::{assert_simulation_scores, init_simulation, TraneSimulation},
+    testutil::{TraneSimulation, assert_simulation_scores, init_simulation},
 };
 use ustr::Ustr;
 

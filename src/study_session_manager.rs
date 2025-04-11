@@ -4,7 +4,7 @@
 //! allow students to traverse specific parts of the graph for the specified amount of time. This
 //! module allows them to re-use study sessions they have previously saved.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use std::{collections::HashMap, fs::File, io::BufReader};
 
 use crate::data::filter::StudySession;

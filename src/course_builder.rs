@@ -11,10 +11,10 @@ pub mod knowledge_base_builder;
 #[cfg_attr(coverage, coverage(off))]
 pub mod music;
 
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 use std::{
-    fs::{create_dir_all, File},
+    fs::{File, create_dir_all},
     io::Write,
     path::{Path, PathBuf},
 };

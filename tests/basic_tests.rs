@@ -35,8 +35,8 @@ use tempfile::TempDir;
 use trane::{
     course_library::CourseLibrary,
     data::{
-        filter::{ExerciseFilter, SessionPart, StudySession, StudySessionData, UnitFilter},
         MasteryScore, SchedulerOptions, UnitType, UserPreferences,
+        filter::{ExerciseFilter, SessionPart, StudySession, StudySessionData, UnitFilter},
     },
     review_list::ReviewList,
     scheduler::ExerciseScheduler,

@@ -12,7 +12,7 @@ use parking_lot::RwLock;
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::params;
-use rusqlite_migration::{Migrations, M};
+use rusqlite_migration::{M, Migrations};
 use ustr::{Ustr, UstrMap};
 
 use crate::{db_utils, error::BlacklistError};

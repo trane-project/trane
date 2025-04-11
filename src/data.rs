@@ -7,7 +7,7 @@ pub mod filter;
 #[cfg_attr(coverage, coverage(off))]
 pub mod music;
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};

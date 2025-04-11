@@ -34,7 +34,7 @@
 //! [`practice_stats`](crate::practice_stats)) or preferences (see [`blacklist`](crate::blacklist),
 //! [`filter_manager`](crate::filter_manager) and [`review_list`](crate::review_list)).
 
-use anyhow::{anyhow, bail, ensure, Result};
+use anyhow::{Result, anyhow, bail, ensure};
 use std::fmt::Write;
 use ustr::{Ustr, UstrMap, UstrSet};
 

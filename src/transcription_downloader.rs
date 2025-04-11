@@ -9,18 +9,18 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use parking_lot::RwLock;
 use sha1::{Digest, Sha1};
 use ustr::Ustr;
 
 use crate::{
+    TranscriptionDownloaderError,
     course_library::{CourseLibrary, LocalCourseLibrary},
     data::{
-        course_generator::transcription::{TranscriptionLink, TranscriptionPreferences},
         ExerciseAsset, ExerciseManifest,
+        course_generator::transcription::{TranscriptionLink, TranscriptionPreferences},
     },
-    TranscriptionDownloaderError,
 };
 
 /// A trait for getting the transcription link for an exercise.
@@ -240,8 +240,8 @@ mod test {
     use crate::{
         course_library::LocalCourseLibrary,
         data::{
-            course_generator::transcription::{TranscriptionLink, TranscriptionPreferences},
             BasicAsset, ExerciseAsset, ExerciseManifest, ExerciseType,
+            course_generator::transcription::{TranscriptionLink, TranscriptionPreferences},
         },
         transcription_downloader::{
             LocalTranscriptionDownloader, TranscriptionDownloader, TranscriptionLinkStore,
@@ -337,9 +337,11 @@ mod test {
             link_store: Arc::new(parking_lot::RwLock::new(link_store)),
         };
         // assert!(!downloader.is_downloaded(Ustr::from("exercise")));
-        assert!(downloader
-            .download_transcription_asset(Ustr::from("exercise"), false)
-            .is_err());
+        assert!(
+            downloader
+                .download_transcription_asset(Ustr::from("exercise"), false)
+                .is_err()
+        );
     }
 
     /// Verifies that downloading an asset fails if the download path does not exist.
@@ -357,9 +359,11 @@ mod test {
             link_store: Arc::new(parking_lot::RwLock::new(link_store)),
         };
         assert!(!downloader.is_transcription_asset_downloaded(Ustr::from("exercise")));
-        assert!(downloader
-            .download_transcription_asset(Ustr::from("exercise"), false)
-            .is_err());
+        assert!(
+            downloader
+                .download_transcription_asset(Ustr::from("exercise"), false)
+                .is_err()
+        );
     }
 
     /// Verifies downloading an exercise with no link.
@@ -436,9 +440,11 @@ mod test {
             link_store: Arc::new(parking_lot::RwLock::new(link_store)),
         };
         assert!(!downloader.is_transcription_asset_downloaded(Ustr::from("exercise")));
-        assert!(downloader
-            .download_transcription_asset(Ustr::from("exercise"), false)
-            .is_err());
+        assert!(
+            downloader
+                .download_transcription_asset(Ustr::from("exercise"), false)
+                .is_err()
+        );
         assert!(!downloader.is_transcription_asset_downloaded(Ustr::from("exercise")));
     }
 

@@ -72,14 +72,14 @@ pub mod study_session_manager;
 pub mod testutil;
 pub mod transcription_downloader;
 
-use anyhow::{bail, ensure, Context, Result};
+use anyhow::{Context, Result, bail, ensure};
 use error::*;
 use parking_lot::RwLock;
 use practice_rewards::{LocalPracticeRewards, PracticeRewards};
 use preferences_manager::{LocalPreferencesManager, PreferencesManager};
 use review_list::{LocalReviewList, ReviewList};
 use std::{
-    fs::{create_dir, File},
+    fs::{File, create_dir},
     io::Write,
     path::Path,
     sync::Arc,
@@ -92,16 +92,16 @@ use crate::{
     blacklist::{Blacklist, LocalBlacklist},
     course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary},
     data::{
-        filter::{ExerciseFilter, SavedFilter},
         CourseManifest, ExerciseManifest, ExerciseTrial, LessonManifest, MasteryScore,
         RepositoryMetadata, SchedulerOptions, SchedulerPreferences, UnitType, UserPreferences,
+        filter::{ExerciseFilter, SavedFilter},
     },
     filter_manager::{FilterManager, LocalFilterManager},
     graph::UnitGraph,
     mantra_miner::TraneMantraMiner,
     practice_stats::{LocalPracticeStats, PracticeStats},
     repository_manager::{LocalRepositoryManager, RepositoryManager},
-    scheduler::{data::SchedulerData, DepthFirstScheduler, ExerciseScheduler},
+    scheduler::{DepthFirstScheduler, ExerciseScheduler, data::SchedulerData},
 };
 
 /// The path to the folder inside each course library containing the user data.
@@ -731,8 +731,8 @@ mod test {
     use std::{fs::*, os::unix::prelude::PermissionsExt, thread, time::Duration};
 
     use crate::{
+        FILTERS_DIR, STUDY_SESSIONS_DIR, TRANE_CONFIG_DIR_PATH, Trane, USER_PREFERENCES_PATH,
         data::{SchedulerOptions, SchedulerPreferences, UserPreferences},
-        Trane, FILTERS_DIR, STUDY_SESSIONS_DIR, TRANE_CONFIG_DIR_PATH, USER_PREFERENCES_PATH,
     };
 
     /// Verifies retrieving the root of a library.

@@ -1,11 +1,11 @@
 //! Contains the logic to generate a Trane course based on a knowledge base of markdown files
 //! representing the front and back of flashcard exercises.
 
-use anyhow::{anyhow, Context, Error, Result};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use anyhow::{Context, Error, Result, anyhow};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
-    fs::{read_dir, File},
+    fs::{File, read_dir},
     io::BufReader,
     path::Path,
 };

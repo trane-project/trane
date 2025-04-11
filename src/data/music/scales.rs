@@ -1,6 +1,6 @@
 //! Defines musical scales for use in generating music courses.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use std::fmt::{Display, Formatter};
 
 use crate::data::music::intervals::*;

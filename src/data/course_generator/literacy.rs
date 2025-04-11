@@ -5,11 +5,11 @@
 //! how many they get right. Optionally, a dictation lesson can be generated where the student is
 //! asked to write the examples and exceptions based on the tutor's dictation.
 
-use anyhow::{anyhow, Context, Error, Result};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use anyhow::{Context, Error, Result, anyhow};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
     collections::BTreeMap,
-    fs::{read_dir, File},
+    fs::{File, read_dir},
     io::{BufReader, Read},
     path::Path,
 };
@@ -545,9 +545,9 @@ mod test {
     use ustr::{Ustr, UstrSet};
 
     use crate::data::{
-        course_generator::literacy::{LiteracyConfig, LiteracyLesson, LiteracyLessonType},
         BasicAsset, CourseGenerator, CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseType,
         GenerateManifests, GeneratedCourse, LessonManifest, UserPreferences,
+        course_generator::literacy::{LiteracyConfig, LiteracyLesson, LiteracyLessonType},
     };
 
     /// Verifies that lesson IDs are generated correctly.

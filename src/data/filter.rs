@@ -413,8 +413,8 @@ mod test {
     use ustr::Ustr;
 
     use crate::data::{
-        filter::{FilterOp, FilterType, KeyValueFilter, SessionPart, StudySessionData, UnitFilter},
         GetMetadata,
+        filter::{FilterOp, FilterType, KeyValueFilter, SessionPart, StudySessionData, UnitFilter},
     };
 
     use super::StudySession;
