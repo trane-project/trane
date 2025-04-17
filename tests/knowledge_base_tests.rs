@@ -25,14 +25,14 @@ use ustr::Ustr;
 /// Generates a random number of dependencies for the lesson with the given index. All dependencies
 /// will have a lower index to avoid cycles.
 fn generate_lesson_dependencies(lesson_index: usize, rng: &mut impl Rng) -> Vec<Ustr> {
-    let num_dependencies = rng.gen_range(0..=lesson_index);
+    let num_dependencies = rng.random_range(0..=lesson_index);
     if num_dependencies == 0 {
         return vec![];
     }
 
     let mut dependencies = Vec::with_capacity(num_dependencies);
     for _ in 0..num_dependencies.min(lesson_index) {
-        let dependency_id = Ustr::from(&format!("lesson_{}", rng.gen_range(0..lesson_index)));
+        let dependency_id = Ustr::from(&format!("lesson_{}", rng.random_range(0..lesson_index)));
         if dependencies.contains(&dependency_id) {
             continue;
         }
@@ -96,10 +96,7 @@ fn knowledge_base_builder(
                 lesson: KnowledgeBaseLesson {
                     short_id: lesson_id,
                     course_id: course_manifest.id,
-                    dependencies: generate_lesson_dependencies(
-                        lesson_index,
-                        &mut rand::thread_rng(),
-                    ),
+                    dependencies: generate_lesson_dependencies(lesson_index, &mut rand::rng()),
                     superseded: vec![],
                     name: None,
                     description: None,

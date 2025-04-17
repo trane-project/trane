@@ -39,7 +39,7 @@ description: string | null,
  * be attached to a lesson named "C Major Scale". The purpose is the same as the metadata
  * stored in the course manifest but allows finer control over which lessons are selected.
  */
-metadata: { [key: string]: Array<string> } | null, 
+metadata: { [key in string]?: Array<string> } | null, 
 /**
  * An optional asset, which presents the material covered in the lesson.
  */

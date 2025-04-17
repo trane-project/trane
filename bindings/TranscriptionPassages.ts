@@ -17,4 +17,4 @@ asset: TranscriptionAsset,
  * If the map is empty, one passage is assumed to cover the entire asset and the ID for the
  * exercises will not include a passage ID.
  */
-intervals: { [key: number]: [string, string] }, };
+intervals: { [key in number]?: [string, string] }, };

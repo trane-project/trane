@@ -11,7 +11,7 @@
 //!    score, and the frequency with which the exercise has been scheduled in the past.
 
 use anyhow::Result;
-use rand::{prelude::SliceRandom, thread_rng};
+use rand::{prelude::SliceRandom, rng, seq::IndexedRandom};
 use ustr::{UstrMap, UstrSet};
 
 use crate::{
@@ -125,7 +125,7 @@ impl CandidateFilter {
         // Otherwise, assign a weight to each candidate and perform a weighted random selection.
         // Safe to unwrap the result, as this function panics if `num_to_select` is greater than the
         // size of `candidates`, but that is checked above.
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let selected: Vec<Candidate> = candidates
             .choose_multiple_weighted(&mut rng, num_to_select, |c| {
                 // A portion of the score will depend on the score of the candidate. Lower scores
@@ -204,7 +204,7 @@ impl CandidateFilter {
             .collect::<Result<Vec<_>>>()?;
 
         // Shuffle the list one more time to add more randomness to the final batch.
-        exercises.shuffle(&mut thread_rng());
+        exercises.shuffle(&mut rng());
         Ok(exercises)
     }
 

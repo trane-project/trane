@@ -19,4 +19,4 @@ end: string,
  * lost. This value is a map instead of a list because rearranging the order of the
  * passages in a list would also change the IDs of the generated lessons.
  */
-sub_passages: { [key: number]: MusicPassage }, };
+sub_passages: { [key in number]?: MusicPassage }, };

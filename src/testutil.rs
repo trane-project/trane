@@ -331,7 +331,7 @@ impl RandomCourseLibrary {
     /// lower course ID to ensure the graph is acyclic.
     fn generate_course_dependencies(&self, course_id: &TestId, rng: &mut impl Rng) -> Vec<TestId> {
         let num_dependencies = rng
-            .gen_range(self.course_dependencies_range.0..=self.course_dependencies_range.1)
+            .random_range(self.course_dependencies_range.0..=self.course_dependencies_range.1)
             as usize;
         if num_dependencies == 0 {
             return vec![];
@@ -339,7 +339,7 @@ impl RandomCourseLibrary {
 
         let mut dependencies = Vec::with_capacity(num_dependencies);
         for _ in 0..num_dependencies.min(course_id.0) {
-            let dependency_id = TestId(rng.gen_range(0..course_id.0), None, None);
+            let dependency_id = TestId(rng.random_range(0..course_id.0), None, None);
             if dependencies.contains(&dependency_id) {
                 continue;
             }
@@ -352,13 +352,13 @@ impl RandomCourseLibrary {
     /// the same course with a lower course ID to ensure the graph is acyclic.
     fn generate_lesson_dependencies(&self, lesson_id: &TestId, rng: &mut impl Rng) -> Vec<TestId> {
         let num_dependencies = rng
-            .gen_range(self.lesson_dependencies_range.0..=self.lesson_dependencies_range.1)
+            .random_range(self.lesson_dependencies_range.0..=self.lesson_dependencies_range.1)
             as usize;
         let mut dependencies = Vec::with_capacity(num_dependencies);
         for _ in 0..num_dependencies.min(lesson_id.1.unwrap_or(0)) {
             let dependency_id = TestId(
                 lesson_id.0,
-                Some(rng.gen_range(0..lesson_id.1.unwrap_or(0))),
+                Some(rng.random_range(0..lesson_id.1.unwrap_or(0))),
                 None,
             );
             if dependencies.contains(&dependency_id) {
@@ -373,14 +373,14 @@ impl RandomCourseLibrary {
     #[must_use]
     pub fn generate_library(&self) -> Vec<TestCourse> {
         let mut courses = vec![];
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         for course_index in 0..self.num_courses {
             let mut lessons = vec![];
             let num_lessons = rng
-                .gen_range(self.lessons_per_course_range.0..=self.lessons_per_course_range.1)
+                .random_range(self.lessons_per_course_range.0..=self.lessons_per_course_range.1)
                 as usize;
             for lesson_index in 0..num_lessons {
-                let num_exercises = rng.gen_range(
+                let num_exercises = rng.random_range(
                     self.exercises_per_lesson_range.0..=self.exercises_per_lesson_range.1,
                 );
 
