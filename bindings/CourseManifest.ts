@@ -43,7 +43,7 @@ authors: Array<string> | null,
  * a study session which does not belong to a single lesson or course. For example, a student
  * might want to only focus on guitar scales or ear training.
  */
-metadata: { [key: string]: Array<string> } | null, 
+metadata: { [key in string]?: Array<string> } | null, 
 /**
  * An optional asset, which presents the material covered in the course.
  */

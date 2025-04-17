@@ -27,7 +27,7 @@ mod unit_scorer;
 
 use anyhow::Result;
 use chrono::Utc;
-use rand::{seq::SliceRandom, thread_rng};
+use rand::{rng, seq::SliceRandom};
 use reward_propagator::RewardPropagator;
 use ustr::{Ustr, UstrMap, UstrSet};
 
@@ -168,7 +168,7 @@ impl DepthFirstScheduler {
     /// Shuffles the units and pushes them to the given stack. Used with the goal of ensuring that
     /// the units are traversed in a different order each time a new batch is requested.
     fn shuffle_to_stack(curr_unit: &StackItem, mut units: Vec<Ustr>, stack: &mut Vec<StackItem>) {
-        units.shuffle(&mut thread_rng());
+        units.shuffle(&mut rng());
         stack.extend(units.iter().map(|id| StackItem {
             unit_id: *id,
             depth: curr_unit.depth + 1,
@@ -267,7 +267,7 @@ impl DepthFirstScheduler {
         }
 
         // Shuffle the lessons to follow a different ordering each time a new batch is requested.
-        initial_stack.shuffle(&mut thread_rng());
+        initial_stack.shuffle(&mut rng());
         initial_stack
     }
     //>@lp-example-1
