@@ -6,12 +6,13 @@
 
 use anyhow::{Context, Result, anyhow, ensure};
 use parking_lot::RwLock;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use serde::de::DeserializeOwned;
 use std::{
     collections::BTreeMap,
     fs::File,
     io::BufReader,
-    path::{self, Path},
+    path::{self, Path, PathBuf},
     sync::Arc,
 };
 use tantivy::{
@@ -91,6 +92,27 @@ pub(crate) trait GetUnitGraph {
     /// Returns a reference to the in-memory unit graph describing the dependencies among the
     /// courses and lessons in this library.
     fn get_unit_graph(&self) -> Arc<RwLock<InMemoryUnitGraph>>;
+}
+
+/// A request to open a single course in the library. This is used to allow parallel processing when
+/// opening a library.
+struct OpenCourseRequest {
+    /// The path to the course root directory.
+    course_root: PathBuf,
+
+    /// The course manifest.
+    course_manifest: CourseManifest,
+}
+
+/// The result of opening a single course in the library. Used to allow parallel processing when
+/// opening a library.
+struct OpenCourseResult {
+    /// The course manifest.
+    manifest: CourseManifest,
+
+    /// The lessons in the course, consisting of the lesson manifest and a list of exercise
+    /// manifests.
+    lessons: Vec<(LessonManifest, Vec<ExerciseManifest>)>,
 }
 
 /// An implementation of [`CourseLibrary`] backed by the local file system. The courses in this
@@ -230,34 +252,6 @@ impl LocalCourseLibrary {
         Ok(())
     }
 
-    /// Adds an exercise to the course library given its manifest and the manifest of the lesson to
-    /// which it belongs.
-    fn process_exercise_manifest(
-        &mut self,
-        lesson_manifest: &LessonManifest,
-        exercise_manifest: ExerciseManifest,
-        index_writer: &mut IndexWriter,
-    ) -> Result<()> {
-        LocalCourseLibrary::verify_exercise_manifest(lesson_manifest, &exercise_manifest)?;
-
-        // Add the exercise manifest to the search index.
-        Self::add_to_index_writer(
-            index_writer,
-            exercise_manifest.id,
-            &exercise_manifest.name,
-            exercise_manifest.description.as_deref(),
-            None,
-        )?;
-
-        // Add the exercise to the unit graph and exercise map.
-        self.unit_graph
-            .write()
-            .add_exercise(exercise_manifest.id, exercise_manifest.lesson_id)?;
-        self.exercise_map
-            .insert(exercise_manifest.id, exercise_manifest);
-        Ok(())
-    }
-
     /// Verifes that the IDs mentioned in the lesson manifest and its course manifestsare valid and
     /// agree with each other.
     #[cfg_attr(coverage, coverage(off))]
@@ -280,40 +274,13 @@ impl LocalCourseLibrary {
     /// which it belongs. It also traverses the given `DirEntry` and adds all the exercises in the
     /// lesson.
     fn process_lesson_manifest(
-        &mut self,
         lesson_root: &Path,
         course_manifest: &CourseManifest,
-        lesson_manifest: &LessonManifest,
-        index_writer: &mut IndexWriter,
-        generated_exercises: Option<&Vec<ExerciseManifest>>,
-    ) -> Result<()> {
-        LocalCourseLibrary::verify_lesson_manifest(course_manifest, lesson_manifest)?;
-
-        // Add the lesson, the dependencies, and the superseded units explicitly listed in the
-        // lesson manifest.
-        self.unit_graph
-            .write()
-            .add_lesson(lesson_manifest.id, lesson_manifest.course_id)?;
-        self.unit_graph.write().add_dependencies(
-            lesson_manifest.id,
-            UnitType::Lesson,
-            &lesson_manifest.dependencies,
-        )?;
-        self.unit_graph
-            .write()
-            .add_superseded(lesson_manifest.id, &lesson_manifest.superseded);
-
-        // Add the generated exercises to the lesson.
-        if let Some(exercises) = generated_exercises {
-            for exercise_manifest in exercises {
-                let exercise_manifest = &exercise_manifest.normalize_paths(lesson_root)?;
-                self.process_exercise_manifest(
-                    lesson_manifest,
-                    exercise_manifest.clone(),
-                    index_writer,
-                )?;
-            }
-        }
+        lesson_manifest: LessonManifest,
+    ) -> Result<(LessonManifest, Vec<ExerciseManifest>)> {
+        // Verify the manifest and create a vector for the exercises.
+        LocalCourseLibrary::verify_lesson_manifest(course_manifest, &lesson_manifest)?;
+        let mut exercises = Vec::new();
 
         // Start a new search from the parent of the passed `DirEntry`, which corresponds to the
         // lesson's root. Each exercise in the lesson must be contained in a directory that is a
@@ -338,20 +305,11 @@ impl LocalCourseLibrary {
             let mut exercise_manifest: ExerciseManifest = Self::open_manifest(entry.path())?;
             exercise_manifest =
                 exercise_manifest.normalize_paths(entry.path().parent().unwrap())?;
-            self.process_exercise_manifest(lesson_manifest, exercise_manifest, index_writer)?;
+            LocalCourseLibrary::verify_exercise_manifest(&lesson_manifest, &exercise_manifest)?;
+            exercises.push(exercise_manifest);
         }
 
-        // Add the lesson manifest to the lesson map and the search index.
-        self.lesson_map
-            .insert(lesson_manifest.id, lesson_manifest.clone());
-        Self::add_to_index_writer(
-            index_writer,
-            lesson_manifest.id,
-            &lesson_manifest.name,
-            lesson_manifest.description.as_deref(),
-            lesson_manifest.metadata.as_ref(),
-        )?;
-        Ok(())
+        Ok((lesson_manifest, exercises))
     }
 
     /// Verifies that the IDs mentioned in the course manifest are valid.
@@ -364,43 +322,22 @@ impl LocalCourseLibrary {
     /// Adds a course to the course library given its manifest. It also traverses the given
     /// `DirEntry` and adds all the lessons in the course.
     fn process_course_manifest(
-        &mut self,
+        &self,
         course_root: &Path,
         mut course_manifest: CourseManifest,
-        index_writer: &mut IndexWriter,
-    ) -> Result<()> {
+    ) -> Result<OpenCourseResult> {
+        // Verify the manifest and create a vector for the lessons.
         LocalCourseLibrary::verify_course_manifest(&course_manifest)?;
+        let mut lessons = Vec::new();
 
-        // Add the course, the dependencies, and the superseded units explicitly listed in the
-        // manifest.
-        self.unit_graph.write().add_course(course_manifest.id)?;
-        self.unit_graph.write().add_dependencies(
-            course_manifest.id,
-            UnitType::Course,
-            &course_manifest.dependencies,
-        )?;
-        self.unit_graph
-            .write()
-            .add_superseded(course_manifest.id, &course_manifest.superseded);
-
-        // If the course has a generator config, generate the lessons and exercises and add them to
-        // the library.
+        // Generate the course if the manifest has a generator config.
         if let Some(generator_config) = &course_manifest.generator_config {
             let generated_course = generator_config.generate_manifests(
                 course_root,
                 &course_manifest,
                 &self.user_preferences,
             )?;
-            for (lesson_manifest, exercise_manifests) in generated_course.lessons {
-                // All the generated lessons will use the root of the course as their root.
-                self.process_lesson_manifest(
-                    course_root,
-                    &course_manifest,
-                    &lesson_manifest,
-                    index_writer,
-                    Some(&exercise_manifests),
-                )?;
-            }
+            lessons.extend(generated_course.lessons);
 
             // Update the course manifest's metadata, material, and instructions if needed.
             if generated_course.updated_metadata.is_some() {
@@ -435,26 +372,96 @@ impl LocalCourseLibrary {
             // Open the lesson manifest and process it.
             let mut lesson_manifest: LessonManifest = Self::open_manifest(entry.path())?;
             lesson_manifest = lesson_manifest.normalize_paths(entry.path().parent().unwrap())?;
-            self.process_lesson_manifest(
+            lessons.push(Self::process_lesson_manifest(
                 entry.path().parent().unwrap(),
                 &course_manifest,
-                &lesson_manifest,
-                index_writer,
-                None,
-            )?;
+                lesson_manifest,
+            )?);
         }
 
-        // Add the course manifest to the course map and the search index. This needs to happen at
-        // the end in case the course has a generator config and the course manifest was updated.
-        self.course_map
-            .insert(course_manifest.id, course_manifest.clone());
-        Self::add_to_index_writer(
-            index_writer,
-            course_manifest.id,
-            &course_manifest.name,
-            course_manifest.description.as_deref(),
-            course_manifest.metadata.as_ref(),
-        )?;
+        Ok(OpenCourseResult {
+            manifest: course_manifest,
+            lessons,
+        })
+    }
+
+    /// Inserts the results of opening the courses into the course library.
+    fn process_results(
+        &mut self,
+        courses: Vec<OpenCourseResult>,
+        index_writer: &mut IndexWriter,
+    ) -> Result<()> {
+        for course in courses {
+            // Add the course, the dependencies, and the superseded units explicitly listed in the
+            // manifest.
+            self.unit_graph.write().add_course(course.manifest.id)?;
+            self.unit_graph.write().add_dependencies(
+                course.manifest.id,
+                UnitType::Course,
+                &course.manifest.dependencies,
+            )?;
+            self.unit_graph
+                .write()
+                .add_superseded(course.manifest.id, &course.manifest.superseded);
+
+            // Add the course manifest to the course map and index.
+            self.course_map
+                .insert(course.manifest.id, course.manifest.clone());
+            Self::add_to_index_writer(
+                index_writer,
+                course.manifest.id,
+                &course.manifest.name,
+                course.manifest.description.as_deref(),
+                course.manifest.metadata.as_ref(),
+            )?;
+
+            // Process the lessons.
+            for (lesson_manifest, exercises) in course.lessons {
+                // Add the lesson, the dependencies, and the superseded units explicitly listed in
+                // the lesson manifest.
+                self.unit_graph
+                    .write()
+                    .add_lesson(lesson_manifest.id, lesson_manifest.course_id)?;
+                self.unit_graph.write().add_dependencies(
+                    lesson_manifest.id,
+                    UnitType::Lesson,
+                    &lesson_manifest.dependencies,
+                )?;
+                self.unit_graph
+                    .write()
+                    .add_superseded(lesson_manifest.id, &lesson_manifest.superseded);
+
+                // Add the lesson manifest to the lesson map and the search index.
+                self.lesson_map
+                    .insert(lesson_manifest.id, lesson_manifest.clone());
+                Self::add_to_index_writer(
+                    index_writer,
+                    lesson_manifest.id,
+                    &lesson_manifest.name,
+                    lesson_manifest.description.as_deref(),
+                    lesson_manifest.metadata.as_ref(),
+                )?;
+
+                // Process the exercises.
+                for exercise_manifest in exercises {
+                    // Add the exercise manifest to the search index.
+                    Self::add_to_index_writer(
+                        index_writer,
+                        exercise_manifest.id,
+                        &exercise_manifest.name,
+                        exercise_manifest.description.as_deref(),
+                        None,
+                    )?;
+
+                    // Add the exercise to the unit graph and exercise map.
+                    self.unit_graph
+                        .write()
+                        .add_exercise(exercise_manifest.id, exercise_manifest.lesson_id)?;
+                    self.exercise_map
+                        .insert(exercise_manifest.id, exercise_manifest);
+                }
+            }
+        }
         Ok(())
     }
 
@@ -486,9 +493,10 @@ impl LocalCourseLibrary {
             })
             .collect::<Vec<_>>();
 
-        // Start a search from the library root. Courses can be located at any level within the
-        // library root. However, the course manifests, assets, and its lessons and exercises follow
-        // a fixed structure.
+        // Start a search for courses from the library root. Courses can be located at any level
+        // within the library root. However, the course manifests, assets, and its lessons and
+        // exercises follow a fixed structure.
+        let mut courses = Vec::new();
         for entry in WalkDir::new(library_root)
             .min_depth(2)
             .into_iter()
@@ -513,15 +521,24 @@ impl LocalCourseLibrary {
                 continue;
             }
 
-            // Open the course manifest and process it.
+            // Open the course manifest and create a request to open the course.
             let mut course_manifest: CourseManifest = Self::open_manifest(entry.path())?;
-            course_manifest = course_manifest.normalize_paths(entry.path().parent().unwrap())?;
-            library.process_course_manifest(
-                entry.path().parent().unwrap(),
+            let parent = entry.path().parent().unwrap();
+            course_manifest = course_manifest.normalize_paths(parent)?;
+            courses.push(OpenCourseRequest {
+                course_root: parent.to_path_buf(),
                 course_manifest,
-                &mut index_writer,
-            )?;
+            });
         }
+
+        // Process the courses in parallel and add them to the library.
+        let course_results = courses
+            .into_par_iter()
+            .map(|course| {
+                library.process_course_manifest(&course.course_root, course.course_manifest)
+            })
+            .collect::<Result<Vec<_>>>()?;
+        library.process_results(course_results, &mut index_writer)?;
 
         // Commit the search index writer and initialize the reader in the course library.
         index_writer.commit()?;

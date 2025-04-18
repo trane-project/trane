@@ -522,7 +522,13 @@ pub fn init_test_simulation(library_root: &Path, courses: &Vec<TestCourse>) -> R
         .collect::<Result<()>>()?;
 
     // Initialize the Trane library.
+    let before = Utc::now();
     let trane = Trane::new_local(library_root, library_root)?;
+    let after = Utc::now();
+    println!(
+        "Time to load library: {} ms",
+        (after - before).num_milliseconds()
+    );
     Ok(trane)
 }
 
