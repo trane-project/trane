@@ -280,7 +280,7 @@ fn scheduler_respects_superseded_lessons() -> Result<()> {
 
     // Run the simulation first giving a score of 5 to all exercises.
     let superseded_lesson_id = TestId(2, Some(0), None);
-    let mut simulation = TraneSimulation::new(2000, Box::new(|_| Some(MasteryScore::Five)));
+    let mut simulation = TraneSimulation::new(2500, Box::new(|_| Some(MasteryScore::Five)));
     simulation.run_simulation(&mut trane, &vec![], &None)?;
 
     // Every exercise should be in `simulation.answer_history`.
@@ -296,7 +296,7 @@ fn scheduler_respects_superseded_lessons() -> Result<()> {
     }
 
     // Run the simulation again to clear the simulation history.
-    let mut simulation = TraneSimulation::new(2000, Box::new(|_| Some(MasteryScore::Five)));
+    let mut simulation = TraneSimulation::new(2500, Box::new(|_| Some(MasteryScore::Five)));
     simulation.run_simulation(&mut trane, &vec![], &None)?;
 
     // None of the exercises in the superseded lesson should have been scheduled.
@@ -314,7 +314,7 @@ fn scheduler_respects_superseded_lessons() -> Result<()> {
     // Run the simulation again, but this time give a score of 1 to all exercises in the superseding
     // lesson.
     let mut simulation = TraneSimulation::new(
-        2000,
+        2500,
         Box::new(|id| {
             if id.starts_with("2::2::") {
                 Some(MasteryScore::One)
