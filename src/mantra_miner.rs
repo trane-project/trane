@@ -1,18 +1,24 @@
 //! Runs the mantra miner that recites mantras while Trane is running.
 //!
 //! As a symbolic way to let users of Trane contribute back to the project, Trane spins up an
-//! instance of the mantra-miner library that "recites" Tara Sarasvati's mantras in a background
-//! thread while Trane is running. Her mantras were chosen because she is the manifestation of Tara
-//! most closely related to wisdom, learning, and music and thus match the stated purpose of Trane.
+//! instance of the mantra-miner library that "recites" relevant mantras in a background thread.
+//! There is no explicit tradition or textual precedent for electronic mantra recitation, but
+//! carving mantras in stone and spinning them in prayer wheels is a common practice.
+//!
+//! The mantras chosen are:
+//!
+//! - The Song of the Vajra, a central song from the Dzogchen tradition that embodies the supreme
+//!   realization that the true nature of all beings has been naturally perfect from the very
+//!   beginning.
+//! - The mantra of the bodhisattva Manjushri, embodiment of wisdom.
+//! - The mantra of Tara Sarasvati, the female Buddha of knowledge, wisdom, and eloquence. She often
+//!   appears with Manjushri.
+//! - Mantras used to dedicate the merit of one's practice.
 
 use indoc::indoc;
 use mantra_miner::{Mantra, MantraMiner, Options};
 
 /// Runs the mantra miner that recites mantra while Trane is running.
-///
-/// The preparation, mantras, and conclusion are taken from Dilgo Khyentse Rinpoche's sadhana, whose
-/// full text can be found at
-/// `<https://www.lotsawahouse.org/tibetan-masters/dilgo-khyentse/sarasvati-sadhana-nyingtik>`.
 pub struct TraneMantraMiner {
     /// An instance of the mantra miner.
     pub mantra_miner: MantraMiner,
@@ -21,37 +27,43 @@ pub struct TraneMantraMiner {
 impl TraneMantraMiner {
     fn options() -> Options {
         Options {
-            // The preparation is taken from the "Refuge and Bodhicitta" section of the sadhana.
-            //
-            // namo, lama chok sum nyurma pal
-            // Namo. In the guru, Three Jewels and swift and glorious Lady,
-            //
-            // güpé kyab chi khanyam dro
-            // I take refuge with devotion. To bring all beings, as vast as space in number,
-            //
-            // lamé changchub chok tob chir
-            // To supreme, unsurpassable awakening,
-            //
-            // pakma yangchen drubpar gyi
-            // I shall meditate on noble Sarasvatī.
+            // The Song of the Vajra.
             preparation: Some(
                 indoc! {r"
-                    namo, lama chok sum nyurma pal
-                    güpé kyab chi khanyam dro
-                    lamé changchub chok tob chir
-                    pakma yangchen drubpar gyi
+                    ཨ
+                    
+                    E MA KI RI KĪ RĪ
+                    MA SṬA VA LI VĀ LĪ
+                    SAMITA SU RU SŪ RŪ KUTALI MA SU MĀ SŪ
+                    E KARA SULI BHAṬAYE CI KIRA BHULI BHAṬHAYE
+                    SAMUNTA CARYA SUGHAYE BHETA SANA BHYA KU LAYE
+                    SAKARI DHU KA NA MATARI VAI TA NA
+                    PARALI HI SA NA MAKHARTA KHE LA NAM
+                    SAMBHA RA THA ME KHA CA NTA PA SŪRYA BHA TA RAI PA SHA NA PA
+                    RANA BI DHI SA GHU RA LA PA MAS MIN SA GHU LĪ TA YA PA
+                    GHU RA GHŪ RĀ SA GHA KHAR ṆA LAM
+                    NA RA NĀ RĀ ITHA PA ṬA LAM SIR ṆA SĪR ṆĀ BHE SARAS PA LAM
+                    BHUN DHA BHŪN DHĀ CI SHA SA KE LAM
+                    SA SĀ RI RĪ LI LĪ I Ī MI MĪ
+                    RA RA RĀ
                 "}
                 .to_string(),
             ),
-            // The instructions of the sadhana state that the preparation should be repeated three
-            // times.
-            preparation_repeats: Some(3),
-            // Two mantras are recited. The first is the principal mantra of Tara Sarasvati as
-            // stated in the sadhana. The second one is repeating the seed syllable "hrim" 108
-            // times, which the sadhana states one should repeat if they wish to sharpen their
-            // intelligence. The principal mantra is "om pemo yogini taré tuttaré turé prajna hrim
-            // hrim soha".
+            preparation_repeats: None,
+            // The mantras of Manjushri and Tara Sarasvati, each recited 108 times.
             mantras: vec![
+                Mantra {
+                    syllables: vec![
+                        "om".to_string(),
+                        "a".to_string(),
+                        "ra".to_string(),
+                        "pa".to_string(),
+                        "tsa".to_string(),
+                        "na".to_string(),
+                        "dhi".to_string(),
+                    ],
+                    repeats: Some(108),
+                },
                 Mantra {
                     syllables: vec![
                         "om".to_string(),
@@ -74,38 +86,20 @@ impl TraneMantraMiner {
                         "so".to_string(),
                         "ha".to_string(),
                     ],
-                    repeats: None,
-                },
-                Mantra {
-                    syllables: vec!["hrim".to_string()],
                     repeats: Some(108),
                 },
             ],
-            // The conclusion is taken from the "Dedication and Aspiration" part of the sadhana.
-            //
-            // gewa di yi nyurdu dak
-            // Through the positivity and merit of this, may I swiftly
-            //
-            // drayang lhamo drub gyur né
-            // Attain the realization of the goddess Sarasvatī, and thereby
-            //
-            // drowa chik kyang malüpa
-            // Every single sentient being
-            //
-            // dé yi sa la göpar shok
-            // Reach her state of perfection too.
+            // Mantras of dedication.
             conclusion: Some(
                 indoc! {r"
-                    gewa di yi nyurdu dak
-                    drayang lhamo drub gyur né
-                    drowa chik kyang malüpa
-                    dé yi sa la göpar shok
+                    OM DHARE DHARE BHANDHARE SVĀHĀ
+                    JAYA JAYA SIDDHI SIDDHI PHALA PHALA
+                    HĂ A HA SHA SA MA
+                    MAMAKOLIṄ SAMANTA
                 "}
                 .to_string(),
             ),
-            // The sadhana does not ask the conclusion to be repeated but do so for the sake of
-            // symmetry.
-            conclusion_repeats: Some(3),
+            conclusion_repeats: None,
             repeats: None,
             rate_ns: 108_000,
         }
