@@ -309,12 +309,7 @@ impl CandidateFilter {
         // The number of exercises added is a multiple of 1/20th of the batch size to make the
         // values proportional to it.
         let base_remainder = (batch_size / 20).max(1);
-        Self::add_remainder(
-            batch_size,
-            &mut final_candidates,
-            new_remainder,
-            Some(5 * base_remainder),
-        );
+        Self::add_remainder(batch_size, &mut final_candidates, new_remainder, None);
         Self::add_remainder(
             batch_size,
             &mut final_candidates,
