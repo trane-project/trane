@@ -19,38 +19,45 @@ use crate::{
     scheduler::{Candidate, SchedulerData},
 };
 
-/// The minimum weight for each candidate.
-const MIN_WEIGHT: f32 = 25.0;
+/// The minimum weight for each candidate. This is used to prevent any candidate from becoming too
+/// unlikely to be selected.
+const MIN_WEIGHT: f32 = 100.0;
 
 /// The part of the weight that depends on the score will be the product of the difference between
 /// the score and the maximum score and this factor.
-const SCORE_WEIGHT_FACTOR: f32 = 40.0;
+const SCORE_WEIGHT_FACTOR: f32 = 200.0;
 
 /// The part of the weight that depends on the depth of the candidate will be the product of the
 /// depth and this factor.
-const DEPTH_WEIGHT_FACTOR: f32 = 5.0;
+const DEPTH_WEIGHT_FACTOR: f32 = 25.0;
 
 /// The part of the weight that depends on the depth of the candidate will be capped at this value.
-const MAX_DEPTH_WEIGHT: f32 = 200.0;
+const MAX_DEPTH_WEIGHT: f32 = 2000.0;
 
-/// The part of the weight that depends on the frequency of the candidate will be capped at this
-/// value. Each time an exercise is scheduled, this portion of the weight is reduced by a factor.
-const MAX_FREQUENCY_WEIGHT: f32 = 200.0;
+/// The part of the weight that depends on the number of times this exercise is scheduled during the
+/// run of the program will be capped at this value. Each time an exercise is scheduled, this
+/// portion of the weight is reduced by a factor.
+const MAX_SCHEDULED_WEIGHT: f32 = 1000.0;
 
-/// The factor by which the weight is mulitiplied when the frequency of the exercise increases.
-const FREQUENCY_FACTOR: f32 = 0.5;
+/// The factor by which the weight is mulitiplied every time the same exercise is scheduled during a
+/// single run of the program.
+const SCHEDULED_FACTOR: f32 = 0.5;
 
 /// The part of the weight that depends on the number of trials for that exercise will be capped at
 /// this value. Each time an exercise is scheduled, this portion of the weight is reduced by a
 /// factor.
-const MAX_NUM_TRIALS_WEIGHT: f32 = 200.0;
+const MAX_NUM_TRIALS_WEIGHT: f32 = 1000.0;
 
 /// The factor by which the weight is mulitiplied when the number of trials is increased.
-const NUM_TRIALS_FACTOR: f32 = 0.5;
+const NUM_TRIALS_FACTOR: f32 = 0.75;
 
-/// The maximum weight that depends on the frequency of the lesson. The weight will be divided
-/// equally among all the exercises from the same lesson.
-const MAX_LESSON_FREQUENCY_WEIGHT: f32 = 200.0;
+/// The maximum weight that depends on the frequency of exercises from the same lesson. The weight
+/// will be divided equally among all the exercises from the same lesson.
+const MAX_LESSON_FREQUENCY_WEIGHT: f32 = 1000.0;
+
+/// The maximum weight that depends on the frequency of exercises from the same course. The weight
+/// will be divided equally among all the exercises from the same course.
+const MAX_COURSE_FREQUENCY_WEIGHT: f32 = 1000.0;
 
 /// The batch size will be adjusted if there are not enough candidates (at least three times the
 /// batch size) to create a batch of the size specified in the scheduler options. This value is the
@@ -81,7 +88,7 @@ impl CandidateFilter {
             .collect()
     }
 
-    /// Counts the number of candidates in each lesson.
+    /// Counts the number of candidates from each lesson.
     fn count_lesson_frequency(candidates: &[Candidate]) -> UstrMap<usize> {
         let mut lesson_frequency = UstrMap::default();
         for candidate in candidates {
@@ -90,26 +97,63 @@ impl CandidateFilter {
         lesson_frequency
     }
 
-    /// Takes a list of candidates and randomly selects `num_to_select` candidates among them. The
-    /// probabilities of selecting a candidate are weighted based on the following:
+    /// Counts the number of candidates from each course.
+    fn count_course_frequency(candidates: &[Candidate]) -> UstrMap<usize> {
+        let mut course_frequency = UstrMap::default();
+        for candidate in candidates {
+            *course_frequency.entry(candidate.course_id).or_default() += 1;
+        }
+        course_frequency
+    }
+
+    /// Computes the weight assigned to a candidate that will be used to select it during the
+    /// filtering phase. The weight is based on the following factors:
     ///
-    /// 1. The candidate's score. A higher score is assigned less weight to present scores with
-    ///    lower scores among those in the same mastery window.
+    /// 1. The candidate's score. A higher score is assigned less weight to give them precedence
+    ///    over candidates with lower scores.
     /// 2. The number of hops taken by the graph search to find the candidate. A higher number of
-    ///    hops is assigned more weight to avoid only selecting exercises that are very close to the
-    ///    start of the graph.
+    ///    hops is assigned more weight to give precedence to candidates from more advanced
+    ///    material.
     /// 3. The frequency with which the candidate has been scheduled during the run of the
     ///    scheduler. A higher frequency is assigned less weight to avoid selecting the same
-    ///    exercises too often.
-    /// 4. The number of trials for that exercise. A higher number of trials is assigned less weight
-    ///    to favor exercises that have been practiced fewer times.
+    ///    exercises too often during the same session.
+    /// 4. The number of trials for that candidate. A higher number of trials is assigned less
+    ///    weight to favor exercises that have been practiced fewer times.
     /// 5. The number of candidates in the same lesson. The more candidates there are in the same
     ///    lesson, the less weight each candidate is assigned to avoid selecting too many exercises
     ///    from the same lesson.
-    ///
-    /// The function returns a tuple of the selected candidates and the remainder exercises. The
-    /// remainder will be used to fill the batch in case there is space left after the first round
-    /// of filtering.
+    /// 6. The number of candidates in the same course. The same logic applies as for the lesson
+    ///    frequency.
+    fn candidate_weight(c: &Candidate, lesson_freq: usize, course_freq: usize) -> f32 {
+        // A portion of the score will depend on the score of the candidate.
+        let mut weight = SCORE_WEIGHT_FACTOR * (5.0 - c.score).max(0.0);
+
+        // A part of the score will depend on the number of hops that were needed to reach
+        // the candidate.
+        weight += (DEPTH_WEIGHT_FACTOR * c.depth).clamp(0.0, MAX_DEPTH_WEIGHT);
+
+        // A part of the weight is based on the frequency with which the exercise has been
+        // scheduled.
+        weight += MAX_SCHEDULED_WEIGHT * SCHEDULED_FACTOR.powf(c.frequency as f32);
+
+        // A part of the weight is based on the number of trials for that exercise.
+        weight += MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR.powf(c.num_trials as f32);
+
+        // A part of the weight is based on the number of candidates in the same lesson.
+        weight += MAX_LESSON_FREQUENCY_WEIGHT / lesson_freq.max(1) as f32;
+
+        // A part of the weight is based on the number of candidates in the same course.
+        weight += MAX_COURSE_FREQUENCY_WEIGHT / course_freq.max(1) as f32;
+
+        // Give each candidates a minimum weight.
+        weight.max(MIN_WEIGHT)
+    }
+
+    /// Takes a list of candidates and randomly selects `num_to_select` candidates among them. Each
+    /// candidate is given a weight based on a number of factors meant to favor candidates that are
+    /// optimal for practice. The function returns a tuple of the selected candidates and the
+    /// remainder exercises. The remainder will be used to fill the batch in case there is space
+    /// left after the first round of filtering.
     fn select_candidates(
         candidates: Vec<Candidate>,
         num_to_select: usize,
@@ -119,8 +163,9 @@ impl CandidateFilter {
             return (candidates, vec![]);
         }
 
-        // Count the number of candidates in each lesson.
-        let lesson_frequency = Self::count_lesson_frequency(&candidates);
+        // Count the number of candidates in each lesson and course.
+        let lesson_freq = Self::count_lesson_frequency(&candidates);
+        let course_freq = Self::count_course_frequency(&candidates);
 
         // Otherwise, assign a weight to each candidate and perform a weighted random selection.
         // Safe to unwrap the result, as this function panics if `num_to_select` is greater than the
@@ -128,30 +173,11 @@ impl CandidateFilter {
         let mut rng = rng();
         let selected: Vec<Candidate> = candidates
             .choose_multiple_weighted(&mut rng, num_to_select, |c| {
-                // A portion of the score will depend on the score of the candidate. Lower scores
-                // are given more weight.
-                let mut weight = 0.0;
-                weight += SCORE_WEIGHT_FACTOR * (5.0 - c.score).max(0.0);
-
-                // A part of the score will depend on the number of hops that were needed to reach
-                // the candidate. It will be capped at a maximum.
-                weight += (DEPTH_WEIGHT_FACTOR * c.depth).clamp(0.0, MAX_DEPTH_WEIGHT);
-
-                // Increase the weight based on the frequency with which the exercise has been
-                // scheduled. Exercises that have been scheduled more often are assigned less
-                // weight.
-                weight += MAX_FREQUENCY_WEIGHT * FREQUENCY_FACTOR.powf(c.frequency as f32);
-
-                // Increase the weight based on the number of trials for that exercise. Exercises
-                // with more trials are assigned less weight.
-                weight += MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR.powf(c.num_trials as f32);
-
-                // Increase the weight based on the number of candidates in the same lesson. The
-                // more candidates there are in the same lesson, the less weight each candidate is
-                // assigned.
-                weight += MAX_LESSON_FREQUENCY_WEIGHT / lesson_frequency[&c.lesson_id] as f32;
-
-                weight.max(MIN_WEIGHT)
+                Self::candidate_weight(
+                    c,
+                    lesson_freq.get(&c.lesson_id).copied().unwrap_or(0),
+                    course_freq.get(&c.course_id).copied().unwrap_or(0),
+                )
             })
             .unwrap()
             .cloned()
@@ -283,12 +309,7 @@ impl CandidateFilter {
         // The number of exercises added is a multiple of 1/20th of the batch size to make the
         // values proportional to it.
         let base_remainder = (batch_size / 20).max(1);
-        Self::add_remainder(
-            batch_size,
-            &mut final_candidates,
-            new_remainder,
-            Some(5 * base_remainder),
-        );
+        Self::add_remainder(batch_size, &mut final_candidates, new_remainder, None);
         Self::add_remainder(
             batch_size,
             &mut final_candidates,
@@ -324,10 +345,8 @@ impl CandidateFilter {
 mod test {
     use ustr::Ustr;
 
-    use crate::scheduler::{
-        Candidate,
-        filter::{CandidateFilter, MIN_DYNAMIC_BATCH_SIZE},
-    };
+    use super::*;
+    use crate::scheduler::Candidate;
 
     /// Verifies that the batch size is adjusted based on the number of candidates.
     #[test]
@@ -355,6 +374,7 @@ mod test {
             Candidate {
                 exercise_id: Ustr::from("exercise1"),
                 lesson_id: Ustr::from("lesson1"),
+                course_id: Ustr::from("course1"),
                 depth: 0.0,
                 score: 0.0,
                 num_trials: 0,
@@ -363,6 +383,7 @@ mod test {
             Candidate {
                 exercise_id: Ustr::from("exercise2"),
                 lesson_id: Ustr::from("lesson1"),
+                course_id: Ustr::from("course1"),
                 depth: 0.0,
                 score: 0.0,
                 num_trials: 0,
@@ -371,6 +392,7 @@ mod test {
             Candidate {
                 exercise_id: Ustr::from("exercise3"),
                 lesson_id: Ustr::from("lesson2"),
+                course_id: Ustr::from("course1"),
                 depth: 0.0,
                 score: 0.0,
                 num_trials: 0,
@@ -379,6 +401,7 @@ mod test {
             Candidate {
                 exercise_id: Ustr::from("exercise4"),
                 lesson_id: Ustr::from(""),
+                course_id: Ustr::from("course1"),
                 depth: 0.0,
                 score: 0.0,
                 num_trials: 0,
@@ -392,5 +415,186 @@ mod test {
         assert_eq!(lesson_frequency.get(&Ustr::from("lesson1")), Some(&2));
         assert_eq!(lesson_frequency.get(&Ustr::from("lesson2")), Some(&1));
         assert_eq!(lesson_frequency.get(&Ustr::from("")), Some(&1));
+    }
+
+    /// Verifies that candidates that took more hopes to reach are given more weight.
+    #[test]
+    fn more_hops_more_weight() {
+        let c1 = Candidate {
+            exercise_id: Ustr::from("exercise1"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            score: 0.0,
+            num_trials: 0,
+            frequency: 0,
+        };
+        let c2 = Candidate {
+            exercise_id: Ustr::from("exercise2"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 10.0,
+            score: 0.0,
+            num_trials: 0,
+            frequency: 0,
+        };
+        assert!(
+            CandidateFilter::candidate_weight(&c1, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 1, 1)
+        );
+    }
+
+    /// Verifies that candidates with a higher score are given less weight.
+    #[test]
+    fn higher_score_less_weight() {
+        let c1 = Candidate {
+            exercise_id: Ustr::from("exercise1"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            score: 5.0,
+            num_trials: 0,
+            frequency: 0,
+        };
+        let c2 = Candidate {
+            exercise_id: Ustr::from("exercise2"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            score: 1.0,
+            num_trials: 0,
+            frequency: 0,
+        };
+        assert!(
+            CandidateFilter::candidate_weight(&c1, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 1, 1)
+        );
+    }
+
+    /// Verifies that candidates that have been scheduled more often are given less weight.
+    #[test]
+    fn more_scheduled_frequency_less_weight() {
+        let c1 = Candidate {
+            exercise_id: Ustr::from("exercise1"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            score: 0.0,
+            num_trials: 0,
+            frequency: 5,
+        };
+        let c2 = Candidate {
+            exercise_id: Ustr::from("exercise2"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            score: 0.0,
+            num_trials: 0,
+            frequency: 1,
+        };
+        assert!(
+            CandidateFilter::candidate_weight(&c1, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 1, 1)
+        );
+    }
+
+    /// Verifies that candidates with fewer trials are given more weight.
+    #[test]
+    fn fewer_trials_more_weight() {
+        let c1 = Candidate {
+            exercise_id: Ustr::from("exercise1"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            score: 0.0,
+            num_trials: 5,
+            frequency: 0,
+        };
+        let c2 = Candidate {
+            exercise_id: Ustr::from("exercise2"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            score: 0.0,
+            num_trials: 1,
+            frequency: 0,
+        };
+        assert!(
+            CandidateFilter::candidate_weight(&c1, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 1, 1)
+        );
+    }
+
+    /// Verifies that candidates from lessons with more candidates are given less weight.
+    #[test]
+    fn higher_lesson_frequency_less_weight() {
+        let c1 = Candidate {
+            exercise_id: Ustr::from("exercise1"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            score: 0.0,
+            num_trials: 0,
+            frequency: 0,
+        };
+        let c2 = Candidate {
+            exercise_id: Ustr::from("exercise2"),
+            lesson_id: Ustr::from("lesson2"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            score: 0.0,
+            num_trials: 0,
+            frequency: 0,
+        };
+        assert!(
+            CandidateFilter::candidate_weight(&c1, 10, 1)
+                < CandidateFilter::candidate_weight(&c2, 3, 1)
+        );
+    }
+
+    /// Verifies that candidates from courses with more candidates are given less weight.
+    #[test]
+    fn higher_course_frequency_less_weight() {
+        let c1 = Candidate {
+            exercise_id: Ustr::from("exercise1"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            score: 0.0,
+            num_trials: 0,
+            frequency: 0,
+        };
+        let c2 = Candidate {
+            exercise_id: Ustr::from("exercise2"),
+            lesson_id: Ustr::from("lesson2"),
+            course_id: Ustr::from("course2"),
+            depth: 0.0,
+            score: 0.0,
+            num_trials: 0,
+            frequency: 0,
+        };
+        assert!(
+            CandidateFilter::candidate_weight(&c1, 1, 10)
+                < CandidateFilter::candidate_weight(&c2, 1, 3)
+        );
+    }
+
+    /// Verifies that the minimum weight is applied to candidates.
+    #[test]
+    fn minimum_weight() {
+        // Create a candidate that should have a very low weight.
+        let c = Candidate {
+            exercise_id: Ustr::from("exercise1"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            score: 5.0,
+            num_trials: 1000,
+            frequency: 1000,
+        };
+        assert_eq!(
+            CandidateFilter::candidate_weight(&c, 1000, 1000),
+            MIN_WEIGHT
+        );
     }
 }
