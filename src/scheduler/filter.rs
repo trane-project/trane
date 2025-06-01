@@ -123,18 +123,18 @@ impl CandidateFilter {
     ///    less often.
     /// 3. The candidate's course score. Exercises from courses with a higher score will be shown
     ///    less often.
-    /// 2. The number of hops taken by the graph search to find the candidate. A higher number of
+    /// 4. The number of hops taken by the graph search to find the candidate. A higher number of
     ///    hops is assigned more weight to give precedence to candidates from more advanced
     ///    material.
-    /// 3. The frequency with which the candidate has been scheduled during the run of the
+    /// 5. The frequency with which the candidate has been scheduled during the run of the
     ///    scheduler. A higher frequency is assigned less weight to avoid selecting the same
     ///    exercises too often during the same session.
-    /// 4. The number of trials for that candidate. A higher number of trials is assigned less
+    /// 6. The number of trials for that candidate. A higher number of trials is assigned less
     ///    weight to favor exercises that have been practiced fewer times.
-    /// 5. The number of candidates in the same lesson. The more candidates there are in the same
+    /// 7. The number of candidates in the same lesson. The more candidates there are in the same
     ///    lesson, the less weight each candidate is assigned to avoid selecting too many exercises
     ///    from the same lesson.
-    /// 6. The number of candidates in the same course. The same logic applies as for the lesson
+    /// 8. The number of candidates in the same course. The same logic applies as for the lesson
     ///    frequency.
     fn candidate_weight(c: &Candidate, lesson_freq: usize, course_freq: usize) -> f32 {
         // A portion of the score will depend on the score of the exercise.
