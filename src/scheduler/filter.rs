@@ -23,9 +23,17 @@ use crate::{
 /// unlikely to be selected.
 const MIN_WEIGHT: f32 = 100.0;
 
-/// The part of the weight that depends on the score will be the product of the difference between
-/// the score and the maximum score and this factor.
-const SCORE_WEIGHT_FACTOR: f32 = 200.0;
+/// The part of the weight that depends on the exercise's score will (5.0 - score) times this
+/// factor.
+const EXERCISE_SCORE_WEIGHT_FACTOR: f32 = 200.0;
+
+/// The part of the weight that depends on the lesson's score will be (5.0 - score) times this
+/// factor.
+const LESSON_SCORE_WEIGHT_FACTOR: f32 = 100.0;
+
+/// The part of the weight that depends on the course's score will be (5.0 - score) times this
+/// factor.
+const COURSE_SCORE_WEIGHT_FACTOR: f32 = 50.0;
 
 /// The part of the weight that depends on the depth of the candidate will be the product of the
 /// depth and this factor.
@@ -83,7 +91,7 @@ impl CandidateFilter {
     ) -> Vec<Candidate> {
         candidates
             .iter()
-            .filter(|c| window_opts.in_window(c.score))
+            .filter(|c| window_opts.in_window(c.exercise_score))
             .cloned()
             .collect()
     }
@@ -109,8 +117,12 @@ impl CandidateFilter {
     /// Computes the weight assigned to a candidate that will be used to select it during the
     /// filtering phase. The weight is based on the following factors:
     ///
-    /// 1. The candidate's score. A higher score is assigned less weight to give them precedence
-    ///    over candidates with lower scores.
+    /// 1. The candidate's exercise score. A higher score is assigned less weight to give them
+    ///    precedence over candidates with lower scores.
+    /// 2. The candidate's lesson score. Exercises from lessons with a higher score will be shown
+    ///    less often.
+    /// 3. The candidate's course score. Exercises from courses with a higher score will be shown
+    ///    less often.
     /// 2. The number of hops taken by the graph search to find the candidate. A higher number of
     ///    hops is assigned more weight to give precedence to candidates from more advanced
     ///    material.
@@ -125,8 +137,14 @@ impl CandidateFilter {
     /// 6. The number of candidates in the same course. The same logic applies as for the lesson
     ///    frequency.
     fn candidate_weight(c: &Candidate, lesson_freq: usize, course_freq: usize) -> f32 {
-        // A portion of the score will depend on the score of the candidate.
-        let mut weight = SCORE_WEIGHT_FACTOR * (5.0 - c.score).max(0.0);
+        // A portion of the score will depend on the score of the exercise.
+        let mut weight = EXERCISE_SCORE_WEIGHT_FACTOR * (5.0 - c.exercise_score).max(0.0);
+
+        // A portion of the score will depend on the score of the lesson.
+        weight += LESSON_SCORE_WEIGHT_FACTOR * (5.0 - c.lesson_score).max(0.0);
+
+        // A portion of the score will depend on the score of the course.
+        weight += COURSE_SCORE_WEIGHT_FACTOR * (5.0 - c.course_score).max(0.0);
 
         // A part of the score will depend on the number of hops that were needed to reach
         // the candidate.
@@ -376,7 +394,9 @@ mod test {
                 lesson_id: Ustr::from("lesson1"),
                 course_id: Ustr::from("course1"),
                 depth: 0.0,
-                score: 0.0,
+                exercise_score: 0.0,
+                lesson_score: 0.0,
+                course_score: 0.0,
                 num_trials: 0,
                 frequency: 0,
             },
@@ -385,7 +405,9 @@ mod test {
                 lesson_id: Ustr::from("lesson1"),
                 course_id: Ustr::from("course1"),
                 depth: 0.0,
-                score: 0.0,
+                exercise_score: 0.0,
+                lesson_score: 0.0,
+                course_score: 0.0,
                 num_trials: 0,
                 frequency: 0,
             },
@@ -394,7 +416,9 @@ mod test {
                 lesson_id: Ustr::from("lesson2"),
                 course_id: Ustr::from("course1"),
                 depth: 0.0,
-                score: 0.0,
+                exercise_score: 0.0,
+                lesson_score: 0.0,
+                course_score: 0.0,
                 num_trials: 0,
                 frequency: 0,
             },
@@ -403,7 +427,9 @@ mod test {
                 lesson_id: Ustr::from(""),
                 course_id: Ustr::from("course1"),
                 depth: 0.0,
-                score: 0.0,
+                exercise_score: 0.0,
+                lesson_score: 0.0,
+                course_score: 0.0,
                 num_trials: 0,
                 frequency: 0,
             },
@@ -425,7 +451,9 @@ mod test {
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
             depth: 0.0,
-            score: 0.0,
+            exercise_score: 0.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
             num_trials: 0,
             frequency: 0,
         };
@@ -434,7 +462,9 @@ mod test {
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
             depth: 10.0,
-            score: 0.0,
+            exercise_score: 0.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
             num_trials: 0,
             frequency: 0,
         };
@@ -446,13 +476,15 @@ mod test {
 
     /// Verifies that candidates with a higher score are given less weight.
     #[test]
-    fn higher_score_less_weight() {
+    fn higher_exercise_score_less_weight() {
         let c1 = Candidate {
             exercise_id: Ustr::from("exercise1"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
             depth: 0.0,
-            score: 5.0,
+            exercise_score: 5.0,
+            lesson_score: 5.0,
+            course_score: 5.0,
             num_trials: 0,
             frequency: 0,
         };
@@ -461,7 +493,71 @@ mod test {
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
             depth: 0.0,
-            score: 1.0,
+            exercise_score: 1.0,
+            lesson_score: 1.0,
+            course_score: 1.0,
+            num_trials: 0,
+            frequency: 0,
+        };
+        assert!(
+            CandidateFilter::candidate_weight(&c1, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 1, 1)
+        );
+    }
+
+    /// Verifies that candidates with a higher lesson score are given less weight.
+    #[test]
+    fn higher_lesson_score_less_weight() {
+        let c1 = Candidate {
+            exercise_id: Ustr::from("exercise1"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            exercise_score: 0.0,
+            lesson_score: 5.0,
+            course_score: 0.0,
+            num_trials: 0,
+            frequency: 0,
+        };
+        let c2 = Candidate {
+            exercise_id: Ustr::from("exercise2"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            exercise_score: 0.0,
+            lesson_score: 1.0,
+            course_score: 0.0,
+            num_trials: 0,
+            frequency: 0,
+        };
+        assert!(
+            CandidateFilter::candidate_weight(&c1, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 1, 1)
+        );
+    }
+
+    /// Verifies that candidates with a higher course score are given less weight.
+    #[test]
+    fn higher_course_score_less_weight() {
+        let c1 = Candidate {
+            exercise_id: Ustr::from("exercise1"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            exercise_score: 0.0,
+            lesson_score: 0.0,
+            course_score: 5.0,
+            num_trials: 0,
+            frequency: 0,
+        };
+        let c2 = Candidate {
+            exercise_id: Ustr::from("exercise2"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            exercise_score: 0.0,
+            lesson_score: 0.0,
+            course_score: 1.0,
             num_trials: 0,
             frequency: 0,
         };
@@ -479,7 +575,9 @@ mod test {
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
             depth: 0.0,
-            score: 0.0,
+            exercise_score: 0.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
             num_trials: 0,
             frequency: 5,
         };
@@ -488,7 +586,9 @@ mod test {
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
             depth: 0.0,
-            score: 0.0,
+            exercise_score: 0.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
             num_trials: 0,
             frequency: 1,
         };
@@ -506,7 +606,9 @@ mod test {
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
             depth: 0.0,
-            score: 0.0,
+            exercise_score: 0.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
             num_trials: 5,
             frequency: 0,
         };
@@ -515,7 +617,9 @@ mod test {
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
             depth: 0.0,
-            score: 0.0,
+            exercise_score: 0.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
             num_trials: 1,
             frequency: 0,
         };
@@ -533,7 +637,9 @@ mod test {
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
             depth: 0.0,
-            score: 0.0,
+            exercise_score: 0.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
             num_trials: 0,
             frequency: 0,
         };
@@ -542,7 +648,9 @@ mod test {
             lesson_id: Ustr::from("lesson2"),
             course_id: Ustr::from("course1"),
             depth: 0.0,
-            score: 0.0,
+            exercise_score: 0.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
             num_trials: 0,
             frequency: 0,
         };
@@ -560,7 +668,9 @@ mod test {
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
             depth: 0.0,
-            score: 0.0,
+            exercise_score: 0.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
             num_trials: 0,
             frequency: 0,
         };
@@ -569,7 +679,9 @@ mod test {
             lesson_id: Ustr::from("lesson2"),
             course_id: Ustr::from("course2"),
             depth: 0.0,
-            score: 0.0,
+            exercise_score: 0.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
             num_trials: 0,
             frequency: 0,
         };
@@ -588,7 +700,9 @@ mod test {
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
             depth: 0.0,
-            score: 5.0,
+            exercise_score: 5.0,
+            lesson_score: 5.0,
+            course_score: 5.0,
             num_trials: 1000,
             frequency: 1000,
         };

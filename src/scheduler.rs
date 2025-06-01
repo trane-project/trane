@@ -126,9 +126,14 @@ struct Candidate {
     /// needed to reach this exercise.
     depth: f32,
 
-    /// The score assigned to the exercise represented as a float number between 0.0 and 5.0
-    /// inclusive. This score will be computed from the previous trials of this exercise.
-    score: f32,
+    /// The score assigned to the exercise represented as a float number between 0.0 and 5.0.
+    exercise_score: f32,
+
+    /// The score assigned to the lesson represented as a float number between 0.0 and 5.0.
+    lesson_score: f32,
+
+    /// The score assigned to the course represented as a float number between 0.0 and 5.0.
+    course_score: f32,
 
     /// The number of previous trials that have been recorded for this exercise.
     num_trials: usize,
@@ -295,9 +300,17 @@ impl DepthFirstScheduler {
                     lesson_id: item.unit_id, // It's assumed that the item is a lesson.
                     course_id,
                     depth: (item.depth + 1) as f32,
-                    score: self
+                    exercise_score: self
                         .unit_scorer
                         .get_unit_score(exercise_id)?
+                        .unwrap_or_default(),
+                    lesson_score: self
+                        .unit_scorer
+                        .get_unit_score(item.unit_id)?
+                        .unwrap_or_default(),
+                    course_score: self
+                        .unit_scorer
+                        .get_unit_score(course_id)?
                         .unwrap_or_default(),
                     num_trials: self
                         .unit_scorer
@@ -309,7 +322,8 @@ impl DepthFirstScheduler {
             .collect::<Result<Vec<Candidate>>>()?;
 
         // Calculate the average score of the candidates.
-        let avg_score = candidates.iter().map(|c| c.score).sum::<f32>() / (candidates.len() as f32);
+        let avg_score =
+            candidates.iter().map(|c| c.exercise_score).sum::<f32>() / (candidates.len() as f32);
         Ok((candidates, avg_score))
     }
 
@@ -738,9 +752,17 @@ impl DepthFirstScheduler {
                         lesson_id,
                         course_id,
                         depth: 0.0,
-                        score: self
+                        exercise_score: self
                             .unit_scorer
                             .get_unit_score(unit_id)?
+                            .unwrap_or_default(),
+                        lesson_score: self
+                            .unit_scorer
+                            .get_unit_score(lesson_id)?
+                            .unwrap_or_default(),
+                        course_score: self
+                            .unit_scorer
+                            .get_unit_score(course_id)?
                             .unwrap_or_default(),
                         num_trials: self
                             .unit_scorer
