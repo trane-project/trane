@@ -137,13 +137,13 @@ impl CandidateFilter {
     /// 8. The number of candidates in the same course. The same logic applies as for the lesson
     ///    frequency.
     fn candidate_weight(c: &Candidate, lesson_freq: usize, course_freq: usize) -> f32 {
-        // A portion of the score will depend on the score of the exercise.
+        // A part of the score will depend on the score of the exercise.
         let mut weight = EXERCISE_SCORE_WEIGHT_FACTOR * (5.0 - c.exercise_score).max(0.0);
 
-        // A portion of the score will depend on the score of the lesson.
+        // A part of the score will depend on the score of the lesson.
         weight += LESSON_SCORE_WEIGHT_FACTOR * (5.0 - c.lesson_score).max(0.0);
 
-        // A portion of the score will depend on the score of the course.
+        // A part of the score will depend on the score of the course.
         weight += COURSE_SCORE_WEIGHT_FACTOR * (5.0 - c.course_score).max(0.0);
 
         // A part of the score will depend on the number of hops that were needed to reach
