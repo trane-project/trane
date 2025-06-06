@@ -36,7 +36,7 @@
 //!
 //>@lp-example-3
 
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
+#![cfg_attr(coverage, feature(coverage_attribute))]
 // Use pedantic warnings but disable some that are not useful.
 #![warn(clippy::pedantic)]
 #![allow(clippy::doc_markdown)]
@@ -140,6 +140,7 @@ const REPOSITORY_DIRECTORY: &str = "repositories";
 /// corresponding exercises, Trane presents the student with a list of exercises based on the
 /// demonstrated mastery of previous exercises. It makes sure that new material and skills are not
 /// introduced until the prerequisite material and skills have been sufficiently mastered.
+#[cfg_attr(coverage, coverage(off))]
 pub struct Trane {
     /// The path to the root of the course library.
     library_root: String,
@@ -318,6 +319,7 @@ impl Trane {
     /// Creates a new local instance of the Trane given the path to the root of a course library.
     /// The user data will be stored in a directory named `.trane` inside the library root
     /// directory. The working directory will be used to resolve relative paths.
+    #[cfg_attr(coverage, coverage(off))]
     pub fn new_local(working_dir: &Path, library_root: &Path) -> Result<Trane> {
         // Initialize the config directory.
         Self::init_config_directory(library_root)?;
@@ -383,7 +385,6 @@ impl Trane {
     }
 }
 
-#[cfg_attr(coverage, coverage(off))]
 impl Blacklist for Trane {
     fn add_to_blacklist(&mut self, unit_id: Ustr) -> Result<(), BlacklistError> {
         // Make sure to invalidate any cached scores for the given unit.
@@ -412,7 +413,7 @@ impl Blacklist for Trane {
     }
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
+#[cfg_attr(coverage, coverage(off))]
 impl CourseLibrary for Trane {
     fn get_course_manifest(&self, course_id: Ustr) -> Option<CourseManifest> {
         self.course_library.read().get_course_manifest(course_id)
