@@ -1142,9 +1142,11 @@ fn serialized_course_library() -> Result<()> {
     let _ = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Serialize the course library. This requires opening the course library again. The `Trane`
-    // struct cannot be used because it uses dynamic traits.
+    // struct cannot be used because it uses dynamic traits. Print the debug output to test the
+    // trait.
     let course_library = LocalCourseLibrary::new(temp_dir.path(), UserPreferences::default())?;
     let serialized_data = SerializedCourseLibrary::from(&course_library);
+    println!("{:?}", serialized_data);
 
     // Decode and encode the data.
     let decoded_data =

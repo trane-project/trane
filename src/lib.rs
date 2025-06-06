@@ -140,7 +140,6 @@ const REPOSITORY_DIRECTORY: &str = "repositories";
 /// corresponding exercises, Trane presents the student with a list of exercises based on the
 /// demonstrated mastery of previous exercises. It makes sure that new material and skills are not
 /// introduced until the prerequisite material and skills have been sufficiently mastered.
-#[cfg_attr(coverage, coverage(off))]
 pub struct Trane {
     /// The path to the root of the course library.
     library_root: String,
@@ -192,6 +191,7 @@ pub struct Trane {
 impl Trane {
     /// Creates the scheduler options, overriding any values with those specified in the user
     /// preferences.
+    #[cfg_attr(coverage, coverage(off))]
     fn create_scheduler_options(preferences: Option<&SchedulerPreferences>) -> SchedulerOptions {
         let mut options = SchedulerOptions::default();
         if let Some(preferences) = preferences {
@@ -203,6 +203,7 @@ impl Trane {
     }
 
     /// Initializes the config directory at path `.trane` inside the library root.
+    #[cfg_attr(coverage, coverage(off))]
     fn init_config_directory(library_root: &Path) -> Result<()> {
         // Verify that the library root is a directory.
         ensure!(
@@ -249,6 +250,7 @@ impl Trane {
 
     /// A helper function to create all the components needed to create a Trane instance that takes
     /// the already created preferences manager and course library as parameters.
+    #[cfg_attr(coverage, coverage(off))]
     fn new_local_helper(
         library_root: &Path,
         preferences_manager: Arc<RwLock<LocalPreferencesManager>>,
@@ -343,6 +345,7 @@ impl Trane {
     /// Creates a new local instance of the Trane given the path to the root of a course library.
     /// The user data will be stored in a directory named `.trane` inside the library root
     /// directory. The working directory will be used to resolve relative paths.
+    #[cfg_attr(coverage, coverage(off))]
     pub fn new_local_from_serialized(
         library_root: &Path,
         serialized_library: SerializedCourseLibrary,
@@ -385,6 +388,7 @@ impl Trane {
     }
 }
 
+#[cfg_attr(coverage, coverage(off))]
 impl Blacklist for Trane {
     fn add_to_blacklist(&mut self, unit_id: Ustr) -> Result<(), BlacklistError> {
         // Make sure to invalidate any cached scores for the given unit.
