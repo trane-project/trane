@@ -35,6 +35,7 @@
 //! [`filter_manager`](crate::filter_manager) and [`review_list`](crate::review_list)).
 
 use anyhow::{Result, anyhow, bail, ensure};
+use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 use ustr::{Ustr, UstrMap, UstrSet};
 
@@ -141,7 +142,7 @@ pub trait UnitGraph {
 /// An implementation of [`UnitGraph`] describing the units and relationships as an adjacency list
 /// stored in hash maps. All of it is stored in memory, as the memory benchmarks show that less than
 /// 20 MB of memory are used even when opening a large Trane library.
-#[derive(Default)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub struct InMemoryUnitGraph {
     /// The mapping of a unit to its type.
     type_map: UstrMap<UnitType>,
