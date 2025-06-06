@@ -1147,11 +1147,11 @@ fn serialized_course_library() -> Result<()> {
     let serialized_data = SerializedCourseLibrary::from(&course_library);
 
     // Decode and encode the data.
-    let decoded_data =
+    let encoded_data =
         bincode::encode_to_vec(serialized_data.clone(), bincode::config::standard())?;
-    let reserialized_data: SerializedCourseLibrary =
-        bincode::decode_from_slice(&decoded_data, bincode::config::standard())?.0;
-    assert_eq!(serialized_data, reserialized_data);
+    let decoded_data: SerializedCourseLibrary =
+        bincode::decode_from_slice(&encoded_data, bincode::config::standard())?.0;
+    assert_eq!(serialized_data, decoded_data);
 
     // Open a new library using the serialized data and verify it matches the original.
     let from_serialized_library = LocalCourseLibrary::new_from_serialized(
