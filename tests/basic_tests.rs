@@ -33,6 +33,7 @@ use anyhow::{Ok, Result};
 use chrono::{Duration, Utc};
 use tempfile::TempDir;
 use trane::{
+    Trane,
     course_library::{CourseLibrary, LocalCourseLibrary, SerializedCourseLibrary},
     data::{
         MasteryScore, SchedulerOptions, UnitType, UserPreferences,
@@ -1145,9 +1146,18 @@ fn serialized_course_library() -> Result<()> {
     let course_library = LocalCourseLibrary::new(temp_dir.path(), UserPreferences::default())?;
     let serialized_data = SerializedCourseLibrary::from(&course_library);
 
+    // Decode and encode the data.
+    let decoded_data =
+        bincode::encode_to_vec(serialized_data.clone(), bincode::config::standard())?;
+    let reserialized_data: SerializedCourseLibrary =
+        bincode::decode_from_slice(&decoded_data, bincode::config::standard())?.0;
+    assert_eq!(serialized_data, reserialized_data);
+
     // Open a new library using the serialized data and verify it matches the original.
-    let from_serialized_library =
-        LocalCourseLibrary::new_from_serialized(serialized_data, UserPreferences::default())?;
+    let from_serialized_library = LocalCourseLibrary::new_from_serialized(
+        serialized_data.clone(),
+        UserPreferences::default(),
+    )?;
     assert_eq!(
         course_library.course_map,
         from_serialized_library.course_map,
@@ -1169,6 +1179,10 @@ fn serialized_course_library() -> Result<()> {
     let search_results = from_serialized_library.search("\"Exercise 2::1::7\"")?;
     let expected_id = TestId(2, Some(1), Some(7)).to_ustr();
     assert!(search_results.contains(&expected_id));
+
+    // Open a new trane instance using the serialized library.
+    let trane = Trane::new_local_from_serialized(temp_dir.path(), serialized_data)?;
+    assert!(trane.get_all_exercise_ids(None).len() > 0);
 
     Ok(())
 }

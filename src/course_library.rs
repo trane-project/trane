@@ -97,7 +97,7 @@ pub(crate) trait GetUnitGraph {
 
 /// A version of a course library that can be serialized and deserialized. Useful to embed course
 /// libraries in binaries. It uses bincode for fast serialization and deserialization.
-#[derive(Decode, Encode)]
+#[derive(Clone, Debug, Decode, Encode, PartialEq)]
 pub struct SerializedCourseLibrary {
     /// The graph of units and dependencies.
     #[bincode(with_serde)]

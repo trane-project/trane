@@ -361,13 +361,11 @@ pub struct CourseManifest {
     /// An optional description of the course.
     #[builder(default)]
     #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 
     /// An optional list of the course's authors.
     #[builder(default)]
     #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub authors: Option<Vec<String>>,
 
     //@<lp-example-5
@@ -379,20 +377,17 @@ pub struct CourseManifest {
     /// might want to only focus on guitar scales or ear training.
     #[builder(default)]
     #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<BTreeMap<String, Vec<String>>>,
 
     //>@lp-example-5
     /// An optional asset, which presents the material covered in the course.
     #[builder(default)]
     #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub course_material: Option<BasicAsset>,
 
     /// An optional asset, which presents instructions common to all exercises in the course.
     #[builder(default)]
     #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub course_instructions: Option<BasicAsset>,
 
     /// An optional configuration to generate material for this course. Generated courses allow
@@ -400,7 +395,6 @@ pub struct CourseManifest {
     /// all the files a normal course would need.
     #[builder(default)]
     #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub generator_config: Option<CourseGenerator>,
 }
 
@@ -488,7 +482,6 @@ pub struct LessonManifest {
     /// An optional description of the lesson.
     #[builder(default)]
     #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 
     //// A mapping of String keys to a list of String values. For example, ("key", ["C"]) could
@@ -496,19 +489,16 @@ pub struct LessonManifest {
     /// stored in the course manifest but allows finer control over which lessons are selected.
     #[builder(default)]
     #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<BTreeMap<String, Vec<String>>>,
 
     /// An optional asset, which presents the material covered in the lesson.
     #[builder(default)]
     #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub lesson_material: Option<BasicAsset>,
 
     /// An optional asset, which presents instructions common to all exercises in the lesson.
     #[builder(default)]
     #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub lesson_instructions: Option<BasicAsset>,
 }
 
@@ -585,7 +575,6 @@ pub enum ExerciseAsset {
         /// open-ended, or it is referring to an external resource which contains the exercise and
         /// possibly the answer.
         #[serde(default)]
-        #[serde(skip_serializing_if = "Option::is_none")]
         back_path: Option<String>,
     },
 
@@ -612,12 +601,10 @@ pub enum ExerciseAsset {
         /// slice in the key of D Major" or "Practice measures 1 through 4". A missing description
         /// implies the entire slice should be practiced as is.
         #[serde(default)]
-        #[serde(skip_serializing_if = "Option::is_none")]
         description: Option<String>,
 
         /// An optional path to a MusicXML file containing the sheet music for the exercise.
         #[serde(default)]
-        #[serde(skip_serializing_if = "Option::is_none")]
         backup: Option<String>,
     },
 
@@ -630,7 +617,6 @@ pub enum ExerciseAsset {
 
         /// An optional link to the audio for the exercise.
         #[serde(default)]
-        #[serde(skip_serializing_if = "Option::is_none")]
         external_link: Option<TranscriptionLink>,
     },
 }
@@ -742,7 +728,6 @@ pub struct ExerciseManifest {
     /// An optional description of the exercise.
     #[builder(default)]
     #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 
     /// The type of knowledge the exercise tests.
@@ -1054,19 +1039,16 @@ pub struct RepositoryMetadata {
 pub struct UserPreferences {
     /// The preferences for generating transcription courses.
     #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub transcription: Option<TranscriptionPreferences>,
 
     /// The preferences for customizing the behavior of the scheduler.
     #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub scheduler: Option<SchedulerPreferences>,
 
     /// The paths to ignore when opening the course library. The paths are relative to the
     /// repository root. All child paths are also ignored. For example, adding the directory
     /// "foo/bar" will ignore any courses in "foo/bar" or any of its subdirectories.
     #[serde(default)]
-    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub ignored_paths: Vec<String>,
 }
 //>@user-preferences

@@ -201,7 +201,6 @@ pub struct SimpleKnowledgeBaseExercise {
 
     /// The optional content of the back of the card. If the list is empty, no file will be created.
     #[serde(default)]
-    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub back: Vec<String>,
 }
 
@@ -276,12 +275,10 @@ pub struct SimpleKnowledgeBaseLesson {
 
     /// The optional metadata for the lesson.
     #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<BTreeMap<String, Vec<String>>>,
 
     /// A list of additional files to write in the lesson directory.
     #[serde(default)]
-    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub additional_files: Vec<AssetBuilder>,
 }
 //>@simple-knowledge-base-lesson
