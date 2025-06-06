@@ -33,7 +33,7 @@ use anyhow::{Ok, Result};
 use chrono::{Duration, Utc};
 use tempfile::TempDir;
 use trane::{
-    course_library::CourseLibrary,
+    course_library::{CourseLibrary, LocalCourseLibrary, SerializedCourseLibrary},
     data::{
         MasteryScore, SchedulerOptions, UnitType, UserPreferences,
         filter::{ExerciseFilter, SessionPart, StudySession, StudySessionData, UnitFilter},
@@ -1130,5 +1130,45 @@ fn ignored_paths() -> Result<()> {
     assert!(!exercise_ids.is_empty());
     assert!(exercise_ids.iter().all(|id| !id.starts_with("0::")));
     assert!(exercise_ids.iter().all(|id| !id.starts_with("5::")));
+    Ok(())
+}
+
+/// Verifies serializing a course library and opening a new one from the serialized data.
+#[test]
+fn serialized_course_library() -> Result<()> {
+    // Initialize test course library.
+    let temp_dir = TempDir::new()?;
+    let _ = init_test_simulation(temp_dir.path(), &LIBRARY)?;
+
+    // Serialize the course library. This requires opening the course library again. The `Trane`
+    // struct cannot be used because it uses dynamic traits.
+    let course_library = LocalCourseLibrary::new(temp_dir.path(), UserPreferences::default())?;
+    let serialized_data = SerializedCourseLibrary::from(&course_library);
+
+    // Open a new library using the serialized data and verify it matches the original.
+    let from_serialized_library =
+        LocalCourseLibrary::new_from_serialized(serialized_data, UserPreferences::default())?;
+    assert_eq!(
+        course_library.course_map,
+        from_serialized_library.course_map,
+    );
+    assert_eq!(
+        course_library.lesson_map,
+        from_serialized_library.lesson_map,
+    );
+    assert_eq!(
+        course_library.exercise_map,
+        from_serialized_library.exercise_map,
+    );
+    assert_eq!(
+        *course_library.unit_graph.read(),
+        *from_serialized_library.unit_graph.read(),
+    );
+
+    // Verify the search index of the new library works.
+    let search_results = from_serialized_library.search("\"Exercise 2::1::7\"")?;
+    let expected_id = TestId(2, Some(1), Some(7)).to_ustr();
+    assert!(search_results.contains(&expected_id));
+
     Ok(())
 }

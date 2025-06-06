@@ -75,22 +75,17 @@ pub mod transcription_downloader;
 use anyhow::{Context, Result, bail, ensure};
 use error::*;
 use parking_lot::RwLock;
-use practice_rewards::{LocalPracticeRewards, PracticeRewards};
-use preferences_manager::{LocalPreferencesManager, PreferencesManager};
-use review_list::{LocalReviewList, ReviewList};
 use std::{
     fs::{File, create_dir},
     io::Write,
     path::Path,
     sync::Arc,
 };
-use study_session_manager::{LocalStudySessionManager, StudySessionManager};
-use transcription_downloader::{LocalTranscriptionDownloader, TranscriptionDownloader};
 use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
     blacklist::{Blacklist, LocalBlacklist},
-    course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary},
+    course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary, SerializedCourseLibrary},
     data::{
         CourseManifest, ExerciseManifest, ExerciseTrial, LessonManifest, MasteryScore,
         RepositoryMetadata, SchedulerOptions, SchedulerPreferences, UnitType, UserPreferences,
@@ -99,9 +94,14 @@ use crate::{
     filter_manager::{FilterManager, LocalFilterManager},
     graph::UnitGraph,
     mantra_miner::TraneMantraMiner,
+    practice_rewards::{LocalPracticeRewards, PracticeRewards},
     practice_stats::{LocalPracticeStats, PracticeStats},
+    preferences_manager::{LocalPreferencesManager, PreferencesManager},
     repository_manager::{LocalRepositoryManager, RepositoryManager},
+    review_list::{LocalReviewList, ReviewList},
     scheduler::{DepthFirstScheduler, ExerciseScheduler, data::SchedulerData},
+    study_session_manager::{LocalStudySessionManager, StudySessionManager},
+    transcription_downloader::{LocalTranscriptionDownloader, TranscriptionDownloader},
 };
 
 /// The path to the folder inside each course library containing the user data.
@@ -246,25 +246,15 @@ impl Trane {
         Ok(())
     }
 
-    /// Creates a new local instance of the Trane given the path to the root of a course library.
-    /// The user data will be stored in a directory named `.trane` inside the library root
-    /// directory. The working directory will be used to resolve relative paths.
-    pub fn new_local(working_dir: &Path, library_root: &Path) -> Result<Trane> {
-        // Initialize the config directory.
+    /// A helper function to create all the components needed to create a Trane instance that takes
+    /// the already created preferences manager and course library as parameters.
+    fn new_local_helper(
+        library_root: &Path,
+        preferences_manager: Arc<RwLock<LocalPreferencesManager>>,
+        course_library: Arc<RwLock<LocalCourseLibrary>>,
+    ) -> Result<Trane> {
         let config_path = library_root.join(Path::new(TRANE_CONFIG_DIR_PATH));
-        Self::init_config_directory(library_root)?;
-
-        // Build all the components needed to create a Trane instance.
-        let preferences_manager = Arc::new(RwLock::new(LocalPreferencesManager {
-            path: library_root
-                .join(TRANE_CONFIG_DIR_PATH)
-                .join(USER_PREFERENCES_PATH),
-        }));
         let user_preferences = preferences_manager.read().get_user_preferences()?;
-        let course_library = Arc::new(RwLock::new(LocalCourseLibrary::new(
-            &working_dir.join(library_root),
-            user_preferences.clone(),
-        )?));
         let transcription_preferences = user_preferences.transcription.clone().unwrap_or_default();
         let transcription_downloader = Arc::new(RwLock::new(LocalTranscriptionDownloader {
             preferences: transcription_preferences,
@@ -323,6 +313,56 @@ impl Trane {
             transcription_downloader,
             mantra_miner,
         })
+    }
+
+    /// Creates a new local instance of the Trane given the path to the root of a course library.
+    /// The user data will be stored in a directory named `.trane` inside the library root
+    /// directory. The working directory will be used to resolve relative paths.
+    pub fn new_local(working_dir: &Path, library_root: &Path) -> Result<Trane> {
+        // Initialize the config directory.
+        Self::init_config_directory(library_root)?;
+
+        // Build all the preferences manager and course library.
+        let preferences_manager = Arc::new(RwLock::new(LocalPreferencesManager {
+            path: library_root
+                .join(TRANE_CONFIG_DIR_PATH)
+                .join(USER_PREFERENCES_PATH),
+        }));
+        let user_preferences = preferences_manager.read().get_user_preferences()?;
+        let course_library = Arc::new(RwLock::new(LocalCourseLibrary::new(
+            &working_dir.join(library_root),
+            user_preferences.clone(),
+        )?));
+
+        // Call the helper function to create the rest of the components.
+        Self::new_local_helper(library_root, preferences_manager, course_library)
+    }
+
+    /// Creates a new local instance of the Trane given the path to the root of a course library.
+    /// The user data will be stored in a directory named `.trane` inside the library root
+    /// directory. The working directory will be used to resolve relative paths.
+    pub fn new_local_from_serialized(
+        library_root: &Path,
+        serialized_library: SerializedCourseLibrary,
+    ) -> Result<Trane> {
+        // Initialize the config directory.
+        Self::init_config_directory(library_root)?;
+
+        // Build all the preferences manager and course library. The course library will be
+        // initialized from the serialized data.
+        let preferences_manager = Arc::new(RwLock::new(LocalPreferencesManager {
+            path: library_root
+                .join(TRANE_CONFIG_DIR_PATH)
+                .join(USER_PREFERENCES_PATH),
+        }));
+        let user_preferences = preferences_manager.read().get_user_preferences()?;
+        let course_library = Arc::new(RwLock::new(LocalCourseLibrary::new_from_serialized(
+            serialized_library,
+            user_preferences.clone(),
+        )?));
+
+        // Call the helper function to create the rest of the components.
+        Self::new_local_helper(library_root, preferences_manager, course_library)
     }
 
     /// Returns the path to the root of the course library.

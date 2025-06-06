@@ -5,6 +5,7 @@
 //! defined by their manifest files (see [data](crate::data)).
 
 use anyhow::{Context, Result, anyhow, ensure};
+use bincode::{Decode, Encode};
 use parking_lot::RwLock;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use serde::de::DeserializeOwned;
@@ -94,6 +95,39 @@ pub(crate) trait GetUnitGraph {
     fn get_unit_graph(&self) -> Arc<RwLock<InMemoryUnitGraph>>;
 }
 
+/// A version of a course library that can be serialized and deserialized. Useful to embed course
+/// libraries in binaries. It uses bincode for fast serialization and deserialization.
+#[derive(Decode, Encode)]
+pub struct SerializedCourseLibrary {
+    /// The graph of units and dependencies.
+    #[bincode(with_serde)]
+    unit_graph: InMemoryUnitGraph,
+
+    #[bincode(with_serde)]
+    /// A mapping of course ID to its corresponding course manifest.
+    course_map: UstrMap<CourseManifest>,
+
+    #[bincode(with_serde)]
+    /// A mapping of lesson ID to its corresponding lesson manifest.
+    lesson_map: UstrMap<LessonManifest>,
+
+    #[bincode(with_serde)]
+    /// A mapping of exercise ID to its corresponding exercise manifest.
+    exercise_map: UstrMap<ExerciseManifest>,
+}
+
+impl From<&LocalCourseLibrary> for SerializedCourseLibrary {
+    /// Converts a `LocalCourseLibrary` into a `SerializedCourseLibrary`.
+    fn from(library: &LocalCourseLibrary) -> Self {
+        SerializedCourseLibrary {
+            unit_graph: (*library.unit_graph.read()).clone(),
+            course_map: library.course_map.clone(),
+            lesson_map: library.lesson_map.clone(),
+            exercise_map: library.exercise_map.clone(),
+        }
+    }
+}
+
 /// A request to open a single course in the library. This is used to allow parallel processing when
 /// opening a library.
 struct OpenCourseRequest {
@@ -138,20 +172,20 @@ struct OpenCourseResult {
 /// The directory can also contain asset files referenced by the manifests. For example, a basic
 /// flashcard with a front and back can be stored using two markdown files.
 pub struct LocalCourseLibrary {
-    /// A `UnitGraph` constructed when opening the library.
-    unit_graph: Arc<RwLock<InMemoryUnitGraph>>,
+    /// The graph of units and dependencies.
+    pub unit_graph: Arc<RwLock<InMemoryUnitGraph>>,
 
     /// A mapping of course ID to its corresponding course manifest.
-    course_map: UstrMap<CourseManifest>,
+    pub course_map: UstrMap<CourseManifest>,
 
     /// A mapping of lesson ID to its corresponding lesson manifest.
-    lesson_map: UstrMap<LessonManifest>,
+    pub lesson_map: UstrMap<LessonManifest>,
 
     /// A mapping of exercise ID to its corresponding exercise manifest.
-    exercise_map: UstrMap<ExerciseManifest>,
+    pub exercise_map: UstrMap<ExerciseManifest>,
 
     /// The user preferences.
-    user_preferences: UserPreferences,
+    pub user_preferences: UserPreferences,
 
     /// A tantivy index used for searching the course library.
     index: Index,
@@ -556,6 +590,67 @@ impl LocalCourseLibrary {
 
         // Perform a check to detect cyclic dependencies to prevent infinite loops during traversal.
         library.unit_graph.read().check_cycles()?;
+        Ok(library)
+    }
+
+    /// A constructor taking a serialized library.
+    pub fn new_from_serialized(
+        serialized_library: SerializedCourseLibrary,
+        user_preferences: UserPreferences,
+    ) -> Result<Self> {
+        // Initialize the course library with the serialized data.
+        let mut library = LocalCourseLibrary {
+            course_map: serialized_library.course_map,
+            lesson_map: serialized_library.lesson_map,
+            exercise_map: serialized_library.exercise_map,
+            user_preferences,
+            unit_graph: Arc::new(RwLock::new(serialized_library.unit_graph)),
+            index: Index::create_in_ram(Self::search_schema()),
+            reader: None,
+        };
+
+        // Initialize the search index writer with an initial arena size of 150 MB.
+        let mut index_writer = library.index.writer(150_000_000)?;
+
+        // Add the manifests to the index.
+        for manifest in library.course_map.values() {
+            Self::add_to_index_writer(
+                &mut index_writer,
+                manifest.id,
+                &manifest.name,
+                manifest.description.as_deref(),
+                manifest.metadata.as_ref(),
+            )?;
+        }
+        for manifest in library.lesson_map.values() {
+            Self::add_to_index_writer(
+                &mut index_writer,
+                manifest.id,
+                &manifest.name,
+                manifest.description.as_deref(),
+                manifest.metadata.as_ref(),
+            )?;
+        }
+        for manifest in library.exercise_map.values() {
+            Self::add_to_index_writer(
+                &mut index_writer,
+                manifest.id,
+                &manifest.name,
+                manifest.description.as_deref(),
+                None,
+            )?;
+        }
+
+        // Commit the search index writer and initialize the reader in the course library.
+        index_writer.commit()?;
+        library.reader = Some(
+            library
+                .index
+                .reader_builder()
+                .reload_policy(ReloadPolicy::OnCommitWithDelay)
+                .try_into()?,
+        );
+
         Ok(library)
     }
 
