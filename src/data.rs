@@ -11,7 +11,6 @@ use anyhow::{Result, bail};
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
-use ts_rs::TS;
 use ustr::Ustr;
 
 use crate::data::course_generator::{
@@ -24,8 +23,7 @@ use crate::data::course_generator::{
 /// The score used by students to evaluate their mastery of a particular exercise after a trial.
 /// More detailed descriptions of the levels are provided using the example of an exercise that
 /// requires the student to learn a musical passage.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum MasteryScore {
     /// One signifies the student has barely any mastery of the exercise. For a musical passage,
     /// this level of mastery represents the initial attempts at hearing and reading the music, and
@@ -103,8 +101,7 @@ impl TryFrom<f32> for MasteryScore {
 
 //@<lp-example-4
 /// The result of a single trial.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ExerciseTrial {
     /// The score assigned to the exercise after the trial.
     pub score: f32,
@@ -116,8 +113,7 @@ pub struct ExerciseTrial {
 
 /// The reward assigned to a single exercise. Rewards are used to adjust an exercise's score based
 /// on performance of related exercises.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct UnitReward {
     /// The reward assigned to the exercise. The value can be negative, zero, or positive.
     pub reward: f32,
@@ -131,8 +127,7 @@ pub struct UnitReward {
 }
 
 /// The type of the units stored in the dependency graph.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum UnitType {
     /// A single task, which the student is meant to perform and assess.
     Exercise,
@@ -207,8 +202,7 @@ pub trait GetUnitType {
 
 /// An asset attached to a unit, which could be used to store instructions, or present the material
 /// introduced by a course or lesson.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum BasicAsset {
     /// An asset containing the path to a markdown file.
     MarkdownAsset {
@@ -226,7 +220,6 @@ pub enum BasicAsset {
     /// replicated across many units.
     InlinedUniqueAsset {
         /// The content of the asset.
-        #[ts(as = "String")]
         content: Ustr,
     },
 }
@@ -259,8 +252,7 @@ impl VerifyPaths for BasicAsset {
 
 //@<course-generator
 /// A configuration used for generating special types of courses on the fly.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum CourseGenerator {
     /// The configuration for generating a knowledge base course. Currently, there are no
     /// configuration options, but the struct was added to implement the [GenerateManifests] trait
@@ -327,14 +319,12 @@ impl GenerateManifests for CourseGenerator {
 }
 
 /// A manifest describing the contents of a course.
-#[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct CourseManifest {
     /// The ID assigned to this course.
     ///
     /// For example, `music::instrument::guitar::basic_jazz_chords`.
     #[builder(setter(into))]
-    #[ts(as = "String")]
     pub id: Ustr,
 
     /// The name of the course to be presented to the user.
@@ -347,7 +337,6 @@ pub struct CourseManifest {
     /// The IDs of all dependencies of this course.
     #[builder(default)]
     #[serde(default)]
-    #[ts(as = "Vec<String>")]
     pub dependencies: Vec<Ustr>,
 
     /// The IDs of the courses or lessons that this course supersedes. If this course is mastered,
@@ -355,7 +344,6 @@ pub struct CourseManifest {
     /// student.
     #[builder(default)]
     #[serde(default)]
-    #[ts(as = "Vec<String>")]
     pub superseded: Vec<Ustr>,
 
     /// An optional description of the course.
@@ -443,20 +431,17 @@ impl GetUnitType for CourseManifest {
 }
 
 /// A manifest describing the contents of a lesson.
-#[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct LessonManifest {
     /// The ID assigned to this lesson.
     ///
     /// For example, `music::instrument::guitar::basic_jazz_chords::major_chords`.
     #[builder(setter(into))]
-    #[ts(as = "String")]
     pub id: Ustr,
 
     /// The IDs of all dependencies of this lesson.
     #[builder(default)]
     #[serde(default)]
-    #[ts(as = "Vec<String>")]
     pub dependencies: Vec<Ustr>,
 
     ///The IDs of the courses or lessons that this lesson supersedes. If this lesson is mastered,
@@ -464,12 +449,10 @@ pub struct LessonManifest {
     /// student.
     #[builder(default)]
     #[serde(default)]
-    #[ts(as = "Vec<String>")]
     pub superseded: Vec<Ustr>,
 
     /// The ID of the course to which the lesson belongs.
     #[builder(setter(into))]
-    #[ts(as = "String")]
     pub course_id: Ustr,
 
     /// The name of the lesson to be presented to the user.
@@ -543,8 +526,7 @@ impl GetUnitType for LessonManifest {
 }
 
 /// The type of knowledge tested by an exercise.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub enum ExerciseType {
     /// Represents an exercise that tests mastery of factual knowledge. For example, an exercise
     /// asking students to name the notes in a D Major chord.
@@ -557,8 +539,7 @@ pub enum ExerciseType {
 }
 
 /// The asset storing the material of a particular exercise.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum ExerciseAsset {
     /// A basic asset storing the material of the exercise.
     BasicAsset(BasicAsset),
@@ -698,24 +679,20 @@ impl VerifyPaths for ExerciseAsset {
 }
 
 /// Manifest describing a single exercise.
-#[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ExerciseManifest {
     /// The ID assigned to this exercise.
     ///
     /// For example, `music::instrument::guitar::basic_jazz_chords::major_chords::exercise_1`.
     #[builder(setter(into))]
-    #[ts(as = "String")]
     pub id: Ustr,
 
     /// The ID of the lesson to which this exercise belongs.
     #[builder(setter(into))]
-    #[ts(as = "String")]
     pub lesson_id: Ustr,
 
     /// The ID of the course to which this exercise belongs.
     #[builder(setter(into))]
-    #[ts(as = "String")]
     pub course_id: Ustr,
 
     /// The name of the exercise to be presented to the user.
@@ -760,8 +737,7 @@ impl GetUnitType for ExerciseManifest {
 }
 
 /// Options to compute the passing score for a unit.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum PassingScoreOptions {
     /// The passing score will be a fixed value. A unit will be considered mastered if the average
     /// score of all its exercises is greater than or equal to this value.
@@ -847,8 +823,7 @@ impl PassingScoreOptions {
 /// that are already fully mastered should not be shown very often lest the student becomes bored.
 /// Very difficult exercises should not be shown too often either lest the student becomes
 /// frustrated.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct MasteryWindow {
     /// The percentage of the exercises in each batch returned by the scheduler whose scores should
     /// fall within this window.
@@ -876,8 +851,7 @@ impl MasteryWindow {
 }
 
 /// Options to control how the scheduler selects exercises.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct SchedulerOptions {
     /// The maximum number of candidates to return each time the scheduler is called.
     pub batch_size: usize,
@@ -1013,8 +987,7 @@ impl Default for SchedulerOptions {
 }
 
 /// Represents the scheduler's options that can be customized by the user.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct SchedulerPreferences {
     /// The maximum number of candidates to return each time the scheduler is called.
     #[serde(default)]
@@ -1022,8 +995,7 @@ pub struct SchedulerPreferences {
 }
 
 /// Represents a repository containing Trane courses.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct RepositoryMetadata {
     /// The ID of the repository, which is also used to name the directory.
     pub id: String,
@@ -1034,8 +1006,7 @@ pub struct RepositoryMetadata {
 
 //@<user-preferences
 /// The user-specific configuration
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct UserPreferences {
     /// The preferences for generating transcription courses.
     #[serde(default)]
