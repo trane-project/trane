@@ -14,7 +14,6 @@ use std::{
     path::Path,
 };
 use strum::Display;
-use ts_rs::TS;
 use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::data::{
@@ -153,8 +152,7 @@ impl TryFrom<&str> for LiteracyFile {
 }
 
 /// The types of literacy lessons that can be generated.
-#[derive(Clone, Debug, Deserialize, Display, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Clone, Debug, Deserialize, Display, PartialEq, Serialize)]
 pub enum LiteracyLessonType {
     /// A lesson that takes examples and exceptions and asks the student to read them.
     Reading,
@@ -477,8 +475,7 @@ impl LiteracyLesson {
 
 /// The configuration to create a course that teaches literacy based on the provided material.
 /// Material can be of two types.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct LiteracyConfig {
     /// Indicates whether to generate a lesson that asks the student to write the examples and
     /// exceptions based on the tutor's dictation.

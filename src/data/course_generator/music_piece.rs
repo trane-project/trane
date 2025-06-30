@@ -8,7 +8,6 @@ use anyhow::Result;
 use indoc::{formatdoc, indoc};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::Path};
-use ts_rs::TS;
 use ustr::Ustr;
 
 use crate::data::{
@@ -25,8 +24,7 @@ const INSTRUCTIONS: &str = indoc! {"
 
 //@<music-asset
 /// Represents a music asset to be practiced.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum MusicAsset {
     /// A link to a SoundSlice.
     SoundSlice(String),
@@ -72,8 +70,7 @@ impl MusicAsset {
 
 //@<music-passage
 /// Represents a music passage to be practiced.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct MusicPassage {
     /// The start of the passage.
     pub start: String,
@@ -173,8 +170,7 @@ impl MusicPassage {
 
 //@<music-piece-config
 /// The config to create a course that teaches a piece of music.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct MusicPieceConfig {
     /// The asset containing the music to be practiced.
     pub music_asset: MusicAsset,

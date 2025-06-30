@@ -6,7 +6,6 @@
 //! manifests always match the current version of Trane.
 
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 
 pub mod knowledge_base;
 pub mod literacy;
@@ -15,8 +14,7 @@ pub mod transcription;
 
 //@<instrument
 /// Describes an instrument that can be used to practice in a generated course.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
-#[ts(export)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Instrument {
     /// The name of the instrument. For example, "Tenor Saxophone".
     pub name: String,
