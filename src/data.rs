@@ -979,7 +979,7 @@ impl Default for SchedulerOptions {
                 range: (4.5, 5.0),
             },
             passing_score: PassingScoreOptions::default(),
-            superseding_score: 3.75,
+            superseding_score: 4.0,
             num_trials: 10,
             num_rewards: 5,
         }
