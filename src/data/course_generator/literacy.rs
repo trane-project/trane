@@ -533,13 +533,13 @@ impl GenerateManifests for LiteracyConfig {
             // the knowledge base lesson and its exercises.
             let path = entry.path();
             let dir_name = path.file_name().unwrap_or_default().to_str().unwrap();
-            if let Some(short_id) = dir_name.strip_suffix(LESSON_SUFFIX) {
-                if !short_id.is_empty() {
-                    lessons.insert(
-                        short_id.into(),
-                        LiteracyLesson::open_lesson(&path, short_id.into())?,
-                    );
-                }
+            if let Some(short_id) = dir_name.strip_suffix(LESSON_SUFFIX)
+                && !short_id.is_empty()
+            {
+                lessons.insert(
+                    short_id.into(),
+                    LiteracyLesson::open_lesson(&path, short_id.into())?,
+                );
             }
         }
 

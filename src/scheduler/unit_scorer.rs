@@ -75,12 +75,12 @@ impl UnitScorer {
 
         // If the unit is an exercise, invalidate the cached score of its lesson and course. If the
         // unit is a lesson, invalidate the cached score of its course.
-        if is_exercise {
-            if let Some(lesson_id) = self.data.unit_graph.read().get_exercise_lesson(unit_id) {
-                self.lesson_cache.borrow_mut().remove(&lesson_id);
-                if let Some(course_id) = self.data.unit_graph.read().get_lesson_course(lesson_id) {
-                    self.course_cache.borrow_mut().remove(&course_id);
-                }
+        if is_exercise
+            && let Some(lesson_id) = self.data.unit_graph.read().get_exercise_lesson(unit_id)
+        {
+            self.lesson_cache.borrow_mut().remove(&lesson_id);
+            if let Some(course_id) = self.data.unit_graph.read().get_lesson_course(lesson_id) {
+                self.course_cache.borrow_mut().remove(&course_id);
             }
         }
 
@@ -295,11 +295,11 @@ impl UnitScorer {
 
         // Check if the lesson has been superseded. Superseded lessons have no score.
         let superseding_ids = self.get_superseding_recursive(lesson_id);
-        if let Some(superseding_ids) = superseding_ids {
-            if self.is_superseded(lesson_id, &superseding_ids) {
-                self.lesson_cache.borrow_mut().insert(lesson_id, None);
-                return Ok(None);
-            }
+        if let Some(superseding_ids) = superseding_ids
+            && self.is_superseded(lesson_id, &superseding_ids)
+        {
+            self.lesson_cache.borrow_mut().insert(lesson_id, None);
+            return Ok(None);
         }
 
         // Compute the average score of all the exercises in the lesson.
@@ -358,11 +358,11 @@ impl UnitScorer {
 
         // Check if the course has been superseded. Superseded courses have no score.
         let superseding_ids = self.get_superseding_recursive(course_id);
-        if let Some(superseding_ids) = superseding_ids {
-            if self.is_superseded(course_id, &superseding_ids) {
-                self.course_cache.borrow_mut().insert(course_id, None);
-                return Ok(None);
-            }
+        if let Some(superseding_ids) = superseding_ids
+            && self.is_superseded(course_id, &superseding_ids)
+        {
+            self.course_cache.borrow_mut().insert(course_id, None);
+            return Ok(None);
         }
 
         // Compute the average score of all the lessons in the course.
