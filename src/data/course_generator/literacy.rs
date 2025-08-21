@@ -24,6 +24,11 @@ use crate::data::{
 /// The metadata key indicating this is a literacy course. Its value should be set to "true".
 pub const COURSE_METADATA: &str = "literacy_course";
 
+/// The name of the file containing the course instructions. Overrides the instructions in the
+/// course manifest, so it should be the preferred way to set the instructions for a literacy
+/// course.
+pub const COURSE_INSTRUCTIONS_FILE: &str = "course.instructions.md";
+
 /// The suffix used to recognize a directory as a knowledge base lesson.
 pub const LESSON_SUFFIX: &str = ".lesson";
 
@@ -60,6 +65,9 @@ pub const SIMPLE_EXCEPTIONS_FILE: &str = "simple_exceptions.md";
 /// An enum representing a type of files that can be found in a literacy lesson directory.
 #[derive(Debug, Eq, PartialEq)]
 pub enum LiteracyFile {
+    /// The file containing the course instructions.
+    CourseInstructions,
+
     /// The file containing the name of the lesson.
     LessonName,
 
@@ -229,6 +237,12 @@ impl LiteracyLesson {
         // corresponding field in the lesson.
         for lesson_file in files {
             match lesson_file {
+                LiteracyFile::CourseInstructions => {
+                    return Err(anyhow!(
+                        "Found course instructions file in lesson directory: {}",
+                        lesson_root.display()
+                    ));
+                }
                 LiteracyFile::LessonDependencies => {
                     let path = lesson_root.join(LESSON_DEPENDENCIES_FILE);
                     lesson.dependencies = LiteracyFile::open_serialized(&path)?;
@@ -483,6 +497,20 @@ pub struct LiteracyConfig {
     pub generate_dictation: bool,
 }
 
+impl LiteracyConfig {
+    // Opens the course instructions if they exist.
+    fn open_course_instructions(course_root: &Path) -> Result<Option<BasicAsset>> {
+        let path = course_root.join(COURSE_INSTRUCTIONS_FILE);
+        if path.exists() && path.is_file() {
+            Ok(Some(BasicAsset::InlinedAsset {
+                content: LiteracyFile::open_md(&path)?,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
 impl GenerateManifests for LiteracyConfig {
     fn generate_manifests(
         &self,
@@ -528,7 +556,7 @@ impl GenerateManifests for LiteracyConfig {
         Ok(GeneratedCourse {
             lessons,
             updated_metadata: Some(metadata),
-            updated_instructions: None,
+            updated_instructions: Self::open_course_instructions(course_root)?,
         })
     }
 }
@@ -725,6 +753,11 @@ mod test {
         num_simple_examples: u8,
         num_simple_exceptions: u8,
     ) -> Result<()> {
+        // Generate the course instructions.
+        let course_instructions_file = root_dir.join("course.instructions.md");
+        fs::write(&course_instructions_file, "# Course Instructions")?;
+
+        // Generate the lessons.
         for i in 0..num_lessons {
             // Create the lesson directory and make lesson depend on the previous one. Add another
             // dependency that is outside the course to verify that functionality.
@@ -974,7 +1007,9 @@ mod test {
                 "literacy_course".to_string(),
                 vec!["true".to_string()],
             )])),
-            updated_instructions: None,
+            updated_instructions: Some(BasicAsset::InlinedAsset {
+                content: "# Course Instructions".to_string(),
+            }),
         };
         assert_eq!(got, want);
         Ok(())
@@ -1099,7 +1134,9 @@ mod test {
                 "literacy_course".to_string(),
                 vec!["true".to_string()],
             )])),
-            updated_instructions: None,
+            updated_instructions: Some(BasicAsset::InlinedAsset {
+                content: "# Course Instructions".to_string(),
+            }),
         };
         assert_eq!(got, want);
         Ok(())
