@@ -364,10 +364,10 @@ impl DepthFirstScheduler {
 
         // The dependency is considered as satisfied if it's been superseded by another unit.
         let superseding = self.unit_scorer.get_superseding_recursive(dependency_id);
-        if let Some(superseding) = superseding {
-            if self.unit_scorer.is_superseded(dependency_id, &superseding) {
-                return true;
-            }
+        if let Some(superseding) = superseding
+            && self.unit_scorer.is_superseded(dependency_id, &superseding)
+        {
+            return true;
         }
 
         // Finally, dependencies with a score equal or greater than the passing score are considered

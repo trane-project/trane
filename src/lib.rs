@@ -194,10 +194,10 @@ impl Trane {
     #[cfg_attr(coverage, coverage(off))]
     fn create_scheduler_options(preferences: Option<&SchedulerPreferences>) -> SchedulerOptions {
         let mut options = SchedulerOptions::default();
-        if let Some(preferences) = preferences {
-            if let Some(batch_size) = preferences.batch_size {
-                options.batch_size = batch_size;
-            }
+        if let Some(preferences) = preferences
+            && let Some(batch_size) = preferences.batch_size
+        {
+            options.batch_size = batch_size;
         }
         options
     }
