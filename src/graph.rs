@@ -136,7 +136,9 @@ pub trait UnitGraph {
     /// The dependent graph is outputted instead of the dependency graph so that the output is
     /// easier to read. If you follow the arrows, then you are traversing the path that students
     /// must take to master a skill.
-    fn generate_dot_graph(&self) -> String;
+    ///
+    /// If courses_only is true, only courses will be included in the graph.
+    fn generate_dot_graph(&self, courses_only: bool) -> String;
 }
 
 /// An implementation of [`UnitGraph`] describing the units and relationships as an adjacency list
@@ -568,7 +570,7 @@ impl UnitGraph for InMemoryUnitGraph {
             .map_err(UnitGraphError::CheckCycles)
     }
 
-    fn generate_dot_graph(&self) -> String {
+    fn generate_dot_graph(&self, courses_only: bool) -> String {
         // Initialize the output with the first line of the file.
         let mut output = String::from("digraph dependent_graph {\n");
         let mut courses = self.course_lesson_map.keys().copied().collect::<Vec<_>>();
@@ -579,14 +581,22 @@ impl UnitGraph for InMemoryUnitGraph {
             // Add an entry for the course node and set the color to red.
             let _ = writeln!(output, "    \"{course_id}\" [color=red, style=filled]");
 
-            // Write the entry in the graph for all the of the dependents of this course.
+            // Write the entry in the graph for all the of the dependents of this course. Filter out
+            // lessons if only courses should be added.
             let mut dependents = self
                 .get_dependents(course_id)
                 .unwrap_or_default()
                 .into_iter()
                 .collect::<Vec<_>>();
+            dependents.retain(|dependent_id| {
+                if courses_only {
+                    self.get_unit_type(*dependent_id) == Some(UnitType::Course)
+                } else {
+                    true
+                }
+            });
 
-            // Write the entry in the graph for all the lessons in the course.
+            // Add the initial lessons in the course as dependents.
             //
             // A course's lessons are not explicitly attached to the graph. This is not exactly
             // accurate, but properly connecting them in the graph would require each course to have
@@ -595,17 +605,25 @@ impl UnitGraph for InMemoryUnitGraph {
             // (by the order in which they must be traversed to master the entire course) and to the
             // course's dependents. This might be amended, either here in this function or in the
             // implementation of the graph itself, but it is not a high priority.
-            dependents.extend(
-                self.get_starting_lessons(course_id)
-                    .unwrap_or_default()
-                    .iter(),
-            );
+            if !courses_only {
+                dependents.extend(
+                    self.get_starting_lessons(course_id)
+                        .unwrap_or_default()
+                        .iter(),
+                );
+            }
+
+            // Write an entry for each of the course's dependents.
             dependents.sort();
             for dependent in dependents {
                 let _ = writeln!(output, "    \"{course_id}\" -> \"{dependent}\"");
             }
 
-            // Repeat the same process for each lesson in this course.
+            // Repeat the same process for each lesson in this course, unless only the courses
+            // should be included.
+            if courses_only {
+                continue;
+            }
             let mut lessons = self
                 .get_course_lessons(course_id)
                 .unwrap_or_default()
@@ -812,7 +830,8 @@ mod test {
         graph.add_dependencies(course3_lesson2_id, UnitType::Lesson, &[course3_lesson1_id])?;
         graph.update_starting_lessons();
 
-        let dot = graph.generate_dot_graph();
+        // Generate the graph with all units.
+        let dot = graph.generate_dot_graph(false);
         let expected = indoc! {r#"
             digraph dependent_graph {
                 "1" [color=red, style=filled]
@@ -833,6 +852,19 @@ mod test {
             }
     "#};
         assert_eq!(dot, expected);
+
+        // Generate the graph with only lessons.
+        let dot_courses_only = graph.generate_dot_graph(true);
+        let expected_courses_only = indoc! {r#"
+            digraph dependent_graph {
+                "1" [color=red, style=filled]
+                "1" -> "2"
+                "2" [color=red, style=filled]
+                "2" -> "3"
+                "3" [color=red, style=filled]
+            }
+        "#};
+        assert_eq!(dot_courses_only, expected_courses_only);
         Ok(())
     }
 
