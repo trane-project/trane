@@ -761,8 +761,8 @@ impl UnitGraph for Trane {
         self.unit_graph.read().check_cycles()
     }
 
-    fn generate_dot_graph(&self) -> String {
-        self.unit_graph.read().generate_dot_graph()
+    fn generate_dot_graph(&self, courses_only: bool) -> String {
+        self.unit_graph.read().generate_dot_graph(courses_only)
     }
 }
 
