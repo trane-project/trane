@@ -963,15 +963,15 @@ impl Default for SchedulerOptions {
                 range: (0.0, 0.1),
             },
             target_window_opts: MasteryWindow {
-                percentage: 0.2,
+                percentage: 0.15,
                 range: (0.1, 2.5),
             },
             current_window_opts: MasteryWindow {
-                percentage: 0.2,
+                percentage: 0.3,
                 range: (2.5, 3.75),
             },
             easy_window_opts: MasteryWindow {
-                percentage: 0.2,
+                percentage: 0.15,
                 range: (3.75, 4.5),
             },
             mastered_window_opts: MasteryWindow {
