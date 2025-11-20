@@ -515,10 +515,7 @@ impl TranscriptionConfig {
                     LESSON_METADATA.to_string(),
                     vec!["transcription".to_string()],
                 ),
-                (
-                    INSTRUMENT_METADATA.to_string(),
-                    vec![instrument.id.to_string()],
-                ),
+                (INSTRUMENT_METADATA.to_string(), vec![instrument.id.clone()]),
             ])),
             lesson_instructions: Some(BasicAsset::InlinedUniqueAsset {
                 content: *TRANSCRIPTION_INSTRUCTIONS,
@@ -644,10 +641,7 @@ impl TranscriptionConfig {
                     LESSON_METADATA.to_string(),
                     vec!["advanced_transcription".to_string()],
                 ),
-                (
-                    INSTRUMENT_METADATA.to_string(),
-                    vec![instrument.id.to_string()],
-                ),
+                (INSTRUMENT_METADATA.to_string(), vec![instrument.id.clone()]),
             ])),
             lesson_instructions: Some(BasicAsset::InlinedUniqueAsset {
                 content: *ADVANCED_TRANSCRIPTION_INSTRUCTIONS,
@@ -727,7 +721,7 @@ impl TranscriptionConfig {
             let passage = TranscriptionPassages::open(&path)?;
             let short_id = passage.asset.short_id();
             if seen_ids.contains(short_id) {
-                bail!("Duplicate passage ID: {}", short_id);
+                bail!("Duplicate passage ID: {short_id}");
             }
             seen_ids.insert(short_id.to_string());
             passages.push(passage);

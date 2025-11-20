@@ -41,7 +41,7 @@ use trane::{
     },
     review_list::ReviewList,
     scheduler::ExerciseScheduler,
-    testutil::*,
+    test_utils::*,
 };
 use ustr::Ustr;
 

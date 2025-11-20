@@ -21,7 +21,7 @@ use rusqlite_migration::{M, Migrations};
 use std::collections::VecDeque;
 use ustr::{Ustr, UstrMap};
 
-use crate::{data::UnitReward, db_utils, error::PracticeRewardsError};
+use crate::{data::UnitReward, error::PracticeRewardsError, utils};
 
 /// Contains functions to retrieve and record rewards for lessons and courses.
 pub trait PracticeRewards {
@@ -147,7 +147,7 @@ impl LocalPracticeRewards {
 
     /// Creates a connection pool and initializes the database.
     fn new(connection_manager: SqliteConnectionManager) -> Result<LocalPracticeRewards> {
-        let pool = db_utils::new_connection_pool(connection_manager)?;
+        let pool = utils::new_connection_pool(connection_manager)?;
         let mut rewards = LocalPracticeRewards {
             pool,
             cache: RewardCache {
@@ -160,7 +160,7 @@ impl LocalPracticeRewards {
 
     /// A constructor taking the path to a database file.
     pub fn new_from_disk(db_path: &str) -> Result<LocalPracticeRewards> {
-        Self::new(db_utils::new_connection_manager(db_path))
+        Self::new(utils::new_connection_manager(db_path))
     }
 
     /// Helper function to retrieve rewards from the database.

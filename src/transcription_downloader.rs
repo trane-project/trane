@@ -123,10 +123,10 @@ impl LocalTranscriptionDownloader {
             .arg(arg)
             .status();
         if status.is_err() {
-            bail!("command \"{}\" cannot be found", name);
+            bail!("command \"{name}\" cannot be found");
         }
         if !status.unwrap().success() {
-            bail!("command \"{}\" failed", name);
+            bail!("command \"{name}\" failed");
         }
         Ok(())
     }
@@ -180,11 +180,7 @@ impl LocalTranscriptionDownloader {
                     .output()?;
                 if !output.status.success() {
                     let err = String::from_utf8_lossy(&output.stderr);
-                    bail!(
-                        "yt-dlp failed to download audio from URL {}: {}",
-                        yt_link,
-                        err
-                    );
+                    bail!("yt-dlp failed to download audio from URL {yt_link}: {err}");
                 }
                 std::fs::create_dir_all(download_path.parent().unwrap())?;
                 std::fs::copy(temp_file, &download_path)?;

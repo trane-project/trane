@@ -84,7 +84,11 @@ impl WeightedRewardScorer {
             .map(|(s, w)| s * *w)
             .sum();
         let weight_sum = weights.iter().sum::<f32>();
-        cross_product / weight_sum
+        if weight_sum == 0.0 {
+            0.0
+        } else {
+            cross_product / weight_sum
+        }
     }
 }
 
@@ -121,14 +125,6 @@ impl RewardScorer for WeightedRewardScorer {
         }
     }
 }
-
-/// An implementation of [Send] for [`WeightedRewardScorer`]. This implementation is safe because
-/// [`WeightedRewardScorer`] stores no state.
-unsafe impl Send for WeightedRewardScorer {}
-
-/// An implementation of [Sync] for [`WeightedRewardScorer`]. This implementation is safe because
-/// [`WeightedRewardScorer`] stores no state.
-unsafe impl Sync for WeightedRewardScorer {}
 
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]

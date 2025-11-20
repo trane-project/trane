@@ -7,7 +7,7 @@
 
 use anyhow::{Ok, Result};
 use tempfile::TempDir;
-use trane::{data::MasteryScore, testutil::*};
+use trane::{data::MasteryScore, test_utils::*};
 
 /// Verifies that all the exercises are scheduled with no blacklist or filter when the user gives a
 /// score of five to every exercise, even in a course library with a lot of exercises.

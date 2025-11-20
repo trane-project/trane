@@ -440,7 +440,7 @@ mod test {
         blacklist::Blacklist,
         data::{MasteryScore, SchedulerOptions},
         scheduler::{ExerciseScheduler, UnitScorer, unit_scorer::CachedScore},
-        testutil::*,
+        test_utils::*,
     };
 
     static NUM_EXERCISES: usize = 2;

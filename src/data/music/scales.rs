@@ -56,10 +56,7 @@ impl Note {
             Note::F_SHARP => Ok(Note::D_SHARP),
             Note::G => Ok(Note::E),
             Note::G_FLAT => Ok(Note::E_FLAT),
-            _ => Err(anyhow!(
-                "relative minor not found for note {}",
-                self.to_string()
-            )),
+            _ => Err(anyhow!("relative minor not found for note {self}")),
         }
     }
 
@@ -81,10 +78,7 @@ impl Note {
             Note::F_SHARP => Ok(Note::A),
             Note::G => Ok(Note::B_FLAT),
             Note::G_SHARP => Ok(Note::B),
-            _ => Err(anyhow!(
-                "relative major not found for note {}",
-                self.to_string()
-            )),
+            _ => Err(anyhow!("relative major not found for note {self}")),
         }
     }
 }
@@ -303,16 +297,13 @@ impl ScaleType {
                         Note::F,
                     ],
                 }),
-                _ => Err(anyhow!(
-                    "major scale not found for note {}",
-                    tonic.to_string()
-                )),
+                _ => Err(anyhow!("major scale not found for note {tonic}")),
             },
 
             ScaleType::Minor => {
                 let relative_major = ScaleType::Major
                     .notes(tonic.relative_major()?)
-                    .map_err(|_| anyhow!("minor scale not found for note {}", tonic.to_string()))?;
+                    .map_err(|_| anyhow!("minor scale not found for note {tonic}"))?;
 
                 Ok(Scale {
                     tonic: relative_major.tonic,
@@ -329,12 +320,9 @@ impl ScaleType {
             }
 
             ScaleType::MajorPentatonic => {
-                let major = ScaleType::Major.notes(tonic).map_err(|_| {
-                    anyhow!(
-                        "major pentatonic scale not found for note {}",
-                        tonic.to_string()
-                    )
-                })?;
+                let major = ScaleType::Major
+                    .notes(tonic)
+                    .map_err(|_| anyhow!("major pentatonic scale not found for note {tonic}"))?;
                 Ok(Scale {
                     tonic,
                     notes: vec![
@@ -348,12 +336,9 @@ impl ScaleType {
             }
 
             ScaleType::MinorPentatonic => {
-                let minor = ScaleType::Minor.notes(tonic).map_err(|_| {
-                    anyhow!(
-                        "minor pentatonic scale not found for note {}",
-                        tonic.to_string()
-                    )
-                })?;
+                let minor = ScaleType::Minor
+                    .notes(tonic)
+                    .map_err(|_| anyhow!("minor pentatonic scale not found for note {tonic}"))?;
                 Ok(Scale {
                     tonic,
                     notes: vec![

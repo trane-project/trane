@@ -236,7 +236,7 @@ impl SimpleKnowledgeBaseExercise {
         // Generate the exercise builder.
         Ok(ExerciseBuilder {
             exercise: KnowledgeBaseExercise {
-                short_id: self.short_id.to_string(),
+                short_id: self.short_id.clone(),
                 short_lesson_id,
                 course_id,
                 front_file,

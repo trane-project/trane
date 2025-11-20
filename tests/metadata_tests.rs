@@ -12,7 +12,7 @@ use trane::{
         MasteryScore,
         filter::{ExerciseFilter, FilterOp, FilterType, KeyValueFilter, UnitFilter},
     },
-    testutil::*,
+    test_utils::*,
 };
 
 /// A simple set of courses to test the basic functionality of Trane.

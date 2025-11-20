@@ -18,7 +18,7 @@ use trane::{
             KnowledgeBaseConfig, KnowledgeBaseExercise, KnowledgeBaseLesson,
         },
     },
-    testutil::TraneSimulation,
+    test_utils::TraneSimulation,
 };
 use ustr::Ustr;
 

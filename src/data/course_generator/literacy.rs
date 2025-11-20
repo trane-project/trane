@@ -154,7 +154,7 @@ impl TryFrom<&str> for LiteracyFile {
             }
             SIMPLE_EXAMPLES_FILE => Ok(LiteracyFile::SimpleExamples),
             SIMPLE_EXCEPTIONS_FILE => Ok(LiteracyFile::SimpleExceptions),
-            _ => Err(anyhow!("Not a valid literacy file name: {}", file_name)),
+            _ => Err(anyhow!("Not a valid literacy file name: {file_name}")),
         }
     }
 }
