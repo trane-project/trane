@@ -140,10 +140,7 @@ impl TryFrom<&str> for KnowledgeBaseFile {
                 let short_id = file_name.strip_suffix(EXERCISE_TYPE_SUFFIX).unwrap();
                 Ok(KnowledgeBaseFile::ExerciseType(short_id.to_string()))
             }
-            _ => Err(anyhow!(
-                "Not a valid knowledge base file name: {}",
-                file_name
-            )),
+            _ => Err(anyhow!("Not a valid knowledge base file name: {file_name}")),
         }
     }
 }

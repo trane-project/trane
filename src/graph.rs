@@ -225,10 +225,8 @@ impl InMemoryUnitGraph {
                     Ok(())
                 } else {
                     Err(anyhow!(
-                        "cannot update unit type of unit {} from type {:#?}) to {:#?}.",
-                        unit_id,
-                        existing_type,
-                        unit_type
+                        "cannot update unit type of unit {unit_id} from type {existing_type:#?}) \
+                        to {unit_type:#?}.",
                     ))
                 }
             }
@@ -240,8 +238,7 @@ impl InMemoryUnitGraph {
         // Verify the course doesn't already exist.
         ensure!(
             !self.type_map.contains_key(&course_id),
-            "course with ID {} already exists",
-            course_id
+            "course with ID {course_id} already exists",
         );
 
         // Add the course to the type map to mark it as existing.
@@ -254,8 +251,7 @@ impl InMemoryUnitGraph {
         // Verify the lesson doesn't already exist.
         ensure!(
             !self.type_map.contains_key(&lesson_id),
-            "lesson with ID {} already exists",
-            lesson_id
+            "lesson with ID {lesson_id} already exists",
         );
 
         // Add the course and lessons to the type map.
@@ -276,8 +272,7 @@ impl InMemoryUnitGraph {
         // Verify the exercise doesn't already exist.
         ensure!(
             !self.type_map.contains_key(&exercise_id),
-            "exercise with ID {} already exists",
-            exercise_id
+            "exercise with ID {exercise_id} already exists",
         );
 
         // Add the exercise and lesson to the type map.
@@ -303,19 +298,16 @@ impl InMemoryUnitGraph {
     ) -> Result<()> {
         ensure!(
             *unit_type != UnitType::Exercise,
-            "exercise {} cannot have dependencies",
-            unit_id,
+            "exercise {unit_id} cannot have dependencies",
         );
         ensure!(
             dependencies.iter().all(|dep| *dep != unit_id),
-            "unit {} cannot depend on itself",
-            unit_id,
+            "unit {unit_id} cannot depend on itself",
         );
         ensure!(
             self.type_map.contains_key(&unit_id),
-            "unit {} of type {:?} must be explicitly added before adding dependencies",
-            unit_id,
-            unit_type,
+            "unit {unit_id} of type {unit_type:?} must be explicitly added before adding \
+            dependencies",
         );
         Ok(())
     }
@@ -379,10 +371,8 @@ impl InMemoryUnitGraph {
                         let dependents = self.get_dependents(dependency_id).unwrap_or_default();
                         if !dependents.contains(&current_id) {
                             bail!(
-                                "unit {} lists unit {} as a dependency but the dependent \
-                                relationship does not exist",
-                                current_id,
-                                dependency_id
+                                "unit {current_id} lists unit {dependency_id} as a dependency but \
+                                the dependent relationship does not exist",
                             );
                         }
 
@@ -428,10 +418,8 @@ impl InMemoryUnitGraph {
                         let superseding = self.get_superseding(superseded_id).unwrap_or_default();
                         if !superseding.contains(&current_id) {
                             bail!(
-                                "unit {} lists unit {} as a superseded unit but the superseding \
-                                relationship does not exist",
-                                current_id,
-                                superseded_id
+                                "unit {current_id} lists unit {superseded_id} as a superseded \
+                                unit but the superseding relationship does not exist",
                             );
                         }
 

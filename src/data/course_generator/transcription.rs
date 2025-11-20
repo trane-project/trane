@@ -721,7 +721,7 @@ impl TranscriptionConfig {
             let passage = TranscriptionPassages::open(&path)?;
             let short_id = passage.asset.short_id();
             if seen_ids.contains(short_id) {
-                bail!("Duplicate passage ID: {}", short_id);
+                bail!("Duplicate passage ID: {short_id}");
             }
             seen_ids.insert(short_id.to_string());
             passages.push(passage);

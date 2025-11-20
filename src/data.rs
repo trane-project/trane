@@ -794,7 +794,7 @@ impl PassingScoreOptions {
         match self {
             PassingScoreOptions::ConstantScore(score) => {
                 if *score < 0.0 || *score > 5.0 {
-                    bail!("Invalid score: {}", score);
+                    bail!("Invalid score: {score}");
                 }
                 Ok(())
             }
@@ -804,10 +804,10 @@ impl PassingScoreOptions {
                 ..
             } => {
                 if *starting_score < 0.0 || *starting_score > 5.0 {
-                    bail!("Invalid starting score: {}", starting_score);
+                    bail!("Invalid starting score: {starting_score}");
                 }
                 if *step_size < 0.0 {
-                    bail!("Invalid step size: {}", step_size);
+                    bail!("Invalid step size: {step_size}");
                 }
                 Ok(())
             }

@@ -87,7 +87,7 @@ impl SchedulerData {
         self.unit_graph
             .read()
             .get_unit_type(unit_id)
-            .ok_or(anyhow!("missing unit type for unit with ID {}", unit_id))
+            .ok_or(anyhow!("missing unit type for unit with ID {unit_id}"))
     }
 
     /// Returns the manifest for the course with the given ID.
@@ -254,8 +254,7 @@ impl SchedulerData {
         match unit_type {
             // Exercises do not have metadata, so this operation is not supported.
             UnitType::Exercise => Err(anyhow!(
-                "cannot apply metadata filter to exercise with ID {}",
-                unit_id
+                "cannot apply metadata filter to exercise with ID {unit_id}",
             )),
             UnitType::Course => {
                 // Retrieve the course manifest and check if the course passes the filter.
@@ -303,7 +302,7 @@ impl SchedulerData {
     pub fn get_saved_filter(&self, filter_id: &str) -> Result<SavedFilter> {
         match self.filter_manager.read().get_filter(filter_id) {
             Some(filter) => Ok(filter),
-            None => Err(anyhow!("no saved filter with ID {} exists", filter_id)),
+            None => Err(anyhow!("no saved filter with ID {filter_id} exists")),
         }
     }
 
