@@ -515,10 +515,7 @@ impl TranscriptionConfig {
                     LESSON_METADATA.to_string(),
                     vec!["transcription".to_string()],
                 ),
-                (
-                    INSTRUMENT_METADATA.to_string(),
-                    vec![instrument.id.clone()],
-                ),
+                (INSTRUMENT_METADATA.to_string(), vec![instrument.id.clone()]),
             ])),
             lesson_instructions: Some(BasicAsset::InlinedUniqueAsset {
                 content: *TRANSCRIPTION_INSTRUCTIONS,
@@ -644,10 +641,7 @@ impl TranscriptionConfig {
                     LESSON_METADATA.to_string(),
                     vec!["advanced_transcription".to_string()],
                 ),
-                (
-                    INSTRUMENT_METADATA.to_string(),
-                    vec![instrument.id.clone()],
-                ),
+                (INSTRUMENT_METADATA.to_string(), vec![instrument.id.clone()]),
             ])),
             lesson_instructions: Some(BasicAsset::InlinedUniqueAsset {
                 content: *ADVANCED_TRANSCRIPTION_INSTRUCTIONS,
