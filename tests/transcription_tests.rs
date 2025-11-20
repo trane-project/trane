@@ -17,7 +17,7 @@ use trane::{
             },
         },
     },
-    testutil::{TraneSimulation, assert_simulation_scores, init_simulation},
+    test_utils::{TraneSimulation, assert_simulation_scores, init_simulation},
 };
 use ustr::Ustr;
 

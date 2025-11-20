@@ -13,8 +13,8 @@ use ustr::Ustr;
 
 use crate::{
     data::{ExerciseTrial, MasteryScore},
-    db_utils,
     error::PracticeStatsError,
+    utils,
 };
 
 /// Contains functions to retrieve and record the scores from each exercise trial.
@@ -99,7 +99,7 @@ impl LocalPracticeStats {
 
     /// Creates a connection pool and initializes the database.
     fn new(connection_manager: SqliteConnectionManager) -> Result<LocalPracticeStats> {
-        let pool = db_utils::new_connection_pool(connection_manager)?;
+        let pool = utils::new_connection_pool(connection_manager)?;
         let mut stats = LocalPracticeStats { pool };
         stats.init()?;
         Ok(stats)
@@ -107,7 +107,7 @@ impl LocalPracticeStats {
 
     /// A constructor taking the path to a database file.
     pub fn new_from_disk(db_path: &str) -> Result<LocalPracticeStats> {
-        Self::new(db_utils::new_connection_manager(db_path))
+        Self::new(utils::new_connection_manager(db_path))
     }
 
     /// Helper function to retrieve scores from the database.

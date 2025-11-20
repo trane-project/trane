@@ -567,7 +567,7 @@ pub fn assert_simulation_scores(
 mod test {
     use std::{path::Path, sync::LazyLock};
 
-    use crate::testutil::*;
+    use crate::test_utils::*;
 
     static NUM_EXERCISES: usize = 2;
 

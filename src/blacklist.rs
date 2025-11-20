@@ -15,7 +15,7 @@ use rusqlite::params;
 use rusqlite_migration::{M, Migrations};
 use ustr::{Ustr, UstrMap};
 
-use crate::{db_utils, error::BlacklistError};
+use crate::{error::BlacklistError, utils};
 
 /// An interface to store and read the list of units which should be skipped during scheduling.
 pub trait Blacklist {
@@ -69,7 +69,7 @@ impl LocalBlacklist {
 
     /// Creates a connection pool and initializes the database and in-memory cache.
     fn new(connection_manager: SqliteConnectionManager) -> Result<LocalBlacklist> {
-        let pool = db_utils::new_connection_pool(connection_manager)?;
+        let pool = utils::new_connection_pool(connection_manager)?;
         let mut blacklist = LocalBlacklist {
             cache: RwLock::new(UstrMap::default()),
             pool,
@@ -86,7 +86,7 @@ impl LocalBlacklist {
 
     /// A constructor taking the path to the database file.
     pub fn new_from_disk(db_path: &str) -> Result<LocalBlacklist> {
-        Self::new(db_utils::new_connection_manager(db_path))
+        Self::new(utils::new_connection_manager(db_path))
     }
 
     /// Returns whether there's an entry for the given unit in the blacklist.

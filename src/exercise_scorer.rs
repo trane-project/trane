@@ -3,7 +3,7 @@
 use anyhow::{Result, anyhow};
 use chrono::{TimeZone, Utc};
 
-use crate::data::ExerciseTrial;
+use crate::{data::ExerciseTrial, utils};
 
 /// A trait exposing a function to score an exercise based on the results of previous trials.
 pub trait ExerciseScorer {
@@ -127,15 +127,6 @@ impl ExponentialDecayScorer {
             })
             .collect()
     }
-
-    /// Returns the weighted average of the scores.
-    #[inline]
-    fn weighted_average(scores: &[f32], weights: &[f32]) -> f32 {
-        // weighted average = (cross product of scores and their weights) / (sum of weights)
-        let cross_product: f32 = scores.iter().zip(weights.iter()).map(|(s, w)| s * *w).sum();
-        let weight_sum = weights.iter().sum::<f32>();
-        cross_product / weight_sum
-    }
 }
 
 impl ExerciseScorer for ExponentialDecayScorer {
@@ -171,7 +162,7 @@ impl ExerciseScorer for ExponentialDecayScorer {
 
         // Run a weighted average on the scores to compute the final score.
         let weights = Self::score_weights(previous_trials.len());
-        Ok(Self::weighted_average(&scores, &weights))
+        Ok(utils::weighted_average(&scores, &weights))
     }
 }
 

@@ -403,7 +403,7 @@ mod test {
             },
         },
         filter_manager::LocalFilterManager,
-        testutil::*,
+        test_utils::*,
     };
 
     static NUM_EXERCISES: usize = 2;

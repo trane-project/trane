@@ -517,7 +517,7 @@ impl TranscriptionConfig {
                 ),
                 (
                     INSTRUMENT_METADATA.to_string(),
-                    vec![instrument.id.to_string()],
+                    vec![instrument.id.clone()],
                 ),
             ])),
             lesson_instructions: Some(BasicAsset::InlinedUniqueAsset {
@@ -646,7 +646,7 @@ impl TranscriptionConfig {
                 ),
                 (
                     INSTRUMENT_METADATA.to_string(),
-                    vec![instrument.id.to_string()],
+                    vec![instrument.id.clone()],
                 ),
             ])),
             lesson_instructions: Some(BasicAsset::InlinedUniqueAsset {

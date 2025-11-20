@@ -13,7 +13,7 @@ use trane::{
         MasteryScore,
         filter::{ExerciseFilter, UnitFilter},
     },
-    testutil::*,
+    test_utils::*,
 };
 
 /// A simple set of courses to verify that blacklisting works correctly.

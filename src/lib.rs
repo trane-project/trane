@@ -54,7 +54,6 @@ pub mod blacklist;
 pub mod course_builder;
 pub mod course_library;
 pub mod data;
-pub mod db_utils;
 pub mod error;
 pub mod exercise_scorer;
 pub mod filter_manager;
@@ -69,8 +68,9 @@ pub mod reward_scorer;
 pub mod scheduler;
 pub mod study_session_manager;
 #[cfg_attr(coverage, coverage(off))]
-pub mod testutil;
+pub mod test_utils;
 pub mod transcription_downloader;
+pub mod utils;
 
 use anyhow::{Context, Result, bail, ensure};
 use error::*;
