@@ -103,6 +103,7 @@ fn transcription_builder(
             metadata: None,
             course_material: None,
             course_instructions: None,
+            default_exercise_type: None,
             generator_config: Some(CourseGenerator::Transcription(TranscriptionConfig {
                 transcription_dependencies: dependencies,
                 passage_directory: "passages".to_string(),

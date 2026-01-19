@@ -116,7 +116,7 @@ pub struct ExerciseTrial {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct UnitReward {
     /// The reward assigned to the exercise. The value can be negative, zero, or positive.
-    pub reward: f32,
+    pub value: f32,
 
     /// The weight assigned to the reward. Rewards from closer units are given more weight than
     /// those from distant units.
@@ -318,6 +318,19 @@ impl GenerateManifests for CourseGenerator {
     }
 }
 
+/// The type of knowledge tested by an exercise.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub enum ExerciseType {
+    /// Represents an exercise that tests mastery of factual knowledge. For example, an exercise
+    /// asking students to name the notes in a D Major chord.
+    Declarative,
+
+    /// Represents an exercises that requires more complex actions to be performed. For example, an
+    /// exercise asking students to play a D Major chords in a piano.
+    #[default]
+    Procedural,
+}
+
 /// A manifest describing the contents of a course.
 #[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct CourseManifest {
@@ -377,6 +390,11 @@ pub struct CourseManifest {
     #[builder(default)]
     #[serde(default)]
     pub course_instructions: Option<BasicAsset>,
+
+    /// The default type of the exercises in this course.
+    #[builder(default)]
+    #[serde(default)]
+    pub default_exercise_type: Option<ExerciseType>,
 
     /// An optional configuration to generate material for this course. Generated courses allow
     /// easier creation of courses for specific purposes without requiring the manual creation of
@@ -483,6 +501,11 @@ pub struct LessonManifest {
     #[builder(default)]
     #[serde(default)]
     pub lesson_instructions: Option<BasicAsset>,
+
+    /// The default type of the exercises in this lesson.
+    #[builder(default)]
+    #[serde(default)]
+    pub default_exercise_type: Option<ExerciseType>,
 }
 
 impl NormalizePaths for LessonManifest {
@@ -523,19 +546,6 @@ impl GetUnitType for LessonManifest {
     fn get_unit_type(&self) -> UnitType {
         UnitType::Lesson
     }
-}
-
-/// The type of knowledge tested by an exercise.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub enum ExerciseType {
-    /// Represents an exercise that tests mastery of factual knowledge. For example, an exercise
-    /// asking students to name the notes in a D Major chord.
-    Declarative,
-
-    /// Represents an exercises that requires more complex actions to be performed. For example, an
-    /// exercise asking students to play a D Major chords in a piano.
-    #[default]
-    Procedural,
 }
 
 /// The asset storing the material of a particular exercise.
@@ -1388,7 +1398,7 @@ mod test {
     fn unit_reward_clone() {
         let reward = UnitReward {
             timestamp: 1,
-            reward: 1.0,
+            value: 1.0,
             weight: 1.0,
         };
         assert_eq!(reward, reward.clone());

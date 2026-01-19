@@ -78,7 +78,7 @@ impl RewardCache {
             .get(&unit_id)
             .and_then(|rewards| {
                 rewards.iter().find(|r| {
-                    r.reward == reward.reward
+                    r.value == reward.value
                         && (r.timestamp - reward.timestamp).abs() < SECONDS_IN_DAY
                         && (r.weight - reward.weight).abs() < WEIGHT_EPSILON
                 })
@@ -177,11 +177,11 @@ impl LocalPracticeRewards {
         #[allow(clippy::let_and_return)]
         let rows = stmt
             .query_map(params![unit_id.as_str(), num_rewards], |row| {
-                let reward = row.get(0)?;
+                let value = row.get(0)?;
                 let weight = row.get(1)?;
                 let timestamp = row.get(2)?;
                 rusqlite::Result::Ok(UnitReward {
-                    reward,
+                    value,
                     weight,
                     timestamp,
                 })
@@ -211,7 +211,7 @@ impl LocalPracticeRewards {
         )?;
         stmt.execute(params![
             unit_id.as_str(),
-            reward.reward,
+            reward.value,
             reward.weight,
             reward.timestamp
         ])?;
@@ -323,7 +323,7 @@ mod test {
     }
 
     fn assert_rewards(expected_rewards: &[f32], expected_weights: &[f32], actual: &[UnitReward]) {
-        let only_rewards: Vec<f32> = actual.iter().map(|t| t.reward).collect();
+        let only_rewards: Vec<f32> = actual.iter().map(|t| t.value).collect();
         assert_eq!(expected_rewards, only_rewards);
         let only_weights: Vec<f32> = actual.iter().map(|t| t.weight).collect();
         assert_eq!(expected_weights, only_weights);
@@ -348,7 +348,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit_id,
             &UnitReward {
-                reward: 3.0,
+                value: 3.0,
                 weight: 1.0,
                 timestamp: 1,
             },
@@ -366,7 +366,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit_id,
             &UnitReward {
-                reward: 3.0,
+                value: 3.0,
                 weight: 1.0,
                 timestamp: 1,
             },
@@ -374,7 +374,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit_id,
             &UnitReward {
-                reward: 2.0,
+                value: 2.0,
                 weight: 1.0,
                 timestamp: 2,
             },
@@ -382,7 +382,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit_id,
             &UnitReward {
-                reward: -1.0,
+                value: -1.0,
                 weight: 0.05,
                 timestamp: 3,
             },
@@ -408,7 +408,7 @@ mod test {
             practice_rewards.record_unit_reward(
                 unit_id,
                 &UnitReward {
-                    reward: i as f32,
+                    value: i as f32,
                     weight: 1.0,
                     timestamp: i as i64,
                 },
@@ -439,7 +439,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit1_id,
             &UnitReward {
-                reward: 3.0,
+                value: 3.0,
                 weight: 1.0,
                 timestamp: 1,
             },
@@ -447,7 +447,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit1_id,
             &UnitReward {
-                reward: 4.0,
+                value: 4.0,
                 weight: 1.0,
                 timestamp: 2,
             },
@@ -455,7 +455,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit1_id,
             &UnitReward {
-                reward: 5.0,
+                value: 5.0,
                 weight: 1.0,
                 timestamp: 3,
             },
@@ -466,7 +466,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit2_id,
             &UnitReward {
-                reward: 1.0,
+                value: 1.0,
                 weight: 1.0,
                 timestamp: 1,
             },
@@ -474,7 +474,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit2_id,
             &UnitReward {
-                reward: 2.0,
+                value: 2.0,
                 weight: 1.0,
                 timestamp: 2,
             },
@@ -482,7 +482,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit2_id,
             &UnitReward {
-                reward: 3.0,
+                value: 3.0,
                 weight: 1.0,
                 timestamp: 3,
             },
@@ -505,7 +505,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit1_id,
             &UnitReward {
-                reward: 3.0,
+                value: 3.0,
                 weight: 1.0,
                 timestamp: 1,
             },
@@ -513,7 +513,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit1_id,
             &UnitReward {
-                reward: 4.0,
+                value: 4.0,
                 weight: 1.0,
                 timestamp: 2,
             },
@@ -521,7 +521,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit1_id,
             &UnitReward {
-                reward: 5.0,
+                value: 5.0,
                 weight: 1.0,
                 timestamp: 3,
             },
@@ -531,7 +531,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit2_id,
             &UnitReward {
-                reward: 1.0,
+                value: 1.0,
                 weight: 1.0,
                 timestamp: 1,
             },
@@ -539,7 +539,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit2_id,
             &UnitReward {
-                reward: 2.0,
+                value: 2.0,
                 weight: 1.0,
                 timestamp: 2,
             },
@@ -547,7 +547,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit2_id,
             &UnitReward {
-                reward: 3.0,
+                value: 3.0,
                 weight: 1.0,
                 timestamp: 3,
             },
@@ -570,7 +570,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit1_id,
             &UnitReward {
-                reward: 3.0,
+                value: 3.0,
                 weight: 1.0,
                 timestamp: 1,
             },
@@ -578,7 +578,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit1_id,
             &UnitReward {
-                reward: 4.0,
+                value: 4.0,
                 weight: 1.0,
                 timestamp: 2,
             },
@@ -586,7 +586,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit1_id,
             &UnitReward {
-                reward: 5.0,
+                value: 5.0,
                 weight: 1.0,
                 timestamp: 3,
             },
@@ -596,7 +596,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit2_id,
             &UnitReward {
-                reward: 1.0,
+                value: 1.0,
                 weight: 1.0,
                 timestamp: 1,
             },
@@ -604,7 +604,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit2_id,
             &UnitReward {
-                reward: 2.0,
+                value: 2.0,
                 weight: 1.0,
                 timestamp: 2,
             },
@@ -612,7 +612,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit2_id,
             &UnitReward {
-                reward: 3.0,
+                value: 3.0,
                 weight: 1.0,
                 timestamp: 3,
             },
@@ -622,7 +622,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit3_id,
             &UnitReward {
-                reward: 1.0,
+                value: 1.0,
                 weight: 1.0,
                 timestamp: 1,
             },
@@ -630,7 +630,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit3_id,
             &UnitReward {
-                reward: 2.0,
+                value: 2.0,
                 weight: 1.0,
                 timestamp: 2,
             },
@@ -638,7 +638,7 @@ mod test {
         practice_rewards.record_unit_reward(
             unit3_id,
             &UnitReward {
-                reward: 3.0,
+                value: 3.0,
                 weight: 1.0,
                 timestamp: 3,
             },

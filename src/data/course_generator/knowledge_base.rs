@@ -40,6 +40,9 @@ pub const LESSON_INSTRUCTIONS_FILE: &str = "lesson.instructions.md";
 /// The name of the file containing the lesson material.
 pub const LESSON_MATERIAL_FILE: &str = "lesson.material.md";
 
+/// The name of the file containing the default exercise type for exercises in the lesson.
+pub const LESSON_DEFAULT_EXERCISE_TYPE_FILE: &str = "lesson.default_exercise_type.json";
+
 /// The suffix of the file containing the front of the flashcard for an exercise.
 pub const EXERCISE_FRONT_SUFFIX: &str = ".front.md";
 
@@ -78,6 +81,9 @@ pub enum KnowledgeBaseFile {
 
     /// The file containing the lesson material.
     LessonMaterial,
+
+    /// The file containing the default exercise type for exercises in the lesson.
+    LessonDefaultExerciseType,
 
     /// The file containing the front of the flashcard for the exercise with the given short ID.
     ExerciseFront(String),
@@ -120,6 +126,7 @@ impl TryFrom<&str> for KnowledgeBaseFile {
             LESSON_METADATA_FILE => Ok(KnowledgeBaseFile::LessonMetadata),
             LESSON_MATERIAL_FILE => Ok(KnowledgeBaseFile::LessonMaterial),
             LESSON_INSTRUCTIONS_FILE => Ok(KnowledgeBaseFile::LessonInstructions),
+            LESSON_DEFAULT_EXERCISE_TYPE_FILE => Ok(KnowledgeBaseFile::LessonDefaultExerciseType),
             file_name if file_name.ends_with(EXERCISE_FRONT_SUFFIX) => {
                 let short_id = file_name.strip_suffix(EXERCISE_FRONT_SUFFIX).unwrap();
                 Ok(KnowledgeBaseFile::ExerciseFront(short_id.to_string()))
@@ -343,6 +350,9 @@ pub struct KnowledgeBaseLesson {
 
     /// Indicates whether the `lesson.material.md` file is present in the lesson directory.
     pub has_material: bool,
+
+    /// The default exercise type for exercises in this lesson.
+    pub default_exercise_type: Option<ExerciseType>,
 }
 //>@knowledge-base-lesson
 
@@ -382,6 +392,7 @@ impl KnowledgeBaseLesson {
             metadata: None,
             has_instructions: false,
             has_material: false,
+            default_exercise_type: None,
         };
 
         // Iterate through the lesson files found in the lesson directory and set the corresponding
@@ -410,6 +421,10 @@ impl KnowledgeBaseLesson {
                 }
                 KnowledgeBaseFile::LessonInstructions => lesson.has_instructions = true,
                 KnowledgeBaseFile::LessonMaterial => lesson.has_material = true,
+                KnowledgeBaseFile::LessonDefaultExerciseType => {
+                    let path = lesson_root.join(LESSON_DEFAULT_EXERCISE_TYPE_FILE);
+                    lesson.default_exercise_type = Some(KnowledgeBaseFile::open(&path)?);
+                }
                 _ => {}
             }
         }
@@ -499,6 +514,7 @@ impl From<KnowledgeBaseLesson> for LessonManifest {
             } else {
                 None
             },
+            default_exercise_type: lesson.default_exercise_type,
         }
     }
 }
@@ -733,6 +749,7 @@ mod test {
             metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
             has_instructions: true,
             has_material: true,
+            default_exercise_type: Some(ExerciseType::Declarative),
         };
         let expected_manifest = LessonManifest {
             id: "course1::lesson1".into(),
@@ -748,6 +765,7 @@ mod test {
                 path: LESSON_MATERIAL_FILE.into(),
             }),
             metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
+            default_exercise_type: Some(ExerciseType::Declarative),
         };
         let actual_manifest: LessonManifest = lesson.into();
         assert_eq!(actual_manifest, expected_manifest);
@@ -797,6 +815,7 @@ mod test {
             metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
             course_instructions: None,
             course_material: None,
+            default_exercise_type: None,
             generator_config: None,
         };
 
@@ -813,6 +832,7 @@ mod test {
             metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
             has_instructions: false,
             has_material: false,
+            default_exercise_type: None,
         };
         let exercise = KnowledgeBaseExercise {
             short_id: "ex1".into(),
@@ -920,6 +940,10 @@ mod test {
         let material_path = lesson_dir.join(LESSON_MATERIAL_FILE);
         write_json(&material, &material_path)?;
 
+        let default_ex_type = ExerciseType::Declarative;
+        let default_ex_type_path = lesson_dir.join(LESSON_DEFAULT_EXERCISE_TYPE_FILE);
+        write_json(&default_ex_type, &default_ex_type_path)?;
+
         // Create an example exercise and all of its files.
         let front_content = "Front content";
         let front_path = lesson_dir.join("ex1.front.md");
@@ -952,6 +976,7 @@ mod test {
             metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
             course_instructions: None,
             course_material: None,
+            default_exercise_type: None,
             generator_config: None,
         };
 
@@ -967,6 +992,7 @@ mod test {
         assert_eq!(lesson.metadata, Some(metadata));
         assert!(lesson.has_instructions);
         assert!(lesson.has_material);
+        assert_eq!(lesson.default_exercise_type, Some(default_ex_type));
 
         // Verify the exercise.
         assert_eq!(exercises.len(), 1);
