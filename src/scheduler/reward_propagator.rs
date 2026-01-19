@@ -14,7 +14,7 @@ use std::collections::VecDeque;
 use ustr::{Ustr, UstrMap};
 
 use crate::{
-    data::{MasteryScore, UnitReward},
+    data::{ExerciseType, MasteryScore, UnitReward, UnitType},
     scheduler::data::SchedulerData,
 };
 
@@ -38,6 +38,18 @@ pub(super) struct RewardPropagator {
     /// The external data used by the scheduler. Contains pointers to the graph, blacklist, and
     /// course library and provides convenient functions.
     pub data: SchedulerData,
+}
+
+/// An item in the reward propagation queue.
+struct RewardQueueItem {
+    /// The unit ID.
+    unit_id: Ustr,
+
+    /// The reward associated with this unit.
+    reward: UnitReward,
+
+    /// The default exercise type for this unit.
+    default_exercise_type: Option<ExerciseType>,
 }
 
 impl RewardPropagator {
@@ -73,9 +85,37 @@ impl RewardPropagator {
         }
     }
 
-    /// Returns whether propagation should stop along the path with the given reward and weight.
-    fn stop_propagation(reward: f32, weigh: f32) -> bool {
-        reward.abs() < MIN_ABS_REWARD || weigh < MIN_WEIGHT
+    /// Returns whether propagation should stop.
+    fn stop_propagation(item: &RewardQueueItem) -> bool {
+        // Propagation stops when the default exercise type is Declarative (those centered around
+        // memorization), because memorizing the material of one unit does not imply memorizing or
+        // mastering the material of neighboring units.
+        if let Some(ExerciseType::Declarative) = item.default_exercise_type {
+            return true;
+        }
+
+        // Otherwise, propagation stops when the reward or weight is too small.
+        item.reward.value.abs() < MIN_ABS_REWARD || item.reward.weight < MIN_WEIGHT
+    }
+
+    /// Returns the default exercise type for the given lesson and course.
+    fn get_default_exercise_type(&self, unit_id: Ustr) -> Option<ExerciseType> {
+        let unit_type = self.data.unit_graph.read().get_unit_type(unit_id);
+        match unit_type {
+            Some(UnitType::Course) => self
+                .data
+                .course_library
+                .read()
+                .get_course_manifest(unit_id)
+                .and_then(|manifest| manifest.default_exercise_type),
+            Some(UnitType::Lesson) => self
+                .data
+                .course_library
+                .read()
+                .get_lesson_manifest(unit_id)
+                .and_then(|manifest| manifest.default_exercise_type),
+            _ => None,
+        }
     }
 
     /// Propagates the given score through the graph.
@@ -85,7 +125,7 @@ impl RewardPropagator {
         score: &MasteryScore,
         timestamp: i64,
     ) -> Vec<(Ustr, UnitReward)> {
-        // Get the lesson and course for this exercise.
+        // Get the lesson and course for this exercise and the default exercise type.
         let lesson_id = self.data.get_lesson_id(exercise_id).unwrap_or_default();
         let course_id = self.data.get_course_id(lesson_id).unwrap_or_default();
         if lesson_id.is_empty() || course_id.is_empty() {
@@ -96,54 +136,56 @@ impl RewardPropagator {
         let initial_reward = Self::initial_reward(score);
         let next_lessons = self.get_next_units(lesson_id, initial_reward);
         let next_courses = self.get_next_units(course_id, initial_reward);
-        let mut queue: VecDeque<(Ustr, UnitReward)> = VecDeque::new();
+        let mut queue: VecDeque<RewardQueueItem> = VecDeque::new();
         next_lessons
             .iter()
             .chain(next_courses.iter())
             .for_each(|id| {
-                queue.push_back((
-                    *id,
-                    UnitReward {
-                        reward: initial_reward,
+                queue.push_back(RewardQueueItem {
+                    unit_id: *id,
+                    reward: UnitReward {
+                        value: initial_reward,
                         weight: INITIAL_WEIGHT,
                         timestamp,
                     },
-                ));
+                    default_exercise_type: self.get_default_exercise_type(*id),
+                });
             });
 
         // While the queue is not empty, pop the first element, push it into the results, and
         // continue the search with updated rewards and weights.
         let mut results = UstrMap::default();
-        while let Some((unit_id, unit_reward)) = queue.pop_front() {
+        while let Some(item) = queue.pop_front() {
             // Check if propagation should continue and if the unit has already been visited. If
             // not, push the unit into the results and continue the search.
-            if Self::stop_propagation(unit_reward.reward, unit_reward.weight) {
+            if Self::stop_propagation(&item) {
                 continue;
             }
-            if results.contains_key(&unit_id) {
+            if results.contains_key(&item.unit_id) {
                 continue;
             }
             results.insert(
-                unit_id,
+                item.unit_id,
                 UnitReward {
-                    reward: unit_reward.reward,
-                    weight: unit_reward.weight,
+                    value: item.reward.value,
+                    weight: item.reward.weight,
                     timestamp,
                 },
             );
 
             // Get the next units and push them into the queue with updated rewards and weights.
-            self.get_next_units(unit_id, unit_reward.reward)
+            self.get_next_units(item.unit_id, item.reward.value)
                 .iter()
                 .for_each(|next_unit_id| {
-                    queue.push_back((
-                        *next_unit_id,
-                        UnitReward {
-                            reward: unit_reward.reward * DEPTH_FACTOR,
-                            weight: unit_reward.weight * WEIGHT_FACTOR,
+                    queue.push_back(RewardQueueItem {
+                        unit_id: *next_unit_id,
+                        reward: UnitReward {
+                            value: item.reward.value * DEPTH_FACTOR,
+                            weight: item.reward.weight * WEIGHT_FACTOR,
                             timestamp,
                         },
-                    ));
+                        default_exercise_type: self.get_default_exercise_type(*next_unit_id),
+                    });
                 });
         }
         results.into_iter().collect()
@@ -154,8 +196,10 @@ impl RewardPropagator {
 #[cfg_attr(coverage, coverage(off))]
 mod test {
     use crate::{
-        data::MasteryScore,
-        scheduler::reward_propagator::{MIN_ABS_REWARD, MIN_WEIGHT, RewardPropagator},
+        data::{MasteryScore, UnitReward},
+        scheduler::reward_propagator::{
+            MIN_ABS_REWARD, MIN_WEIGHT, RewardPropagator, RewardQueueItem,
+        },
     };
 
     /// Verifies the initial reward for each score.
@@ -168,24 +212,53 @@ mod test {
         assert_eq!(RewardPropagator::initial_reward(&MasteryScore::One), -1.5);
     }
 
-    /// Verifies stopping the propagation if the reward or weight is too small.
+    /// Verifies stopping the propagation when the conditions are met.
     #[test]
     fn stop_propagation() {
-        assert!(!RewardPropagator::stop_propagation(
-            MIN_ABS_REWARD,
-            MIN_WEIGHT
-        ));
-        assert!(RewardPropagator::stop_propagation(
-            MIN_ABS_REWARD - 0.001,
-            MIN_WEIGHT
-        ));
-        assert!(RewardPropagator::stop_propagation(
-            -MIN_ABS_REWARD + 0.001,
-            MIN_WEIGHT
-        ));
-        assert!(RewardPropagator::stop_propagation(
-            MIN_ABS_REWARD,
-            MIN_WEIGHT - 0.001
-        ));
+        assert!(RewardPropagator::stop_propagation(&RewardQueueItem {
+            unit_id: ustr::ustr("unit0"),
+            reward: UnitReward {
+                value: 1.0,
+                weight: 1.0,
+                timestamp: 0,
+            },
+            default_exercise_type: Some(crate::data::ExerciseType::Declarative),
+        }));
+        assert!(!RewardPropagator::stop_propagation(&RewardQueueItem {
+            unit_id: ustr::ustr("unit1"),
+            reward: UnitReward {
+                value: MIN_ABS_REWARD,
+                weight: MIN_WEIGHT,
+                timestamp: 0,
+            },
+            default_exercise_type: None,
+        }));
+        assert!(RewardPropagator::stop_propagation(&RewardQueueItem {
+            unit_id: ustr::ustr("unit2"),
+            reward: UnitReward {
+                value: MIN_ABS_REWARD - 0.001,
+                weight: MIN_WEIGHT,
+                timestamp: 0,
+            },
+            default_exercise_type: None,
+        }));
+        assert!(RewardPropagator::stop_propagation(&RewardQueueItem {
+            unit_id: ustr::ustr("unit3"),
+            reward: UnitReward {
+                value: -MIN_ABS_REWARD + 0.001,
+                weight: MIN_WEIGHT,
+                timestamp: 0,
+            },
+            default_exercise_type: None,
+        }));
+        assert!(RewardPropagator::stop_propagation(&RewardQueueItem {
+            unit_id: ustr::ustr("unit4"),
+            reward: UnitReward {
+                value: MIN_ABS_REWARD,
+                weight: MIN_WEIGHT - 0.001,
+                timestamp: 0,
+            },
+            default_exercise_type: None,
+        }));
     }
 }

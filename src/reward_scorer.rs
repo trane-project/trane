@@ -65,10 +65,10 @@ impl WeightedRewardScorer {
             .iter()
             .zip(days.iter())
             .map(|(reward, day)| {
-                if reward.reward >= 0.0 {
-                    (reward.reward - (day * DAY_ADJUSTMENT)).max(0.0)
+                if reward.value >= 0.0 {
+                    (reward.value - (day * DAY_ADJUSTMENT)).max(0.0)
                 } else {
-                    (reward.reward + (day * DAY_ADJUSTMENT)).min(0.0)
+                    (reward.value + (day * DAY_ADJUSTMENT)).min(0.0)
                 }
             })
             .collect()
@@ -150,12 +150,12 @@ mod test {
         // Recent rewards still have some value.
         let rewards = vec![
             UnitReward {
-                reward: 1.0,
+                value: 1.0,
                 weight: 1.0,
                 timestamp: generate_timestamp(1),
             },
             UnitReward {
-                reward: -1.0,
+                value: -1.0,
                 weight: 1.0,
                 timestamp: generate_timestamp(1),
             },
@@ -166,12 +166,12 @@ mod test {
         // The absolute value of older rewards trends to zero.
         let rewards = vec![
             UnitReward {
-                reward: 1.0,
+                value: 1.0,
                 weight: 1.0,
                 timestamp: 1,
             },
             UnitReward {
-                reward: -1.0,
+                value: -1.0,
                 weight: 1.0,
                 timestamp: 1,
             },
@@ -194,12 +194,12 @@ mod test {
         let scorer = WeightedRewardScorer {};
         let lesson_rewards = vec![
             UnitReward {
-                reward: 1.0,
+                value: 1.0,
                 weight: 1.0,
                 timestamp: generate_timestamp(1),
             },
             UnitReward {
-                reward: 2.0,
+                value: 2.0,
                 weight: 1.0,
                 timestamp: generate_timestamp(2),
             },
@@ -214,12 +214,12 @@ mod test {
         let scorer = WeightedRewardScorer {};
         let course_rewards = vec![
             UnitReward {
-                reward: 1.0,
+                value: 1.0,
                 weight: 1.0,
                 timestamp: generate_timestamp(1),
             },
             UnitReward {
-                reward: 2.0,
+                value: 2.0,
                 weight: 1.0,
                 timestamp: generate_timestamp(2),
             },
@@ -234,24 +234,24 @@ mod test {
         let scorer = WeightedRewardScorer {};
         let course_rewards = vec![
             UnitReward {
-                reward: 1.0,
+                value: 1.0,
                 weight: 1.0,
                 timestamp: generate_timestamp(1),
             },
             UnitReward {
-                reward: 2.0,
+                value: 2.0,
                 weight: 1.0,
                 timestamp: generate_timestamp(2),
             },
         ];
         let lesson_rewards = vec![
             UnitReward {
-                reward: 2.0,
+                value: 2.0,
                 weight: 1.0,
                 timestamp: generate_timestamp(1),
             },
             UnitReward {
-                reward: 4.0,
+                value: 4.0,
                 weight: 2.0,
                 timestamp: generate_timestamp(2),
             },
@@ -268,12 +268,12 @@ mod test {
         let scorer = WeightedRewardScorer {};
         let lesson_rewards = vec![
             UnitReward {
-                reward: 2.0,
+                value: 2.0,
                 weight: 1.0,
                 timestamp: generate_timestamp(0),
             },
             UnitReward {
-                reward: 1.0,
+                value: 1.0,
                 weight: 0.0001,
                 timestamp: generate_timestamp(0) - 1,
             },

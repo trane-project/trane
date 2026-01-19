@@ -13,7 +13,7 @@ use trane::{
     },
     course_library::CourseLibrary,
     data::{
-        CourseGenerator, CourseManifest, MasteryScore,
+        CourseGenerator, CourseManifest, ExerciseType, MasteryScore,
         course_generator::knowledge_base::{
             KnowledgeBaseConfig, KnowledgeBaseExercise, KnowledgeBaseLesson,
         },
@@ -103,6 +103,7 @@ fn knowledge_base_builder(
                     metadata: None,
                     has_instructions: false,
                     has_material: false,
+                    default_exercise_type: Some(ExerciseType::Declarative),
                 },
                 exercises,
                 asset_builders: vec![],
@@ -154,6 +155,7 @@ fn all_exercises_visited() -> Result<()> {
             metadata: None,
             course_material: None,
             course_instructions: None,
+            default_exercise_type: None,
             generator_config: Some(CourseGenerator::KnowledgeBase(KnowledgeBaseConfig {})),
         },
         10,
@@ -171,6 +173,7 @@ fn all_exercises_visited() -> Result<()> {
             metadata: None,
             course_material: None,
             course_instructions: None,
+            default_exercise_type: None,
             generator_config: Some(CourseGenerator::KnowledgeBase(KnowledgeBaseConfig {})),
         },
         10,

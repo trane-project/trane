@@ -310,6 +310,7 @@ impl TranscriptionConfig {
                 content: *SINGING_INSTRUCTIONS,
             }),
             lesson_material: None,
+            default_exercise_type: None,
         };
 
         // If the course is configured to skip the singing lessons, return the lesson manifest with
@@ -404,6 +405,7 @@ impl TranscriptionConfig {
                 content: *ADVANCED_SINGING_INSTRUCTIONS,
             }),
             lesson_material: None,
+            default_exercise_type: None,
         };
 
         // If the course is configured to skip the singing lessons, return the lesson manifest with
@@ -521,6 +523,7 @@ impl TranscriptionConfig {
                 content: *TRANSCRIPTION_INSTRUCTIONS,
             }),
             lesson_material: None,
+            default_exercise_type: None,
         };
 
         // Generate an exercise for each passage.
@@ -647,6 +650,7 @@ impl TranscriptionConfig {
                 content: *ADVANCED_TRANSCRIPTION_INSTRUCTIONS,
             }),
             lesson_material: None,
+            default_exercise_type: None,
         };
 
         // Generate exercises for each passage.
@@ -1159,6 +1163,7 @@ mod test {
                 content: "test".to_string(),
             }),
             course_material: None,
+            default_exercise_type: None,
             generator_config: Some(course_generator.clone()),
         };
         let preferences = UserPreferences::default();
@@ -1216,6 +1221,7 @@ mod test {
                 content: "test".to_string(),
             }),
             course_material: None,
+            default_exercise_type: None,
             generator_config: Some(course_generator.clone()),
         };
 
