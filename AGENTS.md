@@ -125,8 +125,9 @@ without human intervention.
 - Keep module-level rationale and examples where they help (crate already contains thorough
   top-level docs in `src/lib.rs`).
 - CI runs `cargo doc` with `RUSTDOCFLAGS` to deny missing docs and missing code examples.
-- Code blocks contain short and terse comments for the purpose of easily navigating the code. Any
-  generated code should follow this convention. Below are some examples from the code.
+- Code blocks contain short and terse comments for the purpose of easily navigating the code for
+  both humans and agents. Any generated code should follow this convention. Below are some examples
+  from the code.
 
 ```rust
     /// Returns whether the superseded unit can be considered as superseded by the superseding
@@ -224,4 +225,6 @@ All modules are located directly under `src/` and following standard Rust module
 - Run `cargo test -q` to get a succinct failing test list.
 - Run `cargo clippy --fix -Z unstable-options` only if you understand changes and CI
   will accept them — do not rely on auto-fixes for pedantic lints.
+- If you are unsure about a change or get stuck in a loop, stop and ask for human review before
+  proceeding.
 
