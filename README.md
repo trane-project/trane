@@ -8,14 +8,12 @@
 
 ---
 
-The first end-to-end application of trane, [Pictures Are For
-Babies](https://picturesareforbabies.com), is coming. It combines the power of trane with the latest
-research on reading and writing acquisition to create the most complete and ambitious literacy
-program in history.
-
-If you are interested in that project, subscribe to the
-[newsletter](https://picturesareforbabies.substack.com) to receive product updates, development
-notes, and articles on literacy education and history.
+If you are interested in supporting the development of Trane, the best way to do so is by buying or
+subscribing to [*Pictures Are For Babies*](https://picturesareforbabies.com), a literacy software
+tutor built on top of Trane, or by telling someone who is in search of research-based literacy
+education about it. The Lite version of *Pictures Are For Babies* is free, contains the first 200
+lessons, and is a professional-level tool for early detection, prevention, and remediation of
+reading difficulties.
 
 ---
 
