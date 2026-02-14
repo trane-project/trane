@@ -78,8 +78,8 @@ const MIN_WEIGHT: f32 = 0.1;
 
 /// A scorer that uses a power-law forgetting curve to compute the score of an exercise, using
 /// simple interval-based estimation of stability and difficulty. This models memory retention more
-/// accurately than exponential decay by accounting for the "fat tail" of long-term memory. 
-/// 
+/// accurately than exponential decay by accounting for the "fat tail" of long-term memory.
+///
 /// The estimated stability and difficulty are simpler than they are in something like FSRS to avoid
 /// having to store additional state about exercises. Optimizing the ExerciseScorer is not as
 /// important in Trane because it uses a graph structure and produces batches of mixed exercises to
@@ -226,11 +226,11 @@ impl ExerciseScorer for PowerLawScorer {
         }
 
         // Estimate stability and difficulty from the trial history.
-        let stability = Self::estimate_stability(&previous_trials);
-        let difficulty = Self::estimate_difficulty(&previous_trials);
+        let stability = Self::estimate_stability(previous_trials);
+        let difficulty = Self::estimate_difficulty(previous_trials);
 
         // Compute the scores by running power-law decay on each trial.
-        let days = Self::days_since_now(&previous_trials);
+        let days = Self::days_since_now(previous_trials);
         let scores: Vec<f32> = previous_trials
             .iter()
             .zip(days.iter())
