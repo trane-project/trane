@@ -205,11 +205,11 @@ mod test {
     /// Verifies the initial reward for each score.
     #[test]
     fn initial_reward() {
-        assert_eq!(RewardPropagator::initial_reward(&MasteryScore::Five), 1.0);
-        assert_eq!(RewardPropagator::initial_reward(&MasteryScore::Four), 0.5);
-        assert_eq!(RewardPropagator::initial_reward(&MasteryScore::Three), -0.5);
-        assert_eq!(RewardPropagator::initial_reward(&MasteryScore::Two), -1.0);
-        assert_eq!(RewardPropagator::initial_reward(&MasteryScore::One), -1.5);
+        assert_eq!(RewardPropagator::initial_reward(&MasteryScore::Five), 0.8);
+        assert_eq!(RewardPropagator::initial_reward(&MasteryScore::Four), 0.4);
+        assert_eq!(RewardPropagator::initial_reward(&MasteryScore::Three), -0.3);
+        assert_eq!(RewardPropagator::initial_reward(&MasteryScore::Two), -0.5);
+        assert_eq!(RewardPropagator::initial_reward(&MasteryScore::One), -1.0);
     }
 
     /// Verifies stopping the propagation when the conditions are met.

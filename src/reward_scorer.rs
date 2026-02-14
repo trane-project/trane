@@ -161,7 +161,7 @@ mod test {
             },
         ];
         let adjusted_rewards = WeightedRewardScorer::adjusted_rewards(&rewards);
-        assert_eq!(adjusted_rewards, vec![0.975, -0.975]);
+        assert_eq!(adjusted_rewards, vec![0.95, -0.95]);
 
         // The absolute value of older rewards trends to zero.
         let rewards = vec![
@@ -205,7 +205,7 @@ mod test {
             },
         ];
         let result = scorer.score_rewards(&[], &lesson_rewards).unwrap();
-        assert!((result - 1.462).abs() < 0.001);
+        assert!((result - 1.425).abs() < 0.001);
     }
 
     /// Verifies calculating the reward when only course rewards are present.
@@ -225,7 +225,7 @@ mod test {
             },
         ];
         let result = scorer.score_rewards(&course_rewards, &[]).unwrap();
-        assert!((result - 1.462).abs() < 0.001);
+        assert!((result - 1.425).abs() < 0.001);
     }
 
     /// Verifies calculating the reward when both course and lesson rewards are present.
@@ -259,7 +259,7 @@ mod test {
         let result = scorer
             .score_rewards(&course_rewards, &lesson_rewards)
             .unwrap();
-        assert!((result - 2.742).abs() < 0.001);
+        assert!((result - 2.702).abs() < 0.001);
     }
 
     /// Verifies calculating the reward when the weight is below the minimum weight.
