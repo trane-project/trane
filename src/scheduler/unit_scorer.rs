@@ -174,12 +174,11 @@ impl UnitScorer {
             .score_rewards(&course_rewards, &lesson_rewards)
             .unwrap_or_default();
 
-        // The final score is the sum of the score and the reward. Do not add a reward for exercises
-        // with no previous scores.
-        let final_score = if scores.is_empty() {
-            score
-        } else {
+        // Apply the reward if it meets the criteria and cache the final score.
+        let final_score = if self.reward_scorer.apply_reward(reward, &scores) {
             (score + reward).clamp(0.0, 5.0)
+        } else {
+            score
         };
         self.exercise_cache.borrow_mut().insert(
             exercise_id,
