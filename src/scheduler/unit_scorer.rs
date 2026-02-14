@@ -11,7 +11,7 @@ use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
     data::{SchedulerOptions, UnitType},
-    exercise_scorer::{ExerciseScorer, ExponentialDecayScorer},
+    exercise_scorer::{ExerciseScorer, PowerLawScorer},
     reward_scorer::{RewardScorer, WeightedRewardScorer},
     scheduler::SchedulerData,
 };
@@ -60,7 +60,7 @@ impl UnitScorer {
             course_cache: RefCell::new(UstrMap::default()),
             data,
             options,
-            exercise_scorer: Box::new(ExponentialDecayScorer {}),
+            exercise_scorer: Box::new(PowerLawScorer {}),
             reward_scorer: Box::new(WeightedRewardScorer {}),
         }
     }
