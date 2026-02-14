@@ -6,7 +6,7 @@
 use anyhow::Result;
 use chrono::{TimeZone, Utc};
 
-use crate::data::UnitReward;
+use crate::data::{ExerciseTrial, UnitReward};
 
 /// A trait exposing a function to combine the rewards of a unit into a single value. The lesson
 /// and course rewards are given separately to allow the implementation to treat them differently.
@@ -17,6 +17,10 @@ pub trait RewardScorer {
         previous_course_rewards: &[UnitReward],
         previous_lesson_rewards: &[UnitReward],
     ) -> Result<f32>;
+
+    /// Determines whether the reward should be applied to an exercise with the given trials. The
+    /// trials are assumed to be ordered in descending order by timestamp.
+    fn apply_reward(&self, reward: f32, previous_trials: &[ExerciseTrial]) -> bool;
 }
 
 /// The absolute value of the reward decreases by this amount each day to avoid old rewards from
@@ -124,6 +128,34 @@ impl RewardScorer for WeightedRewardScorer {
             ))
         }
     }
+
+    fn apply_reward(&self, reward: f32, previous_trials: &[ExerciseTrial]) -> bool {
+        // Do not apply rewards to exercises with very few trials
+        if previous_trials.len() <= 2 {
+            return false;
+        }
+
+        // Do not apply positive rewards to exercises where the average of the last 3 trials is less
+        // than 3 and the last trials was less than a week ago. This is to avoid rewarding exercises
+        // that are not being performed well.
+        let recent_trials = previous_trials.iter().take(3);
+        let last_trial = previous_trials.first().unwrap();
+        let num_days = (Utc::now().timestamp() - last_trial.timestamp) as f32 / (86_400.0);
+        let average_score = recent_trials.map(|trial| trial.score).sum::<f32>() / 3.0;
+        if reward > 0.0 && average_score < 3.0 && num_days < 7.0 {
+            return false;
+        }
+
+        // Do not apply negative rewards to exercises where the average of the last 3 trials is
+        // greater than 3.5 and the last trial was less than a week ago. This is to avoid penalizing
+        // exercises that are being performed well.
+        if reward < 0.0 && average_score > 3.5 && num_days < 7.0 {
+            return false;
+        }
+
+        // Apply rewards in all other cases.
+        true
+    }
 }
 
 #[cfg(test)]
@@ -132,7 +164,7 @@ mod test {
     use chrono::Utc;
 
     use crate::{
-        data::UnitReward,
+        data::{ExerciseTrial, UnitReward},
         reward_scorer::{RewardScorer, WeightedRewardScorer},
     };
 
@@ -280,5 +312,89 @@ mod test {
         ];
         let result = scorer.score_rewards(&[], &lesson_rewards).unwrap();
         assert!((result - 1.999).abs() < 0.001);
+    }
+
+    /// Verifies that the rewards are applied only when the correct criteria are met.
+    #[test]
+    fn test_apply_rewards() {
+        let scorer = WeightedRewardScorer {};
+
+        // Do not apply rewards to exercises with very few trials.
+        let trials = vec![ExerciseTrial {
+            score: 2.0,
+            timestamp: generate_timestamp(1),
+        }];
+        assert!(!scorer.apply_reward(0.5, &trials));
+        assert!(!scorer.apply_reward(-1.0, &trials));
+
+        // Do not apply positive rewards to exercises where the average of the last 3 trials is less
+        // than 3 and the last trial was less than a week ago.
+        let trials = vec![
+            ExerciseTrial {
+                score: 2.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 2.0,
+                timestamp: generate_timestamp(8),
+            },
+            ExerciseTrial {
+                score: 3.0,
+                timestamp: generate_timestamp(10),
+            },
+        ];
+        assert!(!scorer.apply_reward(0.5, &trials));
+        assert!(scorer.apply_reward(-1.0, &trials));
+
+        // Do not apply negative rewards to exercises where the average of the last 3 trials is
+        // greater than 3.5 and the last trial was less than a week ago.
+        let trials = vec![
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(8),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(10),
+            },
+        ];
+        assert!(!scorer.apply_reward(-0.5, &trials));
+        assert!(scorer.apply_reward(1.0, &trials));
+
+        // Apply rewards in other cases.
+        let trials = vec![
+            ExerciseTrial {
+                score: 3.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 3.0,
+                timestamp: generate_timestamp(8),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(10),
+            },
+        ];
+        assert!(scorer.apply_reward(0.5, &trials));
+        let trials = vec![
+            ExerciseTrial {
+                score: 2.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 3.0,
+                timestamp: generate_timestamp(8),
+            },
+            ExerciseTrial {
+                score: 2.0,
+                timestamp: generate_timestamp(10),
+            },
+        ];
+        assert!(scorer.apply_reward(-0.5, &trials));
     }
 }
