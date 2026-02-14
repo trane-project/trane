@@ -19,7 +19,7 @@ use crate::{
 };
 
 /// The minimum absolute value of the reward. Propagation stops when this value is reached.
-const MIN_ABS_REWARD: f32 = 0.1;
+const MIN_ABS_REWARD: f32 = 0.2;
 
 /// The initial weight of the rewards.
 const INITIAL_WEIGHT: f32 = 1.0;
@@ -28,10 +28,10 @@ const INITIAL_WEIGHT: f32 = 1.0;
 const MIN_WEIGHT: f32 = 0.2;
 
 /// The factor by which the weight decreases with each traversal of the graph.
-const WEIGHT_FACTOR: f32 = 0.7;
+const WEIGHT_FACTOR: f32 = 0.5;
 
 /// The factor by which the absolute value of the reward decreases with each traversal of the graph.
-const DEPTH_FACTOR: f32 = 0.9;
+const DEPTH_FACTOR: f32 = 0.7;
 
 /// Contains the logic to rewards through the graph when submitting a score.
 pub(super) struct RewardPropagator {
@@ -56,11 +56,11 @@ impl RewardPropagator {
     /// Sets the initial reward for the given score.
     fn initial_reward(score: &MasteryScore) -> f32 {
         match score {
-            MasteryScore::Five => 1.0,
-            MasteryScore::Four => 0.5,
-            MasteryScore::Three => -0.5,
-            MasteryScore::Two => -1.0,
-            MasteryScore::One => -1.5,
+            MasteryScore::Five => 0.8,
+            MasteryScore::Four => 0.4,
+            MasteryScore::Three => -0.3,
+            MasteryScore::Two => -0.5,
+            MasteryScore::One => -1.0,
         }
     }
 

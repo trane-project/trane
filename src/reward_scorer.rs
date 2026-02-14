@@ -21,7 +21,7 @@ pub trait RewardScorer {
 
 /// The absolute value of the reward decreases by this amount each day to avoid old rewards from
 /// affecting the score indefinitely.
-const DAY_ADJUSTMENT: f32 = 0.025;
+const DAY_ADJUSTMENT: f32 = 0.05;
 
 /// The weight of the course rewards in the final score.
 const COURSE_REWARDS_WEIGHT: f32 = 0.3;
