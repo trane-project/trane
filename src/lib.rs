@@ -58,7 +58,7 @@ pub mod error;
 pub mod exercise_scorer;
 pub mod filter_manager;
 pub mod graph;
-pub mod mantra_miner;
+
 pub mod practice_rewards;
 pub mod practice_stats;
 pub mod preferences_manager;
@@ -93,7 +93,6 @@ use crate::{
     },
     filter_manager::{FilterManager, LocalFilterManager},
     graph::UnitGraph,
-    mantra_miner::TraneMantraMiner,
     practice_rewards::{LocalPracticeRewards, PracticeRewards},
     practice_stats::{LocalPracticeStats, PracticeStats},
     preferences_manager::{LocalPreferencesManager, PreferencesManager},
@@ -183,9 +182,6 @@ pub struct Trane {
 
     /// An optional instance of the transcription downloader.
     transcription_downloader: Arc<RwLock<dyn TranscriptionDownloader + Send + Sync>>,
-
-    /// An instance of the mantra miner that "recites" Tara Sarasvati's mantra while Trane runs.
-    mantra_miner: TraneMantraMiner,
 }
 
 impl Trane {
@@ -283,8 +279,6 @@ impl Trane {
             config_path.join(STUDY_SESSIONS_DIR).to_str().unwrap(),
         )?));
         let repo_manager = Arc::new(RwLock::new(LocalRepositoryManager::new(library_root)?));
-        let mut mantra_miner = TraneMantraMiner::default();
-        mantra_miner.mantra_miner.start()?;
         let options = Self::create_scheduler_options(user_preferences.scheduler.as_ref());
         options.verify()?;
         let scheduler_data = SchedulerData {
@@ -314,7 +308,6 @@ impl Trane {
             study_session_manager: study_sessions_manager,
             unit_graph,
             transcription_downloader,
-            mantra_miner,
         })
     }
 
@@ -373,11 +366,6 @@ impl Trane {
     /// Returns the path to the root of the course library.
     pub fn library_root(&self) -> String {
         self.library_root.clone()
-    }
-
-    /// Returns the number of mantras that have been recited by the mantra miner.
-    pub fn mantra_count(&self) -> usize {
-        self.mantra_miner.mantra_miner.count()
     }
 
     /// Returns a clone of the data used by the scheduler. This function is needed by tests that
@@ -773,7 +761,7 @@ unsafe impl Sync for Trane {}
 #[cfg_attr(coverage, coverage(off))]
 mod test {
     use anyhow::Result;
-    use std::{fs::*, os::unix::prelude::PermissionsExt, thread, time::Duration};
+    use std::{fs::*, os::unix::prelude::PermissionsExt};
 
     use crate::{
         FILTERS_DIR, STUDY_SESSIONS_DIR, TRANE_CONFIG_DIR_PATH, Trane, USER_PREFERENCES_PATH,
@@ -786,16 +774,6 @@ mod test {
         let dir = tempfile::tempdir()?;
         let trane = Trane::new_local(dir.path(), dir.path())?;
         assert_eq!(trane.library_root(), dir.path().to_str().unwrap());
-        Ok(())
-    }
-
-    /// Verifies that the mantra-miner starts up and has a valid count.
-    #[test]
-    fn mantra_count() -> Result<()> {
-        let dir = tempfile::tempdir()?;
-        let trane = Trane::new_local(dir.path(), dir.path())?;
-        thread::sleep(Duration::from_millis(1000));
-        assert!(trane.mantra_count() > 0);
         Ok(())
     }
 
