@@ -1020,32 +1020,51 @@ mod test {
         graph.add_dependencies(course1_id, UnitType::Course, &[])?;
         graph.add_dependencies(course2_id, UnitType::Course, &[course1_id])?;
         graph.add_dependencies(course3_id, UnitType::Course, &[course1_id])?;
-        
+
         assert!(graph.encompasing_equals_dependency());
         {
             let encompassed = graph.get_encompassed(course1_id).unwrap();
             assert_eq!(encompassed.len(), 0);
+            let dependencies = graph.get_dependencies(course1_id).unwrap();
+            assert_eq!(dependencies.len(), 0);
+
             let encompassed_by = graph.get_encompassed_by(course1_id).unwrap();
             assert_eq!(encompassed_by.len(), 2);
             assert!(encompassed_by.contains(&(course2_id, 1.0)));
             assert!(encompassed_by.contains(&(course3_id, 1.0)));
+            let dependents = graph.get_dependents(course1_id).unwrap();
+            assert_eq!(dependents.len(), 2);
+            assert!(dependents.contains(&course2_id));
+            assert!(dependents.contains(&course3_id));
         }
 
         {
             let encompassed = graph.get_encompassed(course2_id).unwrap();
             assert_eq!(encompassed.len(), 1);
             assert!(encompassed.contains(&(course1_id, 1.0)));
+            let dependencies = graph.get_dependencies(course2_id).unwrap();
+            assert_eq!(dependencies.len(), 1);
+            assert!(dependencies.contains(&course1_id));
+
             let encompassed_by = graph.get_encompassed_by(course2_id);
             assert!(encompassed_by.is_none());
+            let dependents = graph.get_dependents(course2_id);
+            assert!(dependents.is_none());
         }
 
         {
             let encompassed = graph.get_encompassed(course3_id).unwrap();
             assert_eq!(encompassed.len(), 1);
             assert!(encompassed.contains(&(course1_id, 1.0)));
+            let dependencies = graph.get_dependencies(course3_id).unwrap();
+            assert_eq!(dependencies.len(), 1);
+            assert!(dependencies.contains(&course1_id));
+
             let encompassed_by = graph.get_encompassed_by(course3_id);
             assert!(encompassed_by.is_none());
-        } 
+            let dependents = graph.get_dependents(course3_id);
+            assert!(dependents.is_none());
+        }
         Ok(())
     }
 
