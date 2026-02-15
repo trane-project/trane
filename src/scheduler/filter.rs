@@ -191,18 +191,18 @@ impl CandidateFilter {
     /// remainder exercises. The remainder will be used to fill the batch in case there is space
     /// left after the first round of filtering.
     fn select_candidates(
-        candidates: Vec<Candidate>,
+        candidates: &[Candidate],
         frequency_map: &UstrMap<u32>,
         num_to_select: usize,
     ) -> (Vec<Candidate>, Vec<Candidate>) {
         // Return the list if there are fewer candidates than the number to select.
         if candidates.len() <= num_to_select {
-            return (candidates.clone(), vec![]);
+            return (candidates.to_vec(), vec![]);
         }
 
         // Count the number of candidates in each lesson and course.
-        let lesson_freq = Self::count_lesson_frequency(&candidates);
-        let course_freq = Self::count_course_frequency(&candidates);
+        let lesson_freq = Self::count_lesson_frequency(candidates);
+        let course_freq = Self::count_course_frequency(candidates);
 
         // Otherwise, assign a weight to each candidate and perform a weighted random selection.
         // Safe to unwrap the result, as this function panics if `num_to_select` is greater than the
@@ -238,7 +238,7 @@ impl CandidateFilter {
     fn add_remainder(
         batch_size: usize,
         final_candidates: &mut Vec<Candidate>,
-        remainder: Vec<Candidate>,
+        remainder: &[Candidate],
         frequency_map: &UstrMap<u32>,
         max_added: Option<usize>,
     ) {
@@ -255,7 +255,7 @@ impl CandidateFilter {
             Some(max) => num_remainder.min(max),
         };
         let (remainder_candidates, _) =
-            Self::select_candidates(remainder, &frequency_map, num_added);
+            Self::select_candidates(remainder, frequency_map, num_added);
         final_candidates.extend(remainder_candidates);
     }
 
@@ -328,33 +328,33 @@ impl CandidateFilter {
             (batch_size_float * options.mastered_window_opts.percentage).max(1.0) as usize;
         let frequency_map = &result.frequency_map;
         let (mastered_selected, mastered_remainder) =
-            Self::select_candidates(mastered_candidates, frequency_map, num_mastered);
+            Self::select_candidates(&mastered_candidates, frequency_map, num_mastered);
         final_candidates.extend(mastered_selected);
 
         // Add elements from the easy window.
         let num_easy = (batch_size_float * options.easy_window_opts.percentage).max(1.0) as usize;
         let (easy_selected, easy_remainder) =
-            Self::select_candidates(easy_candidates, frequency_map, num_easy);
+            Self::select_candidates(&easy_candidates, frequency_map, num_easy);
         final_candidates.extend(easy_selected);
 
         // Add elements from the current window.
         let num_current =
             (batch_size_float * options.current_window_opts.percentage).max(1.0) as usize;
         let (current_selected, current_remainder) =
-            Self::select_candidates(current_candidates, frequency_map, num_current);
+            Self::select_candidates(&current_candidates, frequency_map, num_current);
         final_candidates.extend(current_selected);
 
         // Add elements from the target window.
         let num_target =
             (batch_size_float * options.target_window_opts.percentage).max(1.0) as usize;
         let (target_selected, target_remainder) =
-            Self::select_candidates(target_candidates, frequency_map, num_target);
+            Self::select_candidates(&target_candidates, frequency_map, num_target);
         final_candidates.extend(target_selected);
 
         // Add elements from the new window.
         let num_new = (batch_size_float * options.new_window_opts.percentage).max(1.0) as usize;
         let (new_selected, new_remainder) =
-            Self::select_candidates(new_candidates, frequency_map, num_new);
+            Self::select_candidates(&new_candidates, frequency_map, num_new);
         final_candidates.extend(new_selected);
 
         // Go through the remainders and add them to the list of final candidates if there's still
@@ -368,35 +368,35 @@ impl CandidateFilter {
         Self::add_remainder(
             batch_size,
             &mut final_candidates,
-            current_remainder,
+            &current_remainder,
             frequency_map,
             None,
         );
         Self::add_remainder(
             batch_size,
             &mut final_candidates,
-            new_remainder,
+            &new_remainder,
             frequency_map,
             Some(5 * base_remainder),
         );
         Self::add_remainder(
             batch_size,
             &mut final_candidates,
-            target_remainder,
+            &target_remainder,
             frequency_map,
             Some(3 * base_remainder),
         );
         Self::add_remainder(
             batch_size,
             &mut final_candidates,
-            easy_remainder,
+            &easy_remainder,
             frequency_map,
             Some(2 * base_remainder),
         );
         Self::add_remainder(
             batch_size,
             &mut final_candidates,
-            mastered_remainder,
+            &mastered_remainder,
             frequency_map,
             Some(base_remainder),
         );
@@ -631,7 +631,7 @@ mod test {
         CandidateFilter::add_remainder(
             batch_size,
             &mut final_candidates,
-            remainder.clone(),
+            &remainder.clone(),
             &frequency_map,
             None,
         );
@@ -656,7 +656,7 @@ mod test {
         CandidateFilter::add_remainder(
             batch_size,
             &mut final_candidates_full,
-            remainder.clone(),
+            &remainder.clone(),
             &frequency_map,
             None,
         );
@@ -678,7 +678,7 @@ mod test {
         CandidateFilter::add_remainder(
             batch_size,
             &mut final_candidates_limited,
-            remainder,
+            &remainder,
             &frequency_map,
             Some(max_added),
         );

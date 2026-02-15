@@ -108,7 +108,7 @@ impl RewardPropagator {
     pub(super) fn stop_propagation(
         reward: f32,
         weight: f32,
-        default_exercise_type: Option<ExerciseType>,
+        default_exercise_type: Option<&ExerciseType>,
     ) -> bool {
         // Propagation stops when the default exercise type is Declarative (those centered around
         // memorization), because memorizing the material of one unit does not imply memorizing or
@@ -184,7 +184,7 @@ impl RewardPropagator {
             if Self::stop_propagation(
                 item.reward.value,
                 item.reward.weight,
-                item.default_exercise_type,
+                item.default_exercise_type.as_ref(),
             ) {
                 continue;
             }
@@ -223,7 +223,7 @@ impl RewardPropagator {
 #[cfg_attr(coverage, coverage(off))]
 mod test {
     use crate::{
-        data::MasteryScore,
+        data::{ExerciseType, MasteryScore},
         scheduler::reward_propagator::{MIN_ABS_REWARD, MIN_WEIGHT, RewardPropagator},
     };
 
@@ -243,7 +243,7 @@ mod test {
         assert!(RewardPropagator::stop_propagation(
             1.0,
             1.0,
-            Some(crate::data::ExerciseType::Declarative)
+            Some(&ExerciseType::Declarative)
         ));
         assert!(!RewardPropagator::stop_propagation(
             MIN_ABS_REWARD,
