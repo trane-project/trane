@@ -22,6 +22,7 @@
 
 pub mod data;
 mod filter;
+mod review_knocker;
 mod reward_propagator;
 mod unit_scorer;
 
@@ -37,7 +38,10 @@ use crate::{
         filter::{ExerciseFilter, KeyValueFilter, UnitFilter},
     },
     error::ExerciseSchedulerError,
-    scheduler::{data::SchedulerData, filter::CandidateFilter, unit_scorer::UnitScorer},
+    scheduler::{
+        data::SchedulerData, filter::CandidateFilter, review_knocker::ReviewKnocker,
+        unit_scorer::UnitScorer,
+    },
 };
 
 /// The scheduler returns early if the search reaches a dead end and the number of candidates is
@@ -156,6 +160,10 @@ pub struct DepthFirstScheduler {
     /// Contains the logic for propagating rewards through the graph.
     reward_propagator: RewardPropagator,
 
+    /// Contains the logic for knocking highly encompassed exercises into the final batch to ensure
+    /// that they are not overrepresented.
+    review_knocker: ReviewKnocker,
+
     /// The filter used to build the final batch of exercises among the candidates found during the
     /// graph search.
     filter: CandidateFilter,
@@ -169,6 +177,7 @@ impl DepthFirstScheduler {
             data: data.clone(),
             unit_scorer: UnitScorer::new(data.clone(), data.options.clone()),
             reward_propagator: RewardPropagator { data: data.clone() },
+            review_knocker: ReviewKnocker::new(data.clone()),
             filter: CandidateFilter::new(data),
         }
     }
@@ -857,11 +866,15 @@ impl ExerciseScheduler for DepthFirstScheduler {
             .get_initial_candidates(filter)
             .map_err(ExerciseSchedulerError::GetExerciseBatch)?;
 
+        // Knock out highly encompassed exercises from the initial batch to ensure that they are not
+        // overrepresented in the final batch.
+        let knocked_out = self.review_knocker.knock_out_reviews(initial_candidates);
+
         // Sort the candidates into buckets, select the right number from each, and convert them
         // into a final batch of exercises.
         let final_candidates = self
             .filter
-            .filter_candidates(&initial_candidates)
+            .filter_candidates(knocked_out)
             .map_err(ExerciseSchedulerError::GetExerciseBatch)?;
 
         // Increment the frequency of the exercises in the batch. These exercises will have a lower

@@ -142,16 +142,16 @@ pub trait UnitGraph {
     /// of the library.
     fn get_dependency_sinks(&self) -> UstrSet;
 
-    /// Returns the lessons and courses that are encompassed by the given lesson or course.
-    fn get_encompassed(&self, unit_id: Ustr) -> Option<Vec<(Ustr, f32)>>;
+    /// Returns the units that this unit encompasses.
+    fn get_encompasses(&self, unit_id: Ustr) -> Option<Vec<(Ustr, f32)>>;
 
-    /// Returns the lessons and courses that encompass the given lesson or course.
+    /// Returns the units that the given unit is encompassed by.
     fn get_encompassed_by(&self, unit_id: Ustr) -> Option<Vec<(Ustr, f32)>>;
 
-    /// Returns the lessons and courses that are superseded by the given lesson or course.
-    fn get_superseded(&self, unit_id: Ustr) -> Option<UstrSet>;
+    /// Returns the units that this unit supersedes.
+    fn get_supersedes(&self, unit_id: Ustr) -> Option<UstrSet>;
 
-    /// Returns the lessons and courses that supersede the given lesson or course.
+    /// Returns the units that the given unit is superseded by.
     fn get_superseded_by(&self, unit_id: Ustr) -> Option<UstrSet>;
 
     /// Performs a cycle check on the graph, done currently when opening the Trane library to
@@ -207,13 +207,13 @@ pub struct InMemoryUnitGraph {
     dependency_sinks: UstrSet,
 
     /// The mapping of a unit to the units it encompasses as a list of tuples (ID, weight).
-    encompassed_graph: UstrMap<Vec<(Ustr, f32)>>,
+    encompasses_graph: UstrMap<Vec<(Ustr, f32)>>,
 
     /// The mapping of a unit to the units that encompass it as a list of tuples (ID, weight).
     encompassed_by: UstrMap<Vec<(Ustr, f32)>>,
 
     /// The mapping of a unit to the units it supersedes.
-    superseded_graph: UstrMap<UstrSet>,
+    supersedes_graph: UstrMap<UstrSet>,
 
     /// The mapping of a unit to the units that supersede it.
     superseded_by: UstrMap<UstrSet>,
@@ -404,7 +404,7 @@ impl InMemoryUnitGraph {
         }
 
         // Update the encompassed and encompassed_by maps.
-        self.encompassed_graph
+        self.encompasses_graph
             .entry(unit_id)
             .or_default()
             .extend(full_encompassed.clone());
@@ -471,7 +471,7 @@ impl InMemoryUnitGraph {
 
         // Do the same with the graph of superseded units.
         let mut visited = UstrSet::default();
-        for unit_id in self.superseded_graph.keys() {
+        for unit_id in self.supersedes_graph.keys() {
             // The node has been visited, so it can be skipped.
             if visited.contains(unit_id) {
                 continue;
@@ -492,7 +492,7 @@ impl InMemoryUnitGraph {
 
                 // Get the  of the current node, check that the superseded and superseding graphs
                 // agree with each other, and generate new paths to add to the stack.
-                if let Some(superseded) = self.get_superseded(current_id) {
+                if let Some(superseded) = self.get_supersedes(current_id) {
                     for superseded_id in superseded {
                         let superseding = self.get_superseded_by(superseded_id).unwrap_or_default();
                         if !superseding.contains(&current_id) {
@@ -518,7 +518,7 @@ impl InMemoryUnitGraph {
 
         // Do the same with the graph of encompassed units.
         let mut visited = UstrSet::default();
-        for unit_id in self.encompassed_graph.keys() {
+        for unit_id in self.encompasses_graph.keys() {
             // The node has been visited, so it can be skipped.
             if visited.contains(unit_id) {
                 continue;
@@ -540,7 +540,7 @@ impl InMemoryUnitGraph {
                 // Get the encompassed units of the current node, check that the encompassed and
                 // encompassed_by graphs agree with each other, and generate new paths to add to the
                 // stack. The encompassed graph stores (id, weight) pairs.
-                if let Some(encompassed) = self.get_encompassed(current_id) {
+                if let Some(encompassed) = self.get_encompasses(current_id) {
                     for encompassed_id in encompassed.iter().map(|(id, _)| *id) {
                         let encompassing =
                             self.get_encompassed_by(encompassed_id).unwrap_or_default();
@@ -606,12 +606,12 @@ impl UnitGraph for InMemoryUnitGraph {
 
     fn set_encompasing_equals_dependency(&mut self) {
         // The two graphs are virtually identical, so save space by clearing this graph.
-        self.encompassed_graph.clear();
+        self.encompasses_graph.clear();
         self.encompassed_by.clear();
     }
 
     fn encompasing_equals_dependency(&self) -> bool {
-        self.encompassed_graph.is_empty() && self.encompassed_by.is_empty()
+        self.encompasses_graph.is_empty() && self.encompassed_by.is_empty()
     }
 
     fn add_superseded(&mut self, unit_id: Ustr, superseded: &[Ustr]) {
@@ -619,7 +619,7 @@ impl UnitGraph for InMemoryUnitGraph {
         if superseded.is_empty() {
             return;
         }
-        self.superseded_graph
+        self.supersedes_graph
             .entry(unit_id)
             .or_default()
             .extend(superseded);
@@ -689,20 +689,22 @@ impl UnitGraph for InMemoryUnitGraph {
         self.dependent_graph.get(&unit_id).cloned()
     }
 
-    fn get_encompassed(&self, unit_id: Ustr) -> Option<Vec<(Ustr, f32)>> {
-        // Use the dependency graph if the encompassed graph is empty and the encompassed graph
-        // otherwise.
-        if self.encompassed_graph.is_empty() {
+    fn get_dependency_sinks(&self) -> UstrSet {
+        self.dependency_sinks.clone()
+    }
+
+    fn get_encompasses(&self, unit_id: Ustr) -> Option<Vec<(Ustr, f32)>> {
+        // Use the dependency graph if the graph is empty.
+        if self.encompasses_graph.is_empty() {
             self.get_dependencies(unit_id)
                 .map(|dependencies| dependencies.into_iter().map(|dep| (dep, 1.0)).collect())
         } else {
-            self.encompassed_graph.get(&unit_id).cloned()
+            self.encompasses_graph.get(&unit_id).cloned()
         }
     }
 
     fn get_encompassed_by(&self, unit_id: Ustr) -> Option<Vec<(Ustr, f32)>> {
-        // Use the dependent graph if the encompassed by graph is empty and the encompassed_by graph
-        // otherwise.
+        // Use the dependent graph if the graph is empty.
         if self.encompassed_by.is_empty() {
             self.get_dependents(unit_id)
                 .map(|dependents| dependents.into_iter().map(|dep| (dep, 1.0)).collect())
@@ -711,12 +713,8 @@ impl UnitGraph for InMemoryUnitGraph {
         }
     }
 
-    fn get_dependency_sinks(&self) -> UstrSet {
-        self.dependency_sinks.clone()
-    }
-
-    fn get_superseded(&self, unit_id: Ustr) -> Option<UstrSet> {
-        self.superseded_graph.get(&unit_id).cloned()
+    fn get_supersedes(&self, unit_id: Ustr) -> Option<UstrSet> {
+        self.supersedes_graph.get(&unit_id).cloned()
     }
 
     fn get_superseded_by(&self, unit_id: Ustr) -> Option<UstrSet> {
@@ -980,7 +978,7 @@ mod test {
 
         assert!(!graph.encompasing_equals_dependency());
         {
-            let encompassed = graph.get_encompassed(course1_id).unwrap();
+            let encompassed = graph.get_encompasses(course1_id).unwrap();
             assert_eq!(encompassed.len(), 0);
             let encompassed_by = graph.get_encompassed_by(course1_id).unwrap();
             assert_eq!(encompassed_by.len(), 2);
@@ -989,7 +987,7 @@ mod test {
         }
 
         {
-            let encompassed = graph.get_encompassed(course3_id).unwrap();
+            let encompassed = graph.get_encompasses(course3_id).unwrap();
             assert_eq!(encompassed.len(), 2);
             assert!(encompassed.contains(&(course1_id, 0.5)));
             assert!(encompassed.contains(&(course2_id, 0.5)));
@@ -999,7 +997,7 @@ mod test {
         }
 
         {
-            let encompassed = graph.get_encompassed(course2_id).unwrap();
+            let encompassed = graph.get_encompasses(course2_id).unwrap();
             assert_eq!(encompassed.len(), 1);
             assert!(encompassed.contains(&(course1_id, 1.0)));
             let encompassed_by = graph.get_encompassed_by(course3_id);
@@ -1024,7 +1022,7 @@ mod test {
 
         assert!(graph.encompasing_equals_dependency());
         {
-            let encompassed = graph.get_encompassed(course1_id).unwrap();
+            let encompassed = graph.get_encompasses(course1_id).unwrap();
             assert_eq!(encompassed.len(), 0);
             let dependencies = graph.get_dependencies(course1_id).unwrap();
             assert_eq!(dependencies.len(), 0);
@@ -1040,7 +1038,7 @@ mod test {
         }
 
         {
-            let encompassed = graph.get_encompassed(course2_id).unwrap();
+            let encompassed = graph.get_encompasses(course2_id).unwrap();
             assert_eq!(encompassed.len(), 1);
             assert!(encompassed.contains(&(course1_id, 1.0)));
             let dependencies = graph.get_dependencies(course2_id).unwrap();
@@ -1054,7 +1052,7 @@ mod test {
         }
 
         {
-            let encompassed = graph.get_encompassed(course3_id).unwrap();
+            let encompassed = graph.get_encompasses(course3_id).unwrap();
             assert_eq!(encompassed.len(), 1);
             assert!(encompassed.contains(&(course1_id, 1.0)));
             let dependencies = graph.get_dependencies(course3_id).unwrap();
@@ -1086,14 +1084,14 @@ mod test {
         graph.add_dependencies(course3_id, UnitType::Course, &[course2_id])?;
 
         {
-            let superseded = graph.get_superseded(course1_id).unwrap();
+            let superseded = graph.get_supersedes(course1_id).unwrap();
             assert_eq!(superseded.len(), 1);
             assert!(superseded.contains(&course2_id));
             assert!(graph.get_superseded_by(course1_id).is_none());
         }
 
         {
-            let superseded = graph.get_superseded(course2_id).unwrap();
+            let superseded = graph.get_supersedes(course2_id).unwrap();
             assert_eq!(superseded.len(), 1);
             assert!(superseded.contains(&course3_id));
             let superseded_by = graph.get_superseded_by(course2_id).unwrap();
@@ -1102,7 +1100,7 @@ mod test {
         }
 
         {
-            assert!(graph.get_superseded(course3_id).is_none());
+            assert!(graph.get_supersedes(course3_id).is_none());
             let superseded_by = graph.get_superseded_by(course3_id).unwrap();
             assert_eq!(superseded_by.len(), 1);
             assert!(superseded_by.contains(&course2_id));

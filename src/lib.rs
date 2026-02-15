@@ -752,8 +752,8 @@ impl UnitGraph for Trane {
         self.unit_graph.read().get_dependents(unit_id)
     }
 
-    fn get_encompassed(&self, unit_id: Ustr) -> Option<Vec<(Ustr, f32)>> {
-        self.unit_graph.read().get_encompassed(unit_id)
+    fn get_encompasses(&self, unit_id: Ustr) -> Option<Vec<(Ustr, f32)>> {
+        self.unit_graph.read().get_encompasses(unit_id)
     }
 
     fn get_encompassed_by(&self, unit_id: Ustr) -> Option<Vec<(Ustr, f32)>> {
@@ -764,8 +764,8 @@ impl UnitGraph for Trane {
         self.unit_graph.read().get_dependency_sinks()
     }
 
-    fn get_superseded(&self, unit_id: Ustr) -> Option<UstrSet> {
-        self.unit_graph.read().get_superseded(unit_id)
+    fn get_supersedes(&self, unit_id: Ustr) -> Option<UstrSet> {
+        self.unit_graph.read().get_supersedes(unit_id)
     }
 
     fn get_superseded_by(&self, unit_id: Ustr) -> Option<UstrSet> {
