@@ -84,21 +84,21 @@ impl ReviewKnocker {
 
         // For each, find all their encompassed lessons and courses.
         for unit_id in unit_set {
-            // Initialize the queue and set of visited units.
-            let mut queue: Vec<FrequencyQueueItem> = Vec::new();
-            queue.push(FrequencyQueueItem {
+            // Initialize the stack and set of visited units.
+            let mut stack: Vec<FrequencyQueueItem> = Vec::new();
+            stack.push(FrequencyQueueItem {
                 unit_id,
                 reward: 1.0,
                 weight: 1.0,
             });
             let mut visited = UstrSet::default();
 
-            // P
+            // Traverse the graph to propagate and accumulate the encompassing frequency.
             while let Some(FrequencyQueueItem {
                 unit_id,
                 reward,
                 weight,
-            }) = queue.pop()
+            }) = stack.pop()
             {
                 // Skip if the unit has already been visited.
                 if visited.contains(&unit_id) {
@@ -108,7 +108,6 @@ impl ReviewKnocker {
 
                 // Get the units encompassed by the unit and update their frequencies.
                 if let Some(encompassed_units) = unit_graph.get_encompasses(unit_id) {
-                    println!("Unit {} encompasses units {:?}", unit_id, encompassed_units);
                     for (encompassed_id, _) in encompassed_units {
                         // Update the frequency of the unit and check if propagation should stop.
                         let entry = unit_frequency_map.entry(encompassed_id).or_insert(0);
@@ -119,13 +118,13 @@ impl ReviewKnocker {
 
                         // Add the unit to the queue with a decayed weight. If it's a lesson, also add
                         // its course.
-                        queue.push(FrequencyQueueItem {
+                        stack.push(FrequencyQueueItem {
                             unit_id: encompassed_id,
                             reward: reward * REWARD_FACTOR,
                             weight: weight * WEIGHT_FACTOR,
                         });
                         if let Some(course_id) = unit_graph.get_lesson_course(encompassed_id) {
-                            queue.push(FrequencyQueueItem {
+                            stack.push(FrequencyQueueItem {
                                 unit_id: course_id,
                                 reward: reward * REWARD_FACTOR,
                                 weight: weight * WEIGHT_FACTOR,
