@@ -39,18 +39,18 @@ use crate::{
 };
 
 /// The minimum absolute value of the reward. Propagation stops when this value is reached.
-const MIN_ABS_REWARD: f32 = 0.2;
+pub(super) const MIN_ABS_REWARD: f32 = 0.2;
 
 /// The minimum weight of the rewards. Once the propagation reaches this weight, it stops.
-const MIN_WEIGHT: f32 = 0.2;
+pub(super) const MIN_WEIGHT: f32 = 0.2;
 
 /// The factor by which the weight of the reward decreases with each traversal of the graph. Used
 /// to localize the reward to the units closes to the exercise.
-const WEIGHT_FACTOR: f32 = 0.8;
+pub(super) const WEIGHT_FACTOR: f32 = 0.8;
 
 /// The factor by which the absolute value of the reward decreases with each traversal of the graph.
 /// Used to localize the reward to the units closes to the exercise.
-const REWARD_FACTOR: f32 = 0.9;
+pub(super) const REWARD_FACTOR: f32 = 0.9;
 
 /// Contains the logic to rewards through the graph when submitting a score.
 pub(super) struct RewardPropagator {

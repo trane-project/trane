@@ -22,6 +22,7 @@
 
 pub mod data;
 mod filter;
+mod review_knocker;
 mod reward_propagator;
 mod unit_scorer;
 
