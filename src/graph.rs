@@ -142,16 +142,16 @@ pub trait UnitGraph {
     /// of the library.
     fn get_dependency_sinks(&self) -> UstrSet;
 
-    /// Returns the lessons and courses that this unit encompasses.
+    /// Returns the units that this unit encompasses.
     fn get_encompasses(&self, unit_id: Ustr) -> Option<Vec<(Ustr, f32)>>;
 
-    /// Returns the lessons and courses that encompass the given lesson or course.
+    /// Returns the units that the given unit is encompassed by.
     fn get_encompassed_by(&self, unit_id: Ustr) -> Option<Vec<(Ustr, f32)>>;
 
-    /// Returns the lessons and courses that this unit supersedes.
+    /// Returns the units that this unit supersedes.
     fn get_supersedes(&self, unit_id: Ustr) -> Option<UstrSet>;
 
-    /// Returns the lessons and courses that supersede the given lesson or course.
+    /// Returns the units that the given unit is superseded by.
     fn get_superseded_by(&self, unit_id: Ustr) -> Option<UstrSet>;
 
     /// Performs a cycle check on the graph, done currently when opening the Trane library to
@@ -207,13 +207,13 @@ pub struct InMemoryUnitGraph {
     dependency_sinks: UstrSet,
 
     /// The mapping of a unit to the units it encompasses as a list of tuples (ID, weight).
-    encompassed_graph: UstrMap<Vec<(Ustr, f32)>>,
+    encompasses_graph: UstrMap<Vec<(Ustr, f32)>>,
 
     /// The mapping of a unit to the units that encompass it as a list of tuples (ID, weight).
     encompassed_by: UstrMap<Vec<(Ustr, f32)>>,
 
     /// The mapping of a unit to the units it supersedes.
-    superseded_graph: UstrMap<UstrSet>,
+    supersedes_graph: UstrMap<UstrSet>,
 
     /// The mapping of a unit to the units that supersede it.
     superseded_by: UstrMap<UstrSet>,
@@ -404,7 +404,7 @@ impl InMemoryUnitGraph {
         }
 
         // Update the encompassed and encompassed_by maps.
-        self.encompassed_graph
+        self.encompasses_graph
             .entry(unit_id)
             .or_default()
             .extend(full_encompassed.clone());
@@ -471,7 +471,7 @@ impl InMemoryUnitGraph {
 
         // Do the same with the graph of superseded units.
         let mut visited = UstrSet::default();
-        for unit_id in self.superseded_graph.keys() {
+        for unit_id in self.supersedes_graph.keys() {
             // The node has been visited, so it can be skipped.
             if visited.contains(unit_id) {
                 continue;
@@ -518,7 +518,7 @@ impl InMemoryUnitGraph {
 
         // Do the same with the graph of encompassed units.
         let mut visited = UstrSet::default();
-        for unit_id in self.encompassed_graph.keys() {
+        for unit_id in self.encompasses_graph.keys() {
             // The node has been visited, so it can be skipped.
             if visited.contains(unit_id) {
                 continue;
@@ -606,12 +606,12 @@ impl UnitGraph for InMemoryUnitGraph {
 
     fn set_encompasing_equals_dependency(&mut self) {
         // The two graphs are virtually identical, so save space by clearing this graph.
-        self.encompassed_graph.clear();
+        self.encompasses_graph.clear();
         self.encompassed_by.clear();
     }
 
     fn encompasing_equals_dependency(&self) -> bool {
-        self.encompassed_graph.is_empty() && self.encompassed_by.is_empty()
+        self.encompasses_graph.is_empty() && self.encompassed_by.is_empty()
     }
 
     fn add_superseded(&mut self, unit_id: Ustr, superseded: &[Ustr]) {
@@ -619,7 +619,7 @@ impl UnitGraph for InMemoryUnitGraph {
         if superseded.is_empty() {
             return;
         }
-        self.superseded_graph
+        self.supersedes_graph
             .entry(unit_id)
             .or_default()
             .extend(superseded);
@@ -689,20 +689,22 @@ impl UnitGraph for InMemoryUnitGraph {
         self.dependent_graph.get(&unit_id).cloned()
     }
 
+    fn get_dependency_sinks(&self) -> UstrSet {
+        self.dependency_sinks.clone()
+    }
+
     fn get_encompasses(&self, unit_id: Ustr) -> Option<Vec<(Ustr, f32)>> {
-        // Use the dependency graph if the encompassed graph is empty and the encompassed graph
-        // otherwise.
-        if self.encompassed_graph.is_empty() {
+        // Use the dependency graph if the graph is empty.
+        if self.encompasses_graph.is_empty() {
             self.get_dependencies(unit_id)
                 .map(|dependencies| dependencies.into_iter().map(|dep| (dep, 1.0)).collect())
         } else {
-            self.encompassed_graph.get(&unit_id).cloned()
+            self.encompasses_graph.get(&unit_id).cloned()
         }
     }
 
     fn get_encompassed_by(&self, unit_id: Ustr) -> Option<Vec<(Ustr, f32)>> {
-        // Use the dependent graph if the encompassed by graph is empty and the encompassed_by graph
-        // otherwise.
+        // Use the dependent graph if the graph is empty.
         if self.encompassed_by.is_empty() {
             self.get_dependents(unit_id)
                 .map(|dependents| dependents.into_iter().map(|dep| (dep, 1.0)).collect())
@@ -711,12 +713,8 @@ impl UnitGraph for InMemoryUnitGraph {
         }
     }
 
-    fn get_dependency_sinks(&self) -> UstrSet {
-        self.dependency_sinks.clone()
-    }
-
     fn get_supersedes(&self, unit_id: Ustr) -> Option<UstrSet> {
-        self.superseded_graph.get(&unit_id).cloned()
+        self.supersedes_graph.get(&unit_id).cloned()
     }
 
     fn get_superseded_by(&self, unit_id: Ustr) -> Option<UstrSet> {
