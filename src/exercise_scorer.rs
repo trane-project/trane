@@ -98,8 +98,8 @@ impl PowerLawScorer {
     }
 
     /// Estimates the stability of the exercise based on the intervals between trials. Stability
-    /// represents the number of days after which the probability of recall drops to 90%. Uses the
-    /// median interval as a robust estimate, adjusted by recent performance.
+    /// represents how well the exercise is retained. Higher values indicate better retention over
+    /// the long term.
     #[inline]
     fn estimate_stability(previous_trials: &[ExerciseTrial]) -> f32 {
         // Stability only makes sense for exercises with at least 2 trials.
@@ -134,7 +134,7 @@ impl PowerLawScorer {
     /// (easiest) to 10.0 (hardest).
     #[inline]
     fn estimate_difficulty(previous_trials: &[ExerciseTrial]) -> f32 {
-        // Assing the base probability to exercises with no history.
+        // Assign the base probability to exercises with no history.
         if previous_trials.is_empty() {
             return BASE_DIFFICULTY;
         }

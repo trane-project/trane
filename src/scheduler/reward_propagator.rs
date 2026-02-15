@@ -34,7 +34,7 @@ use std::collections::VecDeque;
 use ustr::{Ustr, UstrMap};
 
 use crate::{
-    data::{ExerciseType, MasteryScore, UnitReward, UnitType},
+    data::{MasteryScore, UnitReward},
     scheduler::data::SchedulerData,
 };
 
@@ -66,9 +66,6 @@ struct RewardQueueItem {
 
     /// The reward associated with this unit.
     reward: UnitReward,
-
-    /// The default exercise type for this unit.
-    default_exercise_type: Option<ExerciseType>,
 }
 
 impl RewardPropagator {
@@ -105,40 +102,8 @@ impl RewardPropagator {
     }
 
     /// Returns whether propagation should stop.
-    pub(super) fn stop_propagation(
-        reward: f32,
-        weight: f32,
-        default_exercise_type: Option<&ExerciseType>,
-    ) -> bool {
-        // Propagation stops when the default exercise type is Declarative (those centered around
-        // memorization), because memorizing the material of one unit does not imply memorizing or
-        // mastering the material of neighboring units.
-        if let Some(ExerciseType::Declarative) = default_exercise_type {
-            return true;
-        }
-
-        // Otherwise, propagation stops when the reward or weight is too small.
+    pub(super) fn stop_propagation(reward: f32, weight: f32) -> bool {
         reward.abs() < MIN_ABS_REWARD || weight < MIN_WEIGHT
-    }
-
-    /// Returns the default exercise type for the given lesson and course.
-    fn get_default_exercise_type(&self, unit_id: Ustr) -> Option<ExerciseType> {
-        let unit_type = self.data.unit_graph.read().get_unit_type(unit_id);
-        match unit_type {
-            Some(UnitType::Course) => self
-                .data
-                .course_library
-                .read()
-                .get_course_manifest(unit_id)
-                .and_then(|manifest| manifest.default_exercise_type),
-            Some(UnitType::Lesson) => self
-                .data
-                .course_library
-                .read()
-                .get_lesson_manifest(unit_id)
-                .and_then(|manifest| manifest.default_exercise_type),
-            _ => None,
-        }
     }
 
     /// Propagates the given score through the graph.
@@ -171,7 +136,6 @@ impl RewardPropagator {
                         weight: 1.0,
                         timestamp,
                     },
-                    default_exercise_type: self.get_default_exercise_type(*id),
                 });
             });
 
@@ -181,11 +145,7 @@ impl RewardPropagator {
         while let Some(item) = queue.pop_front() {
             // Check if propagation should continue and if the unit has already been visited. If
             // not, push the unit into the results and continue the search.
-            if Self::stop_propagation(
-                item.reward.value,
-                item.reward.weight,
-                item.default_exercise_type.as_ref(),
-            ) {
+            if Self::stop_propagation(item.reward.value, item.reward.weight) {
                 continue;
             }
             if results.contains_key(&item.unit_id) {
@@ -211,7 +171,6 @@ impl RewardPropagator {
                             weight: WEIGHT_FACTOR * item.reward.weight,
                             timestamp,
                         },
-                        default_exercise_type: self.get_default_exercise_type(*next_unit_id),
                     });
                 });
         }
@@ -223,7 +182,7 @@ impl RewardPropagator {
 #[cfg_attr(coverage, coverage(off))]
 mod test {
     use crate::{
-        data::{ExerciseType, MasteryScore},
+        data::MasteryScore,
         scheduler::reward_propagator::{MIN_ABS_REWARD, MIN_WEIGHT, RewardPropagator},
     };
 
@@ -240,30 +199,21 @@ mod test {
     /// Verifies stopping the propagation when the conditions are met.
     #[test]
     fn stop_propagation() {
-        assert!(RewardPropagator::stop_propagation(
-            1.0,
-            1.0,
-            Some(&ExerciseType::Declarative)
-        ));
         assert!(!RewardPropagator::stop_propagation(
             MIN_ABS_REWARD,
             MIN_WEIGHT,
-            None
         ));
         assert!(RewardPropagator::stop_propagation(
             MIN_ABS_REWARD - 0.001,
             MIN_WEIGHT,
-            None
         ));
         assert!(RewardPropagator::stop_propagation(
             -MIN_ABS_REWARD + 0.001,
             MIN_WEIGHT,
-            None
         ));
         assert!(RewardPropagator::stop_propagation(
             MIN_ABS_REWARD,
             MIN_WEIGHT - 0.001,
-            None
         ));
     }
 }
