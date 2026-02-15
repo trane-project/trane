@@ -112,7 +112,7 @@ impl ReviewKnocker {
                         // Update the frequency of the unit and check if propagation should stop.
                         let entry = unit_frequency_map.entry(encompassed_id).or_insert(0);
                         *entry += 1;
-                        if RewardPropagator::stop_propagation(reward, weight, None) {
+                        if RewardPropagator::stop_propagation(reward, weight) {
                             continue;
                         }
 
