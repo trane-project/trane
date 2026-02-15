@@ -97,6 +97,7 @@ fn transcription_builder(
             id: course_id,
             name: format!("Course {}", course_id),
             dependencies: vec![],
+            encompassed: vec![],
             superseded: vec![],
             description: None,
             authors: None,

@@ -352,7 +352,22 @@ pub struct CourseManifest {
     #[serde(default)]
     pub dependencies: Vec<Ustr>,
 
-    /// The IDs of the courses or lessons that this course supersedes. If this course is mastered,
+    /// The IDs of the courses or lessons encompassed by this course expressed as a tuple (ID,
+    ///weight). By default, all dependencies are encompassed with a weight of 1.0. Adding an entry
+    /// to this list is only needed when:
+    ///
+    /// - A course or lesson that is not a dependency of this course is encompassed by it.
+    /// - A dependency relationship does not always imply an encompassing one. In that case, such
+    ///   dependencies should be added to this list with a weight of 0.0.
+    ///  
+    /// See the documentation of the [`graph`](crate::graph) and [`scheduler`](crate::scheduler)
+    /// modules for a full explanation of this concept and how it is used to reduce reviews of
+    /// exercises that are covered by those in other units.
+    #[builder(default)]
+    #[serde(default)]
+    pub encompassed: Vec<(Ustr, f32)>,
+
+    /// The IDs of the courses or lessons superseded by this course. If this course is mastered,
     /// then exercises from the superseded courses or lessons will no longer be shown to the
     /// student.
     #[builder(default)]
@@ -462,9 +477,23 @@ pub struct LessonManifest {
     #[serde(default)]
     pub dependencies: Vec<Ustr>,
 
-    ///The IDs of the courses or lessons that this lesson supersedes. If this lesson is mastered,
-    /// then exercises from the superseded courses or lessons will no longer be shown to the
-    /// student.
+    /// The IDs of the courses or lessons encompassed by this lesson expressed as a tuple (ID,
+    /// weight). By default, all dependencies are encompassed with a weight of 1.0. Adding an entry
+    /// to this list is only needed when:
+    ///
+    /// - A course or lesson that is not a dependency of this lesson is encompassed by it.
+    /// - A dependency relationship does not always imply an encompassing one. In that case, such
+    ///   dependencies should be added to this list with a weight of 0.0.
+    ///  
+    /// See the documentation of the [`graph`](crate::graph) and [`scheduler`](crate::scheduler)
+    /// modules for a full explanation of this concept and how it is used to reduce reviews of
+    /// exercises that are covered by those in other units.
+    #[builder(default)]
+    #[serde(default)]
+    pub encompassed: Vec<(Ustr, f32)>,
+
+    ///The IDs of the courses or lessons superseded by this lesson. If this lesson is mastered, then
+    /// exercises from the superseded courses or lessons will no longer be shown to the student.
     #[builder(default)]
     #[serde(default)]
     pub superseded: Vec<Ustr>,

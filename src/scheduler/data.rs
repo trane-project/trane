@@ -143,7 +143,7 @@ impl SchedulerData {
     #[inline]
     #[must_use]
     pub fn get_superseding(&self, unit_id: Ustr) -> Option<UstrSet> {
-        return self.unit_graph.read().get_superseding(unit_id);
+        return self.unit_graph.read().get_superseded_by(unit_id);
     }
 
     /// Returns all the dependencies of the unit with the given ID at the given depth.
