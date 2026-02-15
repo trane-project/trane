@@ -16,7 +16,7 @@ use ustr::{UstrMap, UstrSet};
 
 use crate::{
     data::{ExerciseManifest, MasteryWindow},
-    scheduler::{Candidate, SchedulerData},
+    scheduler::{Candidate, SchedulerData, review_knocker::KnockoutResult},
 };
 
 /// The minimum weight for each candidate. This is used to prevent any candidate from becoming too
@@ -35,12 +35,16 @@ const LESSON_SCORE_WEIGHT_FACTOR: f32 = 100.0;
 /// factor.
 const COURSE_SCORE_WEIGHT_FACTOR: f32 = 50.0;
 
+/// The part of the weight that depends on the frequency with which the exercise is encompassed by
+/// other exercises in the initial batch will be this value divided by that frequency.
+const MAX_ENCOMPASSED_WEIGHT: f32 = 1000.0;
+
 /// The part of the weight that depends on the depth of the candidate will be the product of the
 /// depth and this factor.
 const DEPTH_WEIGHT_FACTOR: f32 = 25.0;
 
 /// The part of the weight that depends on the depth of the candidate will be capped at this value.
-const MAX_DEPTH_WEIGHT: f32 = 2000.0;
+const MAX_DEPTH_WEIGHT: f32 = 1000.0;
 
 /// The part of the weight that depends on the number of times this exercise is scheduled during the
 /// run of the program will be capped at this value. Each time an exercise is scheduled, this
@@ -87,17 +91,19 @@ impl CandidateFilter {
     /// Filters the candidates whose score fit in the given mastery window.
     fn candidates_in_window(
         candidates: &[Candidate],
+        encompassed_set: &UstrSet,
         window_opts: &MasteryWindow,
     ) -> Vec<Candidate> {
         candidates
             .iter()
             .filter(|c| window_opts.in_window(c.exercise_score))
+            .filter(|c| !encompassed_set.contains(&c.exercise_id))
             .cloned()
             .collect()
     }
 
     /// Counts the number of candidates from each lesson.
-    fn count_lesson_frequency(candidates: &[Candidate]) -> UstrMap<usize> {
+    fn count_lesson_frequency(candidates: &[Candidate]) -> UstrMap<u32> {
         let mut lesson_frequency = UstrMap::default();
         for candidate in candidates {
             *lesson_frequency.entry(candidate.lesson_id).or_default() += 1;
@@ -106,7 +112,7 @@ impl CandidateFilter {
     }
 
     /// Counts the number of candidates from each course.
-    fn count_course_frequency(candidates: &[Candidate]) -> UstrMap<usize> {
+    fn count_course_frequency(candidates: &[Candidate]) -> UstrMap<u32> {
         let mut course_frequency = UstrMap::default();
         for candidate in candidates {
             *course_frequency.entry(candidate.course_id).or_default() += 1;
@@ -123,20 +129,28 @@ impl CandidateFilter {
     ///    less often.
     /// 3. The candidate's course score. Exercises from courses with a higher score will be shown
     ///    less often.
-    /// 4. The number of hops taken by the graph search to find the candidate. A higher number of
+    /// 4. The frequency with which the candidate is encompassed by other exercises in the initial
+    ///    batch. This means that reviewing those other exercises will implicitly review this one. A
+    ///    higher frequency is assigned less weight.
+    /// 5. The number of hops taken by the graph search to find the candidate. A higher number of
     ///    hops is assigned more weight to give precedence to candidates from more advanced
     ///    material.
-    /// 5. The frequency with which the candidate has been scheduled during the run of the
+    /// 6. The frequency with which the candidate has been scheduled during the run of the
     ///    scheduler. A higher frequency is assigned less weight to avoid selecting the same
     ///    exercises too often during the same session.
-    /// 6. The number of trials for that candidate. A higher number of trials is assigned less
+    /// 7. The number of trials for that candidate. A higher number of trials is assigned less
     ///    weight to favor exercises that have been practiced fewer times.
-    /// 7. The number of candidates in the same lesson. The more candidates there are in the same
+    /// 8. The number of candidates in the same lesson. The more candidates there are in the same
     ///    lesson, the less weight each candidate is assigned to avoid selecting too many exercises
     ///    from the same lesson.
-    /// 8. The number of candidates in the same course. The same logic applies as for the lesson
+    /// 9. The number of candidates in the same course. The same logic applies as for the lesson
     ///    frequency.
-    fn candidate_weight(c: &Candidate, lesson_freq: usize, course_freq: usize) -> f32 {
+    fn candidate_weight(
+        c: &Candidate,
+        encompassed_freq: u32,
+        lesson_freq: u32,
+        course_freq: u32,
+    ) -> f32 {
         // A part of the score will depend on the score of the exercise.
         let mut weight = EXERCISE_SCORE_WEIGHT_FACTOR * (5.0 - c.exercise_score).max(0.0);
 
@@ -145,6 +159,10 @@ impl CandidateFilter {
 
         // A part of the score will depend on the score of the course.
         weight += COURSE_SCORE_WEIGHT_FACTOR * (5.0 - c.course_score).max(0.0);
+
+        // A part of the score will depend on the frequency with which the exercise is encompassed by other
+        // exercises in the initial batch.
+        weight += MAX_ENCOMPASSED_WEIGHT / (encompassed_freq.max(1) as f32);
 
         // A part of the score will depend on the number of hops that were needed to reach
         // the candidate.
@@ -174,11 +192,12 @@ impl CandidateFilter {
     /// left after the first round of filtering.
     fn select_candidates(
         candidates: Vec<Candidate>,
+        frequency_map: &UstrMap<u32>,
         num_to_select: usize,
     ) -> (Vec<Candidate>, Vec<Candidate>) {
         // Return the list if there are fewer candidates than the number to select.
         if candidates.len() <= num_to_select {
-            return (candidates, vec![]);
+            return (candidates.clone(), vec![]);
         }
 
         // Count the number of candidates in each lesson and course.
@@ -191,8 +210,10 @@ impl CandidateFilter {
         let mut rng = rng();
         let selected: Vec<Candidate> = candidates
             .choose_multiple_weighted(&mut rng, num_to_select, |c| {
+                let encompassed_frequency = frequency_map.get(&c.exercise_id).copied().unwrap_or(0);
                 Self::candidate_weight(
                     c,
+                    encompassed_frequency,
                     lesson_freq.get(&c.lesson_id).copied().unwrap_or(0),
                     course_freq.get(&c.course_id).copied().unwrap_or(0),
                 )
@@ -218,6 +239,7 @@ impl CandidateFilter {
         batch_size: usize,
         final_candidates: &mut Vec<Candidate>,
         remainder: Vec<Candidate>,
+        frequency_map: &UstrMap<u32>,
         max_added: Option<usize>,
     ) {
         // Do not fill batches past 2/3 of the batch size to avoid creating unbalanced batches.
@@ -232,7 +254,8 @@ impl CandidateFilter {
             None => num_remainder,
             Some(max) => num_remainder.min(max),
         };
-        let (remainder_candidates, _) = Self::select_candidates(remainder, num_added);
+        let (remainder_candidates, _) =
+            Self::select_candidates(remainder, &frequency_map, num_added);
         final_candidates.extend(remainder_candidates);
     }
 
@@ -271,52 +294,67 @@ impl CandidateFilter {
 
     /// Takes a list of exercises and filters them so that the end result is a list of exercise
     /// manifests which fit the mastery windows defined in the scheduler options.
-    pub fn filter_candidates(&self, candidates: &[Candidate]) -> Result<Vec<ExerciseManifest>> {
+    pub fn filter_candidates(&self, result: KnockoutResult) -> Result<Vec<ExerciseManifest>> {
         // Find the batch size to use.
+        let candidates = &result.candidates;
         let options = &self.data.options;
         let batch_size = Self::dynamic_batch_size(options.batch_size, candidates.len());
         let batch_size_float = batch_size as f32;
 
-        // Find the candidates that fit in each window.
+        // Find the candidates that fit in each window. Then combine the mastered and highly
+        // encompassed candidates into a single window to ensure that they are not overrepresented
+        // in the final batch.
+        let encompassed_set: UstrSet = result
+            .highly_encompassed
+            .iter()
+            .map(|c| c.exercise_id)
+            .collect();
         let mastered_candidates =
-            Self::candidates_in_window(candidates, &options.mastered_window_opts);
-        let easy_candidates = Self::candidates_in_window(candidates, &options.easy_window_opts);
+            Self::candidates_in_window(candidates, &encompassed_set, &options.mastered_window_opts);
+        let easy_candidates =
+            Self::candidates_in_window(candidates, &encompassed_set, &options.easy_window_opts);
         let current_candidates =
-            Self::candidates_in_window(candidates, &options.current_window_opts);
-        let target_candidates = Self::candidates_in_window(candidates, &options.target_window_opts);
-        let new_candidates = Self::candidates_in_window(candidates, &options.new_window_opts);
+            Self::candidates_in_window(candidates, &encompassed_set, &options.current_window_opts);
+        let target_candidates =
+            Self::candidates_in_window(candidates, &encompassed_set, &options.target_window_opts);
+        let new_candidates =
+            Self::candidates_in_window(candidates, &encompassed_set, &options.new_window_opts);
+        let mastered_candidates = [mastered_candidates, result.highly_encompassed].concat();
 
         // Initialize the final list. For each window in descending order of mastery, add the
         // appropriate number of candidates to the final list.
         let mut final_candidates = Vec::with_capacity(batch_size);
         let num_mastered =
             (batch_size_float * options.mastered_window_opts.percentage).max(1.0) as usize;
+        let frequency_map = &result.frequency_map;
         let (mastered_selected, mastered_remainder) =
-            Self::select_candidates(mastered_candidates, num_mastered);
+            Self::select_candidates(mastered_candidates, frequency_map, num_mastered);
         final_candidates.extend(mastered_selected);
 
         // Add elements from the easy window.
         let num_easy = (batch_size_float * options.easy_window_opts.percentage).max(1.0) as usize;
-        let (easy_selected, easy_remainder) = Self::select_candidates(easy_candidates, num_easy);
+        let (easy_selected, easy_remainder) =
+            Self::select_candidates(easy_candidates, frequency_map, num_easy);
         final_candidates.extend(easy_selected);
 
         // Add elements from the current window.
         let num_current =
             (batch_size_float * options.current_window_opts.percentage).max(1.0) as usize;
         let (current_selected, current_remainder) =
-            Self::select_candidates(current_candidates, num_current);
+            Self::select_candidates(current_candidates, frequency_map, num_current);
         final_candidates.extend(current_selected);
 
         // Add elements from the target window.
         let num_target =
             (batch_size_float * options.target_window_opts.percentage).max(1.0) as usize;
         let (target_selected, target_remainder) =
-            Self::select_candidates(target_candidates, num_target);
+            Self::select_candidates(target_candidates, frequency_map, num_target);
         final_candidates.extend(target_selected);
 
         // Add elements from the new window.
         let num_new = (batch_size_float * options.new_window_opts.percentage).max(1.0) as usize;
-        let (new_selected, new_remainder) = Self::select_candidates(new_candidates, num_new);
+        let (new_selected, new_remainder) =
+            Self::select_candidates(new_candidates, frequency_map, num_new);
         final_candidates.extend(new_selected);
 
         // Go through the remainders and add them to the list of final candidates if there's still
@@ -327,29 +365,39 @@ impl CandidateFilter {
         // The number of exercises added is a multiple of 1/20th of the batch size to make the
         // values proportional to it.
         let base_remainder = (batch_size / 20).max(1);
-        Self::add_remainder(batch_size, &mut final_candidates, current_remainder, None);
+        Self::add_remainder(
+            batch_size,
+            &mut final_candidates,
+            current_remainder,
+            frequency_map,
+            None,
+        );
         Self::add_remainder(
             batch_size,
             &mut final_candidates,
             new_remainder,
+            frequency_map,
             Some(5 * base_remainder),
         );
         Self::add_remainder(
             batch_size,
             &mut final_candidates,
             target_remainder,
+            frequency_map,
             Some(3 * base_remainder),
         );
         Self::add_remainder(
             batch_size,
             &mut final_candidates,
             easy_remainder,
+            frequency_map,
             Some(2 * base_remainder),
         );
         Self::add_remainder(
             batch_size,
             &mut final_candidates,
             mastered_remainder,
+            frequency_map,
             Some(base_remainder),
         );
 
@@ -443,6 +491,200 @@ mod test {
         assert_eq!(lesson_frequency.get(&Ustr::from("")), Some(&1));
     }
 
+    /// Verifies the logic to select candidates in the right candidate window.
+    #[test]
+    fn candidates_in_window() {
+        let candidates = vec![
+            Candidate {
+                exercise_id: Ustr::from("exercise1"),
+                lesson_id: Ustr::from("lesson1"),
+                course_id: Ustr::from("course1"),
+                depth: 0.0,
+                exercise_score: 2.1,
+                lesson_score: 0.0,
+                course_score: 0.0,
+                num_trials: 0,
+                frequency: 0,
+            },
+            Candidate {
+                exercise_id: Ustr::from("exercise2"),
+                lesson_id: Ustr::from("lesson1"),
+                course_id: Ustr::from("course1"),
+                depth: 0.0,
+                exercise_score: 3.0,
+                lesson_score: 0.0,
+                course_score: 0.0,
+                num_trials: 0,
+                frequency: 0,
+            },
+            Candidate {
+                exercise_id: Ustr::from("exercise3"),
+                lesson_id: Ustr::from("lesson2"),
+                course_id: Ustr::from("course1"),
+                depth: 0.0,
+                exercise_score: 3.7,
+                lesson_score: 0.0,
+                course_score: 0.0,
+                num_trials: 0,
+                frequency: 0,
+            },
+            Candidate {
+                exercise_id: Ustr::from("exercise4"),
+                lesson_id: Ustr::from(""),
+                course_id: Ustr::from("course1"),
+                depth: 0.0,
+                exercise_score: 1.0,
+                lesson_score: 0.0,
+                course_score: 0.0,
+                num_trials: 0,
+                frequency: 0,
+            },
+            Candidate {
+                exercise_id: Ustr::from("exercise5"),
+                lesson_id: Ustr::from(""),
+                course_id: Ustr::from("course1"),
+                depth: 0.0,
+                exercise_score: 3.5,
+                lesson_score: 0.0,
+                course_score: 0.0,
+                num_trials: 0,
+                frequency: 0,
+            },
+        ];
+        let window_opts = MasteryWindow {
+            percentage: 1.0,
+            range: (2.0, 4.0),
+        };
+        let encompassed_set =
+            UstrSet::from_iter([Ustr::from("exercise1"), Ustr::from("exercise5")]);
+        let candidates_in_window =
+            CandidateFilter::candidates_in_window(&candidates, &encompassed_set, &window_opts);
+        assert_eq!(candidates_in_window.len(), 2);
+        assert!(
+            candidates_in_window
+                .iter()
+                .any(|c| c.exercise_id == Ustr::from("exercise2"))
+        );
+        assert!(
+            candidates_in_window
+                .iter()
+                .any(|c| c.exercise_id == Ustr::from("exercise3"))
+        );
+    }
+
+    /// Verifies that remainders are added to the final list of candidates when there are not enough
+    /// candidates in the initial batch.
+    #[test]
+    fn add_remainder() {
+        // Build initial data for the test.
+        let batch_size = 10;
+        let mut final_candidates = vec![Candidate {
+            exercise_id: Ustr::from("exercise1"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            exercise_score: 0.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
+            num_trials: 0,
+            frequency: 0,
+        }];
+        let remainder = vec![
+            Candidate {
+                exercise_id: Ustr::from("exercise2"),
+                lesson_id: Ustr::from("lesson2"),
+                course_id: Ustr::from("course2"),
+                depth: 0.0,
+                exercise_score: 0.0,
+                lesson_score: 0.0,
+                course_score: 0.0,
+                num_trials: 0,
+                frequency: 0,
+            },
+            Candidate {
+                exercise_id: Ustr::from("exercise3"),
+                lesson_id: Ustr::from("lesson3"),
+                course_id: Ustr::from("course3"),
+                depth: 0.0,
+                exercise_score: 0.0,
+                lesson_score: 0.0,
+                course_score: 0.0,
+                num_trials: 0,
+                frequency: 0,
+            },
+            Candidate {
+                exercise_id: Ustr::from("exercise4"),
+                lesson_id: Ustr::from("lesson4"),
+                course_id: Ustr::from("course4"),
+                depth: 0.0,
+                exercise_score: 0.0,
+                lesson_score: 0.0,
+                course_score: 0.0,
+                num_trials: 0,
+                frequency: 0,
+            },
+        ];
+        let frequency_map = UstrMap::default();
+
+        // Verify that remainders are added when there are not enough candidates.
+        let initial_len = final_candidates.len();
+        CandidateFilter::add_remainder(
+            batch_size,
+            &mut final_candidates,
+            remainder.clone(),
+            &frequency_map,
+            None,
+        );
+        assert!(final_candidates.len() > initial_len);
+        assert!(final_candidates.len() < batch_size);
+
+        // Verify that remainders are not added when the batch is already full enough.
+        let mut final_candidates_full = (0..batch_size * 2 / 3 + 1)
+            .map(|i| Candidate {
+                exercise_id: Ustr::from(&format!("exercise{}", i)),
+                lesson_id: Ustr::from(&format!("lesson{}", i)),
+                course_id: Ustr::from(&format!("course{}", i)),
+                depth: 0.0,
+                exercise_score: 0.0,
+                lesson_score: 0.0,
+                course_score: 0.0,
+                num_trials: 0,
+                frequency: 0,
+            })
+            .collect::<Vec<_>>();
+        let initial_len_full = final_candidates_full.len();
+        CandidateFilter::add_remainder(
+            batch_size,
+            &mut final_candidates_full,
+            remainder.clone(),
+            &frequency_map,
+            None,
+        );
+        assert_eq!(final_candidates_full.len(), initial_len_full);
+
+        // Verify that max_added limits the number of remainders added.
+        let mut final_candidates_limited = vec![Candidate {
+            exercise_id: Ustr::from("exercise1"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            exercise_score: 0.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
+            num_trials: 0,
+            frequency: 0,
+        }];
+        let max_added = 1;
+        CandidateFilter::add_remainder(
+            batch_size,
+            &mut final_candidates_limited,
+            remainder,
+            &frequency_map,
+            Some(max_added),
+        );
+        assert_eq!(final_candidates_limited.len(), 2);
+    }
+
     /// Verifies that candidates that took more hopes to reach are given more weight.
     #[test]
     fn more_hops_more_weight() {
@@ -469,8 +711,8 @@ mod test {
             frequency: 0,
         };
         assert!(
-            CandidateFilter::candidate_weight(&c1, 1, 1)
-                < CandidateFilter::candidate_weight(&c2, 1, 1)
+            CandidateFilter::candidate_weight(&c1, 0, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 0, 1, 1)
         );
     }
 
@@ -500,8 +742,8 @@ mod test {
             frequency: 0,
         };
         assert!(
-            CandidateFilter::candidate_weight(&c1, 1, 1)
-                < CandidateFilter::candidate_weight(&c2, 1, 1)
+            CandidateFilter::candidate_weight(&c1, 0, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 0, 1, 1)
         );
     }
 
@@ -531,8 +773,8 @@ mod test {
             frequency: 0,
         };
         assert!(
-            CandidateFilter::candidate_weight(&c1, 1, 1)
-                < CandidateFilter::candidate_weight(&c2, 1, 1)
+            CandidateFilter::candidate_weight(&c1, 0, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 0, 1, 1)
         );
     }
 
@@ -562,8 +804,8 @@ mod test {
             frequency: 0,
         };
         assert!(
-            CandidateFilter::candidate_weight(&c1, 1, 1)
-                < CandidateFilter::candidate_weight(&c2, 1, 1)
+            CandidateFilter::candidate_weight(&c1, 0, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 0, 1, 1)
         );
     }
 
@@ -593,8 +835,8 @@ mod test {
             frequency: 1,
         };
         assert!(
-            CandidateFilter::candidate_weight(&c1, 1, 1)
-                < CandidateFilter::candidate_weight(&c2, 1, 1)
+            CandidateFilter::candidate_weight(&c1, 0, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 0, 1, 1)
         );
     }
 
@@ -624,8 +866,8 @@ mod test {
             frequency: 0,
         };
         assert!(
-            CandidateFilter::candidate_weight(&c1, 1, 1)
-                < CandidateFilter::candidate_weight(&c2, 1, 1)
+            CandidateFilter::candidate_weight(&c1, 0, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 0, 1, 1)
         );
     }
 
@@ -655,8 +897,8 @@ mod test {
             frequency: 0,
         };
         assert!(
-            CandidateFilter::candidate_weight(&c1, 10, 1)
-                < CandidateFilter::candidate_weight(&c2, 3, 1)
+            CandidateFilter::candidate_weight(&c1, 0, 10, 1)
+                < CandidateFilter::candidate_weight(&c2, 0, 3, 1)
         );
     }
 
@@ -686,8 +928,40 @@ mod test {
             frequency: 0,
         };
         assert!(
-            CandidateFilter::candidate_weight(&c1, 1, 10)
-                < CandidateFilter::candidate_weight(&c2, 1, 3)
+            CandidateFilter::candidate_weight(&c1, 0, 1, 10)
+                < CandidateFilter::candidate_weight(&c2, 0, 1, 3)
+        );
+    }
+
+    /// Verifies that candidates that are encompassed by more exercises in the initial batch are given
+    /// less weight.
+    #[test]
+    fn higher_encompassed_frequency_less_weight() {
+        let c1 = Candidate {
+            exercise_id: Ustr::from("exercise1"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            exercise_score: 0.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
+            num_trials: 0,
+            frequency: 0,
+        };
+        let c2 = Candidate {
+            exercise_id: Ustr::from("exercise2"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            exercise_score: 0.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
+            num_trials: 0,
+            frequency: 0,
+        };
+        assert!(
+            CandidateFilter::candidate_weight(&c1, 10, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 3, 1, 1)
         );
     }
 
@@ -707,7 +981,7 @@ mod test {
             frequency: 1000,
         };
         assert_eq!(
-            CandidateFilter::candidate_weight(&c, 1000, 1000),
+            CandidateFilter::candidate_weight(&c, 100, 1000, 1000),
             MIN_WEIGHT
         );
     }
