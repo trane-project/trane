@@ -19,7 +19,7 @@
 //! that are fully or partially covered by performing other exercises. Second, it tries to increase
 //! repetitions of exercises for which the student has not mastered the material encompassed by
 //! them.
-//! 
+//!
 //! To make it easy for course authors to specify the encompassing relationships, Trane assumes by
 //! default that the encompassing relationship is the same as the dependency relationship, with a
 //! weight of 1.0. This means that they only need to specify the encompassing relationships for the
