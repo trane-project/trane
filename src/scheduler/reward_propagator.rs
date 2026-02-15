@@ -1,14 +1,34 @@
 //! Contains the main logic for propagating rewards through the graph. When an exercise submits a
-//! score, Trane uses the score and the unit graph to propagate a reward through the graph. Good
-//! scores propagate a positive reward to the dependencies of the exercise, that is to say down the
-//! graph. Bad scores propagate a negative reward to the dependents of the exercise, that is to say
-//! up the graph. During scheduling of new exercises, previous rewards are used to adjust the score
-//! of the exercises.
+//! score, Trane uses the score and the unit graph to propagate a reward. Good scores propagate a
+//! positive reward to the units encompassed by the exercise, that is to say down the graph. Bad
+//! scores propagate a negative reward to the units that encompass the exercise, that is to say up
+//! the graph. During scheduling of new exercises, previous rewards are used to adjust the score of
+//! the exercises.
 //!
-//! The main goal of the propagation process is twofold. First, it tries to avoid repetition of
-//! exercises that have been implicitly mastered by doing harder exercises. Second, it tries to
-//! increase the repetition of exercises for which the user has not yet mastered the material that
-//! depends on them.
+//! The encompassing relationship describes when a unit's exercises implicitly practice the skills
+//! of another unit. This differs from the dependency relationship, which only indicates that one
+//! unit must be mastered before another can be attempted. While dependencies are prerequisites for
+//! learning, encompassings represent partial or full implicit practice. For example, solving
+//! advanced multiplication problems encompasses basic multiplication skills. The "fractional"
+//! aspect allows specifying partial encompassings via weights in the range [0.0, 1.0], where 1.0
+//! represents full encompassing and lower values indicate only some portion of the simpler skill is
+//! practiced implicitly. This is crucial in hierarchical knowledge structures where advanced topics
+//! only partially cover simpler component skills.
+//!
+//! The main goal of the propagation process is twofold. First, it tries to avoid showing exercises
+//! that are fully or partially covered by performing other exercises. Second, it tries to increase
+//! repetitions of exercises for which the student has not mastered the material encompassed by
+//! them.
+//! 
+//! To make it easy for course authors to specify the encompassing relationships, Trane assumes by
+//! default that the encompassing relationship is the same as the dependency relationship, with a
+//! weight of 1.0. This means that they only need to specify the encompassing relationships for the
+//! units that are not part of the dependencies or to set a dependency with a weight of 0.0 to stop
+//! propagation along that edge.
+//!
+//! This feature is heavily inspired by Fractional Implicit Repetition (FIRe), a method for
+//! propagating rewards through hierarchical knowledge structures developed by Math Academy (see
+//! <https://www.justinmath.com/individualized-spaced-repetition-in-hierarchical-knowledge-structures/>).
 
 use std::collections::VecDeque;
 use ustr::{Ustr, UstrMap};
