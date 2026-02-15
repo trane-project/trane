@@ -1007,6 +1007,48 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that the dependency graph is used when there is no encompassing graph.
+    #[test]
+    fn encompassing_equals_dependencies() -> Result<()> {
+        let mut graph = InMemoryUnitGraph::default();
+        let course1_id = Ustr::from("course1");
+        let course2_id = Ustr::from("course2");
+        let course3_id = Ustr::from("course3");
+        graph.add_course(course1_id)?;
+        graph.add_course(course2_id)?;
+        graph.add_course(course3_id)?;
+        graph.add_dependencies(course1_id, UnitType::Course, &[])?;
+        graph.add_dependencies(course2_id, UnitType::Course, &[course1_id])?;
+        graph.add_dependencies(course3_id, UnitType::Course, &[course1_id])?;
+        
+        assert!(graph.encompasing_equals_dependency());
+        {
+            let encompassed = graph.get_encompassed(course1_id).unwrap();
+            assert_eq!(encompassed.len(), 0);
+            let encompassed_by = graph.get_encompassed_by(course1_id).unwrap();
+            assert_eq!(encompassed_by.len(), 2);
+            assert!(encompassed_by.contains(&(course2_id, 1.0)));
+            assert!(encompassed_by.contains(&(course3_id, 1.0)));
+        }
+
+        {
+            let encompassed = graph.get_encompassed(course2_id).unwrap();
+            assert_eq!(encompassed.len(), 1);
+            assert!(encompassed.contains(&(course1_id, 1.0)));
+            let encompassed_by = graph.get_encompassed_by(course2_id);
+            assert!(encompassed_by.is_none());
+        }
+
+        {
+            let encompassed = graph.get_encompassed(course3_id).unwrap();
+            assert_eq!(encompassed.len(), 1);
+            assert!(encompassed.contains(&(course1_id, 1.0)));
+            let encompassed_by = graph.get_encompassed_by(course3_id);
+            assert!(encompassed_by.is_none());
+        } 
+        Ok(())
+    }
+
     /// Verifies retrieving the correct superseded and superseded_by units from the graph.
     #[test]
     fn superseding_graph() -> Result<()> {
