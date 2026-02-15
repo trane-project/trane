@@ -978,6 +978,7 @@ mod test {
             &[(course1_id, 0.5), (course2_id, 0.5)],
         )?;
 
+        assert!(!graph.encompasing_equals_dependency());
         {
             let encompassed = graph.get_encompassed(course1_id).unwrap();
             assert_eq!(encompassed.len(), 0);
