@@ -425,14 +425,23 @@ impl LocalCourseLibrary {
         courses: Vec<OpenCourseResult>,
         index_writer: &mut IndexWriter,
     ) -> Result<()> {
+        // Keep track of whether the encompassing and dependency graphs are effectively the same.
+        // This is done to save memory when this is true.
+        let mut encompassing_equals_dependency = true;
+
+        // Process the courses and the units inside them.
         for course in courses {
-            // Add the course, the dependencies, and the superseded units explicitly listed in the
-            // manifest.
+            // Add the course and update all the graphs.
             self.unit_graph.write().add_course(course.manifest.id)?;
             self.unit_graph.write().add_dependencies(
                 course.manifest.id,
                 UnitType::Course,
                 &course.manifest.dependencies,
+            )?;
+            self.unit_graph.write().add_encompassed(
+                course.manifest.id,
+                &course.manifest.dependencies,
+                &course.manifest.encompassed,
             )?;
             self.unit_graph
                 .write()
@@ -449,10 +458,15 @@ impl LocalCourseLibrary {
                 course.manifest.metadata.as_ref(),
             )?;
 
+            // The encompassing and dependency graphs are not the same if the course manifest has
+            // the encompassing field set.
+            if !course.manifest.encompassed.is_empty() {
+                encompassing_equals_dependency = false;
+            }
+
             // Process the lessons.
             for (lesson_manifest, exercises) in course.lessons {
-                // Add the lesson, the dependencies, and the superseded units explicitly listed in
-                // the lesson manifest.
+                // Add the lesson and update all the graphs.
                 self.unit_graph
                     .write()
                     .add_lesson(lesson_manifest.id, lesson_manifest.course_id)?;
@@ -461,9 +475,20 @@ impl LocalCourseLibrary {
                     UnitType::Lesson,
                     &lesson_manifest.dependencies,
                 )?;
+                self.unit_graph.write().add_encompassed(
+                    lesson_manifest.id,
+                    &lesson_manifest.dependencies,
+                    &lesson_manifest.encompassed,
+                )?;
                 self.unit_graph
                     .write()
                     .add_superseded(lesson_manifest.id, &lesson_manifest.superseded);
+
+                // The encompassing and dependency graphs are not the same if the lesson manifest
+                // has the encompassing field set.
+                if !lesson_manifest.encompassed.is_empty() {
+                    encompassing_equals_dependency = false;
+                }
 
                 // Add the lesson manifest to the lesson map and the search index.
                 self.lesson_map
@@ -494,6 +519,11 @@ impl LocalCourseLibrary {
                     self.exercise_map
                         .insert(exercise_manifest.id, exercise_manifest);
                 }
+            }
+
+            // Delete the encompassing graph if possible to save memory.
+            if encompassing_equals_dependency {
+                self.unit_graph.write().set_encompasing_equals_dependency();
             }
         }
         Ok(())

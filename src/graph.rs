@@ -11,6 +11,7 @@
 //!
 //! This graph is implemented by simulating a directed acyclic graph (DAG) of units and
 //! dependency/dependents relationships among them. A unit can be of three types:
+//!
 //! 1. An exercise, which represents a single task testing a skill which the student is required to
 //!    assess when practiced.
 //! 2. A lesson, which represents a collection of exercises which test the same skill and can be
@@ -19,12 +20,18 @@
 //!    material in larger entities which share some context.
 //!
 //! The relationships between the units is one of the following:
+//!
 //! 1. A course or lesson A is a dependency of course or lesson B if A needs to be sufficiently
 //!    mastered before B can be practiced.
 //! 2. The reverse relationship. Thus, we say that B is a dependent of A.
-//! 3. A course or lesson A is superseded by another course or lesson B if sufficient mastery of B
+//! 3. A course or lesson A is encompassed by another course or lesson B if doing well in the
+//!    exercises of B implies that the skills or knowledge tested by the exercises of A is being
+//!    used. This relationship is used by the scheduler to propagate rewards and to filter exercises
+//!    that are highly encompassed by others during scheduling.
+//! 4. The reverse relationship. Thus, we say that B encompasses A.
+//! 5. A course or lesson A is superseded by another course or lesson B if sufficient mastery of B
 //!    makes showing exercises from A redundant.
-//! 4. The reverse relationship. Thus, we say that B supersedes A.
+//! 6. The reverse relationship. Thus, we say that B supersedes A.
 //!
 //! The graph also provides a number of operations to manipulate the graph, which are only used when
 //! reading the Trane library (see [`course_library`](crate::course_library)), and another few to
@@ -71,6 +78,26 @@ pub trait UnitGraph {
         dependencies: &[Ustr],
     ) -> Result<(), UnitGraphError>;
 
+    /// Adds the list of encompassed units for the given unit to the graph. Dependencies not in the
+    /// list of encompassed units are added with a default weight of 1.0. Returns an error if any
+    /// of the weights are not within the range [0.0, 1.0].
+    fn add_encompassed(
+        &mut self,
+        unit_id: Ustr,
+        dependencies: &[Ustr],
+        encompassed: &[(Ustr, f32)],
+    ) -> Result<(), UnitGraphError>;
+
+    /// Tells `UnitGraph` that the encompassing and dependency graphs are the same. That is, no
+    /// manifest explicitly declared encompassed units. In this case, the encompassing graph is
+    /// identical to the dependency graph with all weights set to 1.0. The caller should use this
+    /// function after building the full graph to avoid the overhead of storing two identical
+    /// graphs.
+    fn set_encompasing_equals_dependency(&mut self);
+
+    /// Whether the encompassing and dependency graphs are effectively the same.
+    fn encompasing_equals_dependency(&self) -> bool;
+
     /// Adds the list of superseded units for the given unit to the graph.
     fn add_superseded(&mut self, unit_id: Ustr, superseded: &[Ustr]);
 
@@ -115,11 +142,17 @@ pub trait UnitGraph {
     /// of the library.
     fn get_dependency_sinks(&self) -> UstrSet;
 
+    /// Returns the lessons and courses that are encompassed by the given lesson or course.
+    fn get_encompassed(&self, unit_id: Ustr) -> Option<Vec<(Ustr, f32)>>;
+
+    /// Returns the lessons and courses that encompass the given lesson or course.
+    fn get_encompassed_by(&self, unit_id: Ustr) -> Option<Vec<(Ustr, f32)>>;
+
     /// Returns the lessons and courses that are superseded by the given lesson or course.
     fn get_superseded(&self, unit_id: Ustr) -> Option<UstrSet>;
 
     /// Returns the lessons and courses that supersede the given lesson or course.
-    fn get_superseding(&self, unit_id: Ustr) -> Option<UstrSet>;
+    fn get_superseded_by(&self, unit_id: Ustr) -> Option<UstrSet>;
 
     /// Performs a cycle check on the graph, done currently when opening the Trane library to
     /// prevent any infinite traversal of the graph and immediately inform the user of the issue.
@@ -173,11 +206,17 @@ pub struct InMemoryUnitGraph {
     /// The set of all dependency sinks in the graph.
     dependency_sinks: UstrSet,
 
+    /// The mapping of a unit to the units it encompasses as a list of tuples (ID, weight).
+    encompassed_graph: UstrMap<Vec<(Ustr, f32)>>,
+
+    /// The mapping of a unit to the units that encompass it as a list of tuples (ID, weight).
+    encompassed_by: UstrMap<Vec<(Ustr, f32)>>,
+
     /// The mapping of a unit to the units it supersedes.
     superseded_graph: UstrMap<UstrSet>,
 
     /// The mapping of a unit to the units that supersede it.
-    superseding_graph: UstrMap<UstrSet>,
+    superseded_by: UstrMap<UstrSet>,
 }
 
 impl InMemoryUnitGraph {
@@ -338,6 +377,46 @@ impl InMemoryUnitGraph {
         Ok(())
     }
 
+    /// Helper function to add encompassed units to a unit.
+    fn add_encompassed_helper(
+        &mut self,
+        unit_id: Ustr,
+        dependencies: &[Ustr],
+        encompassed: &[(Ustr, f32)],
+    ) -> Result<()> {
+        ensure!(
+            encompassed
+                .iter()
+                .all(|(_, weight)| (0.0..=1.0).contains(weight)),
+            "encompassed units of unit {unit_id} must have weights within the range [0.0, 1.0]",
+        );
+
+        // Compute the full list of encompassed units with their weights. Dependencies not in the
+        // encmpassed list are added with a default weight of 1.0.
+        let mut full_encompassed = encompassed.to_vec();
+        for dependency in dependencies {
+            if !encompassed
+                .iter()
+                .any(|(encompassed_id, _)| *encompassed_id == *dependency)
+            {
+                full_encompassed.push((*dependency, 1.0));
+            }
+        }
+
+        // Update the encompassed and encompassed_by maps.
+        self.encompassed_graph
+            .entry(unit_id)
+            .or_default()
+            .extend(full_encompassed.clone());
+        for (encompassed_id, weight) in full_encompassed {
+            self.encompassed_by
+                .entry(encompassed_id)
+                .or_default()
+                .push((unit_id, weight));
+        }
+        Ok(())
+    }
+
     /// Helper function to check for cycles in the dependency graph.
     fn check_cycles_helper(&self) -> Result<()> {
         // Perform a depth-first search of the dependency graph from each unit. Return an error if
@@ -415,7 +494,7 @@ impl InMemoryUnitGraph {
                 // agree with each other, and generate new paths to add to the stack.
                 if let Some(superseded) = self.get_superseded(current_id) {
                     for superseded_id in superseded {
-                        let superseding = self.get_superseding(superseded_id).unwrap_or_default();
+                        let superseding = self.get_superseded_by(superseded_id).unwrap_or_default();
                         if !superseding.contains(&current_id) {
                             bail!(
                                 "unit {current_id} lists unit {superseded_id} as a superseded \
@@ -431,6 +510,55 @@ impl InMemoryUnitGraph {
                         // Add a new path to the stack.
                         let mut new_path = path.clone();
                         new_path.push(superseded_id);
+                        stack.push(new_path);
+                    }
+                }
+            }
+        }
+
+        // Do the same with the graph of encompassed units.
+        let mut visited = UstrSet::default();
+        for unit_id in self.encompassed_graph.keys() {
+            // The node has been visited, so it can be skipped.
+            if visited.contains(unit_id) {
+                continue;
+            }
+
+            // The stacks store a path of traversed units and is initialized with the current unit.
+            let mut stack: Vec<Vec<Ustr>> = Vec::new();
+            stack.push(vec![*unit_id]);
+
+            // Run a depth-first search and stop if a cycle is found or the graph is exhausted.
+            while let Some(path) = stack.pop() {
+                // Update the set of visited nodes.
+                let current_id = *path.last().unwrap_or(&Ustr::default());
+                if visited.contains(&current_id) {
+                    continue;
+                }
+                visited.insert(current_id);
+
+                // Get the encompassed units of the current node, check that the encompassed and
+                // encompassed_by graphs agree with each other, and generate new paths to add to the
+                // stack. The encompassed graph stores (id, weight) pairs.
+                if let Some(encompassed) = self.get_encompassed(current_id) {
+                    for encompassed_id in encompassed.iter().map(|(id, _)| *id) {
+                        let encompassing =
+                            self.get_encompassed_by(encompassed_id).unwrap_or_default();
+                        if !encompassing.iter().any(|(u, _)| *u == current_id) {
+                            bail!(
+                                "unit {current_id} lists unit {encompassed_id} as an \
+                                encompassed unit but the encompassing relationship does not exist"
+                            );
+                        }
+
+                        // Check for repeated nodes in the path.
+                        if path.contains(&encompassed_id) {
+                            bail!("cycle in encompassed graph detected");
+                        }
+
+                        // Add a new path to the stack.
+                        let mut new_path = path.clone();
+                        new_path.push(encompassed_id);
                         stack.push(new_path);
                     }
                 }
@@ -466,6 +594,26 @@ impl UnitGraph for InMemoryUnitGraph {
             .map_err(|e| UnitGraphError::AddDependencies(unit_id, unit_type, e))
     }
 
+    fn add_encompassed(
+        &mut self,
+        unit_id: Ustr,
+        dependencies: &[Ustr],
+        encompassed: &[(Ustr, f32)],
+    ) -> Result<(), UnitGraphError> {
+        self.add_encompassed_helper(unit_id, dependencies, encompassed)
+            .map_err(|e| UnitGraphError::AddEncompassed(unit_id, e))
+    }
+
+    fn set_encompasing_equals_dependency(&mut self) {
+        // The two graphs are virtually identical, so save space by clearing this graph.
+        self.encompassed_graph.clear();
+        self.encompassed_by.clear();
+    }
+
+    fn encompasing_equals_dependency(&self) -> bool {
+        self.encompassed_graph.is_empty() && self.encompassed_by.is_empty()
+    }
+
     fn add_superseded(&mut self, unit_id: Ustr, superseded: &[Ustr]) {
         // Update the superseded map.
         if superseded.is_empty() {
@@ -478,7 +626,7 @@ impl UnitGraph for InMemoryUnitGraph {
 
         // For each superseded ID, insert the equivalent superseding relationship.
         for superseded_id in superseded {
-            self.superseding_graph
+            self.superseded_by
                 .entry(*superseded_id)
                 .or_default()
                 .insert(unit_id);
@@ -541,6 +689,28 @@ impl UnitGraph for InMemoryUnitGraph {
         self.dependent_graph.get(&unit_id).cloned()
     }
 
+    fn get_encompassed(&self, unit_id: Ustr) -> Option<Vec<(Ustr, f32)>> {
+        // Use the dependency graph if the encompassed graph is empty and the encompassed graph
+        // otherwise.
+        if self.encompassed_graph.is_empty() {
+            self.get_dependencies(unit_id)
+                .map(|dependencies| dependencies.into_iter().map(|dep| (dep, 1.0)).collect())
+        } else {
+            self.encompassed_graph.get(&unit_id).cloned()
+        }
+    }
+
+    fn get_encompassed_by(&self, unit_id: Ustr) -> Option<Vec<(Ustr, f32)>> {
+        // Use the dependent graph if the encompassed by graph is empty and the encompassed_by graph
+        // otherwise.
+        if self.encompassed_by.is_empty() {
+            self.get_dependents(unit_id)
+                .map(|dependents| dependents.into_iter().map(|dep| (dep, 1.0)).collect())
+        } else {
+            self.encompassed_by.get(&unit_id).cloned()
+        }
+    }
+
     fn get_dependency_sinks(&self) -> UstrSet {
         self.dependency_sinks.clone()
     }
@@ -549,8 +719,8 @@ impl UnitGraph for InMemoryUnitGraph {
         self.superseded_graph.get(&unit_id).cloned()
     }
 
-    fn get_superseding(&self, unit_id: Ustr) -> Option<UstrSet> {
-        self.superseding_graph.get(&unit_id).cloned()
+    fn get_superseded_by(&self, unit_id: Ustr) -> Option<UstrSet> {
+        self.superseded_by.get(&unit_id).cloned()
     }
 
     fn check_cycles(&self) -> Result<(), UnitGraphError> {
@@ -721,7 +891,7 @@ mod test {
 
     /// Verifies retrieving the correct dependencies and dependents from the graph.
     #[test]
-    fn dependencies() -> Result<()> {
+    fn dependency_graph() -> Result<()> {
         let mut graph = InMemoryUnitGraph::default();
         let course1_id = Ustr::from("course1");
         let course2_id = Ustr::from("course2");
@@ -744,7 +914,6 @@ mod test {
             assert_eq!(dependents.len(), 2);
             assert!(dependents.contains(&course2_id));
             assert!(dependents.contains(&course3_id));
-
             assert!(graph.get_dependencies(course1_id).unwrap().is_empty());
         }
 
@@ -752,7 +921,6 @@ mod test {
             let dependents = graph.get_dependents(course2_id).unwrap();
             assert_eq!(dependents.len(), 1);
             assert!(dependents.contains(&course4_id));
-
             let dependencies = graph.get_dependencies(course2_id).unwrap();
             assert_eq!(dependencies.len(), 1);
             assert!(dependencies.contains(&course1_id));
@@ -762,7 +930,6 @@ mod test {
             let dependents = graph.get_dependents(course3_id).unwrap();
             assert_eq!(dependents.len(), 1);
             assert!(dependents.contains(&course5_id));
-
             let dependencies = graph.get_dependencies(course3_id).unwrap();
             assert_eq!(dependencies.len(), 1);
             assert!(dependencies.contains(&course1_id));
@@ -770,7 +937,6 @@ mod test {
 
         {
             assert!(graph.get_dependents(course4_id).is_none());
-
             let dependencies = graph.get_dependencies(course4_id).unwrap();
             assert_eq!(dependencies.len(), 1);
             assert!(dependencies.contains(&course2_id));
@@ -778,7 +944,6 @@ mod test {
 
         {
             assert!(graph.get_dependents(course5_id).is_none());
-
             let dependencies = graph.get_dependencies(course5_id).unwrap();
             assert_eq!(dependencies.len(), 1);
             assert!(dependencies.contains(&course3_id));
@@ -789,6 +954,159 @@ mod test {
         assert!(sinks.contains(&course1_id));
 
         graph.check_cycles()?;
+        Ok(())
+    }
+
+    /// Verifies retrieving the correct encompassed and encompassed_by units from the graph.
+    #[test]
+    fn encompassing_graph() -> Result<()> {
+        let mut graph = InMemoryUnitGraph::default();
+        let course1_id = Ustr::from("course1");
+        let course2_id = Ustr::from("course2");
+        let course3_id = Ustr::from("course3");
+        graph.add_course(course1_id)?;
+        graph.add_course(course2_id)?;
+        graph.add_course(course3_id)?;
+        graph.add_dependencies(course1_id, UnitType::Course, &[])?;
+        graph.add_encompassed(course1_id, &[], &[])?;
+        graph.add_dependencies(course2_id, UnitType::Course, &[course1_id])?;
+        graph.add_encompassed(course2_id, &[course1_id], &[])?;
+        graph.add_dependencies(course3_id, UnitType::Course, &[course1_id])?;
+        graph.add_encompassed(
+            course3_id,
+            &[course1_id],
+            &[(course1_id, 0.5), (course2_id, 0.5)],
+        )?;
+
+        assert!(!graph.encompasing_equals_dependency());
+        {
+            let encompassed = graph.get_encompassed(course1_id).unwrap();
+            assert_eq!(encompassed.len(), 0);
+            let encompassed_by = graph.get_encompassed_by(course1_id).unwrap();
+            assert_eq!(encompassed_by.len(), 2);
+            assert!(encompassed_by.contains(&(course3_id, 0.5)));
+            assert!(encompassed_by.contains(&(course2_id, 1.0)));
+        }
+
+        {
+            let encompassed = graph.get_encompassed(course3_id).unwrap();
+            assert_eq!(encompassed.len(), 2);
+            assert!(encompassed.contains(&(course1_id, 0.5)));
+            assert!(encompassed.contains(&(course2_id, 0.5)));
+            let encompassed_by = graph.get_encompassed_by(course2_id).unwrap();
+            assert_eq!(encompassed_by.len(), 1);
+            assert!(encompassed_by.contains(&(course3_id, 0.5)));
+        }
+
+        {
+            let encompassed = graph.get_encompassed(course2_id).unwrap();
+            assert_eq!(encompassed.len(), 1);
+            assert!(encompassed.contains(&(course1_id, 1.0)));
+            let encompassed_by = graph.get_encompassed_by(course3_id);
+            assert!(encompassed_by.is_none());
+        }
+        Ok(())
+    }
+
+    /// Verifies that the dependency graph is used when there is no encompassing graph.
+    #[test]
+    fn encompassing_equals_dependencies() -> Result<()> {
+        let mut graph = InMemoryUnitGraph::default();
+        let course1_id = Ustr::from("course1");
+        let course2_id = Ustr::from("course2");
+        let course3_id = Ustr::from("course3");
+        graph.add_course(course1_id)?;
+        graph.add_course(course2_id)?;
+        graph.add_course(course3_id)?;
+        graph.add_dependencies(course1_id, UnitType::Course, &[])?;
+        graph.add_dependencies(course2_id, UnitType::Course, &[course1_id])?;
+        graph.add_dependencies(course3_id, UnitType::Course, &[course1_id])?;
+
+        assert!(graph.encompasing_equals_dependency());
+        {
+            let encompassed = graph.get_encompassed(course1_id).unwrap();
+            assert_eq!(encompassed.len(), 0);
+            let dependencies = graph.get_dependencies(course1_id).unwrap();
+            assert_eq!(dependencies.len(), 0);
+
+            let encompassed_by = graph.get_encompassed_by(course1_id).unwrap();
+            assert_eq!(encompassed_by.len(), 2);
+            assert!(encompassed_by.contains(&(course2_id, 1.0)));
+            assert!(encompassed_by.contains(&(course3_id, 1.0)));
+            let dependents = graph.get_dependents(course1_id).unwrap();
+            assert_eq!(dependents.len(), 2);
+            assert!(dependents.contains(&course2_id));
+            assert!(dependents.contains(&course3_id));
+        }
+
+        {
+            let encompassed = graph.get_encompassed(course2_id).unwrap();
+            assert_eq!(encompassed.len(), 1);
+            assert!(encompassed.contains(&(course1_id, 1.0)));
+            let dependencies = graph.get_dependencies(course2_id).unwrap();
+            assert_eq!(dependencies.len(), 1);
+            assert!(dependencies.contains(&course1_id));
+
+            let encompassed_by = graph.get_encompassed_by(course2_id);
+            assert!(encompassed_by.is_none());
+            let dependents = graph.get_dependents(course2_id);
+            assert!(dependents.is_none());
+        }
+
+        {
+            let encompassed = graph.get_encompassed(course3_id).unwrap();
+            assert_eq!(encompassed.len(), 1);
+            assert!(encompassed.contains(&(course1_id, 1.0)));
+            let dependencies = graph.get_dependencies(course3_id).unwrap();
+            assert_eq!(dependencies.len(), 1);
+            assert!(dependencies.contains(&course1_id));
+
+            let encompassed_by = graph.get_encompassed_by(course3_id);
+            assert!(encompassed_by.is_none());
+            let dependents = graph.get_dependents(course3_id);
+            assert!(dependents.is_none());
+        }
+        Ok(())
+    }
+
+    /// Verifies retrieving the correct superseded and superseded_by units from the graph.
+    #[test]
+    fn superseding_graph() -> Result<()> {
+        let mut graph = InMemoryUnitGraph::default();
+        let course1_id = Ustr::from("course1");
+        let course2_id = Ustr::from("course2");
+        let course3_id = Ustr::from("course3");
+        graph.add_course(course1_id)?;
+        graph.add_course(course2_id)?;
+        graph.add_course(course3_id)?;
+        graph.add_dependencies(course1_id, UnitType::Course, &[])?;
+        graph.add_superseded(course1_id, &[course2_id]);
+        graph.add_dependencies(course2_id, UnitType::Course, &[course1_id])?;
+        graph.add_superseded(course2_id, &[course3_id]);
+        graph.add_dependencies(course3_id, UnitType::Course, &[course2_id])?;
+
+        {
+            let superseded = graph.get_superseded(course1_id).unwrap();
+            assert_eq!(superseded.len(), 1);
+            assert!(superseded.contains(&course2_id));
+            assert!(graph.get_superseded_by(course1_id).is_none());
+        }
+
+        {
+            let superseded = graph.get_superseded(course2_id).unwrap();
+            assert_eq!(superseded.len(), 1);
+            assert!(superseded.contains(&course3_id));
+            let superseded_by = graph.get_superseded_by(course2_id).unwrap();
+            assert_eq!(superseded_by.len(), 1);
+            assert!(superseded_by.contains(&course1_id));
+        }
+
+        {
+            assert!(graph.get_superseded(course3_id).is_none());
+            let superseded_by = graph.get_superseded_by(course3_id).unwrap();
+            assert_eq!(superseded_by.len(), 1);
+            assert!(superseded_by.contains(&course2_id));
+        }
         Ok(())
     }
 
@@ -911,6 +1229,25 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that a cycle in the encompassed graph is detected and causes an error.
+    #[test]
+    fn encompassed_cycle() -> Result<()> {
+        // Add a cycle, which should be detected when calling `check_cycles`.
+        let mut graph = InMemoryUnitGraph::default();
+        let course1_id = Ustr::from("course1");
+        let course2_id = Ustr::from("course2");
+        let course3_id = Ustr::from("course3");
+        let course4_id = Ustr::from("course4");
+        let course5_id = Ustr::from("course5");
+        graph.add_encompassed(course2_id, &[course1_id], &[])?;
+        graph.add_encompassed(course3_id, &[course1_id], &[])?;
+        graph.add_encompassed(course4_id, &[course2_id], &[])?;
+        graph.add_encompassed(course5_id, &[course3_id], &[])?;
+        graph.add_encompassed(course1_id, &[course5_id], &[])?;
+        assert!(graph.check_cycles().is_err());
+        Ok(())
+    }
+
     /// Verifies that a cycle in the superseded graph is detected and causes an error.
     #[test]
     fn superseded_cycle() {
@@ -951,6 +1288,24 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that the cycle check fails if an encompasing relationship is missing.
+    #[test]
+    fn missing_encompasing_relationship() -> Result<()> {
+        let mut graph = InMemoryUnitGraph::default();
+        let lesson1_id = Ustr::from("lesson1_id");
+        let lesson2_id = Ustr::from("lesson2_id");
+        graph.add_encompassed(lesson2_id, &[lesson1_id], &[])?;
+
+        // Manually remove the encompasing relationship to trigger the check and make the cycle
+        // detection fail.
+        graph.encompassed_by.insert(lesson1_id, Vec::default());
+        assert!(graph.check_cycles().is_err());
+        // Also check that the check fails if the encompasing value is `None`.
+        graph.encompassed_by.remove(&lesson1_id);
+        assert!(graph.check_cycles().is_err());
+        Ok(())
+    }
+
     /// Verifies that the cycle check fails if a superseding relationship is missing.
     #[test]
     fn missing_superseding_relationship() {
@@ -961,9 +1316,7 @@ mod test {
 
         // Manually remove the superseding relationship to trigger the check and make the cycle
         // detection fail.
-        graph
-            .superseding_graph
-            .insert(lesson1_id, UstrSet::default());
+        graph.superseded_by.insert(lesson1_id, UstrSet::default());
         assert!(graph.check_cycles().is_err());
         // Also check that the check fails if the superseding value is `None`.
         graph.dependency_graph.remove(&lesson1_id);
