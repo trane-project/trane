@@ -21,17 +21,16 @@ use crate::{
 /// The minimum absolute value of the reward. Propagation stops when this value is reached.
 const MIN_ABS_REWARD: f32 = 0.2;
 
-/// The initial weight of the rewards.
-const INITIAL_WEIGHT: f32 = 1.0;
-
 /// The minimum weight of the rewards. Once the propagation reaches this weight, it stops.
 const MIN_WEIGHT: f32 = 0.2;
 
-/// The factor by which the weight decreases with each traversal of the graph.
-const WEIGHT_FACTOR: f32 = 0.5;
+/// The factor by which the weight of the reward decreases with each traversal of the graph. Used
+/// to localize the reward to the units closes to the exercise.
+const WEIGHT_FACTOR: f32 = 0.8;
 
 /// The factor by which the absolute value of the reward decreases with each traversal of the graph.
-const DEPTH_FACTOR: f32 = 0.7;
+/// Used to localize the reward to the units closes to the exercise.
+const REWARD_FACTOR: f32 = 0.9;
 
 /// Contains the logic to rewards through the graph when submitting a score.
 pub(super) struct RewardPropagator {
@@ -65,12 +64,12 @@ impl RewardPropagator {
     }
 
     /// Gets the next units to visit, depending on the sign of the reward.
-    fn get_next_units(&self, unit_id: Ustr, reward: f32) -> Vec<Ustr> {
+    fn get_next_units(&self, unit_id: Ustr, reward: f32) -> Vec<(Ustr, f32)> {
         if reward > 0.0 {
             self.data
                 .unit_graph
                 .read()
-                .get_dependencies(unit_id)
+                .get_encompassed(unit_id)
                 .unwrap_or_default()
                 .into_iter()
                 .collect()
@@ -78,7 +77,7 @@ impl RewardPropagator {
             self.data
                 .unit_graph
                 .read()
-                .get_dependents(unit_id)
+                .get_encompassed_by(unit_id)
                 .unwrap_or_default()
                 .into_iter()
                 .collect()
@@ -140,12 +139,12 @@ impl RewardPropagator {
         next_lessons
             .iter()
             .chain(next_courses.iter())
-            .for_each(|id| {
+            .for_each(|(id, _)| {
                 queue.push_back(RewardQueueItem {
                     unit_id: *id,
                     reward: UnitReward {
                         value: initial_reward,
-                        weight: INITIAL_WEIGHT,
+                        weight: 1.0,
                         timestamp,
                     },
                     default_exercise_type: self.get_default_exercise_type(*id),
@@ -176,12 +175,12 @@ impl RewardPropagator {
             // Get the next units and push them into the queue with updated rewards and weights.
             self.get_next_units(item.unit_id, item.reward.value)
                 .iter()
-                .for_each(|next_unit_id| {
+                .for_each(|(next_unit_id, edge_weight)| {
                     queue.push_back(RewardQueueItem {
                         unit_id: *next_unit_id,
                         reward: UnitReward {
-                            value: item.reward.value * DEPTH_FACTOR,
-                            weight: item.reward.weight * WEIGHT_FACTOR,
+                            value: *edge_weight * REWARD_FACTOR * item.reward.value,
+                            weight: WEIGHT_FACTOR * item.reward.weight,
                             timestamp,
                         },
                         default_exercise_type: self.get_default_exercise_type(*next_unit_id),
