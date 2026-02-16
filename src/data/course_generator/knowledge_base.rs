@@ -25,6 +25,9 @@ pub const LESSON_DEPENDENCIES_FILE: &str = "lesson.dependencies.json";
 /// The name of the file containing the courses or lessons that a lesson supersedes.
 pub const LESSON_SUPERSEDED_FILE: &str = "lesson.superseded.json";
 
+/// The name of the file containing the courses or lessons encompassed by the lesson.
+pub const LESSON_ENCOMPASSED_FILE: &str = "lesson.encompassed.json";
+
 /// The name of the file containing the name of a lesson.
 pub const LESSON_NAME_FILE: &str = "lesson.name.json";
 
@@ -72,6 +75,9 @@ pub enum KnowledgeBaseFile {
 
     /// The file containing the courses or lessons that the lesson supersedes.
     LessonSuperseded,
+
+    /// The file containing the courses or lessons encompassed by the lesson.
+    LessonEncompassed,
 
     /// The file containing the metadata of the lesson.
     LessonMetadata,
@@ -121,6 +127,7 @@ impl TryFrom<&str> for KnowledgeBaseFile {
         match file_name {
             LESSON_DEPENDENCIES_FILE => Ok(KnowledgeBaseFile::LessonDependencies),
             LESSON_SUPERSEDED_FILE => Ok(KnowledgeBaseFile::LessonSuperseded),
+            LESSON_ENCOMPASSED_FILE => Ok(KnowledgeBaseFile::LessonEncompassed),
             LESSON_NAME_FILE => Ok(KnowledgeBaseFile::LessonName),
             LESSON_DESCRIPTION_FILE => Ok(KnowledgeBaseFile::LessonDescription),
             LESSON_METADATA_FILE => Ok(KnowledgeBaseFile::LessonMetadata),
@@ -310,8 +317,8 @@ impl KnowledgeBaseExercise {
 /// contains a directory of name `d.lesson` will generate the manifest for a lesson with ID
 /// `a::b::c::d`.
 ///
-/// All the optional fields mirror one of the fields in the [`LessonManifest`] and their values can be
-/// set by writing a JSON file inside the lesson directory with the name
+/// All the optional fields mirror one of the fields in the [`LessonManifest`] and their values can
+/// be set by writing a JSON file inside the lesson directory with the name
 /// `lesson.<PROPERTY_NAME>.json`. This file should contain a JSON serialization of the desired
 /// value. For example, to set the lesson's dependencies one would write a file named
 /// `lesson.dependencies.json` containing a JSON array of strings, each of them the ID of a
@@ -337,6 +344,9 @@ pub struct KnowledgeBaseLesson {
     /// it will automatically generate the full lesson ID. Not setting this value will indicate that
     /// the lesson has no dependencies.
     pub dependencies: Vec<Ustr>,
+
+    /// The IDs of all courses or lessons encompassed by this lesson and their respective weights.
+    pub encompassed: Vec<(Ustr, f32)>,
 
     /// The IDs of all courses or lessons that this lesson supersedes. Like the dependencies, the
     /// values can be full lesson IDs or the short ID of one of the other lessons in the course. The
@@ -396,6 +406,7 @@ impl KnowledgeBaseLesson {
             short_id: short_lesson_id,
             course_id: course_manifest.id,
             dependencies: vec![],
+            encompassed: vec![],
             superseded: vec![],
             name: None,
             description: None,
@@ -412,6 +423,10 @@ impl KnowledgeBaseLesson {
                 KnowledgeBaseFile::LessonDependencies => {
                     let path = lesson_root.join(LESSON_DEPENDENCIES_FILE);
                     lesson.dependencies = KnowledgeBaseFile::open(&path)?;
+                }
+                KnowledgeBaseFile::LessonEncompassed => {
+                    let path = lesson_root.join(LESSON_ENCOMPASSED_FILE);
+                    lesson.encompassed = KnowledgeBaseFile::open(&path)?;
                 }
                 KnowledgeBaseFile::LessonSuperseded => {
                     let path = lesson_root.join(LESSON_SUPERSEDED_FILE);
@@ -506,7 +521,7 @@ impl From<KnowledgeBaseLesson> for LessonManifest {
             id: format!("{}::{}", lesson.course_id, lesson.short_id).into(),
             course_id: lesson.course_id,
             dependencies: lesson.dependencies,
-            encompassed: vec![],
+            encompassed: lesson.encompassed,
             superseded: lesson.superseded,
             name: lesson.name.unwrap_or(format!("Lesson {}", lesson.short_id)),
             description: lesson.description,
@@ -536,8 +551,8 @@ impl From<KnowledgeBaseLesson> for LessonManifest {
 pub struct KnowledgeBaseConfig {}
 
 impl KnowledgeBaseConfig {
-    // Checks if the dependencies and the superseded units refer to another lesson in the course by
-    // its short ID and updates them to refer to the full lesson ID.
+    // Checks if the dependencies, encompassed units, and superseded units refer to another lesson
+    // in the course by its short ID and updates them to refer to the full lesson ID.
     fn convert_to_full_ids(
         course_manifest: &CourseManifest,
         short_ids: &HashSet<Ustr>,
@@ -558,6 +573,24 @@ impl KnowledgeBaseConfig {
                 })
                 .collect();
             lesson.0.dependencies = updated_dependencies;
+
+            // Update encompassed lessons or courses.
+            let updated_encompassed = lesson
+                .0
+                .encompassed
+                .iter()
+                .map(|(unit_id, weight)| {
+                    if short_ids.contains(unit_id) {
+                        (
+                            format!("{}::{}", course_manifest.id, unit_id).into(),
+                            *weight,
+                        )
+                    } else {
+                        (*unit_id, *weight)
+                    }
+                })
+                .collect();
+            lesson.0.encompassed = updated_encompassed;
 
             // Update superseded lessons or courses.
             let updated_superseded = lesson
@@ -699,6 +732,10 @@ mod test {
             KnowledgeBaseFile::try_from(LESSON_SUPERSEDED_FILE).unwrap(),
         );
         assert_eq!(
+            KnowledgeBaseFile::LessonEncompassed,
+            KnowledgeBaseFile::try_from(LESSON_ENCOMPASSED_FILE).unwrap(),
+        );
+        assert_eq!(
             KnowledgeBaseFile::LessonDescription,
             KnowledgeBaseFile::try_from(LESSON_DESCRIPTION_FILE).unwrap(),
         );
@@ -757,6 +794,7 @@ mod test {
             name: Some("Name".into()),
             description: Some("Description".into()),
             dependencies: vec!["lesson2".into()],
+            encompassed: vec![("lesson4".into(), 0.5)],
             superseded: vec!["lesson0".into()],
             metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
             has_instructions: true,
@@ -769,7 +807,7 @@ mod test {
             name: "Name".into(),
             description: Some("Description".into()),
             dependencies: vec!["lesson2".into()],
-            encompassed: vec![],
+            encompassed: vec![("lesson4".into(), 0.5)],
             superseded: vec!["lesson0".into()],
             lesson_instructions: Some(BasicAsset::MarkdownAsset {
                 path: LESSON_INSTRUCTIONS_FILE.into(),
@@ -875,6 +913,7 @@ mod test {
             name: Some("Name".into()),
             description: Some("Description".into()),
             dependencies: vec!["lesson2".into(), "other::lesson1".into()],
+            encompassed: vec![("lesson3".into(), 1.0), ("other::lesson3".into(), 0.5)],
             superseded: vec!["lesson0".into(), "other::lesson0".into()],
             metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
             has_instructions: false,
@@ -895,13 +934,24 @@ mod test {
         lesson_map.insert("lesson1".into(), (lesson, vec![exercise]));
 
         // Convert the short IDs to full IDs.
-        let short_ids =
-            HashSet::from_iter(vec!["lesson0".into(), "lesson1".into(), "lesson2".into()]);
+        let short_ids = HashSet::from_iter(vec![
+            "lesson0".into(),
+            "lesson1".into(),
+            "lesson2".into(),
+            "lesson3".into(),
+        ]);
         KnowledgeBaseConfig::convert_to_full_ids(&course_manifest, &short_ids, &mut lesson_map);
 
         assert_eq!(
             lesson_map.get(&short_lesson_id).unwrap().0.dependencies,
             vec![Ustr::from("course1::lesson2"), "other::lesson1".into()]
+        );
+        assert_eq!(
+            lesson_map.get(&short_lesson_id).unwrap().0.encompassed,
+            vec![
+                (Ustr::from("course1::lesson3"), 1.0),
+                ("other::lesson3".into(), 0.5)
+            ]
         );
         assert_eq!(
             lesson_map.get(&short_lesson_id).unwrap().0.superseded,
@@ -970,6 +1020,11 @@ mod test {
         let dependencies_path = lesson_dir.join(LESSON_DEPENDENCIES_FILE);
         write_json(&dependencies, &dependencies_path)?;
 
+        let encompassed: Vec<(Ustr, f32)> =
+            vec![("lesson4".into(), 0.75), ("other::lesson4".into(), 0.25)];
+        let encompassed_path = lesson_dir.join(LESSON_ENCOMPASSED_FILE);
+        write_json(&encompassed, &encompassed_path)?;
+
         let superseded: Vec<Ustr> = vec!["lesson0".into()];
         let superseded_path = lesson_dir.join(LESSON_SUPERSEDED_FILE);
         write_json(&superseded, &superseded_path)?;
@@ -1035,6 +1090,7 @@ mod test {
         assert_eq!(lesson.name, Some(name.into()));
         assert_eq!(lesson.description, Some(description.into()));
         assert_eq!(lesson.dependencies, dependencies);
+        assert_eq!(lesson.encompassed, encompassed);
         assert_eq!(lesson.superseded, superseded);
         assert_eq!(lesson.metadata, Some(metadata));
         assert!(lesson.has_instructions);

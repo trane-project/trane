@@ -97,6 +97,7 @@ fn knowledge_base_builder(
                     short_id: lesson_id,
                     course_id: course_manifest.id,
                     dependencies: generate_lesson_dependencies(lesson_index, &mut rand::rng()),
+                    encompassed: vec![],
                     superseded: vec![],
                     name: None,
                     description: None,
