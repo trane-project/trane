@@ -30,7 +30,6 @@
 //! propagating rewards through hierarchical knowledge structures developed by Math Academy (see
 //! <https://www.justinmath.com/individualized-spaced-repetition-in-hierarchical-knowledge-structures/>).
 
-use std::collections::VecDeque;
 use ustr::{Ustr, UstrMap};
 
 use crate::{
@@ -59,8 +58,8 @@ pub(super) struct RewardPropagator {
     pub data: SchedulerData,
 }
 
-/// An item in the reward propagation queue.
-struct RewardQueueItem {
+/// An item in the reward propagation stack.
+struct RewardStackItem {
     /// The unit ID.
     unit_id: Ustr,
 
@@ -120,29 +119,29 @@ impl RewardPropagator {
             return vec![]; // grcov-excl-line
         }
 
-        // Populate the queue using the course and lesson with the initial reward and weight.
+        // Populate the stack using the initial lessons and courses encompassed by this exercise.
         let initial_reward = Self::initial_reward(score);
         let next_lessons = self.get_next_units(lesson_id, initial_reward);
         let next_courses = self.get_next_units(course_id, initial_reward);
-        let mut queue: VecDeque<RewardQueueItem> = VecDeque::new();
+        let mut stack: Vec<RewardStackItem> = Vec::new();
         next_lessons
             .iter()
             .chain(next_courses.iter())
-            .for_each(|(id, _)| {
-                queue.push_back(RewardQueueItem {
+            .for_each(|(id, weight)| {
+                stack.push(RewardStackItem {
                     unit_id: *id,
                     reward: UnitReward {
-                        value: initial_reward,
+                        value: weight * initial_reward,
                         weight: 1.0,
                         timestamp,
                     },
                 });
             });
 
-        // While the queue is not empty, pop the first element, push it into the results, and
+        // While the stack is not empty, pop the last element, push it into the results, and
         // continue the search with updated rewards and weights.
         let mut results = UstrMap::default();
-        while let Some(item) = queue.pop_front() {
+        while let Some(item) = stack.pop() {
             // Check if propagation should continue and if the unit has already been visited. If
             // not, push the unit into the results and continue the search.
             if Self::stop_propagation(item.reward.value, item.reward.weight)
@@ -159,11 +158,11 @@ impl RewardPropagator {
                 },
             );
 
-            // Get the next units and push them into the queue with updated rewards and weights.
+            // Get the next units and push them onto the stack with updated rewards and weights.
             self.get_next_units(item.unit_id, item.reward.value)
                 .iter()
                 .for_each(|(next_unit_id, edge_weight)| {
-                    queue.push_back(RewardQueueItem {
+                    stack.push(RewardStackItem {
                         unit_id: *next_unit_id,
                         reward: UnitReward {
                             value: *edge_weight * REWARD_FACTOR * item.reward.value,

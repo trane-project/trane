@@ -669,6 +669,16 @@ impl DepthFirstScheduler {
                 .get_unit_type(curr_unit.unit_id)
                 .unwrap_or(UnitType::Course);
             if unit_type == UnitType::Lesson {
+                // Ignore lessons from other courses that might have been added to the stack if a
+                // lesson has dependencies from a course not in the input courses.
+                let lesson_course_id = self
+                    .data
+                    .get_lesson_course(curr_unit.unit_id)
+                    .unwrap_or_default();
+                if !course_ids.contains(&lesson_course_id) {
+                    continue;
+                }
+
                 // Retrieve the valid dependents of the lesson, and directly skip the lesson if
                 // needed.
                 let valid_deps =

@@ -108,26 +108,27 @@ impl ReviewKnocker {
 
                 // Get the units encompassed by the unit and update their frequencies.
                 if let Some(encompassed_units) = unit_graph.get_encompasses(unit_id) {
-                    for (encompassed_id, _) in encompassed_units {
-                        // Update the frequency of the unit and check if propagation should stop.
-                        let entry = unit_frequency_map.entry(encompassed_id).or_insert(0);
-                        *entry += 1;
-                        if RewardPropagator::stop_propagation(reward, weight) {
+                    for (encompassed_id, encompassed_weight) in encompassed_units {
+                        // Ignore edge if the weight is 0 or propagation should be stopped.
+                        if encompassed_weight == 0.0
+                            || RewardPropagator::stop_propagation(reward, weight)
+                        {
                             continue;
                         }
 
-                        // Add the unit to the queue with a decayed weight. If it's a lesson, also add
-                        // its course.
+                        // Update the frequency and update the stack with the next units.
+                        let entry = unit_frequency_map.entry(encompassed_id).or_insert(0);
+                        *entry += 1;
                         stack.push(FrequencyQueueItem {
                             unit_id: encompassed_id,
                             reward: reward * REWARD_FACTOR,
-                            weight: weight * WEIGHT_FACTOR,
+                            weight: encompassed_weight * weight * WEIGHT_FACTOR,
                         });
                         if let Some(course_id) = unit_graph.get_lesson_course(encompassed_id) {
                             stack.push(FrequencyQueueItem {
                                 unit_id: course_id,
                                 reward: reward * REWARD_FACTOR,
-                                weight: weight * WEIGHT_FACTOR,
+                                weight: encompassed_weight * weight * WEIGHT_FACTOR,
                             });
                         }
                     }
