@@ -113,6 +113,10 @@ const EASE_DENOMINATOR: f32 = 5.0;
 /// increase stability growth when pre-review retrievability is low.
 const SPACING_EFFECT_WEIGHT: f32 = 0.5;
 
+/// The exponent applied to stability when computing diminishing returns for repeated successful
+/// reviews. Larger values increase saturation strength at high stability.
+const STABILITY_DAMPING_EXP: f32 = 0.2;
+
 /// The minimum stability-loss fraction for a lapse.
 const MIN_LAPSE_DROP: f32 = 0.0;
 
@@ -146,11 +150,12 @@ const LAPSE_RETRIEVABILITY_WEIGHT: f32 = 0.30;
 /// 2. Chain stability through reviews chronologically (oldest to newest).
 /// 3. Apply interval-aware spacing during stability updates (successful recalls after longer
 ///    intervals boost stability more).
-/// 4. Compute retrievability from last review to now using power-law decay.
-/// 5. Adjust retrievability by difficulty for harder exercises.
-/// 6. Apply performance factor from an exponentially weighted average of all reviews (recent
+/// 4. Damp stability gains for already-stable memories to model explicit saturation.
+/// 5. Compute retrievability from last review to now using power-law decay.
+/// 6. Adjust retrievability by difficulty for harder exercises.
+/// 7. Apply performance factor from an exponentially weighted average of all reviews (recent
 ///    performance matters most).
-/// 7. Scale to final 0-5 score.
+/// 8. Scale to final 0-5 score.
 ///
 /// A simplified implementation without additional stored parameters is preferred for Trane because:
 ///
@@ -308,7 +313,7 @@ impl PowerLawScorer {
     /// - Apply an interval-aware spacing gain to successful reviews.
     /// - Apply a separate lapse reduction for recalls below the baseline threshold.
     /// - Update stability via the success branch:
-    ///   `S' = S * (1 + GROWTH_RATE * P * E * spacing_gain)`.
+    ///   `S' = S × (1 + GROWTH_RATE × P × E × spacing_gain × S^(-k))`.
     /// - Or the lapse branch:
     ///   `S' = S * (1 - lapse_drop)`, where `lapse_drop` grows with difficulty and surprise.
     ///
@@ -344,12 +349,21 @@ impl PowerLawScorer {
                     stability,
                     p,
                 );
-                stability = (stability * (1.0 + GROWTH_RATE * p * e * spacing_gain))
-                    .clamp(MIN_STABILITY, MAX_STABILITY);
+                let stability_damping = Self::compute_stability_damping(stability);
+                let growth_term = GROWTH_RATE * p * e * spacing_gain * stability_damping;
+                stability = (stability * (1.0 + growth_term)).clamp(MIN_STABILITY, MAX_STABILITY);
             }
             previous_timestamp = Some(trial.timestamp);
         }
         stability
+    }
+
+    /// Returns a damping factor for stability growth.
+    ///
+    /// As stability grows, gains should saturate, so this term decreases with S.
+    #[inline]
+    fn compute_stability_damping(stability: f32) -> f32 {
+        stability.max(MIN_STABILITY).powf(-STABILITY_DAMPING_EXP)
     }
 
     /// Computes retrievability using power-law forgetting: `R = (1 + factor × t/S)^decay`.
@@ -653,6 +667,28 @@ mod test {
         assert!(lapse_stability >= MIN_STABILITY);
     }
 
+    /// Verifies that stronger damping reduces growth at high stability for the same review quality.
+    #[test]
+    fn stability_growth_saturates_at_high_s() {
+        // Compare the same successful-review profile at low and high starting stability.
+        let difficulty = BASE_DIFFICULTY;
+        let exercise_type = ExerciseType::Declarative;
+        let p = (5.0 - GRADE_MIN) / GRADE_RANGE - 0.5;
+        let e = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR;
+        let spacing_gain =
+            PowerLawScorer::compute_spacing_gain(&exercise_type, 0.0, MIN_STABILITY, p);
+        let base_growth_term = GROWTH_RATE * p * e * spacing_gain;
+
+        let low_stability = MIN_STABILITY;
+        let high_stability = 50.0;
+        let low_stability_damping = PowerLawScorer::compute_stability_damping(low_stability);
+        let high_stability_damping = PowerLawScorer::compute_stability_damping(high_stability);
+
+        let low_effective_growth = base_growth_term * low_stability_damping;
+        let high_effective_growth = base_growth_term * high_stability_damping;
+        assert!(low_effective_growth > high_effective_growth);
+    }
+
     /// Verifies repeated lapses remain bounded by minimum stability.
     #[test]
     fn multiple_lapses_bounded() {
@@ -676,6 +712,37 @@ mod test {
             PowerLawScorer::compute_stability(&ExerciseType::Declarative, &lapses, difficulty);
         assert!(stability >= MIN_STABILITY);
         assert!(stability < DEFAULT_STABILITY);
+    }
+
+    /// Verifies long-run saturated success updates do not explode beyond expected bounds.
+    #[test]
+    fn high_stability_does_not_explode() {
+        // Use a fixed successful-review profile for all iterations.
+        let exercise_type = ExerciseType::Declarative;
+        let difficulty = BASE_DIFFICULTY;
+        let p = (5.0 - GRADE_MIN) / GRADE_RANGE - 0.5;
+        let e = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR;
+        let spacing_gain =
+            PowerLawScorer::compute_spacing_gain(&exercise_type, 0.0, MIN_STABILITY, p);
+        let base_growth_term = GROWTH_RATE * p * e * spacing_gain;
+
+        // Repeatedly apply success updates and track shrinking relative gains.
+        let mut stability = MIN_STABILITY;
+        let mut previous_relative_gain = f32::INFINITY;
+        for _ in 0..25 {
+            let stability_damping = PowerLawScorer::compute_stability_damping(stability);
+            let effective_growth = base_growth_term * stability_damping;
+            let next_stability = (stability * (1.0 + effective_growth))
+                .clamp(MIN_STABILITY, MAX_STABILITY);
+            let relative_gain = (next_stability - stability) / stability;
+
+            assert!(relative_gain < previous_relative_gain);
+            previous_relative_gain = relative_gain;
+            stability = next_stability;
+        }
+
+        assert!(stability < MAX_STABILITY);
+        assert!(stability >= MIN_STABILITY);
     }
 
     /// Verifies retrievability computation using power-law decay.
