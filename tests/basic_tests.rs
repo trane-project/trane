@@ -148,7 +148,7 @@ static LIBRARY: LazyLock<Vec<TestCourse>> = LazyLock::new(|| {
                 },
                 TestLesson {
                     id: TestId(4, Some(1), None),
-                    dependencies: vec![TestId(4, Some(0), None)],
+                    dependencies: vec![TestId(4, Some(0), None), TestId(2, Some(1), None)],
                     encompassed: vec![],
                     superseded: vec![],
                     metadata: BTreeMap::default(),
@@ -436,18 +436,30 @@ fn bad_score_prevents_advancing() -> Result<()> {
     Ok(())
 }
 
-/// Verifies only exercises in the given course are scheduled when a course filter is provided.
+/// Verifies only exercises in the given courses are scheduled when a course filter is provided.
 #[test]
 fn scheduler_respects_course_filter() -> Result<()> {
     // Initialize test course library.
     let temp_dir = TempDir::new()?;
     let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
-    // Run the simulation.
+    // Run one first simulation to make sure course TestId(4, None, None) is unlocked. This course
+    // has a dependency on a lesson from a course in the second filter and the test should verify
+    // that the boundary is not crossed.
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    let course_filter = UnitFilter::CourseFilter {
+        course_ids: vec![TestId(4, None, None).to_ustr()],
+    };
+    simulation.run_simulation(
+        &mut trane,
+        &vec![],
+        &Some(ExerciseFilter::UnitFilter(course_filter)),
+    )?;
+    simulation.answer_history.clear();
+
+    // Run the second course filter.
     let selected_courses = [
-        TestId(1, None, None),
-        TestId(5, None, None),
+        TestId(2, None, None),
         // Missing course.
         TestId(3, None, None),
     ];
@@ -481,6 +493,19 @@ fn scheduler_respects_course_filter() -> Result<()> {
                 exercise_id
             );
         }
+    }
+
+    // All exercises should be from the selected courses, ignoring any dependencies going to missing
+    // courses or courses not in the list.
+    for exercise_id in simulation.answer_history.keys() {
+        let exercise_test_id = TestId::from(exercise_id);
+        assert!(
+            selected_courses
+                .iter()
+                .any(|course_id| exercise_test_id.exercise_in_course(course_id)),
+            "exercise {:?} should be from one of the selected courses",
+            exercise_id
+        );
     }
     Ok(())
 }
