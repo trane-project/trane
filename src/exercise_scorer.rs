@@ -1,15 +1,15 @@
 //! Contains the logic to score an exercise based on the results and timestamps of previous trials.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::Utc;
 
-use crate::data::ExerciseTrial;
+use crate::data::{ExerciseTrial, ExerciseType};
 
 /// A trait exposing a function to score an exercise based on the results of previous trials.
 pub trait ExerciseScorer {
     /// Returns a score (between 0.0 and 5.0) for the exercise based on the results and timestamps
     /// of previous trials. The trials are assumed to be sorted in descending order by timestamp.
-    fn score(&self, previous_trials: &[ExerciseTrial]) -> Result<f32>;
+    fn score(&self, exercise_type: ExerciseType, previous_trials: &[ExerciseTrial]) -> Result<f32>;
 }
 
 /// The factor used in the power-law forgetting curve. This value ensures that the retrievability is
@@ -17,9 +17,14 @@ pub trait ExerciseScorer {
 /// implementation.
 const FORGETTING_CURVE_FACTOR: f32 = 19.0 / 81.0;
 
-/// The decay exponent used in the power-law forgetting curve. The value is taken from the FSRS-4.5
-/// implementation.
-const FORGETTING_CURVE_DECAY: f32 = -0.5;
+/// The decay exponent used in the power-law forgetting curve for declarative exercises (e.g. memory
+/// recall). The value is taken from the FSRS-4.5 implementation.
+const DECLARATIVE_CURVE_DECAY: f32 = -0.5;
+
+/// The decay exponent used in the power-law forgetting curve for procedural exercises (e.g. playing
+/// a piece of music). The value is higher than for declarative exercises, reflecting the slower
+/// decay of procedural memory.
+const PROCEDURAL_CURVE_DECAY: f32 = -0.3;
 
 /// The minimum stability value in days. This prevents division by zero and ensures that exercises
 /// with very few trials still have a reasonable stability estimate.
@@ -61,10 +66,12 @@ const PERFORMANCE_BASELINE_SCORE: f32 = 3.0;
 /// Limits stability increase to prevent unrealistic growth from perfect performance on hard exercises.
 const GROWTH_RATE: f32 = 0.5;
 
-/// The minimum grade value used in performance calculations. Corresponds to complete failure.
+/// The minimum grade value used in performance calculations. Corresponds to complete failure. This
+/// is the same as the minimum mastery score, just with a different name to shorten formulas.
 const GRADE_MIN: f32 = 1.0;
 
 /// The maximum grade value used in performance calculations. Corresponds to perfect performance.
+/// This is also the same as the maximum mastery score.
 const GRADE_MAX: f32 = 5.0;
 
 /// The offset used in difficulty linear mapping. Represents the minimum difficulty.
@@ -115,12 +122,13 @@ const SCORE_SCALE: f32 = GRADE_MAX;
 /// to 0-5.
 ///
 /// Algorithm:
+///
 /// 1. Estimate difficulty once from all trials (failure rate-based)
 /// 2. Chain stability through reviews chronologically
 /// 3. Compute retrievability from last review to now using power-law decay
 /// 4. Adjust retrievability by difficulty for harder exercises
 /// 5. Apply performance factor from last review (bad performance lowers score)
-/// 6. Scale to final 0-5 score
+/// 6. Scale to final 0-5 score.
 ///
 /// Differences from FSRS:
 /// - No additional state storage (stateless like original Trane design)
@@ -171,10 +179,11 @@ impl PowerLawScorer {
         }
         difficulty.clamp(MIN_DIFFICULTY, MAX_DIFFICULTY)
     }
-    /// Starts with DEFAULT_STABILITY, evolves via \( S' = S \times (1 + GROWTH_RATE \times P \times
-    /// E) \) for each review. \( P = \frac{\text{grade} - GRADE_MIN}{GRADE_RANGE} - 0.5 \)
-    /// (performance, from -0.5 for fail to 0.5 for perfect), \( E = \frac{EASE_NUMERATOR_OFFSET -
-    /// \text{difficulty}}{EASE_DENOMINATOR} \) (ease). Processed oldest to newest.
+
+    /// Starts with DEFAULT_STABILITY, evolves via S' = S * (1 + GROWTH_RATE * P * E) for each
+    /// review. P = (grade - GRADE_MIN) / GRADE_RANGE - 0.5 (performance, from -0.5 for fail to 0.5
+    /// for perfect), E = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR (ease). Processed
+    /// oldest to newest.
     #[inline]
     fn compute_stability(previous_trials: &[ExerciseTrial], difficulty: f32) -> f32 {
         let mut stability = DEFAULT_STABILITY;
@@ -191,12 +200,12 @@ impl PowerLawScorer {
     /// factor=19/81, decay=-0.5 (FSRS constants). Returns 0-1 probability of recall.
     #[inline]
     fn compute_retrievability(days_since_last: f32, stability: f32) -> f32 {
-        (1.0 + FORGETTING_CURVE_FACTOR * days_since_last / stability).powf(FORGETTING_CURVE_DECAY)
+        (1.0 + FORGETTING_CURVE_FACTOR * days_since_last / stability).powf(DECLARATIVE_CURVE_DECAY)
     }
 }
 
 impl ExerciseScorer for PowerLawScorer {
-    fn score(&self, previous_trials: &[ExerciseTrial]) -> Result<f32> {
+    fn score(&self, exercise_type: ExerciseType, previous_trials: &[ExerciseTrial]) -> Result<f32> {
         if previous_trials.is_empty() {
             return Ok(DEFAULT_SCORE_NO_TRIALS);
         }
@@ -219,8 +228,8 @@ impl ExerciseScorer for PowerLawScorer {
 
         // The difficulty exponent adjusts retrievability based on exercise hardness. Harder
         // exercises (higher difficulty) have lower retrievability for the same stability due to
-        // increased decay. The formula is \( \text{exponent} = MIN_DIFFICULTY +
-        // \frac{\text{difficulty} - MIN_DIFFICULTY}{DIFFICULTY_FACTOR} \).
+        // increased decay. The formula is exponent = MIN_DIFFICULTY + (difficulty - MIN_DIFFICULTY)
+        // / DIFFICULTY_FACTOR.
         let difficulty_exponent =
             MIN_DIFFICULTY + (difficulty - MIN_DIFFICULTY) / DIFFICULTY_FACTOR;
         let adjusted_retrievability = retrievability.powf(difficulty_exponent);
@@ -315,11 +324,11 @@ mod test {
         // put failures at the beginning.
         let recent_failures = vec![
             ExerciseTrial {
-                score: 1.0,
+                score: 3.0,
                 timestamp: generate_timestamp(0),
             },
             ExerciseTrial {
-                score: 2.0,
+                score: 1.0,
                 timestamp: generate_timestamp(1),
             },
             ExerciseTrial {
@@ -343,7 +352,10 @@ mod test {
     /// Verifies the score for an exercise with no previous trials is 0.0.
     #[test]
     fn no_previous_trials() {
-        assert_eq!(DEFAULT_SCORE_NO_TRIALS, SCORER.score(&[]).unwrap());
+        assert_eq!(
+            DEFAULT_SCORE_NO_TRIALS,
+            SCORER.score(ExerciseType::Declarative, &[]).unwrap()
+        );
     }
 
     /// Verifies running the full scoring algorithm on a set of trials produces a reasonable score.
@@ -364,7 +376,7 @@ mod test {
             },
         ];
 
-        let score = SCORER.score(&trials).unwrap();
+        let score = SCORER.score(ExerciseType::Declarative, &trials).unwrap();
         assert!(score > 0.0 && score <= 5.0);
         assert!(score > 2.0); // Decent due to good recent performance
     }
@@ -372,10 +384,13 @@ mod test {
     /// Verifies scoring an exercise with an invalid timestamp still returns a sane score.
     #[test]
     fn invalid_timestamp() -> Result<()> {
-        let score = SCORER.score(&[ExerciseTrial {
-            score: 5.0,
-            timestamp: generate_timestamp(1e10 as i64),
-        }])?;
+        let score = SCORER.score(
+            ExerciseType::Declarative,
+            &[ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(1e10 as i64),
+            }],
+        )?;
         assert!(score >= 0.0 && score <= 5.0);
         assert!(score < 1.0); // Low due to long time elapsed
         Ok(())
@@ -406,75 +421,47 @@ mod test {
     /// Verifies retrievability computation using power-law decay.
     #[test]
     fn compute_retrievability() {
-        let stability = DEFAULT_STABILITY;
         // Recent review: high retrievability
+        let stability = DEFAULT_STABILITY;
         let recent = PowerLawScorer::compute_retrievability(0.01, stability);
         assert!(recent > 0.9);
+
         // Old review: moderate retrievability
         let old = PowerLawScorer::compute_retrievability(10.0, stability);
         assert!(old < 0.6 && old > 0.4);
+
         // Very old: low retrievability
         let very_old = PowerLawScorer::compute_retrievability(100.0, stability);
         assert!(very_old < 0.25);
     }
 
-    /// Verifies score for perfect performance on recent exercise.
-    #[test]
-    fn score_perfect_recent() -> Result<()> {
-        let trials = vec![
-            ExerciseTrial {
-                score: 5.0,
-                timestamp: generate_timestamp(0),
-            },
-            ExerciseTrial {
-                score: 5.0,
-                timestamp: generate_timestamp(1),
-            },
-            ExerciseTrial {
-                score: 5.0,
-                timestamp: generate_timestamp(2),
-            },
-            ExerciseTrial {
-                score: 5.0,
-                timestamp: generate_timestamp(3),
-            },
-            ExerciseTrial {
-                score: 5.0,
-                timestamp: generate_timestamp(4),
-            },
-        ];
-        let score = SCORER.score(&trials)?;
-        assert!((score - GRADE_MAX).abs() < 0.01); // Should be very close to GRADE_MAX
-        Ok(())
-    }
-
-    /// Verifies score for bad performance on recent exercise.
+    /// Verifies that a recent bad performance results in a very low score.
     #[test]
     fn score_bad_recent() -> Result<()> {
         let trials = vec![
             ExerciseTrial {
                 score: 1.0,
-                timestamp: generate_timestamp(0),
-            },
-            ExerciseTrial {
-                score: 1.0,
-                timestamp: generate_timestamp(1),
-            },
-            ExerciseTrial {
-                score: 2.0,
-                timestamp: generate_timestamp(2),
-            },
-            ExerciseTrial {
-                score: 1.0,
                 timestamp: generate_timestamp(3),
             },
             ExerciseTrial {
+                score: 3.0,
+                timestamp: generate_timestamp(7),
+            },
+            ExerciseTrial {
+                score: 2.0,
+                timestamp: generate_timestamp(10),
+            },
+            ExerciseTrial {
                 score: 1.0,
-                timestamp: generate_timestamp(4),
+                timestamp: generate_timestamp(13),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(14),
             },
         ];
-        let score = SCORER.score(&trials)?;
-        assert!((score - DEFAULT_SCORE_NO_TRIALS).abs() < 0.01); // Should be very close to DEFAULT_SCORE_NO_TRIALS
+        let score = SCORER.score(ExerciseType::Declarative, &trials)?;
+        assert!(score < 0.01);
         Ok(())
     }
 
@@ -484,30 +471,18 @@ mod test {
         let trials = vec![
             ExerciseTrial {
                 score: 3.0,
-                timestamp: generate_timestamp(0),
-            }, // newest
-            ExerciseTrial {
-                score: 4.0,
                 timestamp: generate_timestamp(1),
             },
             ExerciseTrial {
-                score: 2.0,
-                timestamp: generate_timestamp(2),
-            },
-            ExerciseTrial {
-                score: 5.0,
-                timestamp: generate_timestamp(3),
-            },
-            ExerciseTrial {
-                score: 3.0,
+                score: 4.0,
                 timestamp: generate_timestamp(4),
             },
             ExerciseTrial {
-                score: 4.0,
+                score: 2.0,
                 timestamp: generate_timestamp(5),
             },
             ExerciseTrial {
-                score: 2.0,
+                score: 5.0,
                 timestamp: generate_timestamp(6),
             },
             ExerciseTrial {
@@ -516,48 +491,64 @@ mod test {
             },
             ExerciseTrial {
                 score: 4.0,
-                timestamp: generate_timestamp(8),
+                timestamp: generate_timestamp(10),
+            },
+            ExerciseTrial {
+                score: 2.0,
+                timestamp: generate_timestamp(14),
             },
             ExerciseTrial {
                 score: 3.0,
-                timestamp: generate_timestamp(9),
-            }, // oldest
-        ];
-        let score = SCORER.score(&trials)?;
-        assert!(score > 2.0 && score < 3.0); // Based on output 2.5
-        Ok(())
-    }
-
-    /// Verifies score for unsorted trials returns error.
-    #[test]
-    fn score_unsorted_trials() {
-        let result = SCORER.score(&[
-            ExerciseTrial {
-                score: 3.0,
-                timestamp: generate_timestamp(2), // Older first
+                timestamp: generate_timestamp(18),
             },
             ExerciseTrial {
                 score: 4.0,
-                timestamp: generate_timestamp(1), // Newer
+                timestamp: generate_timestamp(21),
             },
-        ]);
-        assert!(result.is_err());
-    }
-
-    // TODO: Fix score_old_timestamp: Make realistic with old perfect trial, use println to determine tight assertion bounds.
-
-    /// Verifies score for old timestamp gives low score.
-    #[test]
-    fn score_old_timestamp() -> Result<()> {
-        let score = SCORER.score(&[ExerciseTrial {
-            score: 5.0,
-            timestamp: generate_timestamp(100), // Very old
-        }])?;
-        assert!(score > 1.0 && score < 1.5); // Based on output 1.23
+            ExerciseTrial {
+                score: 3.0,
+                timestamp: generate_timestamp(25),
+            },
+        ];
+        let score = SCORER.score(ExerciseType::Declarative, &trials)?;
+        assert!(score > 2.0 && score < 3.0);
         Ok(())
     }
 
-    /// Verifies score for multiple good trials.
+    /// Verifies that trials not sorted in descending order by timestamp return an error.
+    #[test]
+    fn score_unsorted_trials() {
+        let result = SCORER.score(
+            ExerciseType::Declarative,
+            &[
+                ExerciseTrial {
+                    score: 3.0,
+                    timestamp: generate_timestamp(2),
+                },
+                ExerciseTrial {
+                    score: 4.0,
+                    timestamp: generate_timestamp(1),
+                },
+            ],
+        );
+        assert!(result.is_err());
+    }
+
+    /// Verifies that trials with old timestamp result in a low score.
+    #[test]
+    fn score_old_timestamp() -> Result<()> {
+        let score = SCORER.score(
+            ExerciseType::Declarative,
+            &[ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(100),
+            }],
+        )?;
+        assert!(score > 1.0 && score < 1.5);
+        Ok(())
+    }
+
+    /// Verifies that the score for multiple good trials is very close to the maximum score.
     #[test]
     fn score_multiple_good() -> Result<()> {
         let trials = vec![
@@ -594,12 +585,12 @@ mod test {
                 timestamp: generate_timestamp(7),
             },
         ];
-        let score = SCORER.score(&trials)?;
-        assert!((score - GRADE_MAX).abs() < 0.01); // High score for good history
+        let score = SCORER.score(ExerciseType::Declarative, &trials)?;
+        assert!((score - 5.0).abs() < 0.01);
         Ok(())
     }
 
-    /// Verifies score for multiple bad trials.
+    /// Verifies that multiple bad trials result in a very low score.
     #[test]
     fn score_multiple_bad() -> Result<()> {
         let trials = vec![
@@ -609,35 +600,70 @@ mod test {
             },
             ExerciseTrial {
                 score: 2.0,
-                timestamp: generate_timestamp(1),
-            },
-            ExerciseTrial {
-                score: 1.0,
                 timestamp: generate_timestamp(2),
             },
             ExerciseTrial {
                 score: 1.0,
-                timestamp: generate_timestamp(3),
-            },
-            ExerciseTrial {
-                score: 2.0,
                 timestamp: generate_timestamp(4),
             },
             ExerciseTrial {
-                score: 1.0,
-                timestamp: generate_timestamp(5),
-            },
-            ExerciseTrial {
-                score: 1.0,
+                score: 4.0,
                 timestamp: generate_timestamp(6),
             },
             ExerciseTrial {
                 score: 2.0,
-                timestamp: generate_timestamp(7),
+                timestamp: generate_timestamp(9),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(15),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(16),
+            },
+            ExerciseTrial {
+                score: 2.0,
+                timestamp: generate_timestamp(27),
             },
         ];
-        let score = SCORER.score(&trials)?;
-        assert!((score - DEFAULT_SCORE_NO_TRIALS).abs() < 0.01); // Low score for bad history
+        let score = SCORER.score(ExerciseType::Declarative, &trials)?;
+        assert!(score < 0.01);
+        Ok(())
+    }
+
+    /// Verifies that many old and well-spaced trials with good scores return a score that is stiill
+    /// good due to high stability.
+    #[test]
+    fn score_old_good_trials() -> Result<()> {
+        let trials = vec![
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(40),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(60),
+            },
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(67),
+            },
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(99),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(140),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(167),
+            },
+        ];
+        let score = SCORER.score(ExerciseType::Declarative, &trials)?;
+        assert!(score > 3.0 && score < 4.0);
         Ok(())
     }
 }
