@@ -130,7 +130,7 @@ const SPACING_EFFECT_WEIGHT: f32 = 0.5;
 ///
 /// A simplified implementation without additional stored parameters is preferred for Trane because:
 ///
-/// - Spaced repetition is just on of many strategies used by the expert system.
+/// - Spaced repetition is just one of many strategies used by the expert system.
 /// - The main concept behind trane is to map content to a graph of dependencies, not to have a flat
 ///   list of exercises. Trane has more information than just previous trials.
 /// - The score of an exercise is a score meant to reflect mastery of an exercise, not just memory.
