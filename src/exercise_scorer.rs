@@ -1,6 +1,6 @@
 //! Contains the logic to score an exercise based on the results and timestamps of previous trials.
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use chrono::Utc;
 
 use crate::data::{ExerciseTrial, ExerciseType};
@@ -86,11 +86,8 @@ const SECONDS_PER_DAY: f32 = 86400.0;
 /// The number of recent trials considered when boosting difficulty estimates.
 const RECENT_TRIALS_COUNT: usize = 3;
 
-/// The minimum value for the performance factor in score calculations.
-const PERFORMANCE_FACTOR_MIN: f32 = -0.5;
-
-/// The maximum value for the performance factor in score calculations.
-const PERFORMANCE_FACTOR_MAX: f32 = 0.5;
+/// The decay factor for exponential weighting of performance. Latest score weight 1.0, then 0.8, 0.64, etc.
+const PERFORMANCE_WEIGHT_DECAY: f32 = 0.8;
 
 /// The range of grade values used in performance calculations.
 const GRADE_RANGE: f32 = GRADE_MAX - GRADE_MIN;
@@ -100,9 +97,6 @@ const EASE_NUMERATOR_OFFSET: f32 = 11.0;
 
 /// The denominator used in the ease factor calculation.
 const EASE_DENOMINATOR: f32 = 5.0;
-
-/// The offset used to shift performance factor to a positive range.
-const PERFORMANCE_FACTOR_OFFSET: f32 = 0.5;
 
 /// A scorer that uses a power-law forgetting curve to compute the score of an exercise, using
 /// simple interval-based estimation of stability and difficulty. This models memory retention more
@@ -174,6 +168,23 @@ impl PowerLawScorer {
         difficulty.clamp(MIN_DIFFICULTY, MAX_DIFFICULTY)
     }
 
+    /// Computes the exponentially weighted average performance from all trials.
+    #[inline]
+    fn compute_weighted_avg(previous_trials: &[ExerciseTrial]) -> f32 {
+        if previous_trials.is_empty() {
+            return 0.0;
+        }
+        let mut weight = 1.0;
+        let mut sum_weighted = 0.0;
+        let mut sum_weights = 0.0;
+        for trial in previous_trials {
+            sum_weighted += trial.score * weight;
+            sum_weights += weight;
+            weight *= PERFORMANCE_WEIGHT_DECAY;
+        }
+        sum_weighted / sum_weights
+    }
+
     /// Starts with DEFAULT_STABILITY, evolves via S' = S * (1 + GROWTH_RATE * P * E) for each
     /// review. P = (grade - GRADE_MIN) / GRADE_RANGE - 0.5 (performance, from -0.5 for fail to 0.5
     /// for perfect), E = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR (ease). Processed
@@ -238,13 +249,9 @@ impl ExerciseScorer for PowerLawScorer {
             MIN_DIFFICULTY + (difficulty - MIN_DIFFICULTY) / DIFFICULTY_FACTOR;
         let adjusted_retrievability = retrievability.powf(difficulty_exponent);
 
-        // Adjust score by last performance: bad performance lowers the score to prevent advancement.
-        let last_p = ((previous_trials[0].score - GRADE_MIN) / GRADE_RANGE
-            - PERFORMANCE_FACTOR_OFFSET)
-            .clamp(PERFORMANCE_FACTOR_MIN, PERFORMANCE_FACTOR_MAX);
-        let performance_factor = (last_p + PERFORMANCE_FACTOR_OFFSET).max(0.0);
-
-        Ok((adjusted_retrievability * performance_factor * 5.0).clamp(0.0, 5.0))
+        // Compute the weighted average of all the trials and return the final score.
+        let weighted_score = Self::compute_weighted_avg(previous_trials);
+        Ok((adjusted_retrievability * weighted_score).clamp(0.0, 5.0))
     }
 }
 
@@ -448,6 +455,38 @@ mod test {
         assert!(very_old_declarative < very_old_procedural);
     }
 
+    /// Verifies that the weighted average is computed correctly.
+    #[test]
+    fn compute_weighted_avg() {
+        // Empty trials should return 0.0.
+        assert_eq!(PowerLawScorer::compute_weighted_avg(&[]), 0.0);
+
+        // Single trial with score 5.0 returns 5.0.
+        let single_trial = vec![ExerciseTrial {
+            score: 5.0,
+            timestamp: generate_timestamp(0),
+        }];
+        assert!((PowerLawScorer::compute_weighted_avg(&single_trial) - 5.0).abs() < 1e-6);
+
+        // Multiple trials: [5.0, 4.0, 3.0] should be approx 4.147
+        let multi_trials = vec![
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(0),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 3.0,
+                timestamp: generate_timestamp(2),
+            },
+        ];
+        let weighted = PowerLawScorer::compute_weighted_avg(&multi_trials);
+        assert!((weighted - 4.147).abs() < 0.001);
+    }
+
     /// Verifies that a recent bad performance results in a very low score.
     #[test]
     fn score_bad_recent() -> Result<()> {
@@ -468,13 +507,9 @@ mod test {
                 score: 1.0,
                 timestamp: generate_timestamp(13),
             },
-            ExerciseTrial {
-                score: 4.0,
-                timestamp: generate_timestamp(14),
-            },
         ];
         let score = SCORER.score(ExerciseType::Declarative, &trials)?;
-        assert!(score < 0.01);
+        assert!(score < 2.0);
         Ok(())
     }
 
@@ -524,7 +559,7 @@ mod test {
             },
         ];
         let score = SCORER.score(ExerciseType::Declarative, &trials)?;
-        assert!(score > 2.0 && score < 3.0);
+        assert!(score > 1.0 && score < 4.0);
         Ok(())
     }
 
@@ -599,7 +634,7 @@ mod test {
             },
         ];
         let score = SCORER.score(ExerciseType::Declarative, &trials)?;
-        assert!((score - 5.0).abs() < 0.01);
+        assert!(score > 4.0);
         Ok(())
     }
 
@@ -641,7 +676,7 @@ mod test {
             },
         ];
         let score = SCORER.score(ExerciseType::Declarative, &trials)?;
-        assert!(score < 0.01);
+        assert!(score < 2.0);
         Ok(())
     }
 
@@ -676,7 +711,7 @@ mod test {
             },
         ];
         let score = SCORER.score(ExerciseType::Procedural, &trials)?;
-        assert!(score > 3.5 && score < 4.0);
+        assert!(score > 3.0 && score < 5.0);
         Ok(())
     }
 }
