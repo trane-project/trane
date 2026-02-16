@@ -3,7 +3,7 @@
 use anyhow::{Result, anyhow};
 use chrono::Utc;
 
-use crate::{data::ExerciseTrial, utils};
+use crate::data::ExerciseTrial;
 
 /// A trait exposing a function to score an exercise based on the results of previous trials.
 pub trait ExerciseScorer {
@@ -57,79 +57,41 @@ const DIFFICULTY_FACTOR: f32 = 60.0;
 /// stability and difficulty estimates.
 const PERFORMANCE_BASELINE_SCORE: f32 = 3.0;
 
-/// The minimum performance factor applied to stability. A value of 0.5 means poor performance can
-/// reduce the stability estimate by up to 50%.
-const MIN_PERFORMANCE_FACTOR: f32 = 0.5;
-
-/// The maximum performance factor applied to stability. A value of 1.5 means excellent performance
-/// can increase the stability estimate by up to 50%.
-const MAX_PERFORMANCE_FACTOR: f32 = 1.5;
-
-/// The initial weight for an individual trial.
-const INITIAL_WEIGHT: f32 = 1.0;
-
-/// The weight of a trial is adjusted based on the index of the trial in the list. The first trial
-/// has the initial weight, and the weight decreases with each subsequent trial by this factor.
-const WEIGHT_INDEX_FACTOR: f32 = 0.8;
-
-/// The minimum weight of a score, also used when there's an issue calculating the number of days
-/// since the trial (e.g., the score's timestamp is after the current timestamp).
-const MIN_WEIGHT: f32 = 0.1;
+/// The maximum growth rate for stability per review (50% cap).
+/// Limits stability increase to prevent unrealistic growth from perfect performance on hard exercises.
+const GROWTH_RATE: f32 = 0.5;
 
 /// A scorer that uses a power-law forgetting curve to compute the score of an exercise, using
 /// simple interval-based estimation of stability and difficulty. This models memory retention more
 /// accurately than exponential decay by accounting for the "fat tail" of long-term memory.
 ///
-/// The estimated stability and difficulty are simpler than they are in something like FSRS to avoid
-/// having to store additional state about exercises. Optimizing the ExerciseScorer is not as
-/// important in Trane because it uses a graph structure and produces batches of mixed exercises to
-/// review instead of trying to compute the optimal review for a flat list of exercises.
+/// This implementation is inspired by FSRS (Free Spaced Repetition Scheduler) but simplified for
+/// Trane's stateless architecture. Instead of maintaining separate state for each exercise, it
+/// chains stability updates through the review history chronologically (oldest to newest).
+/// Stability evolves with each review using: S' = S × (1 + GROWTH_RATE × P × E), where P is
+/// performance factor and E is ease factor. Final score is retrievability at current time,
+/// scaled to 0-5.
+///
+/// Algorithm:
+/// 1. Estimate difficulty once from all trials (failure rate-based)
+/// 2. Chain stability through reviews chronologically
+/// 3. Compute retrievability from last review to now using power-law decay
+/// 4. Adjust retrievability by difficulty for harder exercises
+/// 5. Apply performance factor from last review (bad performance lowers score)
+/// 6. Scale to final 0-5 score
+///
+/// Differences from FSRS:
+/// - No additional state storage (stateless like original Trane design)
+/// - Simplified formula without request/response vectors or complex parameters
+/// - Single retrievability score instead of separate difficulty/stability outputs
+/// - Chained computation instead of matrix-based state evolution
+/// - Growth rate capped at 50% per review for stability
+///
+/// Why simplified: Trane uses a graph structure producing mixed batches, not optimal flat lists.
+/// Optimizing ExerciseScorer is less critical than in dedicated SRS systems.
 pub struct PowerLawScorer {}
 
 impl PowerLawScorer {
-    /// Returns the number of days since each trial to the current time.
-    #[inline]
-    fn days_since_now(previous_trials: &[ExerciseTrial]) -> Vec<f32> {
-        let now = Utc::now().timestamp();
-        previous_trials
-            .iter()
-            .map(|trial| ((now - trial.timestamp) as f32 / 86400.0).max(0.0))
-            .collect()
-    }
-
-    /// Estimates the stability of the exercise based on the intervals between trials. Stability
-    /// represents how well the exercise is retained. Higher values indicate better retention over
-    /// the long term.
-    #[inline]
-    fn estimate_stability(previous_trials: &[ExerciseTrial]) -> f32 {
-        // Stability only makes sense for exercises with at least 2 trials.
-        if previous_trials.len() < 2 {
-            return DEFAULT_STABILITY;
-        }
-
-        // Calculate all intervals between consecutive reviews (in days).
-        let intervals: Vec<f32> = previous_trials
-            .windows(2)
-            .map(|w| ((w[0].timestamp - w[1].timestamp) as f32 / 86400.0).abs())
-            .filter(|&d| d > 0.0) // Ignore same-day reviews
-            .collect();
-        if intervals.is_empty() {
-            return DEFAULT_STABILITY;
-        }
-
-        // Use median for a most robust estimate of the typical interval.
-        let mut sorted_intervals = intervals.clone();
-        sorted_intervals.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        let median = sorted_intervals[sorted_intervals.len() / 2];
-
-        // Adjust by recent performance: good performance increases effective stability.
-        let avg_score: f32 =
-            previous_trials.iter().map(|t| t.score).sum::<f32>() / previous_trials.len() as f32;
-        let performance_factor = (avg_score / PERFORMANCE_BASELINE_SCORE)
-            .clamp(MIN_PERFORMANCE_FACTOR, MAX_PERFORMANCE_FACTOR);
-        (median * performance_factor).clamp(MIN_STABILITY, MAX_STABILITY)
-    }
-
     /// Estimates the difficulty of the exercise based on failure rates. Difficulty ranges from 1.0
     /// (easiest) to 10.0 (hardest).
     #[inline]
@@ -166,82 +128,57 @@ impl PowerLawScorer {
         }
         difficulty.clamp(MIN_DIFFICULTY, MAX_DIFFICULTY)
     }
-
-    /// Performs the power-law decay on the score based on the number of days since the trial, the
-    /// estimated stability, and the estimated difficulty.
-    ///
-    /// The power-law forgetting curve is: R(t) = (1 + factor * t/S)^decay where R is
-    /// retrievability, t is time, S is stability, and factor/decay are constants.
-    ///
-    /// Difficulty is applied as a post-hoc adjustment: harder exercises appear to decay faster.
+    /// Starts with DEFAULT_STABILITY, evolves via S' = S × (1 + GROWTH_RATE × P × E) for each
+    /// review. P = (grade-1)/4 - 0.5 (performance, -0.5 for fail to 0.5 for perfect), E =
+    /// (11-difficulty)/5 (ease). Processed oldest to newest.
     #[inline]
-    fn power_law_decay(initial_score: f32, num_days: f32, stability: f32, difficulty: f32) -> f32 {
-        // If the number of days is negative, return the score as is.
-        if num_days < 0.0 {
-            return initial_score;
+    fn compute_stability(previous_trials: &[ExerciseTrial], difficulty: f32) -> f32 {
+        let mut stability = DEFAULT_STABILITY;
+        for trial in previous_trials.iter().rev() {
+            let p = (trial.score - 1.0) / 4.0 - 0.5; // Performance: -0.5 (fail) to 0.5 (perfect)
+            let e = (11.0 - difficulty) / 5.0; // Ease: 2.0 (easy) to 0.2 (hard)
+            stability =
+                (stability * (1.0 + GROWTH_RATE * p * e)).clamp(MIN_STABILITY, MAX_STABILITY);
         }
-
-        // Calculate retrievability using the power-law forgetting curve: R(t) = (1 + factor *
-        // t/S)^decay
-        let retrievability =
-            (1.0 + FORGETTING_CURVE_FACTOR * num_days / stability).powf(FORGETTING_CURVE_DECAY);
-
-        // Apply difficulty adjustment: harder exercises appear to decay faster. D=1 (easy): no
-        // penalty, D=10 (hard): ~15% faster effective decay. We apply this as a power to
-        // retrievability.
-        let difficulty_exponent = 1.0 + (difficulty - 1.0) / DIFFICULTY_FACTOR;
-        let adjusted_retrievability = retrievability.powf(difficulty_exponent);
-
-        // Scale by initial score and clamp to valid range.
-        (adjusted_retrievability * initial_score).clamp(0.0, 5.0)
+        stability
     }
 
-    /// Returns the weights to used to compute the weighted average of the scores.
+    /// Computes retrievability using power-law forgetting: R = (1 + factor × t/S)^decay.
+    /// factor=19/81, decay=-0.5 (FSRS constants). Returns 0-1 probability of recall.
     #[inline]
-    fn score_weights(num_trials: usize) -> Vec<f32> {
-        (0..num_trials)
-            .map(|i| {
-                let weight = INITIAL_WEIGHT * WEIGHT_INDEX_FACTOR.powf(i as f32);
-                weight.max(MIN_WEIGHT)
-            })
-            .collect()
+    fn compute_retrievability(days_since_last: f32, stability: f32) -> f32 {
+        (1.0 + FORGETTING_CURVE_FACTOR * days_since_last / stability).powf(FORGETTING_CURVE_DECAY)
     }
 }
 
 impl ExerciseScorer for PowerLawScorer {
     fn score(&self, previous_trials: &[ExerciseTrial]) -> Result<f32> {
-        // An exercise with no previous trials is assigned a score of 0.0.
         if previous_trials.is_empty() {
             return Ok(0.0);
         }
 
-        // Check the sorting of the trials is in descending order by timestamp.
         if previous_trials
             .windows(2)
             .any(|w| w[0].timestamp < w[1].timestamp)
         {
             return Err(anyhow!(
-                "Exercise trials are not sorted in descending order by timestamp"
+                "Exercise trials not sorted in descending order by timestamp"
             ));
         }
 
-        // Estimate stability and difficulty from the trial history.
-        let stability = Self::estimate_stability(previous_trials);
         let difficulty = Self::estimate_difficulty(previous_trials);
+        let stability = Self::compute_stability(previous_trials, difficulty);
+        let days_since_last =
+            ((Utc::now().timestamp() - previous_trials[0].timestamp) as f32 / 86400.0).max(0.0);
+        let retrievability = Self::compute_retrievability(days_since_last, stability);
+        let difficulty_exponent = 1.0 + (difficulty - 1.0) / DIFFICULTY_FACTOR;
+        let adjusted_retrievability = retrievability.powf(difficulty_exponent);
 
-        // Compute the scores by running power-law decay on each trial.
-        let days = Self::days_since_now(previous_trials);
-        let scores: Vec<f32> = previous_trials
-            .iter()
-            .zip(days.iter())
-            .map(|(trial, &num_days)| {
-                Self::power_law_decay(trial.score, num_days, stability, difficulty)
-            })
-            .collect();
+        // Adjust score by last performance: bad performance lowers the score to prevent advancement.
+        let last_p = ((previous_trials[0].score - 1.0) / 4.0 - 0.5).clamp(-0.5, 0.5);
+        let performance_factor = (last_p + 0.5).max(0.0);
 
-        // Run a weighted average on the scores to compute the final score.
-        let weights = Self::score_weights(previous_trials.len());
-        Ok(utils::weighted_average(&scores, &weights))
+        Ok((adjusted_retrievability * performance_factor * 5.0).clamp(0.0, 5.0))
     }
 }
 
@@ -259,90 +196,6 @@ mod test {
     fn generate_timestamp(num_days: i64) -> i64 {
         let now = Utc::now().timestamp();
         now - num_days * SECONDS_IN_DAY
-    }
-
-    /// Verifies the number of days since each trial is calculated correctly.
-    #[test]
-    fn days_since_now() {
-        let trials = vec![
-            ExerciseTrial {
-                score: 0.0,
-                timestamp: generate_timestamp(5),
-            },
-            ExerciseTrial {
-                score: 0.0,
-                timestamp: generate_timestamp(10),
-            },
-            ExerciseTrial {
-                score: 0.0,
-                timestamp: generate_timestamp(20),
-            },
-        ];
-        let days = PowerLawScorer::days_since_now(&trials);
-        // Should return days since each trial: 5, 10, 20
-        assert!((days[0] - 5.0).abs() < 0.1);
-        assert!((days[1] - 10.0).abs() < 0.1);
-        assert!((days[2] - 20.0).abs() < 0.1);
-    }
-
-    /// Verifies that stability is estimated correctly from trial intervals.
-    #[test]
-    fn estimate_stability() {
-        // Single trial should return default stability.
-        let single_trial = vec![ExerciseTrial {
-            score: 5.0,
-            timestamp: generate_timestamp(0),
-        }];
-        assert_eq!(
-            PowerLawScorer::estimate_stability(&single_trial),
-            DEFAULT_STABILITY
-        );
-
-        // Multiple trials with regular intervals.
-        let regular_trials = vec![
-            ExerciseTrial {
-                score: 5.0,
-                timestamp: generate_timestamp(0),
-            },
-            ExerciseTrial {
-                score: 5.0,
-                timestamp: generate_timestamp(5),
-            },
-            ExerciseTrial {
-                score: 5.0,
-                timestamp: generate_timestamp(10),
-            },
-        ];
-        let stability = PowerLawScorer::estimate_stability(&regular_trials);
-        assert!((stability - 7.5).abs() < 0.1); // 5 days * (5.0/3.0) performance factor
-
-        // Trials with high scores should have higher stability (performance bonus).
-        let high_score_trials = vec![
-            ExerciseTrial {
-                score: 5.0,
-                timestamp: generate_timestamp(0),
-            },
-            ExerciseTrial {
-                score: 5.0,
-                timestamp: generate_timestamp(10),
-            },
-        ];
-        let high_stability = PowerLawScorer::estimate_stability(&high_score_trials);
-        assert!(high_stability > 10.0); // Should be boosted by performance
-
-        // Multiple trials with bad results should have low stability.
-        let low_score_trials = vec![
-            ExerciseTrial {
-                score: 2.0,
-                timestamp: generate_timestamp(0),
-            },
-            ExerciseTrial {
-                score: 1.0,
-                timestamp: generate_timestamp(10),
-            },
-        ];
-        let low_stability = PowerLawScorer::estimate_stability(&low_score_trials);
-        assert!(low_stability < 10.0); // Should be reduced by poor performance
     }
 
     /// Verifies that difficulty is estimated correctly from failure rates.
@@ -434,88 +287,10 @@ mod test {
         assert!(recent_difficulty > 5.0);
     }
 
-    /// Verifies power-law decay returns the original score when the number of days is zero.
-    #[test]
-    fn power_law_decay_zero_days() {
-        let initial_score = 5.0;
-        let num_days = 0.0;
-        let stability = 5.0;
-        let difficulty = 5.0;
-
-        let adjusted_score =
-            PowerLawScorer::power_law_decay(initial_score, num_days, stability, difficulty);
-        assert_eq!(adjusted_score, initial_score);
-    }
-
-    /// Verifies power-law decay converges to zero over long periods.
-    #[test]
-    fn power_law_decay_converges() {
-        let initial_score = 5.0;
-        let num_days = 1000.0;
-        let stability = 5.0;
-        let difficulty = 5.0;
-
-        let adjusted_score =
-            PowerLawScorer::power_law_decay(initial_score, num_days, stability, difficulty);
-        // After 1000 days with stability of 5, score should be very low but not zero.
-        assert!(adjusted_score > 0.0);
-        assert!(adjusted_score < 1.0);
-    }
-
-    /// Verifies power-law decay returns the original score when the number of days is negative.
-    #[test]
-    fn power_law_decay_negative_days() {
-        let initial_score = 5.0;
-        let num_days = -1.0;
-        let stability = 5.0;
-        let difficulty = 5.0;
-
-        let adjusted_score =
-            PowerLawScorer::power_law_decay(initial_score, num_days, stability, difficulty);
-        assert_eq!(adjusted_score, initial_score);
-    }
-
-    /// Verifies that difficulty affects the decay rate.
-    #[test]
-    fn power_law_difficulty_effect() {
-        let initial_score = 5.0;
-        let num_days = 10.0;
-        let stability = 5.0;
-
-        let easy_score = PowerLawScorer::power_law_decay(initial_score, num_days, stability, 1.0);
-        let hard_score = PowerLawScorer::power_law_decay(initial_score, num_days, stability, 10.0);
-
-        // Harder exercises should have lower scores after the same time period.
-        assert!(hard_score < easy_score);
-    }
-
     /// Verifies the score for an exercise with no previous trials is 0.0.
     #[test]
     fn no_previous_trials() {
         assert_eq!(0.0, SCORER.score(&[]).unwrap());
-    }
-
-    /// Verifies the assignment of weights to trials based on their index.
-    #[test]
-    fn score_weights() {
-        let num_trials = 4;
-        let weights = PowerLawScorer::score_weights(num_trials);
-        assert_eq!(
-            weights,
-            vec![
-                INITIAL_WEIGHT,
-                INITIAL_WEIGHT * WEIGHT_INDEX_FACTOR,
-                INITIAL_WEIGHT * WEIGHT_INDEX_FACTOR.powf(2.0),
-                INITIAL_WEIGHT * WEIGHT_INDEX_FACTOR.powf(3.0),
-            ]
-        );
-    }
-
-    /// Verifies that the score weight is never less than the minimum weight.
-    #[test]
-    fn score_weight_capped_at_min() {
-        let weights = PowerLawScorer::score_weights(1000);
-        assert_eq!(weights[weights.len() - 1], MIN_WEIGHT);
     }
 
     /// Verifies running the full scoring algorithm on a set of trials produces a reasonable score.
@@ -536,24 +311,20 @@ mod test {
             },
         ];
 
-        // Score should be between 0 and 5. Recent high scores should dominate, so score should be
-        // closer to 4-5 range.
         let score = SCORER.score(&trials).unwrap();
-        assert!(score > 0.0 && score < 5.0);
-        assert!(score > 3.0);
+        assert!(score > 0.0 && score <= 5.0);
+        assert!(score > 2.0); // Decent due to good recent performance
     }
 
     /// Verifies scoring an exercise with an invalid timestamp still returns a sane score.
     #[test]
     fn invalid_timestamp() -> Result<()> {
-        // The timestamp is before the Unix epoch (very old). Very old trials should have decayed
-        // significantly but not to zero.
         let score = SCORER.score(&[ExerciseTrial {
             score: 5.0,
             timestamp: generate_timestamp(1e10 as i64),
         }])?;
-        assert!(score > 0.0);
-        assert!(score < 1.0);
+        assert!(score >= 0.0 && score <= 5.0);
+        assert!(score < 1.0); // Low due to long time elapsed
         Ok(())
     }
 }
