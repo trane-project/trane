@@ -62,8 +62,11 @@ const DIFFICULTY_FACTOR: f32 = 60.0;
 /// stability and difficulty estimates.
 const PERFORMANCE_BASELINE_SCORE: f32 = 3.0;
 
-/// The maximum growth rate for stability per review (50% cap). Limits stability increase to prevent
-/// unrealistic growth from perfect performance on hard exercises.
+/// A scaling coefficient applied to the stability update term for each review. The per-review
+/// multiplicative change is `1 + GROWTH_RATE * P * E * spacing_gain`; this means `GROWTH_RATE`
+/// is not a hard cap. The actual growth for a review depends on the performance factor `P`, the
+/// ease term `E`, and any spacing gain, and the resulting stability is clamped to
+/// `MIN_STABILITY..MAX_STABILITY`.
 const GROWTH_RATE: f32 = 0.5;
 
 /// The minimum grade value used in performance calculations. Corresponds to complete failure. This
@@ -135,7 +138,8 @@ const SPACING_EFFECT_DECAY: f32 = DECLARATIVE_CURVE_DECAY;
 /// - Simplified formula without request/response vectors or complex parameters
 /// - Single retrievability score instead of separate difficulty/stability outputs
 /// - Chained computation instead of matrix-based state evolution
-/// - Growth rate capped at 50% per review for stability
+/// - Growth rate is a scaling coefficient; per-review change is `GROWTH_RATE * P * E * spacing_gain`
+///   and final stability is clamped to `MIN_STABILITY..MAX_STABILITY`
 ///
 /// Why simplified: Trane uses a graph structure producing mixed batches, not optimal flat lists.
 /// Optimizing ExerciseScorer is less critical than in dedicated SRS systems.
@@ -254,7 +258,7 @@ impl PowerLawScorer {
     }
 
     /// Computes retrievability using power-law forgetting: R = (1 + factor × t/S)^decay. Returns
-    /// 0-1 probability of recall. A different decay for declarative and procedural execises
+    /// 0-1 probability of recall. A different decay for declarative and procedural exercises
     /// reflects the different forgetting patterns of these memory types.
     #[inline]
     fn compute_retrievability(
