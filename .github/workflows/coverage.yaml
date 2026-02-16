@@ -26,14 +26,30 @@ jobs:
           components: llvm-tools-preview
           override: true
 
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Install grcov
+        run: cargo binstall --no-confirm grcov
 
-      - name: Generate code coverage
-        id: coverage
-        run: cargo llvm-cov --all-features --exclude register_derive_impl --workspace --no-fail-fast --lcov --output-path lcov.info
+      - name: Run tests with coverage instrumentation
+        run: cargo test --all-features --no-fail-fast
         env:
-          NODE_COVERALLS_DEBUG: true
+          CARGO_INCREMENTAL: '0'
+          RUSTFLAGS: '-Cinstrument-coverage --cfg coverage'
+          LLVM_PROFILE_FILE: 'coverage-%p-%m.profraw'
+
+      - name: Run grcov
+        run: >
+          grcov .
+          --binary-path ./target/debug/
+          --source-dir .
+          --output-types lcov
+          --output-path lcov.info
+          --ignore-not-existing
+          --llvm
+          --filter covered
+          --ignore "*.cargo/*"
+          --excl-start "grcov-excl-start"
+          --excl-stop "grcov-excl-stop"
+          --excl-line "grcov-excl-line|#\[derive\("
 
       - name: Coveralls upload
         uses: coverallsapp/github-action@master

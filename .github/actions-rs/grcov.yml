@@ -1,0 +1,10 @@
+branch: false
+ignore-not-existing: true
+llvm: true
+filter: covered
+output-type: lcov
+ignore:
+  - "*.cargo/*"
+excl-start: "grcov-excl-start"
+excl-stop: "grcov-excl-stop"
+excl-line: "grcov-excl-line|#\\[derive\\("
