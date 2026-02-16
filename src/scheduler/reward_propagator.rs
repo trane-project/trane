@@ -120,7 +120,7 @@ impl RewardPropagator {
             return vec![]; // grcov-excl-line
         }
 
-        // Populate the queue using the course and lesson with the initial reward and weight.
+        // Populate the queue using the initial lessons and courses encompassed by this exercise.
         let initial_reward = Self::initial_reward(score);
         let next_lessons = self.get_next_units(lesson_id, initial_reward);
         let next_courses = self.get_next_units(course_id, initial_reward);
@@ -128,11 +128,11 @@ impl RewardPropagator {
         next_lessons
             .iter()
             .chain(next_courses.iter())
-            .for_each(|(id, _)| {
+            .for_each(|(id, weight)| {
                 queue.push_back(RewardQueueItem {
                     unit_id: *id,
                     reward: UnitReward {
-                        value: initial_reward,
+                        value: weight * initial_reward,
                         weight: 1.0,
                         timestamp,
                     },
