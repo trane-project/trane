@@ -55,12 +55,6 @@ const MAX_DIFFICULTY: f32 = 10.0;
 /// history.
 const BASE_DIFFICULTY: f32 = 5.0;
 
-/// The weight of the overall difficulty when calculating the final difficulty estimate.
-const OVERALL_DIFFICULTY_WEIGHT: f32 = 0.7;
-
-/// The weight of recent performance when calculating the final difficulty estimate.
-const RECENT_PERFORMANCE_WEIGHT: f32 = 0.3;
-
 /// The divisor used to scale the difficulty effect on the forgetting curve. A higher value means
 /// difficulty has less impact on the decay rate. With a value of 60, the maximum difficulty (10.0)
 /// increases the effective decay rate by approximately 15%.
@@ -78,9 +72,8 @@ const DIFFICULTY_REVERSION_WEIGHT: f32 = 0.2;
 const PERFORMANCE_BASELINE_SCORE: f32 = 3.0;
 
 /// A scaling coefficient applied to the stability update term for each review. The per-review
-/// multiplicative change is `1 + GROWTH_RATE * P * E * spacing_gain`. The actual growth for a
-/// review depends on the performance factor `P`, the ease term `E`, and any spacing gain, and the
-/// resulting stability is clamped to `MIN_STABILITY..MAX_STABILITY`.
+/// multiplicative change is `1 + GROWTH_RATE * P * E * spacing_gain * S^(-k)`. The resulting
+/// stability is clamped to `MIN_STABILITY..MAX_STABILITY`.
 const GROWTH_RATE: f32 = 0.5;
 
 /// The minimum grade value used in performance calculations. Corresponds to complete failure. This
@@ -99,9 +92,6 @@ const DIFFICULTY_SCALE: f32 = 9.0;
 
 /// The number of seconds in a day, used for timestamp conversions.
 const SECONDS_PER_DAY: f32 = 86400.0;
-
-/// The number of recent trials considered when boosting difficulty estimates.
-const RECENT_TRIALS_COUNT: usize = 3;
 
 /// The decay factor for exponential weighting of performance. Latest score weight 1.0, then 0.8,
 /// 0.64, etc.
@@ -147,15 +137,18 @@ const LAPSE_RETRIEVABILITY_WEIGHT: f32 = 0.30;
 /// This implementation is inspired by FSRS (Free Spaced Repetition Scheduler) but simplified for
 /// Trane's stateless architecture. Instead of maintaining separate state for each exercise, it
 /// chains stability updates through the review history chronologically (oldest to newest).
-/// Stability evolves with each review using: S' = S × (1 + GROWTH_RATE × P × E × spacing_gain),
+/// Stability evolves with each review using:
+/// 
+/// S' = S × (1 + GROWTH_RATE × P × E × spacing_gain × S^(-k)),
+/// 
 /// where P is performance factor, E is ease factor, and spacing_gain increases successful growth
 /// after longer review intervals. Final score is retrievability at current time, scaled to 0-5.
 ///
 /// Algorithm:
 ///
 /// 1. Estimate a base difficulty from all trials (failure rate-based).
-/// 2. Chain stability through reviews chronologically (oldest to newest), updating difficulty
-///    after each review based on outcome.
+/// 2. Chain stability through reviews chronologically (oldest to newest), updating difficulty after
+///    each review based on outcome.
 /// 3. Apply interval-aware spacing during stability updates (successful recalls after longer
 ///    intervals boost stability more).
 /// 4. Damp stability gains for already-stable memories to model explicit saturation.
@@ -192,25 +185,11 @@ impl PowerLawScorer {
             .count() as f32;
         let failure_rate = failures / previous_trials.len() as f32;
 
-        // Linearly map failure rate (0.0-1.0) to difficulty (1.0-10.0).
+        // Linearly map aggregate failure rate (0.0-1.0) to difficulty (1.0-10.0).
         // - 0% failures -> difficulty 1 (easy)
         // - 50% failures -> difficulty 5.5 (medium)
         // - 100% failures -> difficulty 10 (hard)
         let difficulty = DIFFICULTY_OFFSET + failure_rate * DIFFICULTY_SCALE;
-
-        // Boost difficulty if recent trials are failing.
-        if previous_trials.len() >= RECENT_TRIALS_COUNT {
-            let recent_failures = previous_trials
-                .iter()
-                .take(RECENT_TRIALS_COUNT)
-                .filter(|t| t.score < PERFORMANCE_BASELINE_SCORE)
-                .count() as f32;
-            let recent_failure_rate = recent_failures / RECENT_TRIALS_COUNT as f32;
-            return (difficulty * OVERALL_DIFFICULTY_WEIGHT
-                + (DIFFICULTY_OFFSET + recent_failure_rate * DIFFICULTY_SCALE)
-                    * RECENT_PERFORMANCE_WEIGHT)
-                .clamp(MIN_DIFFICULTY, MAX_DIFFICULTY);
-        }
         difficulty.clamp(MIN_DIFFICULTY, MAX_DIFFICULTY)
     }
 
@@ -327,6 +306,39 @@ impl PowerLawScorer {
             .clamp(MIN_LAPSE_DROP, MAX_LAPSE_DROP)
     }
 
+    /// Applies a single review result to the current stability estimate.
+    #[inline]
+    fn apply_stability_transition(
+        exercise_type: &ExerciseType,
+        stability: f32,
+        difficulty: f32,
+        score: f32,
+        days_since_previous_review: f32,
+    ) -> f32 {
+        // Convert score to performance and ease, and estimate pre-review retention.
+        let p = (score - GRADE_MIN) / GRADE_RANGE - 0.5;
+        let e = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR;
+        let pre_review_retrievability = Self::compute_spacing_retrievability(
+            exercise_type,
+            days_since_previous_review,
+            stability,
+        );
+
+        // Adjust stability based on review outcome.
+        if Self::is_lapse(score) {
+            // Penalize hard misses proportionally to difficulty and surprise.
+            let lapse_drop = Self::compute_lapse_drop(difficulty, pre_review_retrievability);
+            (stability * (1.0 - lapse_drop)).clamp(MIN_STABILITY, MAX_STABILITY)
+        } else {
+            // Boost stability on successful recall with spacing- and saturation-aware gain.
+            let spacing_gain =
+                Self::compute_spacing_gain(exercise_type, days_since_previous_review, stability, p);
+            let stability_damping = Self::compute_stability_damping(stability);
+            let growth_term = GROWTH_RATE * p * e * spacing_gain * stability_damping;
+            (stability * (1.0 + growth_term)).clamp(MIN_STABILITY, MAX_STABILITY)
+        }
+    }
+
     /// Starts with DEFAULT_STABILITY and evolves through reviews from oldest to newest, while
     /// updating dynamic difficulty after each trial with mean reversion.
     ///
@@ -350,35 +362,27 @@ impl PowerLawScorer {
         previous_trials: &[ExerciseTrial],
         base_difficulty: f32,
     ) -> (f32, f32) {
+        // Seed state for chain replay from the oldest known review.
         let mut stability = DEFAULT_STABILITY;
         let mut difficulty = base_difficulty;
         let mut previous_timestamp = None;
+
+        // Replay each review chronologically so each result sees the updated state.
         for trial in previous_trials.iter().rev() {
+            // Compute interval and review-derived signals from the current state.
             let days_since_previous_review = previous_timestamp.map_or(0.0, |timestamp| {
                 ((trial.timestamp - timestamp) as f32 / SECONDS_PER_DAY).max(0.0)
             });
-            let p = (trial.score - GRADE_MIN) / GRADE_RANGE - 0.5;
-            let e = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR;
-            let pre_review_retrievability = Self::compute_spacing_retrievability(
+
+            stability = Self::apply_stability_transition(
                 exercise_type,
-                days_since_previous_review,
                 stability,
+                difficulty,
+                trial.score,
+                days_since_previous_review,
             );
 
-            if Self::is_lapse(trial.score) {
-                let lapse_drop = Self::compute_lapse_drop(difficulty, pre_review_retrievability);
-                stability = (stability * (1.0 - lapse_drop)).clamp(MIN_STABILITY, MAX_STABILITY);
-            } else {
-                let spacing_gain = Self::compute_spacing_gain(
-                    exercise_type,
-                    days_since_previous_review,
-                    stability,
-                    p,
-                );
-                let stability_damping = Self::compute_stability_damping(stability);
-                let growth_term = GROWTH_RATE * p * e * spacing_gain * stability_damping;
-                stability = (stability * (1.0 + growth_term)).clamp(MIN_STABILITY, MAX_STABILITY);
-            }
+            // Update the difficulty state for the next review in the chain.
             difficulty = Self::update_difficulty(difficulty, base_difficulty, trial.score);
             previous_timestamp = Some(trial.timestamp);
         }
@@ -413,10 +417,10 @@ impl PowerLawScorer {
 
 impl ExerciseScorer for PowerLawScorer {
     fn score(&self, exercise_type: ExerciseType, previous_trials: &[ExerciseTrial]) -> Result<f32> {
+        // Guard input ordering and missing-history edge cases.
         if previous_trials.is_empty() {
             return Ok(0.0);
         }
-
         if previous_trials
             .windows(2)
             .any(|w| w[0].timestamp < w[1].timestamp)
@@ -426,12 +430,15 @@ impl ExerciseScorer for PowerLawScorer {
             ));
         }
 
+        // Reconstruct the internal state history from the trial sequence.
         let base_difficulty = Self::estimate_difficulty(previous_trials);
         let (stability, final_difficulty) = Self::compute_stability_and_difficulty(
             &exercise_type,
             previous_trials,
             base_difficulty,
         );
+
+        // Project recall probability from the most recent review to now.
         let days_since_last = ((Utc::now().timestamp() - previous_trials[0].timestamp) as f32
             / SECONDS_PER_DAY)
             .max(0.0);
@@ -446,7 +453,7 @@ impl ExerciseScorer for PowerLawScorer {
             MIN_DIFFICULTY + (final_difficulty - MIN_DIFFICULTY) / DIFFICULTY_FACTOR;
         let adjusted_retrievability = retrievability.powf(difficulty_exponent);
 
-        // Compute the weighted average of all the trials and return the final score.
+        // Combine memory state with recent weighted performance and clamp to the output range.
         let weighted_score = Self::compute_weighted_avg(previous_trials);
         Ok((adjusted_retrievability * weighted_score).clamp(0.0, 5.0))
     }
@@ -527,9 +534,8 @@ mod test {
         let medium_difficulty = PowerLawScorer::estimate_difficulty(&medium_trials);
         assert!(medium_difficulty >= 4.0 && medium_difficulty < 7.0);
 
-        // Recent failures should increase difficulty estimate. Trials are sorted newest first, so
-        // put failures at the beginning.
-        let recent_failures = vec![
+        // A mixed history should yield an intermediate difficulty based on aggregate failures.
+        let mixed_trials = vec![
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(0),
@@ -551,9 +557,8 @@ mod test {
                 timestamp: generate_timestamp(4),
             },
         ];
-        let recent_difficulty = PowerLawScorer::estimate_difficulty(&recent_failures);
-        // Should be elevated due to recent failures despite earlier successes.
-        assert!(recent_difficulty > 5.0);
+        let mixed_difficulty = PowerLawScorer::estimate_difficulty(&mixed_trials);
+        assert!(mixed_difficulty > 4.0 && mixed_difficulty < 6.0);
     }
 
     /// Verifies the score for an exercise with no previous trials is 0.0.
