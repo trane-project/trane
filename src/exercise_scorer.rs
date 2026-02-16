@@ -368,29 +368,71 @@ mod test {
     /// Verifies score for perfect performance on recent exercise.
     #[test]
     fn score_perfect_recent() -> Result<()> {
-        let score = SCORER.score(&[ExerciseTrial {
-            score: 5.0,
-            timestamp: generate_timestamp(0),
-        }])?;
-        assert!(score > 4.5); // Close to 5.0 for perfect recent
+        let trials = vec![
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(0),
+            },
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(2),
+            },
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(3),
+            },
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(4),
+            },
+        ];
+        let score = SCORER.score(&trials)?;
+        assert!((score - 5.0).abs() < 0.01); // Should be very close to 5.0
         Ok(())
     }
 
     /// Verifies score for bad performance on recent exercise.
     #[test]
     fn score_bad_recent() -> Result<()> {
-        let score = SCORER.score(&[ExerciseTrial {
-            score: 1.0,
-            timestamp: generate_timestamp(0),
-        }])?;
-        assert!(score < 0.5); // Near 0 for bad recent
+        let trials = vec![
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(0),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 2.0,
+                timestamp: generate_timestamp(2),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(3),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(4),
+            },
+        ];
+        let score = SCORER.score(&trials)?;
+        assert!((score - 0.0).abs() < 0.01); // Should be very close to 0.0
         Ok(())
     }
 
     /// Verifies score for mixed performance history.
     #[test]
     fn score_mixed_performance() -> Result<()> {
-        let score = SCORER.score(&[
+        let trials = vec![
+            ExerciseTrial {
+                score: 3.0,
+                timestamp: generate_timestamp(0),
+            }, // newest
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(1),
@@ -399,8 +441,37 @@ mod test {
                 score: 2.0,
                 timestamp: generate_timestamp(2),
             },
-        ])?;
-        assert!(score > 2.0 && score < 4.0); // Moderate score for mixed
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(3),
+            },
+            ExerciseTrial {
+                score: 3.0,
+                timestamp: generate_timestamp(4),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(5),
+            },
+            ExerciseTrial {
+                score: 2.0,
+                timestamp: generate_timestamp(6),
+            },
+            ExerciseTrial {
+                score: 3.0,
+                timestamp: generate_timestamp(7),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(8),
+            },
+            ExerciseTrial {
+                score: 3.0,
+                timestamp: generate_timestamp(9),
+            }, // oldest
+        ];
+        let score = SCORER.score(&trials)?;
+        assert!(score > 2.0 && score < 3.0); // Based on output 2.5
         Ok(())
     }
 
@@ -420,6 +491,8 @@ mod test {
         assert!(result.is_err());
     }
 
+    // TODO: Fix score_old_timestamp: Make realistic with old perfect trial, use println to determine tight assertion bounds.
+
     /// Verifies score for old timestamp gives low score.
     #[test]
     fn score_old_timestamp() -> Result<()> {
@@ -427,7 +500,7 @@ mod test {
             score: 5.0,
             timestamp: generate_timestamp(100), // Very old
         }])?;
-        assert!(score > 0.5 && score < 1.5); // Low but not zero for old perfect
+        assert!(score > 1.0 && score < 1.5); // Based on output 1.23
         Ok(())
     }
 
@@ -447,9 +520,29 @@ mod test {
                 score: 5.0,
                 timestamp: generate_timestamp(2),
             },
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(3),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(4),
+            },
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(5),
+            },
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(6),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(7),
+            },
         ];
         let score = SCORER.score(&trials)?;
-        assert!(score > 4.0); // High score for good history
+        assert!((score - 5.0).abs() < 0.01); // High score for good history
         Ok(())
     }
 
@@ -469,9 +562,29 @@ mod test {
                 score: 1.0,
                 timestamp: generate_timestamp(2),
             },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(3),
+            },
+            ExerciseTrial {
+                score: 2.0,
+                timestamp: generate_timestamp(4),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(5),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(6),
+            },
+            ExerciseTrial {
+                score: 2.0,
+                timestamp: generate_timestamp(7),
+            },
         ];
         let score = SCORER.score(&trials)?;
-        assert!(score < 0.5); // Low score for bad history
+        assert!((score - 0.0).abs() < 0.01); // Low score for bad history
         Ok(())
     }
 }
