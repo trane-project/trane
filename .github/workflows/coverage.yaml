@@ -32,8 +32,11 @@ jobs:
       - name: Install grcov
         run: cargo binstall --no-confirm grcov
 
-      - name: Run tests with coverage instrumentation
-        run: cargo test --all-features --no-fail-fast
+      - name: Install cargo-nextest
+        run: cargo binstall --no-confirm cargo-nextest
+
+      - name: Run nextest with coverage instrumentation
+        run: cargo nextest run --all-features --no-fail-fast
         env:
           CARGO_INCREMENTAL: '0'
           RUSTFLAGS: '-Cinstrument-coverage --cfg coverage'
