@@ -10,7 +10,7 @@ use std::cell::RefCell;
 use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
-    data::{SchedulerOptions, UnitType},
+    data::{ExerciseType, SchedulerOptions, UnitType},
     exercise_scorer::{ExerciseScorer, PowerLawScorer},
     reward_scorer::{RewardScorer, WeightedRewardScorer},
     scheduler::SchedulerData,
@@ -135,14 +135,20 @@ impl UnitScorer {
             return Ok(cached_score.score);
         }
 
-        // Retrieve the exercise's previous trials and compute its score.
+        // Retrieve the exercise's type and previous trials and compute its score.
+        let exercise_type = self
+            .data
+            .course_library
+            .read()
+            .get_exercise_manifest(exercise_id)
+            .map_or(ExerciseType::Procedural, |manifest| manifest.exercise_type);
         let scores = self
             .data
             .practice_stats
             .read()
             .get_scores(exercise_id, self.options.num_trials)
             .unwrap_or_default();
-        let score = self.exercise_scorer.score(&scores)?;
+        let score = self.exercise_scorer.score(exercise_type, &scores)?;
 
         // Retrieve the rewards for this exercise's lesson and course and compute the reward.
         let lesson_id = self
