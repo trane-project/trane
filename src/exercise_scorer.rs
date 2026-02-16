@@ -62,8 +62,8 @@ const DIFFICULTY_FACTOR: f32 = 60.0;
 /// stability and difficulty estimates.
 const PERFORMANCE_BASELINE_SCORE: f32 = 3.0;
 
-/// The maximum growth rate for stability per review (50% cap).
-/// Limits stability increase to prevent unrealistic growth from perfect performance on hard exercises.
+/// The maximum growth rate for stability per review (50% cap). Limits stability increase to prevent
+/// unrealistic growth from perfect performance on hard exercises.
 const GROWTH_RATE: f32 = 0.5;
 
 /// The minimum grade value used in performance calculations. Corresponds to complete failure. This
@@ -82,9 +82,6 @@ const DIFFICULTY_SCALE: f32 = 9.0;
 
 /// The number of seconds in a day, used for timestamp conversions.
 const SECONDS_PER_DAY: f32 = 86400.0;
-
-/// The default score assigned to exercises with no previous trials.
-const DEFAULT_SCORE_NO_TRIALS: f32 = 0.0;
 
 /// The number of recent trials considered when boosting difficulty estimates.
 const RECENT_TRIALS_COUNT: usize = 3;
@@ -196,18 +193,27 @@ impl PowerLawScorer {
         stability
     }
 
-    /// Computes retrievability using power-law forgetting: R = (1 + factor × t/S)^decay.
-    /// factor=19/81, decay=-0.5 (FSRS constants). Returns 0-1 probability of recall.
+    /// Computes retrievability using power-law forgetting: R = (1 + factor × t/S)^decay. Returns
+    /// 0-1 probability of recall. A different decay for declarative and procedural execises
+    /// reflects the different forgetting patterns of these memory types.
     #[inline]
-    fn compute_retrievability(days_since_last: f32, stability: f32) -> f32 {
-        (1.0 + FORGETTING_CURVE_FACTOR * days_since_last / stability).powf(DECLARATIVE_CURVE_DECAY)
+    fn compute_retrievability(
+        exercise_type: ExerciseType,
+        days_since_last: f32,
+        stability: f32,
+    ) -> f32 {
+        let decay = match exercise_type {
+            ExerciseType::Declarative => DECLARATIVE_CURVE_DECAY,
+            ExerciseType::Procedural => PROCEDURAL_CURVE_DECAY,
+        };
+        (1.0 + FORGETTING_CURVE_FACTOR * days_since_last / stability).powf(decay)
     }
 }
 
 impl ExerciseScorer for PowerLawScorer {
     fn score(&self, exercise_type: ExerciseType, previous_trials: &[ExerciseTrial]) -> Result<f32> {
         if previous_trials.is_empty() {
-            return Ok(DEFAULT_SCORE_NO_TRIALS);
+            return Ok(0.0);
         }
 
         if previous_trials
@@ -224,7 +230,8 @@ impl ExerciseScorer for PowerLawScorer {
         let days_since_last = ((Utc::now().timestamp() - previous_trials[0].timestamp) as f32
             / SECONDS_PER_DAY)
             .max(0.0);
-        let retrievability = Self::compute_retrievability(days_since_last, stability);
+        let retrievability =
+            Self::compute_retrievability(exercise_type, days_since_last, stability);
 
         // The difficulty exponent adjusts retrievability based on exercise hardness. Harder
         // exercises (higher difficulty) have lower retrievability for the same stability due to
@@ -352,10 +359,7 @@ mod test {
     /// Verifies the score for an exercise with no previous trials is 0.0.
     #[test]
     fn no_previous_trials() {
-        assert_eq!(
-            DEFAULT_SCORE_NO_TRIALS,
-            SCORER.score(ExerciseType::Declarative, &[]).unwrap()
-        );
+        assert_eq!(0.0, SCORER.score(ExerciseType::Declarative, &[]).unwrap());
     }
 
     /// Verifies running the full scoring algorithm on a set of trials produces a reasonable score.
@@ -423,16 +427,23 @@ mod test {
     fn compute_retrievability() {
         // Recent review: high retrievability
         let stability = DEFAULT_STABILITY;
-        let recent = PowerLawScorer::compute_retrievability(0.01, stability);
-        assert!(recent > 0.9);
+        let recent_declarative = PowerLawScorer::compute_retrievability(ExerciseType::Declarative, 0.01, stability);
+        let recent_procedural = PowerLawScorer::compute_retrievability(ExerciseType::Procedural, 0.01, stability);
+        assert!(recent_declarative > 0.9);
+        assert!(recent_declarative < recent_procedural);
+
 
         // Old review: moderate retrievability
-        let old = PowerLawScorer::compute_retrievability(10.0, stability);
-        assert!(old < 0.6 && old > 0.4);
+        let old_declarative = PowerLawScorer::compute_retrievability(ExerciseType::Declarative, 10.0, stability);
+        let old_procedural = PowerLawScorer::compute_retrievability(ExerciseType::Procedural, 10.0, stability);
+        assert!(old_declarative < 0.6 && old_declarative > 0.4);
+        assert!(old_declarative < old_procedural);
 
         // Very old: low retrievability
-        let very_old = PowerLawScorer::compute_retrievability(100.0, stability);
-        assert!(very_old < 0.25);
+        let very_old_declarative = PowerLawScorer::compute_retrievability(ExerciseType::Declarative, 100.0, stability);
+        let very_old_procedural = PowerLawScorer::compute_retrievability(ExerciseType::Procedural, 100.0, stability);
+        assert!(very_old_declarative < 0.25);
+        assert!(very_old_declarative < very_old_procedural);
     }
 
     /// Verifies that a recent bad performance results in a very low score.
