@@ -19,10 +19,11 @@ pub trait ExerciseScorer {
     fn score(&self, exercise_type: ExerciseType, previous_trials: &[ExerciseTrial]) -> Result<f32>;
 }
 
-/// The factor used in the power-law forgetting curve. With the declarative decay exponent, this
-/// value yields roughly 90% retrievability when the time elapsed equals the stability. The value is
-/// taken from the FSRS-4.5 implementation.
-const FORGETTING_CURVE_FACTOR: f32 = 19.0 / 81.0;
+/// The target retrievability at `t = stability` used to calibrate the forgetting-curve factor.
+///
+/// For each decay exponent `d`, the factor is derived so that:
+/// `R(t = S, S) = TARGET_RETRIEVABILITY_AT_STABILITY`.
+const TARGET_RETRIEVABILITY_AT_STABILITY: f32 = 0.9;
 
 /// The decay exponent used in the power-law forgetting curve for declarative exercises (e.g. memory
 /// recall). The value is taken from the FSRS-4.5 implementation.
@@ -226,6 +227,19 @@ impl PowerLawScorer {
         }
     }
 
+    /// Returns the forgetting-curve factor derived from the decay exponent for this exercise type.
+    ///
+    /// Using `R(t, S) = (1 + factor * t / S)^(-decay_abs)`, this computes:
+    /// `factor = TARGET_RETRIEVABILITY_AT_STABILITY^(-1 / decay_abs) - 1`.
+    ///
+    /// This calibration ensures `R(t = S, S) = TARGET_RETRIEVABILITY_AT_STABILITY` for each
+    /// exercise type while still preserving shape differences through type-specific decay exponents.
+    #[inline]
+    fn get_curve_factor(exercise_type: &ExerciseType) -> f32 {
+        let decay_abs = Self::get_curve_decay(exercise_type).abs().max(f32::EPSILON);
+        TARGET_RETRIEVABILITY_AT_STABILITY.powf(-1.0 / decay_abs) - 1.0
+    }
+
     /// Computes pre-review retrievability used by the interval-aware spacing effect. It uses the
     /// same decay exponent as final retrievability for the given exercise type.
     #[inline]
@@ -235,7 +249,8 @@ impl PowerLawScorer {
         stability: f32,
     ) -> f32 {
         let decay = Self::get_curve_decay(exercise_type);
-        (1.0 + FORGETTING_CURVE_FACTOR * days_since_previous_review / stability)
+        let factor = Self::get_curve_factor(exercise_type);
+        (1.0 + factor * days_since_previous_review / stability)
             .powf(decay)
             .clamp(0.0, 1.0)
     }
@@ -337,9 +352,12 @@ impl PowerLawScorer {
         stability
     }
 
-    /// Computes retrievability using power-law forgetting: R = (1 + factor × t/S)^decay. Returns
-    /// 0-1 probability of recall. A different decay for declarative and procedural exercises
-    /// reflects the different forgetting patterns of these memory types.
+    /// Computes retrievability using power-law forgetting: `R = (1 + factor × t/S)^decay`.
+    /// Returns a 0-1 probability of recall.
+    ///
+    /// The factor is derived from each type's decay exponent so that `R(t = S, S) = 0.9` for both
+    /// declarative and procedural exercises. This keeps stability interpretation aligned across
+    /// exercise types while retaining type-specific curve shapes.
     #[inline]
     fn compute_retrievability(
         exercise_type: &ExerciseType,
@@ -347,7 +365,8 @@ impl PowerLawScorer {
         stability: f32,
     ) -> f32 {
         let decay = Self::get_curve_decay(exercise_type);
-        (1.0 + FORGETTING_CURVE_FACTOR * days_since_last / stability).powf(decay)
+        let factor = Self::get_curve_factor(exercise_type);
+        (1.0 + factor * days_since_last / stability).powf(decay)
     }
 }
 
@@ -669,7 +688,7 @@ mod test {
         let recent_procedural =
             PowerLawScorer::compute_retrievability(&ExerciseType::Procedural, 0.01, stability);
         assert!(recent_declarative > 0.9);
-        assert!(recent_declarative < recent_procedural);
+        assert!(recent_declarative > recent_procedural);
 
         // Old review: moderate retrievability
         let old_declarative =
@@ -686,6 +705,24 @@ mod test {
             PowerLawScorer::compute_retrievability(&ExerciseType::Procedural, 100.0, stability);
         assert!(very_old_declarative < 0.25);
         assert!(very_old_declarative < very_old_procedural);
+    }
+
+    /// Verifies that retrievability is calibrated to 90% when elapsed time equals stability.
+    #[test]
+    fn retrievability_at_stability_is_ninety_percent() {
+        let declarative = PowerLawScorer::compute_retrievability(
+            &ExerciseType::Declarative,
+            DEFAULT_STABILITY,
+            DEFAULT_STABILITY,
+        );
+        let procedural = PowerLawScorer::compute_retrievability(
+            &ExerciseType::Procedural,
+            DEFAULT_STABILITY,
+            DEFAULT_STABILITY,
+        );
+
+        assert!((declarative - TARGET_RETRIEVABILITY_AT_STABILITY).abs() < 1e-6);
+        assert!((procedural - TARGET_RETRIEVABILITY_AT_STABILITY).abs() < 1e-6);
     }
 
     /// Verifies pre-review spacing retrievability decreases as elapsed time grows.
@@ -960,7 +997,7 @@ mod test {
         Ok(())
     }
 
-    /// Verifies that many old and well-spaced trials with good scores return a score that is stiill
+    /// Verifies that many old and well-spaced trials with good scores return a score that is still
     /// good due to high stability.
     #[test]
     fn score_old_good_trials() -> Result<()> {
@@ -991,7 +1028,7 @@ mod test {
             },
         ];
         let score = SCORER.score(ExerciseType::Procedural, &trials)?;
-        assert!(score > 3.5 && score < 5.0);
+        assert!(score > 3.0 && score < 5.0);
         Ok(())
     }
 }
