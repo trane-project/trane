@@ -141,8 +141,7 @@ impl UnitScorer {
             .course_library
             .read()
             .get_exercise_manifest(exercise_id)
-            .map(|manifest| manifest.exercise_type)
-            .unwrap_or(ExerciseType::Procedural);
+            .map_or(ExerciseType::Procedural, |manifest| manifest.exercise_type);
         let scores = self
             .data
             .practice_stats

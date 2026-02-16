@@ -1,6 +1,6 @@
 //! Contains the logic to score an exercise based on the results and timestamps of previous trials.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::Utc;
 
 use crate::data::{ExerciseTrial, ExerciseType};
@@ -206,7 +206,7 @@ impl PowerLawScorer {
     /// reflects the different forgetting patterns of these memory types.
     #[inline]
     fn compute_retrievability(
-        exercise_type: ExerciseType,
+        exercise_type: &ExerciseType,
         days_since_last: f32,
         stability: f32,
     ) -> f32 {
@@ -239,7 +239,7 @@ impl ExerciseScorer for PowerLawScorer {
             / SECONDS_PER_DAY)
             .max(0.0);
         let retrievability =
-            Self::compute_retrievability(exercise_type, days_since_last, stability);
+            Self::compute_retrievability(&exercise_type, days_since_last, stability);
 
         // The difficulty exponent adjusts retrievability based on exercise hardness. Harder
         // exercises (higher difficulty) have lower retrievability for the same stability due to
@@ -432,25 +432,25 @@ mod test {
         // Recent review: high retrievability
         let stability = DEFAULT_STABILITY;
         let recent_declarative =
-            PowerLawScorer::compute_retrievability(ExerciseType::Declarative, 0.01, stability);
+            PowerLawScorer::compute_retrievability(&ExerciseType::Declarative, 0.01, stability);
         let recent_procedural =
-            PowerLawScorer::compute_retrievability(ExerciseType::Procedural, 0.01, stability);
+            PowerLawScorer::compute_retrievability(&ExerciseType::Procedural, 0.01, stability);
         assert!(recent_declarative > 0.9);
         assert!(recent_declarative < recent_procedural);
 
         // Old review: moderate retrievability
         let old_declarative =
-            PowerLawScorer::compute_retrievability(ExerciseType::Declarative, 10.0, stability);
+            PowerLawScorer::compute_retrievability(&ExerciseType::Declarative, 10.0, stability);
         let old_procedural =
-            PowerLawScorer::compute_retrievability(ExerciseType::Procedural, 10.0, stability);
+            PowerLawScorer::compute_retrievability(&ExerciseType::Procedural, 10.0, stability);
         assert!(old_declarative < 0.6 && old_declarative > 0.4);
         assert!(old_declarative < old_procedural);
 
         // Very old: low retrievability
         let very_old_declarative =
-            PowerLawScorer::compute_retrievability(ExerciseType::Declarative, 100.0, stability);
+            PowerLawScorer::compute_retrievability(&ExerciseType::Declarative, 100.0, stability);
         let very_old_procedural =
-            PowerLawScorer::compute_retrievability(ExerciseType::Procedural, 100.0, stability);
+            PowerLawScorer::compute_retrievability(&ExerciseType::Procedural, 100.0, stability);
         assert!(very_old_declarative < 0.25);
         assert!(very_old_declarative < very_old_procedural);
     }
