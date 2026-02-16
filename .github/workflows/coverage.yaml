@@ -26,7 +26,7 @@ jobs:
           components: llvm-tools-preview
           override: true
 
-      - name:: Install cargo-binstall
+      - name: Install cargo-binstall
         run: cargo install cargo-binstall --locked
 
       - name: Install grcov
