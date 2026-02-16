@@ -105,6 +105,22 @@ const EASE_DENOMINATOR: f32 = 5.0;
 /// increase stability growth when pre-review retrievability is low.
 const SPACING_EFFECT_WEIGHT: f32 = 0.5;
 
+/// The minimum stability-loss fraction for a lapse.
+const MIN_LAPSE_DROP: f32 = 0.0;
+
+/// The maximum stability-loss fraction for a lapse.
+const MAX_LAPSE_DROP: f32 = 0.85;
+
+/// The baseline stability-loss fraction for a lapse.
+const LAPSE_BASE_DROP: f32 = 0.30;
+
+/// The influence of difficulty on lapse penalties.
+const LAPSE_DIFFICULTY_WEIGHT: f32 = 0.25;
+
+/// The influence of how surprising the lapse was (higher pre-review retrievability means larger
+/// penalties).
+const LAPSE_RETRIEVABILITY_WEIGHT: f32 = 0.30;
+
 /// A scorer that uses a power-law forgetting curve to compute the score of an exercise, using
 /// review-history-based estimation of stability and difficulty. This models memory retention more
 /// accurately than exponential decay by accounting for the "fat tail" of long-term memory.
@@ -219,7 +235,7 @@ impl PowerLawScorer {
 
     /// Computes the spacing gain multiplier for a review. Successful recalls (`performance_factor >
     /// 0`) receive additional growth after longer intervals. Non-successful reviews return a
-    /// neutral multiplier so lapse handling remains unchanged in this step.
+    /// neutral multiplier so lapse handling is handled separately.
     #[inline]
     fn compute_spacing_gain(
         exercise_type: &ExerciseType,
@@ -240,6 +256,27 @@ impl PowerLawScorer {
             .clamp(1.0, 1.0 + SPACING_EFFECT_WEIGHT)
     }
 
+    /// Returns whether this trial is considered a lapse for state updates.
+    #[inline]
+    fn is_lapse(trial_score: f32) -> bool {
+        trial_score < PERFORMANCE_BASELINE_SCORE
+    }
+
+    /// Computes how much stability should be reduced on a lapse.
+    ///
+    /// Returns a fractional reduction in current stability. Higher difficulty and more surprising
+    /// lapses produce larger reductions.
+    #[inline]
+    fn compute_lapse_drop(difficulty: f32, pre_review_retrievability: f32) -> f32 {
+        let difficulty_adjust =
+            ((difficulty - MIN_DIFFICULTY) / (MAX_DIFFICULTY - MIN_DIFFICULTY)).clamp(0.0, 1.0);
+        let surprise_factor = pre_review_retrievability.clamp(0.0, 1.0);
+        (LAPSE_BASE_DROP
+            + LAPSE_DIFFICULTY_WEIGHT * difficulty_adjust
+            + LAPSE_RETRIEVABILITY_WEIGHT * surprise_factor)
+            .clamp(MIN_LAPSE_DROP, MAX_LAPSE_DROP)
+    }
+
     /// Starts with DEFAULT_STABILITY and evolves through reviews from oldest to newest.
     ///
     /// For each review:
@@ -247,7 +284,11 @@ impl PowerLawScorer {
     /// - Estimate pre-review retrievability from elapsed time and current stability.
     /// - Use the same type-specific forgetting curve decay as the final retrievability.
     /// - Apply an interval-aware spacing gain to successful reviews.
-    /// - Update stability via S' = S * (1 + GROWTH_RATE * P * E * spacing_gain).
+    /// - Apply a separate lapse reduction for recalls below the baseline threshold.
+    /// - Update stability via the success branch:
+    ///   `S' = S * (1 + GROWTH_RATE * P * E * spacing_gain)`.
+    /// - Or the lapse branch:
+    ///   `S' = S * (1 - lapse_drop)`, where `lapse_drop` grows with difficulty and surprise.
     ///
     /// Here P = (grade - GRADE_MIN) / GRADE_RANGE - 0.5 (performance, from -0.5 for fail to 0.5
     /// for perfect), and E = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR (ease).
@@ -265,10 +306,25 @@ impl PowerLawScorer {
             });
             let p = (trial.score - GRADE_MIN) / GRADE_RANGE - 0.5;
             let e = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR;
-            let spacing_gain =
-                Self::compute_spacing_gain(exercise_type, days_since_previous_review, stability, p);
-            stability = (stability * (1.0 + GROWTH_RATE * p * e * spacing_gain))
-                .clamp(MIN_STABILITY, MAX_STABILITY);
+            let pre_review_retrievability = Self::compute_spacing_retrievability(
+                exercise_type,
+                days_since_previous_review,
+                stability,
+            );
+
+            if Self::is_lapse(trial.score) {
+                let lapse_drop = Self::compute_lapse_drop(difficulty, pre_review_retrievability);
+                stability = (stability * (1.0 - lapse_drop)).clamp(MIN_STABILITY, MAX_STABILITY);
+            } else {
+                let spacing_gain = Self::compute_spacing_gain(
+                    exercise_type,
+                    days_since_previous_review,
+                    stability,
+                    p,
+                );
+                stability = (stability * (1.0 + GROWTH_RATE * p * e * spacing_gain))
+                    .clamp(MIN_STABILITY, MAX_STABILITY);
+            }
             previous_timestamp = Some(trial.timestamp);
         }
         stability
@@ -540,6 +596,60 @@ mod test {
             difficulty,
         );
         assert!(long_spacing_stability > short_spacing_stability);
+    }
+
+    /// Verifies lapses reduce stability more than a baseline success.
+    #[test]
+    fn stability_lapse_reduces_more_than_hard_success() {
+        let difficulty = BASE_DIFFICULTY;
+        let success_trials = vec![ExerciseTrial {
+            score: 3.0,
+            timestamp: generate_timestamp(1),
+        }];
+        let lapse_trials = vec![ExerciseTrial {
+            score: 1.0,
+            timestamp: generate_timestamp(1),
+        }];
+
+        let success_stability = PowerLawScorer::compute_stability(
+            &ExerciseType::Declarative,
+            &success_trials,
+            difficulty,
+        );
+        let lapse_stability = PowerLawScorer::compute_stability(
+            &ExerciseType::Declarative,
+            &lapse_trials,
+            difficulty,
+        );
+
+        assert!(success_stability > MIN_STABILITY);
+        assert!(lapse_stability < success_stability);
+        assert!(lapse_stability >= MIN_STABILITY);
+    }
+
+    /// Verifies repeated lapses remain bounded by minimum stability.
+    #[test]
+    fn multiple_lapses_bounded() {
+        let difficulty = BASE_DIFFICULTY;
+        let lapses = vec![
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(3),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(2),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(1),
+            },
+        ];
+
+        let stability =
+            PowerLawScorer::compute_stability(&ExerciseType::Declarative, &lapses, difficulty);
+        assert!(stability >= MIN_STABILITY);
+        assert!(stability < DEFAULT_STABILITY);
     }
 
     /// Verifies retrievability computation using power-law decay.
