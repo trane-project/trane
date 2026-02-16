@@ -142,7 +142,6 @@ fn music_piece_builder(
             metadata: None,
             course_material: None,
             course_instructions: None,
-            default_exercise_type: None,
             generator_config: Some(CourseGenerator::MusicPiece(MusicPieceConfig {
                 music_asset,
                 passages,

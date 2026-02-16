@@ -304,7 +304,6 @@ mod test {
                 metadata: None,
                 course_material: None,
                 course_instructions: None,
-                default_exercise_type: None,
                 generator_config: None,
             },
             lesson_manifest_template: LessonManifestBuilder::default()
