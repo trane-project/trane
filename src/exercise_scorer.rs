@@ -66,6 +66,13 @@ const RECENT_PERFORMANCE_WEIGHT: f32 = 0.3;
 /// increases the effective decay rate by approximately 15%.
 const DIFFICULTY_FACTOR: f32 = 60.0;
 
+/// The per-trial difficulty adjustment scale. Good grades reduce difficulty, poor grades increase
+/// it.
+const DIFFICULTY_GRADE_ADJUSTMENT_SCALE: f32 = 0.4;
+
+/// How much the dynamic difficulty is pulled back toward the base estimate after each review.
+const DIFFICULTY_REVERSION_WEIGHT: f32 = 0.2;
+
 /// The baseline score used to calculate the performance factor. Scores above this baseline improve
 /// stability and difficulty estimates.
 const PERFORMANCE_BASELINE_SCORE: f32 = 3.0;
@@ -146,8 +153,9 @@ const LAPSE_RETRIEVABILITY_WEIGHT: f32 = 0.30;
 ///
 /// Algorithm:
 ///
-/// 1. Estimate difficulty once from all trials (failure rate-based).
-/// 2. Chain stability through reviews chronologically (oldest to newest).
+/// 1. Estimate a base difficulty from all trials (failure rate-based).
+/// 2. Chain stability through reviews chronologically (oldest to newest), updating difficulty
+///    after each review based on outcome.
 /// 3. Apply interval-aware spacing during stability updates (successful recalls after longer
 ///    intervals boost stability more).
 /// 4. Damp stability gains for already-stable memories to model explicit saturation.
@@ -289,6 +297,21 @@ impl PowerLawScorer {
         trial_score < PERFORMANCE_BASELINE_SCORE
     }
 
+    /// Updates difficulty after a review using dynamic trend and mean reversion.
+    ///
+    /// Good grades reduce difficulty, poor grades increase it. The result is then pulled back
+    /// toward the base estimate to prevent drift.
+    #[inline]
+    fn update_difficulty(difficulty: f32, base_difficulty: f32, trial_score: f32) -> f32 {
+        let grade_delta = (PERFORMANCE_BASELINE_SCORE - trial_score) / GRADE_RANGE
+            * DIFFICULTY_GRADE_ADJUSTMENT_SCALE;
+        let adjusted_difficulty = (difficulty + grade_delta).clamp(MIN_DIFFICULTY, MAX_DIFFICULTY);
+
+        (DIFFICULTY_REVERSION_WEIGHT * base_difficulty
+            + (1.0 - DIFFICULTY_REVERSION_WEIGHT) * adjusted_difficulty)
+            .clamp(MIN_DIFFICULTY, MAX_DIFFICULTY)
+    }
+
     /// Computes how much stability should be reduced on a lapse.
     ///
     /// Returns a fractional reduction in current stability. Higher difficulty and more surprising
@@ -304,7 +327,8 @@ impl PowerLawScorer {
             .clamp(MIN_LAPSE_DROP, MAX_LAPSE_DROP)
     }
 
-    /// Starts with DEFAULT_STABILITY and evolves through reviews from oldest to newest.
+    /// Starts with DEFAULT_STABILITY and evolves through reviews from oldest to newest, while
+    /// updating dynamic difficulty after each trial with mean reversion.
     ///
     /// For each review:
     /// - Compute elapsed days since the previous review in the chain.
@@ -312,20 +336,22 @@ impl PowerLawScorer {
     /// - Use the same type-specific forgetting curve decay as the final retrievability.
     /// - Apply an interval-aware spacing gain to successful reviews.
     /// - Apply a separate lapse reduction for recalls below the baseline threshold.
-    /// - Update stability via the success branch:
-    ///   `S' = S × (1 + GROWTH_RATE × P × E × spacing_gain × S^(-k))`.
-    /// - Or the lapse branch:
-    ///   `S' = S * (1 - lapse_drop)`, where `lapse_drop` grows with difficulty and surprise.
+    /// - Update stability via the success branch: `S' = S × (1 + GROWTH_RATE × P × E × spacing_gain
+    ///   × S^(-k))`.
+    /// - Or the lapse branch: `S' = S * (1 - lapse_drop)`, where `lapse_drop` grows with difficulty
+    ///   and surprise.
+    /// - Update difficulty to the new post-review state and continue to the next trial.
     ///
-    /// Here P = (grade - GRADE_MIN) / GRADE_RANGE - 0.5 (performance, from -0.5 for fail to 0.5
-    /// for perfect), and E = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR (ease).
+    /// Here P = (grade - GRADE_MIN) / GRADE_RANGE - 0.5 (performance, from -0.5 for fail to 0.5 for
+    /// perfect), and E = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR (ease).
     #[inline]
-    fn compute_stability(
+    fn compute_stability_and_difficulty(
         exercise_type: &ExerciseType,
         previous_trials: &[ExerciseTrial],
-        difficulty: f32,
-    ) -> f32 {
+        base_difficulty: f32,
+    ) -> (f32, f32) {
         let mut stability = DEFAULT_STABILITY;
+        let mut difficulty = base_difficulty;
         let mut previous_timestamp = None;
         for trial in previous_trials.iter().rev() {
             let days_since_previous_review = previous_timestamp.map_or(0.0, |timestamp| {
@@ -353,9 +379,10 @@ impl PowerLawScorer {
                 let growth_term = GROWTH_RATE * p * e * spacing_gain * stability_damping;
                 stability = (stability * (1.0 + growth_term)).clamp(MIN_STABILITY, MAX_STABILITY);
             }
+            difficulty = Self::update_difficulty(difficulty, base_difficulty, trial.score);
             previous_timestamp = Some(trial.timestamp);
         }
-        stability
+        (stability, difficulty)
     }
 
     /// Returns a damping factor for stability growth.
@@ -399,8 +426,12 @@ impl ExerciseScorer for PowerLawScorer {
             ));
         }
 
-        let difficulty = Self::estimate_difficulty(previous_trials);
-        let stability = Self::compute_stability(&exercise_type, previous_trials, difficulty);
+        let base_difficulty = Self::estimate_difficulty(previous_trials);
+        let (stability, final_difficulty) = Self::compute_stability_and_difficulty(
+            &exercise_type,
+            previous_trials,
+            base_difficulty,
+        );
         let days_since_last = ((Utc::now().timestamp() - previous_trials[0].timestamp) as f32
             / SECONDS_PER_DAY)
             .max(0.0);
@@ -412,7 +443,7 @@ impl ExerciseScorer for PowerLawScorer {
         // increased decay. The formula is exponent = MIN_DIFFICULTY + (difficulty - MIN_DIFFICULTY)
         // / DIFFICULTY_FACTOR.
         let difficulty_exponent =
-            MIN_DIFFICULTY + (difficulty - MIN_DIFFICULTY) / DIFFICULTY_FACTOR;
+            MIN_DIFFICULTY + (final_difficulty - MIN_DIFFICULTY) / DIFFICULTY_FACTOR;
         let adjusted_retrievability = retrievability.powf(difficulty_exponent);
 
         // Compute the weighted average of all the trials and return the final score.
@@ -587,8 +618,12 @@ mod test {
                 timestamp: generate_timestamp(1),
             },
         ];
-        let stability =
-            PowerLawScorer::compute_stability(&ExerciseType::Declarative, &trials, difficulty);
+        let stability = PowerLawScorer::compute_stability_and_difficulty(
+            &ExerciseType::Declarative,
+            &trials,
+            difficulty,
+        )
+        .0;
         assert!(stability > 0.0 && stability < 2.0); // Reasonable range
     }
 
@@ -625,16 +660,18 @@ mod test {
             },
         ];
 
-        let short_spacing_stability = PowerLawScorer::compute_stability(
+        let short_spacing_stability = PowerLawScorer::compute_stability_and_difficulty(
             &ExerciseType::Declarative,
             &short_spacing_trials,
             difficulty,
-        );
-        let long_spacing_stability = PowerLawScorer::compute_stability(
+        )
+        .0;
+        let long_spacing_stability = PowerLawScorer::compute_stability_and_difficulty(
             &ExerciseType::Declarative,
             &long_spacing_trials,
             difficulty,
-        );
+        )
+        .0;
         assert!(long_spacing_stability > short_spacing_stability);
     }
 
@@ -651,16 +688,18 @@ mod test {
             timestamp: generate_timestamp(1),
         }];
 
-        let success_stability = PowerLawScorer::compute_stability(
+        let success_stability = PowerLawScorer::compute_stability_and_difficulty(
             &ExerciseType::Declarative,
             &success_trials,
             difficulty,
-        );
-        let lapse_stability = PowerLawScorer::compute_stability(
+        )
+        .0;
+        let lapse_stability = PowerLawScorer::compute_stability_and_difficulty(
             &ExerciseType::Declarative,
             &lapse_trials,
             difficulty,
-        );
+        )
+        .0;
 
         assert!(success_stability > MIN_STABILITY);
         assert!(lapse_stability < success_stability);
@@ -708,8 +747,12 @@ mod test {
             },
         ];
 
-        let stability =
-            PowerLawScorer::compute_stability(&ExerciseType::Declarative, &lapses, difficulty);
+        let stability = PowerLawScorer::compute_stability_and_difficulty(
+            &ExerciseType::Declarative,
+            &lapses,
+            difficulty,
+        )
+        .0;
         assert!(stability >= MIN_STABILITY);
         assert!(stability < DEFAULT_STABILITY);
     }
@@ -732,8 +775,8 @@ mod test {
         for _ in 0..25 {
             let stability_damping = PowerLawScorer::compute_stability_damping(stability);
             let effective_growth = base_growth_term * stability_damping;
-            let next_stability = (stability * (1.0 + effective_growth))
-                .clamp(MIN_STABILITY, MAX_STABILITY);
+            let next_stability =
+                (stability * (1.0 + effective_growth)).clamp(MIN_STABILITY, MAX_STABILITY);
             let relative_gain = (next_stability - stability) / stability;
 
             assert!(relative_gain < previous_relative_gain);
@@ -743,6 +786,85 @@ mod test {
 
         assert!(stability < MAX_STABILITY);
         assert!(stability >= MIN_STABILITY);
+    }
+
+    /// Verifies consistent successful trials reduce difficulty by pulling it toward easier recall.
+    #[test]
+    fn difficulty_trend_improves_with_successes() {
+        // Start from a hard baseline and apply repeated good recall.
+        let base_difficulty = MAX_DIFFICULTY;
+        let trials = vec![
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(2),
+            },
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(0),
+            },
+        ];
+
+        let (_stability, adjusted_difficulty) = PowerLawScorer::compute_stability_and_difficulty(
+            &ExerciseType::Declarative,
+            &trials,
+            base_difficulty,
+        );
+        assert!(adjusted_difficulty < base_difficulty);
+        assert!(adjusted_difficulty >= MIN_DIFFICULTY);
+    }
+
+    /// Verifies repeated failed trials raise difficulty relative to a low baseline.
+    #[test]
+    fn difficulty_trend_worsens_with_failures() {
+        // Start from an easy baseline and apply repeated misses.
+        let base_difficulty = MIN_DIFFICULTY;
+        let trials = vec![
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(2),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(0),
+            },
+        ];
+
+        let (_stability, adjusted_difficulty) = PowerLawScorer::compute_stability_and_difficulty(
+            &ExerciseType::Declarative,
+            &trials,
+            base_difficulty,
+        );
+        assert!(adjusted_difficulty > base_difficulty);
+        assert!(adjusted_difficulty < base_difficulty + 1.0);
+    }
+
+    /// Verifies mean reversion keeps difficulty bounded during long repeated failures.
+    #[test]
+    fn difficulty_mean_reversion_prevents_runaway() {
+        // Repeated failures should increase difficulty, but not grow without bound.
+        let base_difficulty = 2.0;
+        let failures = (0..20)
+            .map(|days| ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(days),
+            })
+            .collect::<Vec<_>>();
+
+        let (_stability, adjusted_difficulty) = PowerLawScorer::compute_stability_and_difficulty(
+            &ExerciseType::Declarative,
+            &failures,
+            base_difficulty,
+        );
+        assert!(adjusted_difficulty > base_difficulty);
+        assert!(adjusted_difficulty < base_difficulty + 1.0);
     }
 
     /// Verifies retrievability computation using power-law decay.
