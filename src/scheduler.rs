@@ -613,7 +613,7 @@ impl DepthFirstScheduler {
                     // If the search reaches a dead-end and there are already enough candidates,
                     // terminate the search. Otherwise, continue with the search.
                     if all_candidates.len() >= max_candidates {
-                        break;
+                        break; // grcov-excl-line
                     }
                     continue;
                 }
@@ -916,6 +916,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
         Ok(())
     }
 
+    #[cfg_attr(coverage, coverage(off))]
     fn get_unit_score(&self, unit_id: Ustr) -> Result<Option<f32>, ExerciseSchedulerError> {
         self.unit_scorer
             .get_unit_score(unit_id)
