@@ -104,9 +104,6 @@ const EASE_DENOMINATOR: f32 = 5.0;
 /// The offset used to shift performance factor to a positive range.
 const PERFORMANCE_FACTOR_OFFSET: f32 = 0.5;
 
-/// The scale factor applied to the final score.
-const SCORE_SCALE: f32 = GRADE_MAX;
-
 /// A scorer that uses a power-law forgetting curve to compute the score of an exercise, using
 /// simple interval-based estimation of stability and difficulty. This models memory retention more
 /// accurately than exponential decay by accounting for the "fat tail" of long-term memory.
@@ -247,7 +244,7 @@ impl ExerciseScorer for PowerLawScorer {
             .clamp(PERFORMANCE_FACTOR_MIN, PERFORMANCE_FACTOR_MAX);
         let performance_factor = (last_p + PERFORMANCE_FACTOR_OFFSET).max(0.0);
 
-        Ok((adjusted_retrievability * performance_factor * SCORE_SCALE).clamp(0.0, SCORE_SCALE))
+        Ok((adjusted_retrievability * performance_factor * 5.0).clamp(0.0, 5.0))
     }
 }
 
@@ -678,8 +675,8 @@ mod test {
                 timestamp: generate_timestamp(167),
             },
         ];
-        let score = SCORER.score(ExerciseType::Declarative, &trials)?;
-        assert!(score > 3.0 && score < 4.0);
+        let score = SCORER.score(ExerciseType::Procedural, &trials)?;
+        assert!(score > 3.5 && score < 4.0);
         Ok(())
     }
 }
