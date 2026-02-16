@@ -142,7 +142,6 @@ impl MusicPassage {
             metadata: None,
             lesson_instructions: None,
             lesson_material: None,
-            default_exercise_type: None,
         };
         let exercise_manifest = ExerciseManifest {
             id: Ustr::from(&format!("{}::exercise", lesson_manifest.id)),
@@ -278,7 +277,6 @@ mod test {
             course_material: None,
             authors: None,
             generator_config: None,
-            default_exercise_type: None,
         };
         assert_eq!(
             MusicPassage::generate_lesson_id(&course_manifest, &[0]),
@@ -317,7 +315,6 @@ mod test {
             course_material: None,
             authors: None,
             generator_config: None,
-            default_exercise_type: None,
         };
         let music_asset = MusicAsset::LocalFile("music.pdf".to_string());
         let passage = MusicPassage {

@@ -170,6 +170,7 @@ impl TryFrom<&str> for KnowledgeBaseFile {
 ///
 /// Trane will ignore any markdown files that do not match the exercise name pattern or that do not
 /// have a matching pair of front and back files.
+#[derive(Clone)]
 pub struct KnowledgeBaseExercise {
     /// The short ID of the lesson, which is used to easily identify the exercise and to generate
     /// the final exercise ID.
@@ -202,6 +203,38 @@ pub struct KnowledgeBaseExercise {
 //>@knowledge-base-exercise
 
 impl KnowledgeBaseExercise {
+    /// Generates the exercise manifest, using the provided default exercise type from the lesson
+    /// if the exercise does not have its own type set. Falls back to `Procedural` if neither is
+    /// set.
+    #[must_use]
+    pub fn to_exercise_manifest(
+        &self,
+        default_exercise_type: Option<ExerciseType>,
+    ) -> ExerciseManifest {
+        ExerciseManifest {
+            id: format!(
+                "{}::{}::{}",
+                self.course_id, self.short_lesson_id, self.short_id
+            )
+            .into(),
+            lesson_id: format!("{}::{}", self.course_id, self.short_lesson_id).into(),
+            course_id: self.course_id,
+            name: self
+                .name
+                .clone()
+                .unwrap_or(format!("Exercise {}", self.short_id)),
+            description: self.description.clone(),
+            exercise_type: self
+                .exercise_type
+                .clone()
+                .unwrap_or(default_exercise_type.unwrap_or(ExerciseType::Procedural)),
+            exercise_asset: ExerciseAsset::FlashcardAsset {
+                front_path: self.front_file.clone(),
+                back_path: self.back_file.clone(),
+            },
+        }
+    }
+
     /// Generates the exercise from a list of knowledge base files.
     fn create_exercise(
         lesson_root: &Path,
@@ -267,30 +300,6 @@ impl KnowledgeBaseExercise {
     }
 }
 
-impl From<KnowledgeBaseExercise> for ExerciseManifest {
-    /// Generates the manifest for this exercise.
-    fn from(exercise: KnowledgeBaseExercise) -> Self {
-        Self {
-            id: format!(
-                "{}::{}::{}",
-                exercise.course_id, exercise.short_lesson_id, exercise.short_id
-            )
-            .into(),
-            lesson_id: format!("{}::{}", exercise.course_id, exercise.short_lesson_id).into(),
-            course_id: exercise.course_id,
-            name: exercise
-                .name
-                .unwrap_or(format!("Exercise {}", exercise.short_id)),
-            description: exercise.description,
-            exercise_type: exercise.exercise_type.unwrap_or(ExerciseType::Procedural),
-            exercise_asset: ExerciseAsset::FlashcardAsset {
-                front_path: exercise.front_file,
-                back_path: exercise.back_file,
-            },
-        }
-    }
-}
-
 //@<knowledge-base-lesson
 /// Represents a knowledge base lesson.
 ///
@@ -314,6 +323,7 @@ impl From<KnowledgeBaseExercise> for ExerciseManifest {
 ///
 /// None of the `<SHORT_LESSON_ID>.lesson` directories should contain a `lesson_manifest.json` file,
 /// as that file would indicate to Trane that this is a regular lesson and not a generated lesson.
+#[derive(Clone)]
 pub struct KnowledgeBaseLesson {
     /// The short ID of the lesson, which is used to easily identify the lesson and to generate the
     /// final lesson ID.
@@ -515,7 +525,6 @@ impl From<KnowledgeBaseLesson> for LessonManifest {
             } else {
                 None
             },
-            default_exercise_type: lesson.default_exercise_type,
         }
     }
 }
@@ -606,9 +615,11 @@ impl GenerateManifests for KnowledgeBaseConfig {
         let manifests: Vec<(LessonManifest, Vec<ExerciseManifest>)> = lessons
             .into_iter()
             .map(|(_, (lesson, exercises))| {
-                let lesson_manifest = LessonManifest::from(lesson);
-                let exercise_manifests =
-                    exercises.into_iter().map(ExerciseManifest::from).collect();
+                let lesson_manifest = LessonManifest::from(lesson.clone());
+                let exercise_manifests = exercises
+                    .into_iter()
+                    .map(|e| e.to_exercise_manifest(lesson.default_exercise_type.clone()))
+                    .collect();
                 (lesson_manifest, exercise_manifests)
             })
             .collect();
@@ -767,7 +778,6 @@ mod test {
                 path: LESSON_MATERIAL_FILE.into(),
             }),
             metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
-            default_exercise_type: Some(ExerciseType::Declarative),
         };
         let actual_manifest: LessonManifest = lesson.into();
         assert_eq!(actual_manifest, expected_manifest);
@@ -798,8 +808,43 @@ mod test {
                 back_path: Some("ex1.back.md".into()),
             },
         };
-        let actual_manifest: ExerciseManifest = exercise.into();
+        let actual_manifest = exercise.to_exercise_manifest(None);
         assert_eq!(actual_manifest, expected_manifest);
+    }
+
+    // Verifies the exercise type resolution priority: exercise type > lesson default > Procedural.
+    #[test]
+    fn exercise_type_resolution() {
+        let base_exercise = KnowledgeBaseExercise {
+            short_id: "ex1".into(),
+            short_lesson_id: "lesson1".into(),
+            course_id: "course1".into(),
+            front_file: "ex1.front.md".into(),
+            back_file: Some("ex1.back.md".into()),
+            name: Some("Name".into()),
+            description: Some("Description".into()),
+            exercise_type: None,
+        };
+
+        // Exercise has its own type, ignore lesson default.
+        let exercise_with_type = KnowledgeBaseExercise {
+            exercise_type: Some(ExerciseType::Declarative),
+            ..base_exercise.clone()
+        };
+        let manifest = exercise_with_type.to_exercise_manifest(Some(ExerciseType::Procedural));
+        assert_eq!(manifest.exercise_type, ExerciseType::Declarative);
+
+        // Exercise has no type, use lesson default.
+        let exercise_no_type = KnowledgeBaseExercise {
+            exercise_type: None,
+            ..base_exercise.clone()
+        };
+        let manifest = exercise_no_type.to_exercise_manifest(Some(ExerciseType::Declarative));
+        assert_eq!(manifest.exercise_type, ExerciseType::Declarative);
+
+        // Exercise has no type, lesson has no default, fall back to Procedural.
+        let manifest = exercise_no_type.to_exercise_manifest(None);
+        assert_eq!(manifest.exercise_type, ExerciseType::Procedural);
     }
 
     // Verifies that dependencies or superseded units referenced by their short IDs are converted
@@ -818,7 +863,6 @@ mod test {
             metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
             course_instructions: None,
             course_material: None,
-            default_exercise_type: None,
             generator_config: None,
         };
 
@@ -980,7 +1024,6 @@ mod test {
             metadata: Some(BTreeMap::from([("key".into(), vec!["value".into()])])),
             course_instructions: None,
             course_material: None,
-            default_exercise_type: None,
             generator_config: None,
         };
 

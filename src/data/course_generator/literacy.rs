@@ -381,7 +381,6 @@ impl LiteracyLesson {
             )])),
             lesson_instructions: self.instructions.clone(),
             lesson_material: None,
-            default_exercise_type: None,
         };
 
         // Create the exercise manifest.
@@ -448,7 +447,6 @@ impl LiteracyLesson {
             )])),
             lesson_instructions: self.instructions.clone(),
             lesson_material: None,
-            default_exercise_type: None,
         };
 
         // Create the exercise manifest.
@@ -636,7 +634,6 @@ mod test {
             course_material: None,
             course_instructions: None,
             generator_config: None,
-            default_exercise_type: None,
         };
         assert_eq!(LiteracyLesson::course_name(&course_manifest), "Course Name");
 
@@ -653,7 +650,6 @@ mod test {
             course_material: None,
             course_instructions: None,
             generator_config: None,
-            default_exercise_type: None,
         };
         assert_eq!(LiteracyLesson::course_name(&course_manifest), "course_id");
     }
@@ -834,7 +830,6 @@ mod test {
             course_material: None,
             course_instructions: None,
             generator_config: Some(config.clone()),
-            default_exercise_type: None,
         };
         let temp_dir = tempfile::tempdir()?;
         generate_test_files(temp_dir.path(), 2, 2, 2, 2, 2)?;
@@ -865,7 +860,6 @@ mod test {
                         )])),
                         lesson_material: None,
                         lesson_instructions: None,
-                        default_exercise_type: None,
                     },
                     vec![ExerciseManifest {
                         id: "literacy_course::lesson_0::dictation::exercise".into(),
@@ -906,7 +900,6 @@ mod test {
                         )])),
                         lesson_material: None,
                         lesson_instructions: None,
-                        default_exercise_type: None,
                     },
                     vec![ExerciseManifest {
                         id: "literacy_course::lesson_0::reading::exercise".into(),
@@ -950,7 +943,6 @@ mod test {
                         )])),
                         lesson_material: None,
                         lesson_instructions: None,
-                        default_exercise_type: None,
                     },
                     vec![ExerciseManifest {
                         id: "literacy_course::lesson_1::dictation::exercise".into(),
@@ -994,7 +986,6 @@ mod test {
                         )])),
                         lesson_material: None,
                         lesson_instructions: None,
-                        default_exercise_type: None,
                     },
                     vec![ExerciseManifest {
                         id: "literacy_course::lesson_1::reading::exercise".into(),
@@ -1052,7 +1043,6 @@ mod test {
             course_material: None,
             course_instructions: None,
             generator_config: Some(config.clone()),
-            default_exercise_type: None,
         };
         let temp_dir = tempfile::tempdir()?;
         generate_test_files(temp_dir.path(), 2, 2, 2, 2, 2)?;
@@ -1083,7 +1073,6 @@ mod test {
                         )])),
                         lesson_material: None,
                         lesson_instructions: None,
-                        default_exercise_type: None,
                     },
                     vec![ExerciseManifest {
                         id: "literacy_course::lesson_0::reading::exercise".into(),
@@ -1127,7 +1116,6 @@ mod test {
                         )])),
                         lesson_material: None,
                         lesson_instructions: None,
-                        default_exercise_type: None,
                     },
                     vec![ExerciseManifest {
                         id: "literacy_course::lesson_1::reading::exercise".into(),

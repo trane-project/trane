@@ -129,11 +129,10 @@ impl LessonBuilder {
             metadata_file.write_all(metadata_json.as_bytes())?;
         }
         if let Some(default_exercise_type) = &self.lesson.default_exercise_type {
-            let default_exercise_type_json = serde_json::to_string_pretty(default_exercise_type)?;
-            let default_exercise_type_path =
-                lesson_directory.join(LESSON_DEFAULT_EXERCISE_TYPE_FILE);
-            let mut default_exercise_type_file = File::create(default_exercise_type_path)?;
-            default_exercise_type_file.write_all(default_exercise_type_json.as_bytes())?;
+            let type_json = serde_json::to_string_pretty(default_exercise_type)?;
+            let type_path = lesson_directory.join(LESSON_DEFAULT_EXERCISE_TYPE_FILE);
+            let mut type_file = File::create(type_path)?;
+            type_file.write_all(type_json.as_bytes())?;
         }
         Ok(())
     }
@@ -494,7 +493,6 @@ mod test {
                 metadata: None,
                 course_material: None,
                 course_instructions: None,
-                default_exercise_type: None,
                 generator_config: None,
             },
             lessons: vec![test_lesson_builder()],
@@ -605,7 +603,6 @@ mod test {
                 metadata: None,
                 course_material: None,
                 course_instructions: None,
-                default_exercise_type: None,
                 generator_config: None,
             },
             lessons: vec![
@@ -772,7 +769,6 @@ mod test {
                 metadata: None,
                 course_material: None,
                 course_instructions: None,
-                default_exercise_type: None,
                 generator_config: None,
             },
             lessons: vec![
@@ -825,7 +821,6 @@ mod test {
                 metadata: None,
                 course_material: None,
                 course_instructions: None,
-                default_exercise_type: None,
                 generator_config: None,
             },
             lessons: vec![SimpleKnowledgeBaseLesson {
@@ -871,7 +866,6 @@ mod test {
                 metadata: None,
                 course_material: None,
                 course_instructions: None,
-                default_exercise_type: None,
                 generator_config: None,
             },
             lessons: vec![SimpleKnowledgeBaseLesson {
@@ -910,7 +904,6 @@ mod test {
                 metadata: None,
                 course_material: None,
                 course_instructions: None,
-                default_exercise_type: None,
                 generator_config: None,
             },
             lessons: vec![SimpleKnowledgeBaseLesson {

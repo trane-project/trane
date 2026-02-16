@@ -406,11 +406,6 @@ pub struct CourseManifest {
     #[serde(default)]
     pub course_instructions: Option<BasicAsset>,
 
-    /// The default type of the exercises in this course.
-    #[builder(default)]
-    #[serde(default)]
-    pub default_exercise_type: Option<ExerciseType>,
-
     /// An optional configuration to generate material for this course. Generated courses allow
     /// easier creation of courses for specific purposes without requiring the manual creation of
     /// all the files a normal course would need.
@@ -530,11 +525,6 @@ pub struct LessonManifest {
     #[builder(default)]
     #[serde(default)]
     pub lesson_instructions: Option<BasicAsset>,
-
-    /// The default type of the exercises in this lesson.
-    #[builder(default)]
-    #[serde(default)]
-    pub default_exercise_type: Option<ExerciseType>,
 }
 
 impl NormalizePaths for LessonManifest {

@@ -255,7 +255,6 @@ impl TestCourse {
                 course_instructions: Some(BasicAsset::MarkdownAsset {
                     path: "instructions.md".to_string(),
                 }),
-                default_exercise_type: None,
                 generator_config: None,
             },
             lesson_manifest_template: LessonManifestBuilder::default()
