@@ -61,6 +61,48 @@ const PERFORMANCE_BASELINE_SCORE: f32 = 3.0;
 /// Limits stability increase to prevent unrealistic growth from perfect performance on hard exercises.
 const GROWTH_RATE: f32 = 0.5;
 
+/// The minimum grade value used in performance calculations. Corresponds to complete failure.
+const GRADE_MIN: f32 = 1.0;
+
+/// The maximum grade value used in performance calculations. Corresponds to perfect performance.
+const GRADE_MAX: f32 = 5.0;
+
+/// The offset used in difficulty linear mapping. Represents the minimum difficulty.
+const DIFFICULTY_OFFSET: f32 = 1.0;
+
+/// The scale factor used in difficulty linear mapping. Determines the range of difficulty values.
+const DIFFICULTY_SCALE: f32 = 9.0;
+
+/// The number of seconds in a day, used for timestamp conversions.
+const SECONDS_PER_DAY: f32 = 86400.0;
+
+/// The default score assigned to exercises with no previous trials.
+const DEFAULT_SCORE_NO_TRIALS: f32 = 0.0;
+
+/// The number of recent trials considered when boosting difficulty estimates.
+const RECENT_TRIALS_COUNT: usize = 3;
+
+/// The minimum value for the performance factor in score calculations.
+const PERFORMANCE_FACTOR_MIN: f32 = -0.5;
+
+/// The maximum value for the performance factor in score calculations.
+const PERFORMANCE_FACTOR_MAX: f32 = 0.5;
+
+/// The range of grade values used in performance calculations.
+const GRADE_RANGE: f32 = GRADE_MAX - GRADE_MIN;
+
+/// The numerator offset used in the ease factor calculation.
+const EASE_NUMERATOR_OFFSET: f32 = 11.0;
+
+/// The denominator used in the ease factor calculation.
+const EASE_DENOMINATOR: f32 = 5.0;
+
+/// The offset used to shift performance factor to a positive range.
+const PERFORMANCE_FACTOR_OFFSET: f32 = 0.5;
+
+/// The scale factor applied to the final score.
+const SCORE_SCALE: f32 = GRADE_MAX;
+
 /// A scorer that uses a power-law forgetting curve to compute the score of an exercise, using
 /// simple interval-based estimation of stability and difficulty. This models memory retention more
 /// accurately than exponential decay by accounting for the "fat tail" of long-term memory.
@@ -69,8 +111,8 @@ const GROWTH_RATE: f32 = 0.5;
 /// Trane's stateless architecture. Instead of maintaining separate state for each exercise, it
 /// chains stability updates through the review history chronologically (oldest to newest).
 /// Stability evolves with each review using: S' = S × (1 + GROWTH_RATE × P × E), where P is
-/// performance factor and E is ease factor. Final score is retrievability at current time,
-/// scaled to 0-5.
+/// performance factor and E is ease factor. Final score is retrievability at current time, scaled
+/// to 0-5.
 ///
 /// Algorithm:
 /// 1. Estimate difficulty once from all trials (failure rate-based)
@@ -112,31 +154,33 @@ impl PowerLawScorer {
         // - 0% failures -> difficulty 1 (easy)
         // - 50% failures -> difficulty 5.5 (medium)
         // - 100% failures -> difficulty 10 (hard)
-        let difficulty = 1.0 + failure_rate * 9.0;
+        let difficulty = DIFFICULTY_OFFSET + failure_rate * DIFFICULTY_SCALE;
 
         // Boost difficulty if recent trials are failing.
-        if previous_trials.len() >= 3 {
+        if previous_trials.len() >= RECENT_TRIALS_COUNT {
             let recent_failures = previous_trials
                 .iter()
-                .take(3)
+                .take(RECENT_TRIALS_COUNT)
                 .filter(|t| t.score < PERFORMANCE_BASELINE_SCORE)
                 .count() as f32;
-            let recent_failure_rate = recent_failures / 3.0;
+            let recent_failure_rate = recent_failures / RECENT_TRIALS_COUNT as f32;
             return (difficulty * OVERALL_DIFFICULTY_WEIGHT
-                + (1.0 + recent_failure_rate * 9.0) * RECENT_PERFORMANCE_WEIGHT)
+                + (DIFFICULTY_OFFSET + recent_failure_rate * DIFFICULTY_SCALE)
+                    * RECENT_PERFORMANCE_WEIGHT)
                 .clamp(MIN_DIFFICULTY, MAX_DIFFICULTY);
         }
         difficulty.clamp(MIN_DIFFICULTY, MAX_DIFFICULTY)
     }
-    /// Starts with DEFAULT_STABILITY, evolves via S' = S × (1 + GROWTH_RATE × P × E) for each
-    /// review. P = (grade-1)/4 - 0.5 (performance, -0.5 for fail to 0.5 for perfect), E =
-    /// (11-difficulty)/5 (ease). Processed oldest to newest.
+    /// Starts with DEFAULT_STABILITY, evolves via \( S' = S \times (1 + GROWTH_RATE \times P \times
+    /// E) \) for each review. \( P = \frac{\text{grade} - GRADE_MIN}{GRADE_RANGE} - 0.5 \)
+    /// (performance, from -0.5 for fail to 0.5 for perfect), \( E = \frac{EASE_NUMERATOR_OFFSET -
+    /// \text{difficulty}}{EASE_DENOMINATOR} \) (ease). Processed oldest to newest.
     #[inline]
     fn compute_stability(previous_trials: &[ExerciseTrial], difficulty: f32) -> f32 {
         let mut stability = DEFAULT_STABILITY;
         for trial in previous_trials.iter().rev() {
-            let p = (trial.score - 1.0) / 4.0 - 0.5; // Performance: -0.5 (fail) to 0.5 (perfect)
-            let e = (11.0 - difficulty) / 5.0; // Ease: 2.0 (easy) to 0.2 (hard)
+            let p = (trial.score - GRADE_MIN) / GRADE_RANGE - 0.5;
+            let e = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR;
             stability =
                 (stability * (1.0 + GROWTH_RATE * p * e)).clamp(MIN_STABILITY, MAX_STABILITY);
         }
@@ -154,7 +198,7 @@ impl PowerLawScorer {
 impl ExerciseScorer for PowerLawScorer {
     fn score(&self, previous_trials: &[ExerciseTrial]) -> Result<f32> {
         if previous_trials.is_empty() {
-            return Ok(0.0);
+            return Ok(DEFAULT_SCORE_NO_TRIALS);
         }
 
         if previous_trials
@@ -168,17 +212,26 @@ impl ExerciseScorer for PowerLawScorer {
 
         let difficulty = Self::estimate_difficulty(previous_trials);
         let stability = Self::compute_stability(previous_trials, difficulty);
-        let days_since_last =
-            ((Utc::now().timestamp() - previous_trials[0].timestamp) as f32 / 86400.0).max(0.0);
+        let days_since_last = ((Utc::now().timestamp() - previous_trials[0].timestamp) as f32
+            / SECONDS_PER_DAY)
+            .max(0.0);
         let retrievability = Self::compute_retrievability(days_since_last, stability);
-        let difficulty_exponent = 1.0 + (difficulty - 1.0) / DIFFICULTY_FACTOR;
+
+        // The difficulty exponent adjusts retrievability based on exercise hardness. Harder
+        // exercises (higher difficulty) have lower retrievability for the same stability due to
+        // increased decay. The formula is \( \text{exponent} = MIN_DIFFICULTY +
+        // \frac{\text{difficulty} - MIN_DIFFICULTY}{DIFFICULTY_FACTOR} \).
+        let difficulty_exponent =
+            MIN_DIFFICULTY + (difficulty - MIN_DIFFICULTY) / DIFFICULTY_FACTOR;
         let adjusted_retrievability = retrievability.powf(difficulty_exponent);
 
         // Adjust score by last performance: bad performance lowers the score to prevent advancement.
-        let last_p = ((previous_trials[0].score - 1.0) / 4.0 - 0.5).clamp(-0.5, 0.5);
-        let performance_factor = (last_p + 0.5).max(0.0);
+        let last_p = ((previous_trials[0].score - GRADE_MIN) / GRADE_RANGE
+            - PERFORMANCE_FACTOR_OFFSET)
+            .clamp(PERFORMANCE_FACTOR_MIN, PERFORMANCE_FACTOR_MAX);
+        let performance_factor = (last_p + PERFORMANCE_FACTOR_OFFSET).max(0.0);
 
-        Ok((adjusted_retrievability * performance_factor * 5.0).clamp(0.0, 5.0))
+        Ok((adjusted_retrievability * performance_factor * SCORE_SCALE).clamp(0.0, SCORE_SCALE))
     }
 }
 
@@ -202,7 +255,7 @@ mod test {
     #[test]
     fn estimate_difficulty() {
         // Empty trials should return neutral difficulty.
-        assert_eq!(PowerLawScorer::estimate_difficulty(&[]), 5.0);
+        assert_eq!(PowerLawScorer::estimate_difficulty(&[]), BASE_DIFFICULTY);
 
         // All successes should yield low difficulty.
         let easy_trials = vec![
@@ -290,7 +343,7 @@ mod test {
     /// Verifies the score for an exercise with no previous trials is 0.0.
     #[test]
     fn no_previous_trials() {
-        assert_eq!(0.0, SCORER.score(&[]).unwrap());
+        assert_eq!(DEFAULT_SCORE_NO_TRIALS, SCORER.score(&[]).unwrap());
     }
 
     /// Verifies running the full scoring algorithm on a set of trials produces a reasonable score.
@@ -331,7 +384,7 @@ mod test {
     /// Verifies stability computation evolves correctly through reviews.
     #[test]
     fn compute_stability() {
-        let difficulty = 5.0;
+        let difficulty = BASE_DIFFICULTY;
         let trials = vec![
             ExerciseTrial {
                 score: 1.0, // Bad: P = -0.5, stability decreases
@@ -353,7 +406,7 @@ mod test {
     /// Verifies retrievability computation using power-law decay.
     #[test]
     fn compute_retrievability() {
-        let stability = 1.0;
+        let stability = DEFAULT_STABILITY;
         // Recent review: high retrievability
         let recent = PowerLawScorer::compute_retrievability(0.01, stability);
         assert!(recent > 0.9);
@@ -391,7 +444,7 @@ mod test {
             },
         ];
         let score = SCORER.score(&trials)?;
-        assert!((score - 5.0).abs() < 0.01); // Should be very close to 5.0
+        assert!((score - GRADE_MAX).abs() < 0.01); // Should be very close to GRADE_MAX
         Ok(())
     }
 
@@ -421,7 +474,7 @@ mod test {
             },
         ];
         let score = SCORER.score(&trials)?;
-        assert!((score - 0.0).abs() < 0.01); // Should be very close to 0.0
+        assert!((score - DEFAULT_SCORE_NO_TRIALS).abs() < 0.01); // Should be very close to DEFAULT_SCORE_NO_TRIALS
         Ok(())
     }
 
@@ -542,7 +595,7 @@ mod test {
             },
         ];
         let score = SCORER.score(&trials)?;
-        assert!((score - 5.0).abs() < 0.01); // High score for good history
+        assert!((score - GRADE_MAX).abs() < 0.01); // High score for good history
         Ok(())
     }
 
@@ -584,7 +637,7 @@ mod test {
             },
         ];
         let score = SCORER.score(&trials)?;
-        assert!((score - 0.0).abs() < 0.01); // Low score for bad history
+        assert!((score - DEFAULT_SCORE_NO_TRIALS).abs() < 0.01); // Low score for bad history
         Ok(())
     }
 }
