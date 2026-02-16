@@ -122,6 +122,12 @@ impl LessonBuilder {
             let mut superseded_file = File::create(superseded_path)?;
             superseded_file.write_all(superseded_json.as_bytes())?;
         }
+        if !self.lesson.encompassed.is_empty() {
+            let encompassed_json = serde_json::to_string_pretty(&self.lesson.encompassed)?;
+            let encompassed_path = lesson_directory.join(LESSON_ENCOMPASSED_FILE);
+            let mut encompassed_file = File::create(encompassed_path)?;
+            encompassed_file.write_all(encompassed_json.as_bytes())?;
+        }
         if let Some(metadata) = &self.lesson.metadata {
             let metadata_json = serde_json::to_string_pretty(metadata)?;
             let metadata_path = lesson_directory.join(LESSON_METADATA_FILE);
@@ -275,6 +281,10 @@ pub struct SimpleKnowledgeBaseLesson {
     #[serde(default)]
     pub superseded: Vec<Ustr>,
 
+    /// The courses or lessons that this lesson encompasses and their respective weights.
+    #[serde(default)]
+    pub encompassed: Vec<(Ustr, f32)>,
+
     /// The simple exercises in the lesson.
     #[serde(default)]
     pub exercises: Vec<SimpleKnowledgeBaseExercise>,
@@ -328,6 +338,7 @@ impl SimpleKnowledgeBaseLesson {
                 short_id: self.short_id,
                 course_id,
                 dependencies: self.dependencies.clone(),
+                encompassed: self.encompassed.clone(),
                 superseded: self.superseded.clone(),
                 name: None,
                 description: None,
@@ -351,6 +362,10 @@ impl SimpleKnowledgeBaseLesson {
 pub struct SimpleKnowledgeBaseCourse {
     /// The manifest for this course.
     pub manifest: CourseManifest,
+
+    /// The courses or lessons that this course encompasses and their respective weights.
+    #[serde(default)]
+    pub encompassed: Vec<(Ustr, f32)>,
 
     /// The simple lessons in this course.
     #[serde(default)]
@@ -380,6 +395,11 @@ impl SimpleKnowledgeBaseCourse {
             .map(|lesson| lesson.generate_lesson_builder(self.manifest.id))
             .collect::<Result<Vec<_>>>()?;
 
+        let mut manifest = self.manifest.clone();
+        if !self.encompassed.is_empty() {
+            manifest.encompassed.clone_from(&self.encompassed);
+        }
+
         // Build the lessons in the course.
         for lesson_builder in lesson_builders {
             let lesson_directory = root_directory.join(format!(
@@ -405,7 +425,7 @@ impl SimpleKnowledgeBaseCourse {
             "failed to create course manifest file at {display}"
         ))?;
         manifest_file
-            .write_all(serde_json::to_string_pretty(&self.manifest)?.as_bytes())
+            .write_all(serde_json::to_string_pretty(&manifest)?.as_bytes())
             .context(format!("failed to write course manifest file at {display}"))
     }
 }
@@ -453,6 +473,7 @@ mod test {
                 name: Some("Lesson 1".to_string()),
                 description: Some("Lesson 1 description".to_string()),
                 dependencies: vec!["lesson2".into()],
+                encompassed: vec![("lesson3".into(), 0.5)],
                 superseded: vec!["lesson0".into()],
                 metadata: Some(BTreeMap::from([(
                     "key".to_string(),
@@ -558,6 +579,12 @@ mod test {
             KnowledgeBaseFile::open::<BTreeMap<String, Vec<String>>>(&metadata_file)?,
             BTreeMap::from([("key".to_string(), vec!["value".to_string()])]),
         );
+        let encompassed_file = lesson_dir.join(LESSON_ENCOMPASSED_FILE);
+        assert!(encompassed_file.exists());
+        assert_eq!(
+            KnowledgeBaseFile::open::<Vec<(String, f32)>>(&encompassed_file)?,
+            vec![("lesson3".to_string(), 0.5)],
+        );
         let instructions_file = lesson_dir.join(LESSON_INSTRUCTIONS_FILE);
         assert!(instructions_file.exists());
         assert_eq!(fs::read_to_string(instructions_file)?, "Instructions",);
@@ -605,10 +632,12 @@ mod test {
                 course_instructions: None,
                 generator_config: None,
             },
+            encompassed: vec![("course2".into(), 0.5)],
             lessons: vec![
                 SimpleKnowledgeBaseLesson {
                     short_id: "1".into(),
                     dependencies: vec![],
+                    encompassed: vec![],
                     superseded: vec![],
                     exercises: vec![
                         SimpleKnowledgeBaseExercise {
@@ -628,6 +657,7 @@ mod test {
                 SimpleKnowledgeBaseLesson {
                     short_id: "2".into(),
                     dependencies: vec!["1".into()],
+                    encompassed: vec![("lesson1".into(), 0.25)],
                     superseded: vec!["0".into()],
                     exercises: vec![
                         SimpleKnowledgeBaseExercise {
@@ -691,6 +721,8 @@ mod test {
         assert!(!dependencies_file.exists());
         let superseced_file = lesson_dir.join(LESSON_SUPERSEDED_FILE);
         assert!(!superseced_file.exists());
+        let encompassed_file = lesson_dir.join(LESSON_ENCOMPASSED_FILE);
+        assert!(!encompassed_file.exists());
         let instructions_file = lesson_dir.join(LESSON_INSTRUCTIONS_FILE);
         assert!(!instructions_file.exists());
         let material_file = lesson_dir.join(LESSON_MATERIAL_FILE);
@@ -729,6 +761,12 @@ mod test {
             KnowledgeBaseFile::open::<Vec<String>>(&superseced_file)?,
             vec!["0".to_string()]
         );
+        let encompassed_file = lesson_dir.join(LESSON_ENCOMPASSED_FILE);
+        assert!(encompassed_file.exists());
+        assert_eq!(
+            KnowledgeBaseFile::open::<Vec<(String, f32)>>(&encompassed_file)?,
+            vec![("lesson1".to_string(), 0.25)]
+        );
         let instructions_file = lesson_dir.join(LESSON_INSTRUCTIONS_FILE);
         assert!(instructions_file.exists());
         assert_eq!(
@@ -747,6 +785,13 @@ mod test {
         let dummy_file = lesson_dir.join("dummy.md");
         assert!(dummy_file.exists());
         assert_eq!(fs::read_to_string(&dummy_file)?, "I'm a dummy file");
+        assert_eq!(
+            KnowledgeBaseFile::open::<CourseManifest>(
+                &temp_dir.path().join("course_manifest.json")
+            )?
+            .encompassed,
+            vec![("course2".into(), 0.5)],
+        );
 
         // Finally, clone the simple knowledge course to satisfy the code coverage check.
         assert_eq!(simple_course.clone(), simple_course);
@@ -771,10 +816,12 @@ mod test {
                 course_instructions: None,
                 generator_config: None,
             },
+            encompassed: vec![],
             lessons: vec![
                 SimpleKnowledgeBaseLesson {
                     short_id: "1".into(),
                     dependencies: vec![],
+                    encompassed: vec![],
                     superseded: vec![],
                     exercises: vec![SimpleKnowledgeBaseExercise {
                         short_id: "1".into(),
@@ -787,6 +834,7 @@ mod test {
                 SimpleKnowledgeBaseLesson {
                     short_id: "1".into(),
                     dependencies: vec![],
+                    encompassed: vec![],
                     superseded: vec![],
                     exercises: vec![SimpleKnowledgeBaseExercise {
                         short_id: "1".into(),
@@ -823,9 +871,11 @@ mod test {
                 course_instructions: None,
                 generator_config: None,
             },
+            encompassed: vec![],
             lessons: vec![SimpleKnowledgeBaseLesson {
                 short_id: "1".into(),
                 dependencies: vec![],
+                encompassed: vec![],
                 superseded: vec![],
                 exercises: vec![
                     SimpleKnowledgeBaseExercise {
@@ -868,9 +918,11 @@ mod test {
                 course_instructions: None,
                 generator_config: None,
             },
+            encompassed: vec![],
             lessons: vec![SimpleKnowledgeBaseLesson {
                 short_id: "".into(),
                 dependencies: vec![],
+                encompassed: vec![],
                 superseded: vec![],
                 exercises: vec![SimpleKnowledgeBaseExercise {
                     short_id: "1".into(),
@@ -906,9 +958,11 @@ mod test {
                 course_instructions: None,
                 generator_config: None,
             },
+            encompassed: vec![],
             lessons: vec![SimpleKnowledgeBaseLesson {
                 short_id: "1".into(),
                 dependencies: vec![],
+                encompassed: vec![],
                 superseded: vec![],
                 exercises: vec![SimpleKnowledgeBaseExercise {
                     short_id: String::new(),
