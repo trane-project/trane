@@ -165,7 +165,6 @@ pub struct Trane {
 
     /// The dependency graph of courses and lessons in the course library.
     unit_graph: Arc<RwLock<dyn UnitGraph + Send + Sync>>,
-
 }
 
 impl Trane {
