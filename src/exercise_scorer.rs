@@ -142,7 +142,8 @@ const LAPSE_RETRIEVABILITY_WEIGHT: f32 = 0.30;
 /// S' = S × (1 + GROWTH_RATE × P × E × spacing_gain × S^(-k)),
 ///
 /// where P is performance factor, E is ease factor, and spacing_gain increases successful growth
-/// after longer review intervals. Final score is retrievability at current time, scaled to 0-5.
+/// after longer review intervals. Final score multiplies difficulty-adjusted retrievability by the
+/// recency-weighted performance score, then clamps the result to 0-5.
 ///
 /// Algorithm:
 ///
@@ -389,9 +390,10 @@ impl PowerLawScorer {
         (stability, difficulty)
     }
 
-    /// Returns a damping factor for stability growth.
+    /// Returns a growth modifier that controls how quickly stability increases after successes.
     ///
-    /// As stability grows, gains should saturate, so this term decreases with S.
+    /// Lower stability gets a stronger boost so weak memories can recover faster, while higher
+    /// stability gets a smaller boost so already-strong memories do not keep accelerating.
     #[inline]
     fn compute_stability_damping(stability: f32) -> f32 {
         stability.max(MIN_STABILITY).powf(-STABILITY_DAMPING_EXP)
