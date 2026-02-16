@@ -427,21 +427,26 @@ mod test {
     fn compute_retrievability() {
         // Recent review: high retrievability
         let stability = DEFAULT_STABILITY;
-        let recent_declarative = PowerLawScorer::compute_retrievability(ExerciseType::Declarative, 0.01, stability);
-        let recent_procedural = PowerLawScorer::compute_retrievability(ExerciseType::Procedural, 0.01, stability);
+        let recent_declarative =
+            PowerLawScorer::compute_retrievability(ExerciseType::Declarative, 0.01, stability);
+        let recent_procedural =
+            PowerLawScorer::compute_retrievability(ExerciseType::Procedural, 0.01, stability);
         assert!(recent_declarative > 0.9);
         assert!(recent_declarative < recent_procedural);
 
-
         // Old review: moderate retrievability
-        let old_declarative = PowerLawScorer::compute_retrievability(ExerciseType::Declarative, 10.0, stability);
-        let old_procedural = PowerLawScorer::compute_retrievability(ExerciseType::Procedural, 10.0, stability);
+        let old_declarative =
+            PowerLawScorer::compute_retrievability(ExerciseType::Declarative, 10.0, stability);
+        let old_procedural =
+            PowerLawScorer::compute_retrievability(ExerciseType::Procedural, 10.0, stability);
         assert!(old_declarative < 0.6 && old_declarative > 0.4);
         assert!(old_declarative < old_procedural);
 
         // Very old: low retrievability
-        let very_old_declarative = PowerLawScorer::compute_retrievability(ExerciseType::Declarative, 100.0, stability);
-        let very_old_procedural = PowerLawScorer::compute_retrievability(ExerciseType::Procedural, 100.0, stability);
+        let very_old_declarative =
+            PowerLawScorer::compute_retrievability(ExerciseType::Declarative, 100.0, stability);
+        let very_old_procedural =
+            PowerLawScorer::compute_retrievability(ExerciseType::Procedural, 100.0, stability);
         assert!(very_old_declarative < 0.25);
         assert!(very_old_declarative < very_old_procedural);
     }
