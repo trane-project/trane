@@ -1,6 +1,6 @@
 //! Contains the logic to score an exercise based on the results and timestamps of previous trials.
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use chrono::Utc;
 
 use crate::data::{ExerciseTrial, ExerciseType};
@@ -12,9 +12,9 @@ pub trait ExerciseScorer {
     fn score(&self, exercise_type: ExerciseType, previous_trials: &[ExerciseTrial]) -> Result<f32>;
 }
 
-/// The factor used in the power-law forgetting curve. This value ensures that the retrievability is
-/// 90% when the time elapsed equals the stability. The value is taken from the FSRS-4.5
-/// implementation.
+/// The factor used in the power-law forgetting curve. With the declarative decay exponent, this
+/// value yields roughly 90% retrievability when the time elapsed equals the stability. The value is
+/// taken from the FSRS-4.5 implementation.
 const FORGETTING_CURVE_FACTOR: f32 = 19.0 / 81.0;
 
 /// The decay exponent used in the power-law forgetting curve for declarative exercises (e.g. memory
@@ -86,7 +86,8 @@ const SECONDS_PER_DAY: f32 = 86400.0;
 /// The number of recent trials considered when boosting difficulty estimates.
 const RECENT_TRIALS_COUNT: usize = 3;
 
-/// The decay factor for exponential weighting of performance. Latest score weight 1.0, then 0.8, 0.64, etc.
+/// The decay factor for exponential weighting of performance. Latest score weight 1.0, then 0.8,
+/// 0.64, etc.
 const PERFORMANCE_WEIGHT_DECAY: f32 = 0.8;
 
 /// The range of grade values used in performance calculations.
@@ -99,7 +100,7 @@ const EASE_NUMERATOR_OFFSET: f32 = 11.0;
 const EASE_DENOMINATOR: f32 = 5.0;
 
 /// A scorer that uses a power-law forgetting curve to compute the score of an exercise, using
-/// simple interval-based estimation of stability and difficulty. This models memory retention more
+/// review-history-based estimation of stability and difficulty. This models memory retention more
 /// accurately than exponential decay by accounting for the "fat tail" of long-term memory.
 ///
 /// This implementation is inspired by FSRS (Free Spaced Repetition Scheduler) but simplified for
@@ -115,7 +116,8 @@ const EASE_DENOMINATOR: f32 = 5.0;
 /// 2. Chain stability through reviews chronologically
 /// 3. Compute retrievability from last review to now using power-law decay
 /// 4. Adjust retrievability by difficulty for harder exercises
-/// 5. Apply performance factor from last review (bad performance lowers score)
+/// 5. Apply performance factor from an exponentially weighted average of all reviews (recent
+///    performance matters most)
 /// 6. Scale to final 0-5 score.
 ///
 /// Differences from FSRS:
