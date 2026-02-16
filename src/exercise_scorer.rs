@@ -1,6 +1,6 @@
 //! Contains the logic to score an exercise based on the results and timestamps of previous trials.
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use chrono::Utc;
 
 use crate::data::ExerciseTrial;
@@ -325,6 +325,153 @@ mod test {
         }])?;
         assert!(score >= 0.0 && score <= 5.0);
         assert!(score < 1.0); // Low due to long time elapsed
+        Ok(())
+    }
+
+    /// Verifies stability computation evolves correctly through reviews.
+    #[test]
+    fn compute_stability() {
+        let difficulty = 5.0;
+        let trials = vec![
+            ExerciseTrial {
+                score: 1.0, // Bad: P = -0.5, stability decreases
+                timestamp: generate_timestamp(3),
+            },
+            ExerciseTrial {
+                score: 5.0, // Good: P = 0.5, stability increases
+                timestamp: generate_timestamp(2),
+            },
+            ExerciseTrial {
+                score: 3.0, // Medium: P = 0.0, stability unchanged
+                timestamp: generate_timestamp(1),
+            },
+        ];
+        let stability = PowerLawScorer::compute_stability(&trials, difficulty);
+        assert!(stability > 0.0 && stability < 2.0); // Reasonable range
+    }
+
+    /// Verifies retrievability computation using power-law decay.
+    #[test]
+    fn compute_retrievability() {
+        let stability = 1.0;
+        // Recent review: high retrievability
+        let recent = PowerLawScorer::compute_retrievability(0.01, stability);
+        assert!(recent > 0.9);
+        // Old review: moderate retrievability
+        let old = PowerLawScorer::compute_retrievability(10.0, stability);
+        assert!(old < 0.6 && old > 0.4);
+        // Very old: low retrievability
+        let very_old = PowerLawScorer::compute_retrievability(100.0, stability);
+        assert!(very_old < 0.25);
+    }
+
+    /// Verifies score for perfect performance on recent exercise.
+    #[test]
+    fn score_perfect_recent() -> Result<()> {
+        let score = SCORER.score(&[ExerciseTrial {
+            score: 5.0,
+            timestamp: generate_timestamp(0),
+        }])?;
+        assert!(score > 4.5); // Close to 5.0 for perfect recent
+        Ok(())
+    }
+
+    /// Verifies score for bad performance on recent exercise.
+    #[test]
+    fn score_bad_recent() -> Result<()> {
+        let score = SCORER.score(&[ExerciseTrial {
+            score: 1.0,
+            timestamp: generate_timestamp(0),
+        }])?;
+        assert!(score < 0.5); // Near 0 for bad recent
+        Ok(())
+    }
+
+    /// Verifies score for mixed performance history.
+    #[test]
+    fn score_mixed_performance() -> Result<()> {
+        let score = SCORER.score(&[
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 2.0,
+                timestamp: generate_timestamp(2),
+            },
+        ])?;
+        assert!(score > 2.0 && score < 4.0); // Moderate score for mixed
+        Ok(())
+    }
+
+    /// Verifies score for unsorted trials returns error.
+    #[test]
+    fn score_unsorted_trials() {
+        let result = SCORER.score(&[
+            ExerciseTrial {
+                score: 3.0,
+                timestamp: generate_timestamp(2), // Older first
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(1), // Newer
+            },
+        ]);
+        assert!(result.is_err());
+    }
+
+    /// Verifies score for old timestamp gives low score.
+    #[test]
+    fn score_old_timestamp() -> Result<()> {
+        let score = SCORER.score(&[ExerciseTrial {
+            score: 5.0,
+            timestamp: generate_timestamp(100), // Very old
+        }])?;
+        assert!(score > 0.5 && score < 1.5); // Low but not zero for old perfect
+        Ok(())
+    }
+
+    /// Verifies score for multiple good trials.
+    #[test]
+    fn score_multiple_good() -> Result<()> {
+        let trials = vec![
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(0),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(2),
+            },
+        ];
+        let score = SCORER.score(&trials)?;
+        assert!(score > 4.0); // High score for good history
+        Ok(())
+    }
+
+    /// Verifies score for multiple bad trials.
+    #[test]
+    fn score_multiple_bad() -> Result<()> {
+        let trials = vec![
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(0),
+            },
+            ExerciseTrial {
+                score: 2.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(2),
+            },
+        ];
+        let score = SCORER.score(&trials)?;
+        assert!(score < 0.5); // Low score for bad history
         Ok(())
     }
 }
