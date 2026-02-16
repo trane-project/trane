@@ -63,10 +63,9 @@ const DIFFICULTY_FACTOR: f32 = 60.0;
 const PERFORMANCE_BASELINE_SCORE: f32 = 3.0;
 
 /// A scaling coefficient applied to the stability update term for each review. The per-review
-/// multiplicative change is `1 + GROWTH_RATE * P * E * spacing_gain`; this means `GROWTH_RATE`
-/// is not a hard cap. The actual growth for a review depends on the performance factor `P`, the
-/// ease term `E`, and any spacing gain, and the resulting stability is clamped to
-/// `MIN_STABILITY..MAX_STABILITY`.
+/// multiplicative change is `1 + GROWTH_RATE * P * E * spacing_gain`. The actual growth for a
+/// review depends on the performance factor `P`, the ease term `E`, and any spacing gain, and the
+/// resulting stability is clamped to `MIN_STABILITY..MAX_STABILITY`.
 const GROWTH_RATE: f32 = 0.5;
 
 /// The minimum grade value used in performance calculations. Corresponds to complete failure. This
@@ -123,26 +122,24 @@ const SPACING_EFFECT_DECAY: f32 = DECLARATIVE_CURVE_DECAY;
 ///
 /// Algorithm:
 ///
-/// 1. Estimate difficulty once from all trials (failure rate-based)
-/// 2. Chain stability through reviews chronologically (oldest to newest)
+/// 1. Estimate difficulty once from all trials (failure rate-based).
+/// 2. Chain stability through reviews chronologically (oldest to newest).
 /// 3. Apply interval-aware spacing during stability updates (successful recalls after longer
-///    intervals boost stability more)
-/// 4. Compute retrievability from last review to now using power-law decay
-/// 5. Adjust retrievability by difficulty for harder exercises
+///    intervals boost stability more).
+/// 4. Compute retrievability from last review to now using power-law decay.
+/// 5. Adjust retrievability by difficulty for harder exercises.
 /// 6. Apply performance factor from an exponentially weighted average of all reviews (recent
-///    performance matters most)
+///    performance matters most).
 /// 7. Scale to final 0-5 score.
 ///
-/// Differences from FSRS:
-/// - No additional state storage (stateless like original Trane design)
-/// - Simplified formula without request/response vectors or complex parameters
-/// - Single retrievability score instead of separate difficulty/stability outputs
-/// - Chained computation instead of matrix-based state evolution
-/// - Growth rate is a scaling coefficient; per-review change is `GROWTH_RATE * P * E * spacing_gain`
-///   and final stability is clamped to `MIN_STABILITY..MAX_STABILITY`
+/// A simplified implementation without additional stored parameters is preferred for Trane because:
 ///
-/// Why simplified: Trane uses a graph structure producing mixed batches, not optimal flat lists.
-/// Optimizing ExerciseScorer is less critical than in dedicated SRS systems.
+/// - Spaced repetition is just on of many strategies used by the expert system.
+/// - The main concept behind trane is to map content to a graph of dependencies, not to have a flat
+///   list of exercises. Trane has more information than just previous trials.
+/// - The score of an exercise is a score meant to reflect mastery of an exercise, not just memory.
+/// - The final output is an optimized batch of exercises, not just a list of exercises due for
+///   review.
 pub struct PowerLawScorer {}
 
 impl PowerLawScorer {
@@ -211,8 +208,8 @@ impl PowerLawScorer {
     }
 
     /// Computes the spacing gain multiplier for a review. Successful recalls (`performance_factor >
-    /// 0`) receive additional growth after longer intervals. Non-successful reviews return a neutral
-    /// multiplier so lapse handling remains unchanged in this step.
+    /// 0`) receive additional growth after longer intervals. Non-successful reviews return a
+    /// neutral multiplier so lapse handling remains unchanged in this step.
     #[inline]
     fn compute_spacing_gain(
         days_since_previous_review: f32,
