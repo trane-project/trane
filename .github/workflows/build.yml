@@ -21,14 +21,23 @@ jobs:
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
 
+      - name: Install cargo-binstall
+        run: curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+
+      - name: Install cargo-nextest
+        run: cargo binstall --no-confirm cargo-nextest
+
       - name: Setup yt-dlp PPA
         run: sudo add-apt-repository ppa:tomtomtom/yt-dlp
       
       - name: Install yt-dlp
         run: sudo apt update && sudo apt install -y yt-dlp
 
-      - name: Run cargo test
-        run: cargo test --release
+      - name: Run cargo nextest
+        run: cargo nextest run --release
+
+      - name: Run cargo doctests
+        run: cargo test --doc --release
 
   lints:
     name: Lints
