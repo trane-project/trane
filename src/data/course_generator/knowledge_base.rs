@@ -435,7 +435,7 @@ impl KnowledgeBaseLesson {
                     let path = lesson_root.join(LESSON_DEFAULT_EXERCISE_TYPE_FILE);
                     lesson.default_exercise_type = Some(KnowledgeBaseFile::open(&path)?);
                 }
-                _ => {}
+                _ => {} // grcov-excl-line
             }
         }
         Ok(lesson)

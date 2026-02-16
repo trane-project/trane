@@ -457,18 +457,21 @@ mod test {
                 id: TestId(0, None, None),
                 dependencies: vec![],
                 superseded: vec![],
+                encompassed: vec![],
                 metadata: BTreeMap::default(),
                 lessons: vec![
                     TestLesson {
                         id: TestId(0, Some(0), None),
                         dependencies: vec![],
                         superseded: vec![],
+                        encompassed: vec![],
                         metadata: BTreeMap::default(),
                         num_exercises: NUM_EXERCISES,
                     },
                     TestLesson {
                         id: TestId(0, Some(1), None),
                         dependencies: vec![TestId(0, Some(0), None)],
+                        encompassed: vec![],
                         superseded: vec![],
                         metadata: BTreeMap::default(),
                         num_exercises: NUM_EXERCISES,
@@ -478,12 +481,14 @@ mod test {
             TestCourse {
                 id: TestId(1, None, None),
                 dependencies: vec![TestId(0, None, None)],
+                encompassed: vec![],
                 superseded: vec![TestId(0, None, None)],
                 metadata: BTreeMap::default(),
                 lessons: vec![
                     TestLesson {
                         id: TestId(1, Some(0), None),
                         dependencies: vec![],
+                        encompassed: vec![],
                         superseded: vec![],
                         metadata: BTreeMap::default(),
                         num_exercises: NUM_EXERCISES,
@@ -491,6 +496,7 @@ mod test {
                     TestLesson {
                         id: TestId(1, Some(1), None),
                         dependencies: vec![TestId(1, Some(0), None)],
+                        encompassed: vec![],
                         superseded: vec![TestId(1, Some(0), None)],
                         metadata: BTreeMap::default(),
                         num_exercises: NUM_EXERCISES,

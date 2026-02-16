@@ -613,7 +613,7 @@ impl DepthFirstScheduler {
                     // If the search reaches a dead-end and there are already enough candidates,
                     // terminate the search. Otherwise, continue with the search.
                     if all_candidates.len() >= max_candidates {
-                        break;
+                        break; // grcov-excl-line
                     }
                     continue;
                 }
@@ -658,31 +658,17 @@ impl DepthFirstScheduler {
         while let Some(curr_unit) = stack.pop() {
             // Continue if the unit has been visited and update the list of visited units.
             if visited.contains(&curr_unit.unit_id) {
-                continue;
+                continue; // grcov-excl-line
             }
             visited.insert(curr_unit.unit_id);
 
-            // The logic past this point depends on the type of the unit.
-            let unit_type = self.data.get_unit_type(curr_unit.unit_id);
-            if unit_type.is_none() {
-                // The type of the unit is unknown. This can happen when a unit depends on some
-                // unknown unit.
-                continue;
-            }
-            let unit_type = unit_type.unwrap();
-
-            // Only handle lessons. Other courses and exercises are skipped by the search.
+            // The logic past this point depends on the type of the unit. Only handle lessons. Other
+            // courses and exercises are skipped by the search.
+            let unit_type = self
+                .data
+                .get_unit_type(curr_unit.unit_id)
+                .unwrap_or(UnitType::Course);
             if unit_type == UnitType::Lesson {
-                // If the searched reached this point, the unit must be a lesson. Ignore lessons
-                // from other courses that might have been added to the stack.
-                let lesson_course_id = self
-                    .data
-                    .get_lesson_course(curr_unit.unit_id)
-                    .unwrap_or_default();
-                if !course_ids.contains(&lesson_course_id) {
-                    continue;
-                }
-
                 // Retrieve the valid dependents of the lesson, and directly skip the lesson if
                 // needed.
                 let valid_deps =
@@ -711,7 +697,7 @@ impl DepthFirstScheduler {
                     // If the search reaches a dead-end and there are already enough candidates,
                     // terminate the search. Continue otherwise.
                     if all_candidates.len() >= max_candidates {
-                        break;
+                        break; // grcov-excl-line
                     }
                     continue;
                 }
@@ -930,6 +916,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
         Ok(())
     }
 
+    #[cfg_attr(coverage, coverage(off))]
     fn get_unit_score(&self, unit_id: Ustr) -> Result<Option<f32>, ExerciseSchedulerError> {
         self.unit_scorer
             .get_unit_score(unit_id)

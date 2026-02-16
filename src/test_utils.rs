@@ -110,6 +110,10 @@ pub struct TestLesson {
     /// Dependencies of the lesson.
     pub dependencies: Vec<TestId>,
 
+    /// The courses or lessons encompassed by this lesson and their weight. By default, dependencies
+    /// are added to this list with a weight of 1.0.
+    pub encompassed: Vec<(TestId, f32)>,
+
     /// The courses or lessons superseded by this lesson.
     pub superseded: Vec<TestId>,
 
@@ -160,6 +164,7 @@ impl TestLesson {
         let id_clone = self.id.clone();
         let dependencies_clone = self.dependencies.clone();
         let superseded_clone = self.superseded.clone();
+        let encompassed_clone = self.encompassed.clone();
         Ok(LessonBuilder {
             directory_name: format!("lesson_{}", self.id.1.unwrap()),
             manifest_closure: Box::new(move |m| {
@@ -170,6 +175,12 @@ impl TestLesson {
                     .name(format!("Lesson {lesson_id}"))
                     .description(Some(format!("Description for lesson {lesson_id}")))
                     .dependencies(dependencies_clone.iter().map(TestId::to_ustr).collect())
+                    .encompassed(
+                        encompassed_clone
+                            .iter()
+                            .map(|(id, weight)| (id.to_ustr(), *weight))
+                            .collect(),
+                    )
                     .superseded(superseded_clone.iter().map(TestId::to_ustr).collect())
                     .metadata(Some(metadata_clone.clone()))
                     .clone()
@@ -205,6 +216,10 @@ pub struct TestCourse {
 
     /// The dependencies of the course.
     pub dependencies: Vec<TestId>,
+
+    /// The courses or lessons encompassed by this course and their weight. By default, dependencies
+    /// are added to this list with a weight of 1.0.
+    pub encompassed: Vec<(TestId, f32)>,
 
     /// The courses or lessons this course supersedes.
     pub superseded: Vec<TestId>,
@@ -244,7 +259,11 @@ impl TestCourse {
                 id: course_id,
                 name: format!("Course {course_id}"),
                 dependencies: self.dependencies.iter().map(TestId::to_ustr).collect(),
-                encompassed: vec![],
+                encompassed: self
+                    .encompassed
+                    .iter()
+                    .map(|(id, weight)| (id.to_ustr(), *weight))
+                    .collect(),
                 superseded: self.superseded.iter().map(TestId::to_ustr).collect(),
                 description: Some(format!("Description for course {course_id}")),
                 authors: None,
@@ -389,6 +408,7 @@ impl RandomCourseLibrary {
                 let lesson = TestLesson {
                     id: lesson_id.clone(),
                     dependencies: self.generate_lesson_dependencies(&lesson_id, &mut rng),
+                    encompassed: vec![],
                     superseded: vec![],
                     metadata: BTreeMap::new(),
                     num_exercises,
@@ -400,6 +420,7 @@ impl RandomCourseLibrary {
             courses.push(TestCourse {
                 id: course_id.clone(),
                 dependencies: self.generate_course_dependencies(&course_id, &mut rng),
+                encompassed: vec![],
                 superseded: vec![],
                 metadata: BTreeMap::new(),
                 lessons,
@@ -578,6 +599,7 @@ mod test {
             TestCourse {
                 id: TestId(0, None, None),
                 dependencies: vec![],
+                encompassed: vec![],
                 superseded: vec![],
                 metadata: BTreeMap::from([
                     (
@@ -593,6 +615,7 @@ mod test {
                     TestLesson {
                         id: TestId(0, Some(0), None),
                         dependencies: vec![],
+                        encompassed: vec![],
                         superseded: vec![],
                         metadata: BTreeMap::from([
                             (
@@ -609,6 +632,7 @@ mod test {
                     TestLesson {
                         id: TestId(0, Some(1), None),
                         dependencies: vec![TestId(0, Some(0), None)],
+                        encompassed: vec![],
                         superseded: vec![],
                         metadata: BTreeMap::from([
                             (
@@ -627,6 +651,7 @@ mod test {
             TestCourse {
                 id: TestId(1, None, None),
                 dependencies: vec![TestId(0, None, None)],
+                encompassed: vec![],
                 superseded: vec![],
                 metadata: BTreeMap::from([
                     (
@@ -642,6 +667,7 @@ mod test {
                     TestLesson {
                         id: TestId(1, Some(0), None),
                         dependencies: vec![],
+                        encompassed: vec![],
                         superseded: vec![],
                         metadata: BTreeMap::from([
                             (
@@ -658,6 +684,7 @@ mod test {
                     TestLesson {
                         id: TestId(1, Some(1), None),
                         dependencies: vec![TestId(1, Some(0), None)],
+                        encompassed: vec![],
                         superseded: vec![],
                         metadata: BTreeMap::from([
                             (
@@ -809,6 +836,7 @@ mod test {
         let mut lesson = TestLesson {
             id: TestId(1, None, None),
             dependencies: vec![],
+            encompassed: vec![],
             superseded: vec![],
             metadata: BTreeMap::default(),
             num_exercises: NUM_EXERCISES,
@@ -827,6 +855,7 @@ mod test {
         let mut course = TestCourse {
             id: TestId(1, Some(1), None),
             dependencies: vec![],
+            encompassed: vec![],
             superseded: vec![],
             metadata: BTreeMap::default(),
             lessons: vec![],
@@ -845,11 +874,13 @@ mod test {
         let mut course = TestCourse {
             id: TestId(1, None, None),
             dependencies: vec![],
+            encompassed: vec![],
             superseded: vec![],
             metadata: BTreeMap::default(),
             lessons: vec![TestLesson {
                 id: TestId(2, Some(0), None),
                 dependencies: vec![],
+                encompassed: vec![],
                 superseded: vec![],
                 metadata: BTreeMap::default(),
                 num_exercises: NUM_EXERCISES,
@@ -891,6 +922,7 @@ mod test {
         let bad_courses = vec![TestCourse {
             id: TestId(1, Some(1), None),
             dependencies: vec![TestId(0, None, None)],
+            encompassed: vec![],
             superseded: vec![],
             metadata: BTreeMap::default(),
             lessons: vec![],

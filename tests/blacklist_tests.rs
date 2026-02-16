@@ -22,12 +22,14 @@ static LIBRARY: LazyLock<Vec<TestCourse>> = LazyLock::new(|| {
         TestCourse {
             id: TestId(0, None, None),
             dependencies: vec![],
+            encompassed: vec![],
             superseded: vec![],
             metadata: BTreeMap::default(),
             lessons: vec![
                 TestLesson {
                     id: TestId(0, Some(0), None),
                     dependencies: vec![],
+                    encompassed: vec![],
                     superseded: vec![],
                     metadata: BTreeMap::default(),
                     num_exercises: 10,
@@ -35,6 +37,7 @@ static LIBRARY: LazyLock<Vec<TestCourse>> = LazyLock::new(|| {
                 TestLesson {
                     id: TestId(0, Some(1), None),
                     dependencies: vec![TestId(0, Some(0), None)],
+                    encompassed: vec![],
                     superseded: vec![],
                     metadata: BTreeMap::default(),
                     num_exercises: 10,
@@ -44,12 +47,14 @@ static LIBRARY: LazyLock<Vec<TestCourse>> = LazyLock::new(|| {
         TestCourse {
             id: TestId(1, None, None),
             dependencies: vec![TestId(0, None, None)],
+            encompassed: vec![],
             superseded: vec![],
             metadata: BTreeMap::default(),
             lessons: vec![
                 TestLesson {
                     id: TestId(1, Some(0), None),
                     dependencies: vec![],
+                    encompassed: vec![],
                     superseded: vec![],
                     metadata: BTreeMap::default(),
                     num_exercises: 10,
@@ -57,6 +62,7 @@ static LIBRARY: LazyLock<Vec<TestCourse>> = LazyLock::new(|| {
                 TestLesson {
                     id: TestId(1, Some(1), None),
                     dependencies: vec![TestId(1, Some(0), None)],
+                    encompassed: vec![],
                     superseded: vec![],
                     metadata: BTreeMap::default(),
                     num_exercises: 10,
@@ -66,12 +72,14 @@ static LIBRARY: LazyLock<Vec<TestCourse>> = LazyLock::new(|| {
         TestCourse {
             id: TestId(2, None, None),
             dependencies: vec![TestId(0, None, None)],
+            encompassed: vec![],
             superseded: vec![],
             metadata: BTreeMap::default(),
             lessons: vec![
                 TestLesson {
                     id: TestId(2, Some(0), None),
                     dependencies: vec![],
+                    encompassed: vec![],
                     superseded: vec![],
                     metadata: BTreeMap::default(),
                     num_exercises: 10,
@@ -79,6 +87,7 @@ static LIBRARY: LazyLock<Vec<TestCourse>> = LazyLock::new(|| {
                 TestLesson {
                     id: TestId(2, Some(1), None),
                     dependencies: vec![TestId(2, Some(0), None)],
+                    encompassed: vec![],
                     superseded: vec![],
                     metadata: BTreeMap::default(),
                     num_exercises: 10,
@@ -86,6 +95,7 @@ static LIBRARY: LazyLock<Vec<TestCourse>> = LazyLock::new(|| {
                 TestLesson {
                     id: TestId(2, Some(2), None),
                     dependencies: vec![TestId(2, Some(1), None)],
+                    encompassed: vec![],
                     superseded: vec![],
                     metadata: BTreeMap::default(),
                     num_exercises: 10,
@@ -95,12 +105,14 @@ static LIBRARY: LazyLock<Vec<TestCourse>> = LazyLock::new(|| {
         TestCourse {
             id: TestId(3, None, None),
             dependencies: vec![TestId(1, None, None)],
+            encompassed: vec![],
             superseded: vec![],
             metadata: BTreeMap::default(),
             lessons: vec![
                 TestLesson {
                     id: TestId(3, Some(0), None),
                     dependencies: vec![],
+                    encompassed: vec![],
                     superseded: vec![],
                     metadata: BTreeMap::default(),
                     num_exercises: 10,
@@ -108,6 +120,7 @@ static LIBRARY: LazyLock<Vec<TestCourse>> = LazyLock::new(|| {
                 TestLesson {
                     id: TestId(3, Some(1), None),
                     dependencies: vec![TestId(3, Some(0), None)],
+                    encompassed: vec![],
                     superseded: vec![],
                     metadata: BTreeMap::default(),
                     num_exercises: 10,

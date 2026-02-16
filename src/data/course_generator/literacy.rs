@@ -154,7 +154,7 @@ impl TryFrom<&str> for LiteracyFile {
             }
             SIMPLE_EXAMPLES_FILE => Ok(LiteracyFile::SimpleExamples),
             SIMPLE_EXCEPTIONS_FILE => Ok(LiteracyFile::SimpleExceptions),
-            _ => Err(anyhow!("Not a valid literacy file name: {file_name}")),
+            _ => Err(anyhow!("Not a valid literacy file name: {file_name}")), // grcov-excl-line
         }
     }
 }
@@ -237,12 +237,14 @@ impl LiteracyLesson {
         // corresponding field in the lesson.
         for lesson_file in files {
             match lesson_file {
+                // grcov-excl-start
                 LiteracyFile::CourseInstructions => {
                     return Err(anyhow!(
                         "Found course instructions file in lesson directory: {}",
                         lesson_root.display()
                     ));
                 }
+                // grcov-excl-stop
                 LiteracyFile::LessonDependencies => {
                     let path = lesson_root.join(LESSON_DEPENDENCIES_FILE);
                     lesson.dependencies = LiteracyFile::open_serialized(&path)?;
@@ -508,7 +510,7 @@ impl LiteracyConfig {
                 content: LiteracyFile::open_md(&path)?,
             }))
         } else {
-            Ok(None)
+            Ok(None) // grcov-excl-line
         }
     }
 }

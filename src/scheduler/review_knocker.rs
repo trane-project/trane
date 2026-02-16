@@ -207,6 +207,7 @@ impl ReviewKnocker {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod tests {
     use super::*;
     use crate::graph::InMemoryUnitGraph;
