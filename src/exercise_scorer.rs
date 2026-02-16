@@ -138,15 +138,15 @@ const LAPSE_RETRIEVABILITY_WEIGHT: f32 = 0.30;
 /// Trane's stateless architecture. Instead of maintaining separate state for each exercise, it
 /// chains stability updates through the review history chronologically (oldest to newest).
 /// Stability evolves with each review using:
-/// 
+///
 /// S' = S × (1 + GROWTH_RATE × P × E × spacing_gain × S^(-k)),
-/// 
+///
 /// where P is performance factor, E is ease factor, and spacing_gain increases successful growth
 /// after longer review intervals. Final score is retrievability at current time, scaled to 0-5.
 ///
 /// Algorithm:
 ///
-/// 1. Estimate a base difficulty from all trials (failure rate-based).
+/// 1. Estimate a base difficulty from review failure rates.
 /// 2. Chain stability through reviews chronologically (oldest to newest), updating difficulty after
 ///    each review based on outcome.
 /// 3. Apply interval-aware spacing during stability updates (successful recalls after longer
@@ -173,7 +173,7 @@ impl PowerLawScorer {
     /// (easiest) to 10.0 (hardest).
     #[inline]
     fn estimate_difficulty(previous_trials: &[ExerciseTrial]) -> f32 {
-        // Assign the base probability to exercises with no history.
+        // Assign the base difficulty to exercises with no history.
         if previous_trials.is_empty() {
             return BASE_DIFFICULTY;
         }
@@ -430,7 +430,7 @@ impl ExerciseScorer for PowerLawScorer {
             ));
         }
 
-        // Reconstruct the internal state history from the trial sequence.
+        // Reconstruct stability and dynamic difficulty from the trial sequence.
         let base_difficulty = Self::estimate_difficulty(previous_trials);
         let (stability, final_difficulty) = Self::compute_stability_and_difficulty(
             &exercise_type,
@@ -534,7 +534,7 @@ mod test {
         let medium_difficulty = PowerLawScorer::estimate_difficulty(&medium_trials);
         assert!(medium_difficulty >= 4.0 && medium_difficulty < 7.0);
 
-        // A mixed history should yield an intermediate difficulty based on aggregate failures.
+        // A mixed history should yield an intermediate difficulty from aggregate failures.
         let mixed_trials = vec![
             ExerciseTrial {
                 score: 3.0,
