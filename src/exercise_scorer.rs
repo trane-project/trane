@@ -1,4 +1,11 @@
-//! Contains the logic to score an exercise based on the results and timestamps of previous trials.
+//! Scoring primitives for exercise mastery estimation.
+//!
+//! This module defines the scorer interface and implementations used to derive a normalized mastery
+//! score from historical `ExerciseTrial` data. Implementations are deterministic and stateless:
+//! scoring is a pure function of the supplied review history and exercise type.
+//!
+//! The returned score (0.0 to 5.0) is a compact signal used by the scheduler to select and filter
+//! exercises rather than a direct review schedule.
 
 use anyhow::{Result, anyhow};
 use chrono::Utc;
@@ -984,7 +991,7 @@ mod test {
             },
         ];
         let score = SCORER.score(ExerciseType::Procedural, &trials)?;
-        assert!(score > 3.0 && score < 5.0);
+        assert!(score > 3.5 && score < 5.0);
         Ok(())
     }
 }
