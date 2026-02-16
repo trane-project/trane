@@ -62,14 +62,12 @@ pub mod graph;
 pub mod practice_rewards;
 pub mod practice_stats;
 pub mod preferences_manager;
-pub mod repository_manager;
 pub mod review_list;
 pub mod reward_scorer;
 pub mod scheduler;
 pub mod study_session_manager;
 #[cfg_attr(coverage, coverage(off))]
 pub mod test_utils;
-pub mod transcription_downloader;
 pub mod utils;
 
 use anyhow::{Context, Result, bail, ensure};
@@ -88,7 +86,7 @@ use crate::{
     course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary, SerializedCourseLibrary},
     data::{
         CourseManifest, ExerciseManifest, ExerciseTrial, LessonManifest, MasteryScore,
-        RepositoryMetadata, SchedulerOptions, SchedulerPreferences, UnitType, UserPreferences,
+        SchedulerOptions, SchedulerPreferences, UnitType, UserPreferences,
         filter::{ExerciseFilter, SavedFilter},
     },
     filter_manager::{FilterManager, LocalFilterManager},
@@ -96,11 +94,9 @@ use crate::{
     practice_rewards::{LocalPracticeRewards, PracticeRewards},
     practice_stats::{LocalPracticeStats, PracticeStats},
     preferences_manager::{LocalPreferencesManager, PreferencesManager},
-    repository_manager::{LocalRepositoryManager, RepositoryManager},
     review_list::{LocalReviewList, ReviewList},
     scheduler::{DepthFirstScheduler, ExerciseScheduler, data::SchedulerData},
     study_session_manager::{LocalStudySessionManager, StudySessionManager},
-    transcription_downloader::{LocalTranscriptionDownloader, TranscriptionDownloader},
 };
 
 /// The path to the folder inside each course library containing the user data.
@@ -126,13 +122,6 @@ pub const STUDY_SESSIONS_DIR: &str = "study_sessions";
 
 /// The path to the file containing user preferences.
 pub const USER_PREFERENCES_PATH: &str = "user_preferences.json";
-
-/// The name of the directory where repositories will be downloaded.
-const DOWNLOAD_DIRECTORY: &str = "managed_courses";
-
-/// The name of the directory where the details on all repositories will be stored. This directory
-/// will be created under the `.trane` directory at the root of the Trane library.
-const REPOSITORY_DIRECTORY: &str = "repositories";
 
 /// Trane is a library for the acquisition of highly hierarchical knowledge and skills based on the
 /// principles of mastery learning and spaced repetition. Given a list of courses, its lessons and
@@ -161,9 +150,6 @@ pub struct Trane {
     /// The object managing the user preferences.
     preferences_manager: Arc<RwLock<dyn PreferencesManager + Send + Sync>>,
 
-    /// The object managing git repositories containing courses.
-    repo_manager: Arc<RwLock<dyn RepositoryManager + Send + Sync>>,
-
     /// The object managing the list of units to review.
     review_list: Arc<RwLock<dyn ReviewList + Send + Sync>>,
 
@@ -179,9 +165,6 @@ pub struct Trane {
 
     /// The dependency graph of courses and lessons in the course library.
     unit_graph: Arc<RwLock<dyn UnitGraph + Send + Sync>>,
-
-    /// An optional instance of the transcription downloader.
-    transcription_downloader: Arc<RwLock<dyn TranscriptionDownloader + Send + Sync>>,
 }
 
 impl Trane {
@@ -254,11 +237,6 @@ impl Trane {
     ) -> Result<Trane> {
         let config_path = library_root.join(Path::new(TRANE_CONFIG_DIR_PATH));
         let user_preferences = preferences_manager.read().get_user_preferences()?;
-        let transcription_preferences = user_preferences.transcription.clone().unwrap_or_default();
-        let transcription_downloader = Arc::new(RwLock::new(LocalTranscriptionDownloader {
-            preferences: transcription_preferences,
-            link_store: course_library.clone(),
-        }));
         let unit_graph = course_library.write().get_unit_graph();
         let practice_stats = Arc::new(RwLock::new(LocalPracticeStats::new_from_disk(
             config_path.join(PRACTICE_STATS_PATH).to_str().unwrap(),
@@ -278,7 +256,6 @@ impl Trane {
         let study_sessions_manager = Arc::new(RwLock::new(LocalStudySessionManager::new(
             config_path.join(STUDY_SESSIONS_DIR).to_str().unwrap(),
         )?));
-        let repo_manager = Arc::new(RwLock::new(LocalRepositoryManager::new(library_root)?));
         let options = Self::create_scheduler_options(user_preferences.scheduler.as_ref());
         options.verify()?;
         let scheduler_data = SchedulerData {
@@ -301,13 +278,11 @@ impl Trane {
             practice_stats,
             practice_rewards,
             preferences_manager,
-            repo_manager,
             review_list,
             scheduler_data: scheduler_data.clone(),
             scheduler: DepthFirstScheduler::new(scheduler_data),
             study_session_manager: study_sessions_manager,
             unit_graph,
-            transcription_downloader,
         })
     }
 
@@ -585,33 +560,6 @@ impl PreferencesManager for Trane {
 }
 
 #[cfg_attr(coverage, coverage(off))]
-impl RepositoryManager for Trane {
-    fn add_repo(
-        &mut self,
-        url: &str,
-        repo_id: Option<String>,
-    ) -> Result<(), RepositoryManagerError> {
-        self.repo_manager.write().add_repo(url, repo_id)
-    }
-
-    fn remove_repo(&mut self, repo_id: &str) -> Result<(), RepositoryManagerError> {
-        self.repo_manager.write().remove_repo(repo_id)
-    }
-
-    fn update_repo(&self, repo_id: &str) -> Result<(), RepositoryManagerError> {
-        self.repo_manager.read().update_repo(repo_id)
-    }
-
-    fn update_all_repos(&self) -> Result<(), RepositoryManagerError> {
-        self.repo_manager.read().update_all_repos()
-    }
-
-    fn list_repos(&self) -> Vec<RepositoryMetadata> {
-        self.repo_manager.read().list_repos()
-    }
-}
-
-#[cfg_attr(coverage, coverage(off))]
 impl ReviewList for Trane {
     fn add_to_review_list(&mut self, unit_id: Ustr) -> Result<(), ReviewListError> {
         self.review_list.write().add_to_review_list(unit_id)
@@ -634,37 +582,6 @@ impl StudySessionManager for Trane {
 
     fn list_study_sessions(&self) -> Vec<(String, String)> {
         self.study_session_manager.read().list_study_sessions()
-    }
-}
-
-#[cfg_attr(coverage, coverage(off))]
-impl TranscriptionDownloader for Trane {
-    fn is_transcription_asset_downloaded(&self, exercise_id: Ustr) -> bool {
-        self.transcription_downloader
-            .read()
-            .is_transcription_asset_downloaded(exercise_id)
-    }
-
-    fn download_transcription_asset(
-        &self,
-        exercise_id: Ustr,
-        force_download: bool,
-    ) -> Result<(), TranscriptionDownloaderError> {
-        self.transcription_downloader
-            .write()
-            .download_transcription_asset(exercise_id, force_download)
-    }
-
-    fn transcription_download_path(&self, exercise_id: Ustr) -> Option<std::path::PathBuf> {
-        self.transcription_downloader
-            .read()
-            .transcription_download_path(exercise_id)
-    }
-
-    fn transcription_download_path_alias(&self, exercise_id: Ustr) -> Option<std::path::PathBuf> {
-        self.transcription_downloader
-            .read()
-            .transcription_download_path_alias(exercise_id)
     }
 }
 
