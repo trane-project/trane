@@ -260,9 +260,9 @@ impl PowerLawScorer {
         let mut stability = DEFAULT_STABILITY;
         let mut previous_timestamp = None;
         for trial in previous_trials.iter().rev() {
-            let days_since_previous_review = previous_timestamp
-                .map(|timestamp| ((trial.timestamp - timestamp) as f32 / SECONDS_PER_DAY).max(0.0))
-                .unwrap_or(0.0);
+            let days_since_previous_review = previous_timestamp.map_or(0.0, |timestamp| {
+                ((trial.timestamp - timestamp) as f32 / SECONDS_PER_DAY).max(0.0)
+            });
             let p = (trial.score - GRADE_MIN) / GRADE_RANGE - 0.5;
             let e = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR;
             let spacing_gain =
