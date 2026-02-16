@@ -10,8 +10,8 @@ use tempfile::TempDir;
 use trane::{
     blacklist::Blacklist,
     data::{
-        filter::{ExerciseFilter, UnitFilter},
         MasteryScore,
+        filter::{ExerciseFilter, UnitFilter},
     },
     test_utils::*,
 };

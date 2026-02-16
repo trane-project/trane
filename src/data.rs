@@ -228,7 +228,7 @@ impl NormalizePaths for BasicAsset {
     fn normalize_paths(&self, working_dir: &Path) -> Result<Self> {
         match &self {
             BasicAsset::InlinedAsset { .. } | BasicAsset::InlinedUniqueAsset { .. } => {
-                Ok(self.clone())
+                Ok(self.clone()) // grcov-excl-line
             }
             BasicAsset::MarkdownAsset { path } => {
                 let abs_path = normalize_path(working_dir, path)?;

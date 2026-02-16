@@ -520,11 +520,18 @@ impl LocalCourseLibrary {
                         .insert(exercise_manifest.id, exercise_manifest);
                 }
             }
+        }
 
-            // Delete the encompassing graph if possible to save memory.
-            if encompassing_equals_dependency {
-                self.unit_graph.write().set_encompasing_equals_dependency();
-            }
+        // Compute the lessons in a course not dependent on any other lesson in the course. This
+        // allows the scheduler to traverse the lessons in a course in the correct order.
+        self.unit_graph.write().update_starting_lessons();
+
+        // Perform a check to detect cyclic dependencies to prevent infinite loops during traversal.
+        self.unit_graph.read().check_cycles()?;
+
+        // Delete the encompassing graph if possible to save memory.
+        if encompassing_equals_dependency {
+            self.unit_graph.write().set_encompasing_equals_dependency();
         }
         Ok(())
     }
@@ -613,13 +620,6 @@ impl LocalCourseLibrary {
                 .reload_policy(ReloadPolicy::OnCommitWithDelay)
                 .try_into()?,
         );
-
-        // Compute the lessons in a course not dependent on any other lesson in the course. This
-        // allows the scheduler to traverse the lessons in a course in the correct order.
-        library.unit_graph.write().update_starting_lessons();
-
-        // Perform a check to detect cyclic dependencies to prevent infinite loops during traversal.
-        library.unit_graph.read().check_cycles()?;
         Ok(library)
     }
 
@@ -688,8 +688,7 @@ impl LocalCourseLibrary {
     fn search_helper(&self, query: &str) -> Result<Vec<Ustr>> {
         // Retrieve a searcher from the reader and parse the query.
         if self.reader.is_none() {
-            // This should never happen since the reader is initialized in the constructor.
-            return Ok(Vec::new());
+            return Ok(Vec::new()); // grcov-excl-line
         }
         let searcher = self.reader.as_ref().unwrap().searcher();
         let id_field = Self::schema_field(ID_SCHEMA_FIELD)?;

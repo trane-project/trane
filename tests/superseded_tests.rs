@@ -8,8 +8,8 @@ use std::{collections::BTreeMap, sync::LazyLock};
 use tempfile::TempDir;
 use trane::{
     data::{
-        filter::{ExerciseFilter, UnitFilter},
         MasteryScore,
+        filter::{ExerciseFilter, UnitFilter},
     },
     test_utils::*,
 };

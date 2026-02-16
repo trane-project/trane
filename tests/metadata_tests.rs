@@ -9,8 +9,8 @@ use tempfile::TempDir;
 use trane::{
     course_library::CourseLibrary,
     data::{
-        filter::{ExerciseFilter, FilterOp, FilterType, KeyValueFilter, UnitFilter},
         MasteryScore,
+        filter::{ExerciseFilter, FilterOp, FilterType, KeyValueFilter, UnitFilter},
     },
     test_utils::*,
 };
