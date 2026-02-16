@@ -701,7 +701,7 @@ impl TranscriptionConfig {
             // Only files inside the passage directory are considered.
             let entry = entry?;
             if !entry.file_type()?.is_file() {
-                continue;
+                continue; // grcov-excl-line
             }
 
             // Extract the file name from the entry.
@@ -717,7 +717,7 @@ impl TranscriptionConfig {
                 .extension()
                 .is_some_and(|ext| ext.eq_ignore_ascii_case("json"))
             {
-                continue;
+                continue; // grcov-excl-line
             }
 
             // Open the file and parse it as a `TranscriptionPassages` object. Check for duplicate

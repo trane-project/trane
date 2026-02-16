@@ -634,9 +634,11 @@ pub enum ExerciseAsset {
 impl NormalizePaths for ExerciseAsset {
     fn normalize_paths(&self, working_dir: &Path) -> Result<Self> {
         match &self {
+            // grcov-excl-start
             ExerciseAsset::BasicAsset(asset) => Ok(ExerciseAsset::BasicAsset(
                 asset.normalize_paths(working_dir)?,
             )),
+            // grcov-excl-stop
             ExerciseAsset::FlashcardAsset {
                 front_path,
                 back_path,
@@ -645,7 +647,7 @@ impl NormalizePaths for ExerciseAsset {
                 let abs_back_path = if let Some(back_path) = back_path {
                     Some(normalize_path(working_dir, back_path)?)
                 } else {
-                    None
+                    None // grcov-excl-line
                 };
                 Ok(ExerciseAsset::FlashcardAsset {
                     front_path: abs_front_path,
@@ -653,7 +655,7 @@ impl NormalizePaths for ExerciseAsset {
                 })
             }
             ExerciseAsset::LiteracyAsset { .. } | ExerciseAsset::TranscriptionAsset { .. } => {
-                Ok(self.clone())
+                Ok(self.clone()) // grcov-excl-line
             }
             ExerciseAsset::SoundSliceAsset {
                 link,

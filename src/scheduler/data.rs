@@ -412,6 +412,7 @@ mod test {
         vec![TestCourse {
             id: TestId(0, None, None),
             dependencies: vec![],
+            encompassed: vec![],
             superseded: vec![],
             metadata: BTreeMap::from([
                 (
@@ -427,6 +428,7 @@ mod test {
                 TestLesson {
                     id: TestId(0, Some(0), None),
                     dependencies: vec![],
+                    encompassed: vec![],
                     superseded: vec![],
                     metadata: BTreeMap::from([
                         (
@@ -443,6 +445,7 @@ mod test {
                 TestLesson {
                     id: TestId(0, Some(1), None),
                     dependencies: vec![TestId(0, Some(0), None)],
+                    encompassed: vec![],
                     superseded: vec![],
                     metadata: BTreeMap::from([
                         (

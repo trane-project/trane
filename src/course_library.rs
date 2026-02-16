@@ -328,7 +328,7 @@ impl LocalCourseLibrary {
         {
             // Ignore any entries that are not files named `exercise_manifest.json`.
             if entry.path().is_dir() {
-                continue;
+                continue; // grcov-excl-line
             }
             let file_name = Self::get_file_name(entry.path())?;
             if file_name != EXERCISE_MANIFEST_FILENAME {

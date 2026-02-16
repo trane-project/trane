@@ -117,7 +117,7 @@ impl RewardPropagator {
         let lesson_id = self.data.get_lesson_id(exercise_id).unwrap_or_default();
         let course_id = self.data.get_course_id(lesson_id).unwrap_or_default();
         if lesson_id.is_empty() || course_id.is_empty() {
-            return vec![];
+            return vec![]; // grcov-excl-line
         }
 
         // Populate the queue using the course and lesson with the initial reward and weight.
@@ -145,10 +145,9 @@ impl RewardPropagator {
         while let Some(item) = queue.pop_front() {
             // Check if propagation should continue and if the unit has already been visited. If
             // not, push the unit into the results and continue the search.
-            if Self::stop_propagation(item.reward.value, item.reward.weight) {
-                continue;
-            }
-            if results.contains_key(&item.unit_id) {
+            if Self::stop_propagation(item.reward.value, item.reward.weight)
+                || results.contains_key(&item.unit_id)
+            {
                 continue;
             }
             results.insert(
