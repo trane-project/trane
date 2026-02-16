@@ -105,10 +105,6 @@ const EASE_DENOMINATOR: f32 = 5.0;
 /// increase stability growth when pre-review retrievability is low.
 const SPACING_EFFECT_WEIGHT: f32 = 0.5;
 
-/// The decay exponent used to estimate pre-review retrievability when applying the spacing effect
-/// in stability chaining. This is shared across exercise types to keep stability updates simple.
-const SPACING_EFFECT_DECAY: f32 = DECLARATIVE_CURVE_DECAY;
-
 /// A scorer that uses a power-law forgetting curve to compute the score of an exercise, using
 /// review-history-based estimation of stability and difficulty. This models memory retention more
 /// accurately than exponential decay by accounting for the "fat tail" of long-term memory.
@@ -198,12 +194,26 @@ impl PowerLawScorer {
         sum_weighted / sum_weights
     }
 
-    /// Computes pre-review retrievability used by the interval-aware spacing effect. This uses a
-    /// single decay exponent for all exercise types to keep the stability update simple.
+    /// Returns the forgetting-curve decay exponent for the given exercise type.
     #[inline]
-    fn compute_spacing_retrievability(days_since_previous_review: f32, stability: f32) -> f32 {
+    fn get_curve_decay(exercise_type: &ExerciseType) -> f32 {
+        match exercise_type {
+            ExerciseType::Declarative => DECLARATIVE_CURVE_DECAY,
+            ExerciseType::Procedural => PROCEDURAL_CURVE_DECAY,
+        }
+    }
+
+    /// Computes pre-review retrievability used by the interval-aware spacing effect. It uses the
+    /// same decay exponent as final retrievability for the given exercise type.
+    #[inline]
+    fn compute_spacing_retrievability(
+        exercise_type: &ExerciseType,
+        days_since_previous_review: f32,
+        stability: f32,
+    ) -> f32 {
+        let decay = Self::get_curve_decay(exercise_type);
         (1.0 + FORGETTING_CURVE_FACTOR * days_since_previous_review / stability)
-            .powf(SPACING_EFFECT_DECAY)
+            .powf(decay)
             .clamp(0.0, 1.0)
     }
 
@@ -212,6 +222,7 @@ impl PowerLawScorer {
     /// neutral multiplier so lapse handling remains unchanged in this step.
     #[inline]
     fn compute_spacing_gain(
+        exercise_type: &ExerciseType,
         days_since_previous_review: f32,
         stability: f32,
         performance_factor: f32,
@@ -220,8 +231,11 @@ impl PowerLawScorer {
             return 1.0;
         }
 
-        let pre_review_retrievability =
-            Self::compute_spacing_retrievability(days_since_previous_review, stability);
+        let pre_review_retrievability = Self::compute_spacing_retrievability(
+            exercise_type,
+            days_since_previous_review,
+            stability,
+        );
         (1.0 + SPACING_EFFECT_WEIGHT * (1.0 - pre_review_retrievability))
             .clamp(1.0, 1.0 + SPACING_EFFECT_WEIGHT)
     }
@@ -231,13 +245,18 @@ impl PowerLawScorer {
     /// For each review:
     /// - Compute elapsed days since the previous review in the chain.
     /// - Estimate pre-review retrievability from elapsed time and current stability.
+    /// - Use the same type-specific forgetting curve decay as the final retrievability.
     /// - Apply an interval-aware spacing gain to successful reviews.
     /// - Update stability via S' = S * (1 + GROWTH_RATE * P * E * spacing_gain).
     ///
     /// Here P = (grade - GRADE_MIN) / GRADE_RANGE - 0.5 (performance, from -0.5 for fail to 0.5
     /// for perfect), and E = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR (ease).
     #[inline]
-    fn compute_stability(previous_trials: &[ExerciseTrial], difficulty: f32) -> f32 {
+    fn compute_stability(
+        exercise_type: &ExerciseType,
+        previous_trials: &[ExerciseTrial],
+        difficulty: f32,
+    ) -> f32 {
         let mut stability = DEFAULT_STABILITY;
         let mut previous_timestamp = None;
         for trial in previous_trials.iter().rev() {
@@ -246,7 +265,8 @@ impl PowerLawScorer {
                 .unwrap_or(0.0);
             let p = (trial.score - GRADE_MIN) / GRADE_RANGE - 0.5;
             let e = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR;
-            let spacing_gain = Self::compute_spacing_gain(days_since_previous_review, stability, p);
+            let spacing_gain =
+                Self::compute_spacing_gain(exercise_type, days_since_previous_review, stability, p);
             stability = (stability * (1.0 + GROWTH_RATE * p * e * spacing_gain))
                 .clamp(MIN_STABILITY, MAX_STABILITY);
             previous_timestamp = Some(trial.timestamp);
@@ -263,10 +283,7 @@ impl PowerLawScorer {
         days_since_last: f32,
         stability: f32,
     ) -> f32 {
-        let decay = match exercise_type {
-            ExerciseType::Declarative => DECLARATIVE_CURVE_DECAY,
-            ExerciseType::Procedural => PROCEDURAL_CURVE_DECAY,
-        };
+        let decay = Self::get_curve_decay(exercise_type);
         (1.0 + FORGETTING_CURVE_FACTOR * days_since_last / stability).powf(decay)
     }
 }
@@ -287,7 +304,7 @@ impl ExerciseScorer for PowerLawScorer {
         }
 
         let difficulty = Self::estimate_difficulty(previous_trials);
-        let stability = Self::compute_stability(previous_trials, difficulty);
+        let stability = Self::compute_stability(&exercise_type, previous_trials, difficulty);
         let days_since_last = ((Utc::now().timestamp() - previous_trials[0].timestamp) as f32
             / SECONDS_PER_DAY)
             .max(0.0);
@@ -315,13 +332,12 @@ mod test {
 
     use crate::{data::ExerciseTrial, exercise_scorer::*};
 
-    const SECONDS_IN_DAY: i64 = 60 * 60 * 24;
     const SCORER: PowerLawScorer = PowerLawScorer {};
 
     /// Generates a timestamp equal to the timestamp from `num_days` ago.
     fn generate_timestamp(num_days: i64) -> i64 {
         let now = Utc::now().timestamp();
-        now - num_days * SECONDS_IN_DAY
+        now - num_days * SECONDS_PER_DAY as i64
     }
 
     /// Verifies that difficulty is estimated correctly from failure rates.
@@ -475,7 +491,8 @@ mod test {
                 timestamp: generate_timestamp(1),
             },
         ];
-        let stability = PowerLawScorer::compute_stability(&trials, difficulty);
+        let stability =
+            PowerLawScorer::compute_stability(&ExerciseType::Declarative, &trials, difficulty);
         assert!(stability > 0.0 && stability < 2.0); // Reasonable range
     }
 
@@ -512,11 +529,16 @@ mod test {
             },
         ];
 
-        let short_spacing_stability =
-            PowerLawScorer::compute_stability(&short_spacing_trials, difficulty);
-        let long_spacing_stability =
-            PowerLawScorer::compute_stability(&long_spacing_trials, difficulty);
-
+        let short_spacing_stability = PowerLawScorer::compute_stability(
+            &ExerciseType::Declarative,
+            &short_spacing_trials,
+            difficulty,
+        );
+        let long_spacing_stability = PowerLawScorer::compute_stability(
+            &ExerciseType::Declarative,
+            &long_spacing_trials,
+            difficulty,
+        );
         assert!(long_spacing_stability > short_spacing_stability);
     }
 
@@ -553,12 +575,27 @@ mod test {
     #[test]
     fn compute_spacing_retrievability() {
         let stability = DEFAULT_STABILITY;
-        let recent = PowerLawScorer::compute_spacing_retrievability(0.0, stability);
-        let old = PowerLawScorer::compute_spacing_retrievability(30.0, stability);
+        let recent_declarative = PowerLawScorer::compute_spacing_retrievability(
+            &ExerciseType::Declarative,
+            0.0,
+            stability,
+        );
+        let old_declarative = PowerLawScorer::compute_spacing_retrievability(
+            &ExerciseType::Declarative,
+            30.0,
+            stability,
+        );
+        let old_procedural = PowerLawScorer::compute_spacing_retrievability(
+            &ExerciseType::Procedural,
+            30.0,
+            stability,
+        );
 
-        assert!((recent - 1.0).abs() < 1e-6);
-        assert!(old >= 0.0 && old <= 1.0);
-        assert!(recent > old);
+        assert!((recent_declarative - 1.0).abs() < 1e-6);
+        assert!(old_declarative >= 0.0 && old_declarative <= 1.0);
+        assert!(old_procedural >= 0.0 && old_procedural <= 1.0);
+        assert!(recent_declarative > old_declarative);
+        assert!(old_procedural > old_declarative);
     }
 
     /// Verifies spacing gain grows with interval for successful reviews and stays neutral
@@ -566,10 +603,14 @@ mod test {
     #[test]
     fn compute_spacing_gain() {
         let stability = DEFAULT_STABILITY;
-        let short_interval_gain = PowerLawScorer::compute_spacing_gain(0.0, stability, 0.25);
-        let long_interval_gain = PowerLawScorer::compute_spacing_gain(10.0, stability, 0.25);
-        let neutral_gain = PowerLawScorer::compute_spacing_gain(10.0, stability, 0.0);
-        let failure_gain = PowerLawScorer::compute_spacing_gain(10.0, stability, -0.5);
+        let short_interval_gain =
+            PowerLawScorer::compute_spacing_gain(&ExerciseType::Declarative, 0.0, stability, 0.25);
+        let long_interval_gain =
+            PowerLawScorer::compute_spacing_gain(&ExerciseType::Declarative, 10.0, stability, 0.25);
+        let neutral_gain =
+            PowerLawScorer::compute_spacing_gain(&ExerciseType::Declarative, 10.0, stability, 0.0);
+        let failure_gain =
+            PowerLawScorer::compute_spacing_gain(&ExerciseType::Declarative, 10.0, stability, -0.5);
 
         assert!(short_interval_gain >= 1.0 && short_interval_gain <= 1.0 + SPACING_EFFECT_WEIGHT);
         assert!(long_interval_gain > short_interval_gain);
