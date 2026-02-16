@@ -1,6 +1,6 @@
 //! Contains the logic to score an exercise based on the results and timestamps of previous trials.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::Utc;
 
 use crate::data::{ExerciseTrial, ExerciseType};
@@ -99,6 +99,14 @@ const EASE_NUMERATOR_OFFSET: f32 = 11.0;
 /// The denominator used in the ease factor calculation.
 const EASE_DENOMINATOR: f32 = 5.0;
 
+/// The weight of the interval-aware spacing effect during successful reviews. Larger values
+/// increase stability growth when pre-review retrievability is low.
+const SPACING_EFFECT_WEIGHT: f32 = 0.5;
+
+/// The decay exponent used to estimate pre-review retrievability when applying the spacing effect
+/// in stability chaining. This is shared across exercise types to keep stability updates simple.
+const SPACING_EFFECT_DECAY: f32 = DECLARATIVE_CURVE_DECAY;
+
 /// A scorer that uses a power-law forgetting curve to compute the score of an exercise, using
 /// review-history-based estimation of stability and difficulty. This models memory retention more
 /// accurately than exponential decay by accounting for the "fat tail" of long-term memory.
@@ -106,19 +114,21 @@ const EASE_DENOMINATOR: f32 = 5.0;
 /// This implementation is inspired by FSRS (Free Spaced Repetition Scheduler) but simplified for
 /// Trane's stateless architecture. Instead of maintaining separate state for each exercise, it
 /// chains stability updates through the review history chronologically (oldest to newest).
-/// Stability evolves with each review using: S' = S × (1 + GROWTH_RATE × P × E), where P is
-/// performance factor and E is ease factor. Final score is retrievability at current time, scaled
-/// to 0-5.
+/// Stability evolves with each review using: S' = S × (1 + GROWTH_RATE × P × E × spacing_gain),
+/// where P is performance factor, E is ease factor, and spacing_gain increases successful growth
+/// after longer review intervals. Final score is retrievability at current time, scaled to 0-5.
 ///
 /// Algorithm:
 ///
 /// 1. Estimate difficulty once from all trials (failure rate-based)
-/// 2. Chain stability through reviews chronologically
-/// 3. Compute retrievability from last review to now using power-law decay
-/// 4. Adjust retrievability by difficulty for harder exercises
-/// 5. Apply performance factor from an exponentially weighted average of all reviews (recent
+/// 2. Chain stability through reviews chronologically (oldest to newest)
+/// 3. Apply interval-aware spacing during stability updates (successful recalls after longer
+///    intervals boost stability more)
+/// 4. Compute retrievability from last review to now using power-law decay
+/// 5. Adjust retrievability by difficulty for harder exercises
+/// 6. Apply performance factor from an exponentially weighted average of all reviews (recent
 ///    performance matters most)
-/// 6. Scale to final 0-5 score.
+/// 7. Scale to final 0-5 score.
 ///
 /// Differences from FSRS:
 /// - No additional state storage (stateless like original Trane design)
@@ -187,18 +197,58 @@ impl PowerLawScorer {
         sum_weighted / sum_weights
     }
 
-    /// Starts with DEFAULT_STABILITY, evolves via S' = S * (1 + GROWTH_RATE * P * E) for each
-    /// review. P = (grade - GRADE_MIN) / GRADE_RANGE - 0.5 (performance, from -0.5 for fail to 0.5
-    /// for perfect), E = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR (ease). Processed
-    /// oldest to newest.
+    /// Computes pre-review retrievability used by the interval-aware spacing effect. This uses a
+    /// single decay exponent for all exercise types to keep the stability update simple.
+    #[inline]
+    fn compute_spacing_retrievability(days_since_previous_review: f32, stability: f32) -> f32 {
+        (1.0 + FORGETTING_CURVE_FACTOR * days_since_previous_review / stability)
+            .powf(SPACING_EFFECT_DECAY)
+            .clamp(0.0, 1.0)
+    }
+
+    /// Computes the spacing gain multiplier for a review. Successful recalls (`performance_factor >
+    /// 0`) receive additional growth after longer intervals. Non-successful reviews return a neutral
+    /// multiplier so lapse handling remains unchanged in this step.
+    #[inline]
+    fn compute_spacing_gain(
+        days_since_previous_review: f32,
+        stability: f32,
+        performance_factor: f32,
+    ) -> f32 {
+        if performance_factor <= 0.0 {
+            return 1.0;
+        }
+
+        let pre_review_retrievability =
+            Self::compute_spacing_retrievability(days_since_previous_review, stability);
+        (1.0 + SPACING_EFFECT_WEIGHT * (1.0 - pre_review_retrievability))
+            .clamp(1.0, 1.0 + SPACING_EFFECT_WEIGHT)
+    }
+
+    /// Starts with DEFAULT_STABILITY and evolves through reviews from oldest to newest.
+    ///
+    /// For each review:
+    /// - Compute elapsed days since the previous review in the chain.
+    /// - Estimate pre-review retrievability from elapsed time and current stability.
+    /// - Apply an interval-aware spacing gain to successful reviews.
+    /// - Update stability via S' = S * (1 + GROWTH_RATE * P * E * spacing_gain).
+    ///
+    /// Here P = (grade - GRADE_MIN) / GRADE_RANGE - 0.5 (performance, from -0.5 for fail to 0.5
+    /// for perfect), and E = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR (ease).
     #[inline]
     fn compute_stability(previous_trials: &[ExerciseTrial], difficulty: f32) -> f32 {
         let mut stability = DEFAULT_STABILITY;
+        let mut previous_timestamp = None;
         for trial in previous_trials.iter().rev() {
+            let days_since_previous_review = previous_timestamp
+                .map(|timestamp| ((trial.timestamp - timestamp) as f32 / SECONDS_PER_DAY).max(0.0))
+                .unwrap_or(0.0);
             let p = (trial.score - GRADE_MIN) / GRADE_RANGE - 0.5;
             let e = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR;
-            stability =
-                (stability * (1.0 + GROWTH_RATE * p * e)).clamp(MIN_STABILITY, MAX_STABILITY);
+            let spacing_gain = Self::compute_spacing_gain(days_since_previous_review, stability, p);
+            stability = (stability * (1.0 + GROWTH_RATE * p * e * spacing_gain))
+                .clamp(MIN_STABILITY, MAX_STABILITY);
+            previous_timestamp = Some(trial.timestamp);
         }
         stability
     }
@@ -428,6 +478,47 @@ mod test {
         assert!(stability > 0.0 && stability < 2.0); // Reasonable range
     }
 
+    /// Verifies longer spacing between successful reviews yields higher stability.
+    #[test]
+    fn compute_stability_spacing_effect() {
+        let difficulty = BASE_DIFFICULTY;
+        let short_spacing_trials = vec![
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(2),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(3),
+            },
+        ];
+        let long_spacing_trials = vec![
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(10),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(30),
+            },
+        ];
+
+        let short_spacing_stability =
+            PowerLawScorer::compute_stability(&short_spacing_trials, difficulty);
+        let long_spacing_stability =
+            PowerLawScorer::compute_stability(&long_spacing_trials, difficulty);
+
+        assert!(long_spacing_stability > short_spacing_stability);
+    }
+
     /// Verifies retrievability computation using power-law decay.
     #[test]
     fn compute_retrievability() {
@@ -455,6 +546,34 @@ mod test {
             PowerLawScorer::compute_retrievability(&ExerciseType::Procedural, 100.0, stability);
         assert!(very_old_declarative < 0.25);
         assert!(very_old_declarative < very_old_procedural);
+    }
+
+    /// Verifies pre-review spacing retrievability decreases as elapsed time grows.
+    #[test]
+    fn compute_spacing_retrievability() {
+        let stability = DEFAULT_STABILITY;
+        let recent = PowerLawScorer::compute_spacing_retrievability(0.0, stability);
+        let old = PowerLawScorer::compute_spacing_retrievability(30.0, stability);
+
+        assert!((recent - 1.0).abs() < 1e-6);
+        assert!(old >= 0.0 && old <= 1.0);
+        assert!(recent > old);
+    }
+
+    /// Verifies spacing gain grows with interval for successful reviews and stays neutral
+    /// otherwise.
+    #[test]
+    fn compute_spacing_gain() {
+        let stability = DEFAULT_STABILITY;
+        let short_interval_gain = PowerLawScorer::compute_spacing_gain(0.0, stability, 0.25);
+        let long_interval_gain = PowerLawScorer::compute_spacing_gain(10.0, stability, 0.25);
+        let neutral_gain = PowerLawScorer::compute_spacing_gain(10.0, stability, 0.0);
+        let failure_gain = PowerLawScorer::compute_spacing_gain(10.0, stability, -0.5);
+
+        assert!(short_interval_gain >= 1.0 && short_interval_gain <= 1.0 + SPACING_EFFECT_WEIGHT);
+        assert!(long_interval_gain > short_interval_gain);
+        assert_eq!(neutral_gain, 1.0);
+        assert_eq!(failure_gain, 1.0);
     }
 
     /// Verifies that the weighted average is computed correctly.
