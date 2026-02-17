@@ -1068,7 +1068,7 @@ mod test {
                 min_fraction: 0.2,
             },
         );
-        assert_eq!(candidates.len(), 7);
+        assert_eq!(candidates.len(), 8);
     }
 
     #[test]
