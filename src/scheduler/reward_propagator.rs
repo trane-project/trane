@@ -34,6 +34,7 @@ use ustr::{Ustr, UstrMap};
 
 use crate::{
     data::{MasteryScore, UnitReward},
+    graph::UnitGraph,
     scheduler::data::SchedulerData,
 };
 
@@ -80,29 +81,95 @@ impl RewardPropagator {
     }
 
     /// Gets the next units to visit, depending on the sign of the reward.
-    fn get_next_units(&self, unit_id: Ustr, reward: f32) -> Vec<(Ustr, f32)> {
+    fn get_next_units(unit_graph: &dyn UnitGraph, unit_id: Ustr, reward: f32) -> Vec<(Ustr, f32)> {
         if reward > 0.0 {
-            self.data
-                .unit_graph
-                .read()
-                .get_encompasses(unit_id)
-                .unwrap_or_default()
-                .into_iter()
-                .collect()
+            unit_graph.get_encompasses(unit_id).unwrap_or_default()
         } else {
-            self.data
-                .unit_graph
-                .read()
-                .get_encompassed_by(unit_id)
-                .unwrap_or_default()
-                .into_iter()
-                .collect()
+            unit_graph.get_encompassed_by(unit_id).unwrap_or_default()
         }
     }
 
     /// Returns whether propagation should stop.
     pub(super) fn stop_propagation(reward: f32, weight: f32) -> bool {
         reward.abs() < MIN_ABS_REWARD || weight < MIN_WEIGHT
+    }
+
+    /// Returns the lesson and course roots for the given exercise, if they exist.
+    fn resolve_roots(unit_graph: &dyn UnitGraph, exercise_id: Ustr) -> Option<(Ustr, Ustr)> {
+        let lesson_id = unit_graph.get_exercise_lesson(exercise_id)?;
+        let course_id = unit_graph.get_lesson_course(lesson_id)?;
+        Some((lesson_id, course_id))
+    }
+
+    /// Helper to propagate the rewards through the graph. It is written as a helper to make it
+    /// easy to test the propagation logic in isolation.
+    fn propagate_rewards_helper(
+        unit_graph: &dyn UnitGraph,
+        lesson_id: Ustr,
+        course_id: Ustr,
+        score: &MasteryScore,
+        timestamp: i64,
+    ) -> Vec<(Ustr, UnitReward)> {
+        if lesson_id.is_empty() || course_id.is_empty() {
+            return vec![]; // grcov-excl-line
+        }
+
+        // Populate the stack using the initial lessons and courses encompassed by this exercise.
+        let initial_reward = Self::initial_reward(score);
+        let next_lessons = Self::get_next_units(unit_graph, lesson_id, initial_reward);
+        let next_courses = Self::get_next_units(unit_graph, course_id, initial_reward);
+        let mut stack: Vec<RewardStackItem> = Vec::new();
+        next_lessons
+            .iter()
+            .chain(next_courses.iter())
+            .for_each(|(id, edge_weight)| {
+                let value = edge_weight * initial_reward;
+                let weight = *edge_weight;
+                if Self::stop_propagation(value, weight) {
+                    return;
+                }
+                stack.push(RewardStackItem {
+                    unit_id: *id,
+                    reward: UnitReward {
+                        value,
+                        weight,
+                        timestamp,
+                    },
+                });
+            });
+
+        // While the stack is not empty, pop the last element, push it into the results, and
+        // continue the search with updated rewards and weights.
+        let mut results: UstrMap<UnitReward> = UstrMap::default();
+        while let Some(item) = stack.pop() {
+            // Skip paths that are weaker than an already known path.
+            if let Some(existing_reward) = results.get(&item.unit_id)
+                && existing_reward.value.abs() >= item.reward.value.abs()
+            {
+                continue;
+            }
+            results.insert(item.unit_id, item.reward.clone());
+
+            // Get the next units and push them onto the stack with updated rewards and weights.
+            for (next_unit_id, edge_weight) in
+                &Self::get_next_units(unit_graph, item.unit_id, item.reward.value)
+            {
+                let next_value = *edge_weight * REWARD_FACTOR * item.reward.value;
+                let next_weight = *edge_weight * WEIGHT_FACTOR * item.reward.weight;
+                if Self::stop_propagation(next_value, next_weight) {
+                    continue;
+                }
+                stack.push(RewardStackItem {
+                    unit_id: *next_unit_id,
+                    reward: UnitReward {
+                        value: next_value,
+                        weight: next_weight,
+                        timestamp,
+                    },
+                });
+            }
+        }
+        results.into_iter().collect()
     }
 
     /// Propagates the given score through the graph.
@@ -112,77 +179,52 @@ impl RewardPropagator {
         score: &MasteryScore,
         timestamp: i64,
     ) -> Vec<(Ustr, UnitReward)> {
-        // Get the lesson and course for this exercise and the default exercise type.
-        let lesson_id = self.data.get_lesson_id(exercise_id).unwrap_or_default();
-        let course_id = self.data.get_course_id(lesson_id).unwrap_or_default();
-        if lesson_id.is_empty() || course_id.is_empty() {
+        let unit_graph = self.data.unit_graph.read();
+        let roots = Self::resolve_roots(&*unit_graph, exercise_id);
+        let Some((lesson_id, course_id)) = roots else {
             return vec![]; // grcov-excl-line
-        }
-
-        // Populate the stack using the initial lessons and courses encompassed by this exercise.
-        let initial_reward = Self::initial_reward(score);
-        let next_lessons = self.get_next_units(lesson_id, initial_reward);
-        let next_courses = self.get_next_units(course_id, initial_reward);
-        let mut stack: Vec<RewardStackItem> = Vec::new();
-        next_lessons
-            .iter()
-            .chain(next_courses.iter())
-            .for_each(|(id, weight)| {
-                stack.push(RewardStackItem {
-                    unit_id: *id,
-                    reward: UnitReward {
-                        value: weight * initial_reward,
-                        weight: 1.0,
-                        timestamp,
-                    },
-                });
-            });
-
-        // While the stack is not empty, pop the last element, push it into the results, and
-        // continue the search with updated rewards and weights.
-        let mut results = UstrMap::default();
-        while let Some(item) = stack.pop() {
-            // Check if propagation should continue and if the unit has already been visited. If
-            // not, push the unit into the results and continue the search.
-            if Self::stop_propagation(item.reward.value, item.reward.weight)
-                || results.contains_key(&item.unit_id)
-            {
-                continue;
-            }
-            results.insert(
-                item.unit_id,
-                UnitReward {
-                    value: item.reward.value,
-                    weight: item.reward.weight,
-                    timestamp,
-                },
-            );
-
-            // Get the next units and push them onto the stack with updated rewards and weights.
-            self.get_next_units(item.unit_id, item.reward.value)
-                .iter()
-                .for_each(|(next_unit_id, edge_weight)| {
-                    stack.push(RewardStackItem {
-                        unit_id: *next_unit_id,
-                        reward: UnitReward {
-                            value: *edge_weight * REWARD_FACTOR * item.reward.value,
-                            weight: WEIGHT_FACTOR * item.reward.weight,
-                            timestamp,
-                        },
-                    });
-                });
-        }
-        results.into_iter().collect()
+        };
+        Self::propagate_rewards_helper(&*unit_graph, lesson_id, course_id, score, timestamp)
     }
 }
 
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod test {
+    use anyhow::Result;
+    use ustr::{Ustr, UstrMap};
+
     use crate::{
-        data::MasteryScore,
+        data::{MasteryScore, UnitReward},
+        graph::{InMemoryUnitGraph, UnitGraph},
         scheduler::reward_propagator::{MIN_ABS_REWARD, MIN_WEIGHT, RewardPropagator},
     };
+
+    fn build_path_graph(source_encompassed: &[(Ustr, f32)]) -> Result<InMemoryUnitGraph> {
+        let mut graph = InMemoryUnitGraph::default();
+        graph.add_course(Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::0"), Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::1"), Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::2"), Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::3"), Ustr::from("0"))?;
+        graph.add_exercise(Ustr::from("0::0::0"), Ustr::from("0::0"))?;
+
+        graph.add_encompassed(Ustr::from("0::0"), &[], source_encompassed)?;
+        graph.add_encompassed(Ustr::from("0::1"), &[], &[(Ustr::from("0::3"), 1.0)])?;
+        graph.add_encompassed(Ustr::from("0::2"), &[], &[(Ustr::from("0::3"), 1.0)])?;
+        Ok(graph)
+    }
+
+    fn propagate_five_rewards(unit_graph: &dyn UnitGraph) -> Result<UstrMap<UnitReward>> {
+        let rewards = RewardPropagator::propagate_rewards_helper(
+            unit_graph,
+            Ustr::from("0::0"),
+            Ustr::from("0"),
+            &MasteryScore::Five,
+            0,
+        );
+        Ok(rewards.into_iter().collect())
+    }
 
     /// Verifies the initial reward for each score.
     #[test]
@@ -213,5 +255,108 @@ mod test {
             MIN_ABS_REWARD,
             MIN_WEIGHT - 0.001,
         ));
+    }
+
+    /// Verifies that when multiple paths reach the same unit, the strongest path is used.
+    #[test]
+    fn strongest_path_wins() -> Result<()> {
+        let graph = build_path_graph(&[(Ustr::from("0::1"), 1.0), (Ustr::from("0::2"), 0.5)])?;
+        let reward_map = propagate_five_rewards(&graph)?;
+        let reward = reward_map.get(&Ustr::from("0::3")).unwrap();
+        assert!((reward.value - 0.72).abs() < f32::EPSILON);
+        assert!((reward.weight - 0.8).abs() < f32::EPSILON);
+        Ok(())
+    }
+
+    /// Verifies that the strongest-path result is independent of path insertion order.
+    #[test]
+    fn strongest_path_is_order_independent() -> Result<()> {
+        let first_order =
+            build_path_graph(&[(Ustr::from("0::1"), 1.0), (Ustr::from("0::2"), 0.5)])?;
+        let second_order =
+            build_path_graph(&[(Ustr::from("0::2"), 0.5), (Ustr::from("0::1"), 1.0)])?;
+        let first_reward = propagate_five_rewards(&first_order)?
+            .get(&Ustr::from("0::3"))
+            .cloned()
+            .unwrap();
+        let second_reward = propagate_five_rewards(&second_order)?
+            .get(&Ustr::from("0::3"))
+            .cloned()
+            .unwrap();
+        assert!((first_reward.value - second_reward.value).abs() < f32::EPSILON);
+        assert!((first_reward.weight - second_reward.weight).abs() < f32::EPSILON);
+        Ok(())
+    }
+
+    /// Verifies that edge weights attenuate both reward value and reward weight.
+    #[test]
+    fn edge_weights_attenuate_reward_weight() -> Result<()> {
+        let mut graph = InMemoryUnitGraph::default();
+        graph.add_course(Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::0"), Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::1"), Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::2"), Ustr::from("0"))?;
+        graph.add_encompassed(Ustr::from("0::0"), &[], &[(Ustr::from("0::1"), 0.8)])?;
+        graph.add_encompassed(Ustr::from("0::1"), &[], &[(Ustr::from("0::2"), 0.8)])?;
+
+        let reward_map = propagate_five_rewards(&graph)?;
+        let first_hop = reward_map.get(&Ustr::from("0::1")).unwrap();
+        assert!((first_hop.value - 0.64).abs() < f32::EPSILON);
+        assert!((first_hop.weight - 0.8).abs() < f32::EPSILON);
+
+        let second_hop = reward_map.get(&Ustr::from("0::2")).unwrap();
+        assert!((second_hop.value - 0.4608).abs() < f32::EPSILON);
+        assert!((second_hop.weight - 0.512).abs() < f32::EPSILON);
+        Ok(())
+    }
+
+    /// Verifies that very weak initial edges are pruned before being recorded.
+    #[test]
+    fn weak_initial_edges_are_pruned() -> Result<()> {
+        let mut graph = InMemoryUnitGraph::default();
+        graph.add_course(Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::0"), Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::1"), Ustr::from("0"))?;
+        graph.add_encompassed(Ustr::from("0::0"), &[], &[(Ustr::from("0::1"), 0.1)])?;
+
+        let reward_map = propagate_five_rewards(&graph)?;
+        assert!(reward_map.is_empty());
+        Ok(())
+    }
+
+    /// Verifies that weak next hops are pruned during recursive traversal.
+    #[test]
+    fn weak_recursive_hops_are_pruned() -> Result<()> {
+        let mut graph = InMemoryUnitGraph::default();
+        graph.add_course(Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::0"), Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::1"), Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::2"), Ustr::from("0"))?;
+        graph.add_encompassed(Ustr::from("0::0"), &[], &[(Ustr::from("0::1"), 1.0)])?;
+        graph.add_encompassed(Ustr::from("0::1"), &[], &[(Ustr::from("0::2"), 0.1)])?;
+
+        let reward_map = propagate_five_rewards(&graph)?;
+        assert!(reward_map.contains_key(&Ustr::from("0::1")));
+        assert!(!reward_map.contains_key(&Ustr::from("0::2")));
+        Ok(())
+    }
+
+    /// Verifies resolving roots from the graph directly.
+    #[test]
+    fn resolve_roots() -> Result<()> {
+        let mut graph = InMemoryUnitGraph::default();
+        graph.add_course(Ustr::from("course"))?;
+        graph.add_lesson(Ustr::from("lesson"), Ustr::from("course"))?;
+        graph.add_exercise(Ustr::from("exercise"), Ustr::from("lesson"))?;
+
+        assert_eq!(
+            RewardPropagator::resolve_roots(&graph, Ustr::from("exercise")),
+            Some((Ustr::from("lesson"), Ustr::from("course")))
+        );
+        assert_eq!(
+            RewardPropagator::resolve_roots(&graph, Ustr::from("missing")),
+            None
+        );
+        Ok(())
     }
 }
