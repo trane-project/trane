@@ -94,25 +94,30 @@ impl RewardPropagator {
         reward.abs() < MIN_ABS_REWARD || weight < MIN_WEIGHT
     }
 
-    /// Propagates the given score through the graph.
-    pub(super) fn propagate_rewards(
-        &self,
-        exercise_id: Ustr,
+    /// Returns the lesson and course roots for the given exercise, if they exist.
+    fn resolve_roots(unit_graph: &dyn UnitGraph, exercise_id: Ustr) -> Option<(Ustr, Ustr)> {
+        let lesson_id = unit_graph.get_exercise_lesson(exercise_id)?;
+        let course_id = unit_graph.get_lesson_course(lesson_id)?;
+        Some((lesson_id, course_id))
+    }
+
+    /// Helper to propagate the rewards through the graph. It is written as a helper to make it
+    /// easy to test the propagation logic in isolation.
+    fn propagate_rewards_helper(
+        unit_graph: &dyn UnitGraph,
+        lesson_id: Ustr,
+        course_id: Ustr,
         score: &MasteryScore,
         timestamp: i64,
     ) -> Vec<(Ustr, UnitReward)> {
-        // Get the lesson and course for this exercise and the default exercise type.
-        let lesson_id = self.data.get_lesson_id(exercise_id).unwrap_or_default();
-        let course_id = self.data.get_course_id(lesson_id).unwrap_or_default();
         if lesson_id.is_empty() || course_id.is_empty() {
             return vec![]; // grcov-excl-line
         }
-        let unit_graph = self.data.unit_graph.read();
 
         // Populate the stack using the initial lessons and courses encompassed by this exercise.
         let initial_reward = Self::initial_reward(score);
-        let next_lessons = Self::get_next_units(&*unit_graph, lesson_id, initial_reward);
-        let next_courses = Self::get_next_units(&*unit_graph, course_id, initial_reward);
+        let next_lessons = Self::get_next_units(unit_graph, lesson_id, initial_reward);
+        let next_courses = Self::get_next_units(unit_graph, course_id, initial_reward);
         let mut stack: Vec<RewardStackItem> = Vec::new();
         next_lessons
             .iter()
@@ -150,7 +155,7 @@ impl RewardPropagator {
 
             // Get the next units and push them onto the stack with updated rewards and weights.
             for (next_unit_id, edge_weight) in
-                &Self::get_next_units(&*unit_graph, item.unit_id, item.reward.value)
+                &Self::get_next_units(unit_graph, item.unit_id, item.reward.value)
             {
                 let next_value = *edge_weight * REWARD_FACTOR * item.reward.value;
                 let next_weight = *edge_weight * WEIGHT_FACTOR * item.reward.weight;
@@ -169,74 +174,58 @@ impl RewardPropagator {
         }
         results.into_iter().collect()
     }
+
+    /// Propagates the given score through the graph.
+    pub(super) fn propagate_rewards(
+        &self,
+        exercise_id: Ustr,
+        score: &MasteryScore,
+        timestamp: i64,
+    ) -> Vec<(Ustr, UnitReward)> {
+        let unit_graph = self.data.unit_graph.read();
+        let roots = Self::resolve_roots(&*unit_graph, exercise_id);
+        let Some((lesson_id, course_id)) = roots else {
+            return vec![]; // grcov-excl-line
+        };
+        Self::propagate_rewards_helper(&*unit_graph, lesson_id, course_id, score, timestamp)
+    }
 }
 
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod test {
     use anyhow::Result;
-    use std::collections::BTreeMap;
     use ustr::{Ustr, UstrMap};
 
     use crate::{
         data::{MasteryScore, UnitReward},
+        graph::{InMemoryUnitGraph, UnitGraph},
         scheduler::reward_propagator::{MIN_ABS_REWARD, MIN_WEIGHT, RewardPropagator},
-        test_utils::{TestCourse, TestId, TestLesson, init_test_simulation},
     };
 
-    fn build_course_with_path_weights(source_encompassed: Vec<(TestId, f32)>) -> Vec<TestCourse> {
-        vec![TestCourse {
-            id: TestId(0, None, None),
-            dependencies: vec![],
-            encompassed: vec![],
-            superseded: vec![],
-            metadata: BTreeMap::new(),
-            lessons: vec![
-                TestLesson {
-                    id: TestId(0, Some(0), None),
-                    dependencies: vec![],
-                    encompassed: source_encompassed,
-                    superseded: vec![],
-                    metadata: BTreeMap::new(),
-                    num_exercises: 1,
-                },
-                TestLesson {
-                    id: TestId(0, Some(1), None),
-                    dependencies: vec![],
-                    encompassed: vec![(TestId(0, Some(3), None), 1.0)],
-                    superseded: vec![],
-                    metadata: BTreeMap::new(),
-                    num_exercises: 1,
-                },
-                TestLesson {
-                    id: TestId(0, Some(2), None),
-                    dependencies: vec![],
-                    encompassed: vec![(TestId(0, Some(3), None), 1.0)],
-                    superseded: vec![],
-                    metadata: BTreeMap::new(),
-                    num_exercises: 1,
-                },
-                TestLesson {
-                    id: TestId(0, Some(3), None),
-                    dependencies: vec![],
-                    encompassed: vec![],
-                    superseded: vec![],
-                    metadata: BTreeMap::new(),
-                    num_exercises: 1,
-                },
-            ],
-        }]
+    fn build_path_graph(source_encompassed: &[(Ustr, f32)]) -> Result<InMemoryUnitGraph> {
+        let mut graph = InMemoryUnitGraph::default();
+        graph.add_course(Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::0"), Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::1"), Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::2"), Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::3"), Ustr::from("0"))?;
+        graph.add_exercise(Ustr::from("0::0::0"), Ustr::from("0::0"))?;
+
+        graph.add_encompassed(Ustr::from("0::0"), &[], source_encompassed)?;
+        graph.add_encompassed(Ustr::from("0::1"), &[], &[(Ustr::from("0::3"), 1.0)])?;
+        graph.add_encompassed(Ustr::from("0::2"), &[], &[(Ustr::from("0::3"), 1.0)])?;
+        Ok(graph)
     }
 
-    fn propagate_five_rewards(courses: &Vec<TestCourse>) -> Result<UstrMap<UnitReward>> {
-        let temp_dir = tempfile::tempdir()?;
-        let library = init_test_simulation(temp_dir.path(), courses)?;
-        let scheduler_data = library.get_scheduler_data();
-        let reward_propagator = RewardPropagator {
-            data: scheduler_data,
-        };
-        let rewards =
-            reward_propagator.propagate_rewards(Ustr::from("0::0::0"), &MasteryScore::Five, 0);
+    fn propagate_five_rewards(unit_graph: &dyn UnitGraph) -> Result<UstrMap<UnitReward>> {
+        let rewards = RewardPropagator::propagate_rewards_helper(
+            unit_graph,
+            Ustr::from("0::0"),
+            Ustr::from("0"),
+            &MasteryScore::Five,
+            0,
+        );
         Ok(rewards.into_iter().collect())
     }
 
@@ -274,11 +263,8 @@ mod test {
     /// Verifies that when multiple paths reach the same unit, the strongest path is used.
     #[test]
     fn strongest_path_wins() -> Result<()> {
-        let courses = build_course_with_path_weights(vec![
-            (TestId(0, Some(1), None), 1.0),
-            (TestId(0, Some(2), None), 0.5),
-        ]);
-        let reward_map = propagate_five_rewards(&courses)?;
+        let graph = build_path_graph(&[(Ustr::from("0::1"), 1.0), (Ustr::from("0::2"), 0.5)])?;
+        let reward_map = propagate_five_rewards(&graph)?;
         let reward = reward_map.get(&Ustr::from("0::3")).unwrap();
         assert!((reward.value - 0.72).abs() < f32::EPSILON);
         assert!((reward.weight - 0.8).abs() < f32::EPSILON);
@@ -288,14 +274,10 @@ mod test {
     /// Verifies that the strongest-path result is independent of path insertion order.
     #[test]
     fn strongest_path_is_order_independent() -> Result<()> {
-        let first_order = build_course_with_path_weights(vec![
-            (TestId(0, Some(1), None), 1.0),
-            (TestId(0, Some(2), None), 0.5),
-        ]);
-        let second_order = build_course_with_path_weights(vec![
-            (TestId(0, Some(2), None), 0.5),
-            (TestId(0, Some(1), None), 1.0),
-        ]);
+        let first_order =
+            build_path_graph(&[(Ustr::from("0::1"), 1.0), (Ustr::from("0::2"), 0.5)])?;
+        let second_order =
+            build_path_graph(&[(Ustr::from("0::2"), 0.5), (Ustr::from("0::1"), 1.0)])?;
         let first_reward = propagate_five_rewards(&first_order)?
             .get(&Ustr::from("0::3"))
             .cloned()
@@ -312,40 +294,15 @@ mod test {
     /// Verifies that edge weights attenuate both reward value and reward weight.
     #[test]
     fn edge_weights_attenuate_reward_weight() -> Result<()> {
-        let courses = vec![TestCourse {
-            id: TestId(0, None, None),
-            dependencies: vec![],
-            encompassed: vec![],
-            superseded: vec![],
-            metadata: BTreeMap::new(),
-            lessons: vec![
-                TestLesson {
-                    id: TestId(0, Some(0), None),
-                    dependencies: vec![],
-                    encompassed: vec![(TestId(0, Some(1), None), 0.8)],
-                    superseded: vec![],
-                    metadata: BTreeMap::new(),
-                    num_exercises: 1,
-                },
-                TestLesson {
-                    id: TestId(0, Some(1), None),
-                    dependencies: vec![],
-                    encompassed: vec![(TestId(0, Some(2), None), 0.8)],
-                    superseded: vec![],
-                    metadata: BTreeMap::new(),
-                    num_exercises: 1,
-                },
-                TestLesson {
-                    id: TestId(0, Some(2), None),
-                    dependencies: vec![],
-                    encompassed: vec![],
-                    superseded: vec![],
-                    metadata: BTreeMap::new(),
-                    num_exercises: 1,
-                },
-            ],
-        }];
-        let reward_map = propagate_five_rewards(&courses)?;
+        let mut graph = InMemoryUnitGraph::default();
+        graph.add_course(Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::0"), Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::1"), Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::2"), Ustr::from("0"))?;
+        graph.add_encompassed(Ustr::from("0::0"), &[], &[(Ustr::from("0::1"), 0.8)])?;
+        graph.add_encompassed(Ustr::from("0::1"), &[], &[(Ustr::from("0::2"), 0.8)])?;
+
+        let reward_map = propagate_five_rewards(&graph)?;
         let first_hop = reward_map.get(&Ustr::from("0::1")).unwrap();
         assert!((first_hop.value - 0.64).abs() < f32::EPSILON);
         assert!((first_hop.weight - 0.8).abs() < f32::EPSILON);
@@ -359,33 +316,33 @@ mod test {
     /// Verifies that very weak initial edges are pruned before being recorded.
     #[test]
     fn weak_initial_edges_are_pruned() -> Result<()> {
-        let courses = vec![TestCourse {
-            id: TestId(0, None, None),
-            dependencies: vec![],
-            encompassed: vec![],
-            superseded: vec![],
-            metadata: BTreeMap::new(),
-            lessons: vec![
-                TestLesson {
-                    id: TestId(0, Some(0), None),
-                    dependencies: vec![],
-                    encompassed: vec![(TestId(0, Some(1), None), 0.1)],
-                    superseded: vec![],
-                    metadata: BTreeMap::new(),
-                    num_exercises: 1,
-                },
-                TestLesson {
-                    id: TestId(0, Some(1), None),
-                    dependencies: vec![],
-                    encompassed: vec![],
-                    superseded: vec![],
-                    metadata: BTreeMap::new(),
-                    num_exercises: 1,
-                },
-            ],
-        }];
-        let reward_map = propagate_five_rewards(&courses)?;
+        let mut graph = InMemoryUnitGraph::default();
+        graph.add_course(Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::0"), Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::1"), Ustr::from("0"))?;
+        graph.add_encompassed(Ustr::from("0::0"), &[], &[(Ustr::from("0::1"), 0.1)])?;
+
+        let reward_map = propagate_five_rewards(&graph)?;
         assert!(reward_map.is_empty());
+        Ok(())
+    }
+
+    /// Verifies resolving roots from the graph directly.
+    #[test]
+    fn resolve_roots() -> Result<()> {
+        let mut graph = InMemoryUnitGraph::default();
+        graph.add_course(Ustr::from("course"))?;
+        graph.add_lesson(Ustr::from("lesson"), Ustr::from("course"))?;
+        graph.add_exercise(Ustr::from("exercise"), Ustr::from("lesson"))?;
+
+        assert_eq!(
+            RewardPropagator::resolve_roots(&graph, Ustr::from("exercise")),
+            Some((Ustr::from("lesson"), Ustr::from("course")))
+        );
+        assert_eq!(
+            RewardPropagator::resolve_roots(&graph, Ustr::from("missing")),
+            None
+        );
         Ok(())
     }
 }
