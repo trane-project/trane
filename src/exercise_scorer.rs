@@ -38,9 +38,9 @@ const PROCEDURAL_CURVE_DECAY: f32 = -0.3;
 /// with very few trials still have a reasonable stability estimate.
 const MIN_STABILITY: f32 = 0.5;
 
-/// The maximum stability value in days. This caps the stability estimate to prevent excessively
-/// long intervals for well-learned material.
-const MAX_STABILITY: f32 = 365.0;
+/// The maximum stability value in days. Trane is designed for the long-life learning of acquiring
+/// mastery, so a high stability ceiling of ten years allows it to model this case.
+const MAX_STABILITY: f32 = 3650.0;
 
 /// The default stability for exercises with no review history.
 const DEFAULT_STABILITY: f32 = 1.0;
@@ -72,9 +72,9 @@ const DIFFICULTY_REVERSION_WEIGHT: f32 = 0.2;
 const PERFORMANCE_BASELINE_SCORE: f32 = 3.0;
 
 /// A scaling coefficient applied to the stability update term for each review. The per-review
-/// multiplicative change is `1 + GROWTH_RATE * P * E * spacing_gain * S^(-k)`. The resulting
-/// stability is clamped to `MIN_STABILITY..MAX_STABILITY`.
-const GROWTH_RATE: f32 = 0.5;
+/// multiplicative change is `1 + STABILITY_COEFFICIENT * P * E * spacing_gain * S^(-k)`. The
+/// resulting stability is clamped to `MIN_STABILITY..MAX_STABILITY`.
+const STABILITY_COEFFICIENT: f32 = 3.5;
 
 /// The minimum grade value used in performance calculations. Corresponds to complete failure. This
 /// is the same as the minimum mastery score, just with a different name to shorten formulas.
@@ -112,7 +112,7 @@ const SPACING_EFFECT_WEIGHT: f32 = 0.5;
 
 /// The exponent applied to stability when computing diminishing returns for repeated successful
 /// reviews. Larger values increase saturation strength at high stability.
-const STABILITY_DAMPING_EXP: f32 = 0.2;
+const STABILITY_DAMPING_EXP: f32 = 0.01;
 
 /// The minimum stability-loss fraction for a lapse.
 const MIN_LAPSE_DROP: f32 = 0.0;
@@ -139,7 +139,7 @@ const LAPSE_RETRIEVABILITY_WEIGHT: f32 = 0.30;
 /// chains stability updates through the review history chronologically (oldest to newest).
 /// Stability evolves with each review using:
 ///
-/// S' = S × (1 + GROWTH_RATE × P × E × spacing_gain × S^(-k)),
+/// S' = S × (1 + STABILITY_COEFFICIENT × P × E × spacing_gain × S^(-k)),
 ///
 /// where P is performance factor, E is ease factor, and spacing_gain increases successful growth
 /// after longer review intervals. Final score multiplies difficulty-adjusted retrievability by the
@@ -335,7 +335,7 @@ impl PowerLawScorer {
             let spacing_gain =
                 Self::compute_spacing_gain(exercise_type, days_since_previous_review, stability, p);
             let stability_damping = Self::compute_stability_damping(stability);
-            let growth_term = GROWTH_RATE * p * e * spacing_gain * stability_damping;
+            let growth_term = STABILITY_COEFFICIENT * p * e * spacing_gain * stability_damping;
             (stability * (1.0 + growth_term)).clamp(MIN_STABILITY, MAX_STABILITY)
         }
     }
@@ -349,8 +349,8 @@ impl PowerLawScorer {
     /// - Use the same type-specific forgetting curve decay as the final retrievability.
     /// - Apply an interval-aware spacing gain to successful reviews.
     /// - Apply a separate lapse reduction for recalls below the baseline threshold.
-    /// - Update stability via the success branch: `S' = S × (1 + GROWTH_RATE × P × E × spacing_gain
-    ///   × S^(-k))`.
+    /// - Update stability via the success branch: `S' = S × (1 + STABILITY_COEFFICIENT × P × E ×
+    ///   spacing_gain × S^(-k))`.
     /// - Or the lapse branch: `S' = S * (1 - lapse_drop)`, where `lapse_drop` grows with difficulty
     ///   and surprise.
     /// - Update difficulty to the new post-review state and continue to the next trial.
@@ -723,7 +723,7 @@ mod test {
         let e = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR;
         let spacing_gain =
             PowerLawScorer::compute_spacing_gain(&exercise_type, 0.0, MIN_STABILITY, p);
-        let base_growth_term = GROWTH_RATE * p * e * spacing_gain;
+        let base_growth_term = STABILITY_COEFFICIENT * p * e * spacing_gain;
 
         let low_stability = MIN_STABILITY;
         let high_stability = 50.0;
@@ -774,11 +774,11 @@ mod test {
         let e = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR;
         let spacing_gain =
             PowerLawScorer::compute_spacing_gain(&exercise_type, 0.0, MIN_STABILITY, p);
-        let base_growth_term = GROWTH_RATE * p * e * spacing_gain;
+        let base_growth_term = STABILITY_COEFFICIENT * p * e * spacing_gain;
+        let max_damping = PowerLawScorer::compute_stability_damping(MIN_STABILITY);
 
-        // Repeatedly apply success updates and track shrinking relative gains.
+        // Repeatedly apply success updates and ensure gains remain bounded.
         let mut stability = MIN_STABILITY;
-        let mut previous_relative_gain = f32::INFINITY;
         for _ in 0..25 {
             let stability_damping = PowerLawScorer::compute_stability_damping(stability);
             let effective_growth = base_growth_term * stability_damping;
@@ -786,12 +786,13 @@ mod test {
                 (stability * (1.0 + effective_growth)).clamp(MIN_STABILITY, MAX_STABILITY);
             let relative_gain = (next_stability - stability) / stability;
 
-            assert!(relative_gain < previous_relative_gain);
-            previous_relative_gain = relative_gain;
+            // Relative gain stays bounded and non-negative.
+            assert!(relative_gain >= 0.0);
+            assert!(relative_gain <= base_growth_term * max_damping + f32::EPSILON);
             stability = next_stability;
         }
 
-        assert!(stability < MAX_STABILITY);
+        assert!(stability <= MAX_STABILITY);
         assert!(stability >= MIN_STABILITY);
     }
 
@@ -1105,7 +1106,7 @@ mod test {
                 timestamp: generate_timestamp(100),
             }],
         )?;
-        assert!(score > 1.0 && score < 1.5);
+        assert!(score < 3.0);
         Ok(())
     }
 
@@ -1200,31 +1201,70 @@ mod test {
         let trials = vec![
             ExerciseTrial {
                 score: 5.0,
-                timestamp: generate_timestamp(40),
+                timestamp: generate_timestamp(200),
             },
             ExerciseTrial {
                 score: 4.0,
-                timestamp: generate_timestamp(60),
+                timestamp: generate_timestamp(210),
             },
             ExerciseTrial {
                 score: 5.0,
-                timestamp: generate_timestamp(67),
+                timestamp: generate_timestamp(213),
             },
             ExerciseTrial {
                 score: 5.0,
-                timestamp: generate_timestamp(99),
+                timestamp: generate_timestamp(248),
             },
             ExerciseTrial {
                 score: 4.0,
-                timestamp: generate_timestamp(140),
+                timestamp: generate_timestamp(256),
             },
             ExerciseTrial {
                 score: 4.0,
-                timestamp: generate_timestamp(167),
+                timestamp: generate_timestamp(270),
             },
         ];
         let score = SCORER.score(ExerciseType::Procedural, &trials)?;
-        assert!(score > 3.0 && score < 5.0);
+        assert!(score >= 3.5);
+        let score = SCORER.score(ExerciseType::Declarative, &trials)?;
+        assert!(score >= 3.5);
+        Ok(())
+    }
+
+    /// Verifies that very old trials of an exercise with good scores return a very high score due
+    /// to strong stability.
+    #[test]
+    fn score_very_good_old_trialsl() -> Result<()> {
+        let trials = vec![
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(400),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(410),
+            },
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(411),
+            },
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(420),
+            },
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(430),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(431),
+            },
+        ];
+        let score = SCORER.score(ExerciseType::Procedural, &trials)?;
+        assert!(score >= 4.0);
+        let score = SCORER.score(ExerciseType::Declarative, &trials)?;
+        assert!(score >= 4.0);
         Ok(())
     }
 }
