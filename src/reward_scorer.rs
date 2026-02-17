@@ -110,11 +110,7 @@ impl RewardScorer for WeightedRewardScorer {
             let numerator =
                 course_score * COURSE_REWARDS_WEIGHT + lesson_score * LESSON_REWARDS_WEIGHT;
             let denominator = COURSE_REWARDS_WEIGHT + LESSON_REWARDS_WEIGHT;
-            if denominator == 0.0 {
-                Ok(0.0)
-            } else {
-                Ok(numerator / denominator)
-            }
+            Ok(numerator / denominator)
         }
     }
 
