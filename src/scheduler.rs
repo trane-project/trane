@@ -34,8 +34,8 @@ use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
     data::{
-        ExerciseManifest, FULL_CANDIDATES_SCORE, MasteryScore, PassingScoreOptions, SchedulerOptions,
-        UnitType,
+        ExerciseManifest, FULL_CANDIDATES_SCORE, MasteryScore, PassingScoreOptions,
+        SchedulerOptions, UnitType,
         filter::{ExerciseFilter, KeyValueFilter, UnitFilter},
     },
     error::ExerciseSchedulerError,
