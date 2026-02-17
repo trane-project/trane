@@ -34,7 +34,7 @@ use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
     data::{
-        ExerciseManifest, MasteryScore, PassingScoreOptionsV2, SchedulerOptions, UnitType,
+        ExerciseManifest, MasteryScore, PassingScoreOptions, SchedulerOptions, UnitType,
         filter::{ExerciseFilter, KeyValueFilter, UnitFilter},
     },
     error::ExerciseSchedulerError,
@@ -296,9 +296,10 @@ impl DepthFirstScheduler {
     fn select_candidates(
         candidates: Vec<Candidate>,
         score: f32,
-        options: &PassingScoreOptionsV2,
+        options: &PassingScoreOptions,
     ) -> Vec<Candidate> {
-        // Return early when there are no candidates or all should be returned.
+        // Return early when there are no candidates or all should be returned. Candidate selection
+        // should only apply to lessons above the mininum passing score.
         if candidates.is_empty() {
             return Vec::new();
         }
@@ -307,15 +308,13 @@ impl DepthFirstScheduler {
         }
 
         // For scores after passing, linearly interpolate from min_fraction at min_score to 1.0 at
-        // FULL_SCALE.
+        // FULL_SCALE. Make sure to return at least one candidate.
         let min_fraction = options.min_fraction.clamp(0.0, 1.0);
         let fraction = min_fraction
             + ((score - options.min_score) / (FULL_SCALE_SCORE - options.min_score))
                 * (1.0 - min_fraction);
         let clamped_fraction = fraction.clamp(0.0, 1.0);
         let mut num_to_select = (clamped_fraction * candidates.len() as f32).floor() as usize;
-
-        // Keep at least one candidate while there is at least one candidate to show.
         if clamped_fraction > 0.0 && num_to_select == 0 {
             num_to_select = 1;
         }
@@ -1000,7 +999,7 @@ mod test {
     fn select(
         lesson_score: f32,
         num_candidates: usize,
-        options: PassingScoreOptionsV2,
+        options: PassingScoreOptions,
     ) -> Vec<Candidate> {
         let candidates = (0..num_candidates)
             .map(|idx| candidate(idx as u32, lesson_score, 0.0, 1.0))
@@ -1011,7 +1010,7 @@ mod test {
     #[test]
     fn select_candidates_empty() {
         assert!(
-            DepthFirstScheduler::select_candidates(vec![], 0.0, &PassingScoreOptionsV2::default(),)
+            DepthFirstScheduler::select_candidates(vec![], 0.0, &PassingScoreOptions::default(),)
                 .is_empty()
         );
     }
@@ -1021,7 +1020,7 @@ mod test {
         let candidates = select(
             2.0,
             5,
-            PassingScoreOptionsV2 {
+            PassingScoreOptions {
                 min_score: 3.0,
                 min_fraction: 0.2,
             },
@@ -1034,7 +1033,7 @@ mod test {
         let candidates = select(
             2.0,
             5,
-            PassingScoreOptionsV2 {
+            PassingScoreOptions {
                 min_score: 3.0,
                 min_fraction: 0.0,
             },
@@ -1047,7 +1046,7 @@ mod test {
         let candidates = select(
             3.0,
             2,
-            PassingScoreOptionsV2 {
+            PassingScoreOptions {
                 min_score: 3.0,
                 min_fraction: 0.2,
             },
@@ -1060,7 +1059,7 @@ mod test {
         let candidates = select(
             4.0,
             10,
-            PassingScoreOptionsV2 {
+            PassingScoreOptions {
                 min_score: 3.0,
                 min_fraction: 0.2,
             },
@@ -1073,7 +1072,7 @@ mod test {
         let candidates = select(
             3.01,
             2,
-            PassingScoreOptionsV2 {
+            PassingScoreOptions {
                 min_score: 3.0,
                 min_fraction: 0.0,
             },
@@ -1086,7 +1085,7 @@ mod test {
         let candidates = select(
             5.0,
             11,
-            PassingScoreOptionsV2 {
+            PassingScoreOptions {
                 min_score: 3.0,
                 min_fraction: 0.2,
             },
