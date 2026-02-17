@@ -152,7 +152,7 @@ impl CandidateFilter {
     ///    lesson, the less weight each candidate is assigned to avoid selecting too many exercises
     ///    from the same lesson.
     /// 10. The number of candidates in the same course. The same logic applies as for the lesson
-    ///    frequency.
+    ///     frequency.
     fn candidate_weight(
         c: &Candidate,
         encompassed_freq: u32,

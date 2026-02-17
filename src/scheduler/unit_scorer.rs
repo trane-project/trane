@@ -184,9 +184,9 @@ impl UnitScorer {
             .score_rewards(&course_rewards, &lesson_rewards)
             .unwrap_or_default();
         let now = Utc::now().timestamp();
-        let last_seen = scores
-            .first()
-            .map_or(0.0, |trial| ((now - trial.timestamp) as f32 / 86_400.0).max(0.0));
+        let last_seen = scores.first().map_or(0.0, |trial| {
+            ((now - trial.timestamp) as f32 / 86_400.0).max(0.0)
+        });
 
         // Apply the reward if it meets the criteria and cache the final score.
         let final_score = if self.reward_scorer.apply_reward(reward, &scores) {
