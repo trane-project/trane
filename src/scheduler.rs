@@ -143,6 +143,9 @@ struct Candidate {
     /// The number of previous trials that have been recorded for this exercise.
     num_trials: usize,
 
+    /// The number of days since the last trial for this exercise.
+    last_seen: f32,
+
     /// The number of times this exercise has been scheduled during the run of this scheduler. This
     /// value will be used to assign more weight to exercises that have been scheduled less often.
     frequency: usize,
@@ -360,6 +363,10 @@ impl DepthFirstScheduler {
                     num_trials: self
                         .unit_scorer
                         .get_num_trials(exercise_id)?
+                        .unwrap_or_default(),
+                    last_seen: self
+                        .unit_scorer
+                        .get_last_seen_days(exercise_id)?
                         .unwrap_or_default(),
                     frequency: self.data.get_exercise_frequency(exercise_id),
                 })
@@ -794,6 +801,10 @@ impl DepthFirstScheduler {
                             .unit_scorer
                             .get_num_trials(unit_id)?
                             .unwrap_or_default(),
+                        last_seen: self
+                            .unit_scorer
+                            .get_last_seen_days(unit_id)?
+                            .unwrap_or_default(),
                         frequency: *self.data.frequency_map.read().get(&unit_id).unwrap_or(&0),
                     });
                 }
@@ -996,6 +1007,7 @@ mod test {
             lesson_score,
             course_score: 0.0,
             num_trials: 0,
+            last_seen: 0.0,
             frequency: 0,
         }
     }

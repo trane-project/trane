@@ -6,6 +6,7 @@
 //>@lp-example-2
 
 use anyhow::{Result, anyhow};
+use chrono::Utc;
 use std::cell::RefCell;
 use ustr::{Ustr, UstrMap, UstrSet};
 
@@ -24,6 +25,9 @@ pub(super) struct CachedScore {
 
     /// The number of trials used to compute the score.
     num_trials: usize,
+
+    /// The number of days since the last trial.
+    last_seen: f32,
 }
 
 /// Contains the logic to score units based on their previous scores and rewards, as well as the
@@ -179,6 +183,10 @@ impl UnitScorer {
             .reward_scorer
             .score_rewards(&course_rewards, &lesson_rewards)
             .unwrap_or_default();
+        let now = Utc::now().timestamp();
+        let last_seen = scores
+            .first()
+            .map_or(0.0, |trial| ((now - trial.timestamp) as f32 / 86_400.0).max(0.0));
 
         // Apply the reward if it meets the criteria and cache the final score.
         let final_score = if self.reward_scorer.apply_reward(reward, &scores) {
@@ -191,6 +199,7 @@ impl UnitScorer {
             CachedScore {
                 score: final_score,
                 num_trials: scores.len(),
+                last_seen,
             },
         );
         Ok(final_score)
@@ -210,6 +219,21 @@ impl UnitScorer {
         self.get_exercise_score(exercise_id)?;
         let cached_score = self.exercise_cache.borrow().get(&exercise_id).cloned();
         Ok(cached_score.map(|s| s.num_trials))
+    }
+
+    /// Returns the number of days since the last trial for the given exercise.
+    pub(super) fn get_last_seen_days(&self, exercise_id: Ustr) -> Result<Option<f32>> {
+        // Return the cached value if it exists.
+        let cached_score = self.exercise_cache.borrow().get(&exercise_id).cloned();
+        if let Some(cached_score) = cached_score {
+            return Ok(Some(cached_score.last_seen));
+        }
+
+        // Compute the exercise's score, which populates the cache. Then, retrieve the days since last
+        // seen from the cache.
+        self.get_exercise_score(exercise_id)?;
+        let cached_score = self.exercise_cache.borrow().get(&exercise_id).cloned();
+        Ok(cached_score.map(|s| s.last_seen))
     }
 
     /// Returns whether all the exercises in the unit have valid scores.
@@ -586,6 +610,7 @@ mod test {
             CachedScore {
                 score: 5.0,
                 num_trials: 1,
+                last_seen: 0.0,
             },
         );
         cache.exercise_cache.borrow_mut().insert(
@@ -593,6 +618,7 @@ mod test {
             CachedScore {
                 score: 5.0,
                 num_trials: 1,
+                last_seen: 0.0,
             },
         );
         cache
@@ -646,6 +672,27 @@ mod test {
         library.score_exercise(exercise_id, MasteryScore::Four, 3)?;
         cache.invalidate_cached_score(exercise_id);
         assert_eq!(Some(3), cache.get_num_trials(exercise_id)?);
+        Ok(())
+    }
+
+    /// Verifies that the number of days since last seen is computed and cached along with the score.
+    #[test]
+    fn get_last_seen_days() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
+        let scheduler_data = library.get_scheduler_data();
+        let cache = UnitScorer::new(scheduler_data, SchedulerOptions::default());
+        let exercise_id = Ustr::from("0::0::0");
+        let two_days_ago = Utc::now().timestamp() - (2 * 86_400);
+        library.score_exercise(exercise_id, MasteryScore::Three, two_days_ago)?;
+
+        let last_seen = cache.get_last_seen_days(exercise_id)?;
+        assert!((last_seen.unwrap_or_default() - 2.0).abs() < 0.5);
+
+        library.score_exercise(exercise_id, MasteryScore::Four, Utc::now().timestamp())?;
+        cache.invalidate_cached_score(exercise_id);
+        let last_seen = cache.get_last_seen_days(exercise_id)?;
+        assert!(last_seen.unwrap_or_default() < 1.0);
         Ok(())
     }
 }

@@ -271,6 +271,7 @@ mod tests {
                     frequency: 0,
                     lesson_score: 0.0,
                     num_trials: 0,
+                    last_seen: 0.0,
                 })
             })
             .collect::<Vec<Candidate>>();
@@ -342,6 +343,7 @@ mod tests {
                     frequency: 0,
                     lesson_score: 0.0,
                     num_trials: 0,
+                    last_seen: 0.0,
                 })
             })
             .collect::<Vec<Candidate>>();
@@ -378,6 +380,7 @@ mod tests {
                 frequency: 0,
                 lesson_score: 0.0,
                 num_trials: 0,
+                last_seen: 0.0,
             },
             Candidate {
                 exercise_id: Ustr::from("ex2"),
@@ -389,6 +392,7 @@ mod tests {
                 frequency: 0,
                 lesson_score: 0.0,
                 num_trials: 0,
+                last_seen: 0.0,
             },
             Candidate {
                 exercise_id: Ustr::from("ex3"),
@@ -400,6 +404,7 @@ mod tests {
                 frequency: 0,
                 lesson_score: 0.0,
                 num_trials: 0,
+                last_seen: 0.0,
             },
         ];
 
@@ -430,6 +435,7 @@ mod tests {
                 frequency: 0,
                 lesson_score: 0.0,
                 num_trials: 0,
+                last_seen: 0.0,
             },
             Candidate {
                 exercise_id: Ustr::from("ex2"),
@@ -441,6 +447,7 @@ mod tests {
                 frequency: 0,
                 lesson_score: 0.0,
                 num_trials: 0,
+                last_seen: 0.0,
             },
             Candidate {
                 exercise_id: Ustr::from("ex3"),
@@ -452,6 +459,7 @@ mod tests {
                 frequency: 0,
                 lesson_score: 0.0,
                 num_trials: 0,
+                last_seen: 0.0,
             },
             Candidate {
                 exercise_id: Ustr::from("ex4"),
@@ -463,6 +471,7 @@ mod tests {
                 frequency: 0,
                 lesson_score: 0.0,
                 num_trials: 0,
+                last_seen: 0.0,
             },
         ];
 
