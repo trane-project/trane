@@ -767,6 +767,9 @@ impl GetUnitType for ExerciseManifest {
     }
 }
 
+/// The score at which fractional selection reaches 100% of lesson candidates.
+pub const FULL_CANDIDATES_SCORE: f32 = 4.25;
+
 /// Options to control the passing score. Instead of a binary decision of whether a unit should
 /// block its dependents, Trane allows a more gradual transition so that a single unit without very
 /// high scores does not block progress along a path.
@@ -795,7 +798,7 @@ impl Default for PassingScoreOptions {
 impl PassingScoreOptions {
     /// Verifies that the options are valid.
     pub fn verify(&self) -> Result<()> {
-        if self.min_score < 0.0 || self.min_score >= 4.5 {
+        if self.min_score < 0.0 || self.min_score >= FULL_CANDIDATES_SCORE {
             bail!("invalid minimum score: {}", self.min_score);
         }
 

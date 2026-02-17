@@ -34,7 +34,8 @@ use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
     data::{
-        ExerciseManifest, MasteryScore, PassingScoreOptions, SchedulerOptions, UnitType,
+        ExerciseManifest, FULL_CANDIDATES_SCORE, MasteryScore, PassingScoreOptions, SchedulerOptions,
+        UnitType,
         filter::{ExerciseFilter, KeyValueFilter, UnitFilter},
     },
     error::ExerciseSchedulerError,
@@ -48,9 +49,6 @@ use crate::{
 /// bigger than the multiple of the final batch size and this value. This is to avoid the need to
 /// search the entire graph if the search already found a decently sized pool of candidates.
 const MAX_CANDIDATE_FACTOR: usize = 10;
-
-/// The score at which fractional selection reaches 100% of lesson candidates.
-const FULL_SCALE_SCORE: f32 = 4.5;
 
 /// The trait that defines the interface for the scheduler. Contains functions to request a new
 /// batch of exercises and to provide Trane the self-reported scores for said exercises.
@@ -303,7 +301,7 @@ impl DepthFirstScheduler {
         if candidates.is_empty() {
             return Vec::new();
         }
-        if score >= FULL_SCALE_SCORE || score < options.min_score {
+        if score >= FULL_CANDIDATES_SCORE || score < options.min_score {
             return candidates;
         }
 
@@ -311,7 +309,7 @@ impl DepthFirstScheduler {
         // FULL_SCALE. Make sure to return at least one candidate.
         let min_fraction = options.min_fraction.clamp(0.0, 1.0);
         let fraction = min_fraction
-            + ((score - options.min_score) / (FULL_SCALE_SCORE - options.min_score))
+            + ((score - options.min_score) / (FULL_CANDIDATES_SCORE - options.min_score))
                 * (1.0 - min_fraction);
         let clamped_fraction = fraction.clamp(0.0, 1.0);
         let mut num_to_select = (clamped_fraction * candidates.len() as f32).floor() as usize;
