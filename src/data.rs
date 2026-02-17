@@ -768,7 +768,7 @@ impl GetUnitType for ExerciseManifest {
 }
 
 /// The score at which fractional selection reaches 100% of lesson candidates.
-pub const FULL_CANDIDATES_SCORE: f32 = 4.25;
+pub const FULL_CANDIDATES_SCORE: f32 = 4.0;
 
 /// Options to control the passing score. Instead of a binary decision of whether a unit should
 /// block its dependents, Trane allows a more gradual transition so that a single unit without very
