@@ -130,6 +130,18 @@ const LAPSE_DIFFICULTY_WEIGHT: f32 = 0.25;
 /// penalties).
 const LAPSE_RETRIEVABILITY_WEIGHT: f32 = 0.30;
 
+/// The minimum weighted score required to apply the old-good retrievability floor.
+const OLD_GOOD_MIN_SCORE: f32 = 4.0;
+
+/// The minimum number of scores required to apply the old-good retrievability floor.
+const OLD_GOOD_MIN_SCORES: usize = 2;
+
+/// The minimum number of elapsed days required to apply the old-good retrievability floor.
+const OLD_GOOD_MIN_AGE: f32 = 50.0;
+
+/// The minimum retrievability used for old exercises with strong historical performance.
+const OLD_GOOD_FLOOR: f32 = 0.9;
+
 /// A scorer that uses a power-law forgetting curve to compute the score of an exercise, using
 /// review-history-based estimation of stability and difficulty. This models memory retention more
 /// accurately than exponential decay by accounting for the "fat tail" of long-term memory.
@@ -415,6 +427,26 @@ impl PowerLawScorer {
         let factor = Self::get_curve_factor(exercise_type);
         (1.0 + factor * days_since_last / stability).powf(decay)
     }
+
+    /// Applies a retrievability floor for old exercises with strong weighted performance. It is
+    /// preferable to show old exercises and have the student fail than to have students stuck with
+    /// review of very old exercises after long gaps in their practice.
+    #[inline]
+    fn apply_old_good_retrievability_floor(
+        adjusted_retrievability: f32,
+        weighted_score: f32,
+        days_since_last: f32,
+        num_scores: usize,
+    ) -> f32 {
+        if num_scores >= OLD_GOOD_MIN_SCORES
+            && weighted_score >= OLD_GOOD_MIN_SCORE
+            && days_since_last >= OLD_GOOD_MIN_AGE
+        {
+            adjusted_retrievability.max(OLD_GOOD_FLOOR)
+        } else {
+            adjusted_retrievability
+        }
+    }
 }
 
 impl ExerciseScorer for PowerLawScorer {
@@ -457,7 +489,13 @@ impl ExerciseScorer for PowerLawScorer {
 
         // Combine memory state with recent weighted performance and clamp to the output range.
         let weighted_score = Self::compute_weighted_avg(previous_trials);
-        Ok((adjusted_retrievability * weighted_score).clamp(0.0, 5.0))
+        let effective_retrievability = Self::apply_old_good_retrievability_floor(
+            adjusted_retrievability,
+            weighted_score,
+            days_since_last,
+            previous_trials.len(),
+        );
+        Ok((effective_retrievability * weighted_score).clamp(0.0, 5.0))
     }
 }
 
@@ -999,6 +1037,31 @@ mod test {
         ];
         let weighted = PowerLawScorer::compute_weighted_avg(&multi_trials);
         assert!((weighted - 4.147).abs() < 0.001);
+    }
+
+    /// Verifies that the old-good retrievability floor is applied only when thresholds are met.
+    #[test]
+    fn apply_old_good_retrievability_floor() {
+        assert_eq!(
+            PowerLawScorer::apply_old_good_retrievability_floor(0.2, 4.0, 80.0, 3),
+            OLD_GOOD_FLOOR
+        );
+        assert_eq!(
+            PowerLawScorer::apply_old_good_retrievability_floor(0.95, 4.0, 80.0, 3),
+            0.95
+        );
+        assert_eq!(
+            PowerLawScorer::apply_old_good_retrievability_floor(0.2, 3.4, 80.0, 3),
+            0.2
+        );
+        assert_eq!(
+            PowerLawScorer::apply_old_good_retrievability_floor(0.2, 4.0, 49.0, 3),
+            0.2
+        );
+        assert_eq!(
+            PowerLawScorer::apply_old_good_retrievability_floor(0.2, 4.0, 80.0, 1),
+            0.2
+        );
     }
 
     /// Verifies that a recent bad performance results in a very low score.
