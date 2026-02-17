@@ -599,9 +599,8 @@ impl DepthFirstScheduler {
                 let num_candidates = candidates.len();
                 all_candidates.extend(candidates);
 
-                // The average score is considered valid only if at least one candidate was
-                // retrieved. Compare it against the passing score to decide whether the search
-                // should continue past this lesson.
+                // Compare the score against the passing score to decide whether the search should
+                // continue past this lesson.
                 if num_candidates > 0
                     && avg_score
                         < self
@@ -610,11 +609,13 @@ impl DepthFirstScheduler {
                             .passing_score
                             .compute_score(curr_unit.depth)
                 {
-                    // If the search reaches a dead-end and there are already enough candidates,
-                    // terminate the search. Otherwise, continue with the search.
+                    // Search reached a dead-end. If there are already enough candidates, terminate
+                    // the search. Otherwise, continue with the search and shuffle the entire stack
+                    // to prioritize other paths in the graph.
                     if all_candidates.len() >= max_candidates {
                         break; // grcov-excl-line
                     }
+                    stack.shuffle(&mut rng());
                     continue;
                 }
 
@@ -693,9 +694,8 @@ impl DepthFirstScheduler {
                 let num_candidates = candidates.len();
                 all_candidates.extend(candidates);
 
-                // The average score is considered valid only if at least one candidate was
-                // retrieved. Compare it against the passing score to decide whether the search
-                // should continue past this lesson.
+                // Compare the score against the passing score to decide whether the search should
+                // continue past this lesson.
                 if num_candidates > 0
                     && avg_score
                         < self
@@ -704,11 +704,13 @@ impl DepthFirstScheduler {
                             .passing_score
                             .compute_score(curr_unit.depth)
                 {
-                    // If the search reaches a dead-end and there are already enough candidates,
-                    // terminate the search. Continue otherwise.
+                    // Search reached a dead-end. If there are already enough candidates, terminate
+                    // the search. Otherwise, continue with the search and shuffle the entire stack
+                    // to prioritize other
                     if all_candidates.len() >= max_candidates {
                         break; // grcov-excl-line
                     }
+                    stack.shuffle(&mut rng());
                     continue;
                 }
 
