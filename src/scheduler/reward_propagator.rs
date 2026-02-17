@@ -142,10 +142,7 @@ impl RewardPropagator {
         // continue the search with updated rewards and weights.
         let mut results: UstrMap<UnitReward> = UstrMap::default();
         while let Some(item) = stack.pop() {
-            // Skip paths that have become too weak, or that are weaker than an already known path.
-            if Self::stop_propagation(item.reward.value, item.reward.weight) {
-                continue;
-            }
+            // Skip paths that are weaker than an already known path.
             if let Some(existing_reward) = results.get(&item.unit_id)
                 && existing_reward.value.abs() >= item.reward.value.abs()
             {
@@ -324,6 +321,23 @@ mod test {
 
         let reward_map = propagate_five_rewards(&graph)?;
         assert!(reward_map.is_empty());
+        Ok(())
+    }
+
+    /// Verifies that weak next hops are pruned during recursive traversal.
+    #[test]
+    fn weak_recursive_hops_are_pruned() -> Result<()> {
+        let mut graph = InMemoryUnitGraph::default();
+        graph.add_course(Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::0"), Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::1"), Ustr::from("0"))?;
+        graph.add_lesson(Ustr::from("0::2"), Ustr::from("0"))?;
+        graph.add_encompassed(Ustr::from("0::0"), &[], &[(Ustr::from("0::1"), 1.0)])?;
+        graph.add_encompassed(Ustr::from("0::1"), &[], &[(Ustr::from("0::2"), 0.1)])?;
+
+        let reward_map = propagate_five_rewards(&graph)?;
+        assert!(reward_map.contains_key(&Ustr::from("0::1")));
+        assert!(!reward_map.contains_key(&Ustr::from("0::2")));
         Ok(())
     }
 
