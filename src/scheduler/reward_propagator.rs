@@ -34,6 +34,7 @@ use ustr::{Ustr, UstrMap};
 
 use crate::{
     data::{MasteryScore, UnitReward},
+    graph::UnitGraph,
     scheduler::data::SchedulerData,
 };
 
@@ -80,23 +81,11 @@ impl RewardPropagator {
     }
 
     /// Gets the next units to visit, depending on the sign of the reward.
-    fn get_next_units(&self, unit_id: Ustr, reward: f32) -> Vec<(Ustr, f32)> {
+    fn get_next_units(unit_graph: &dyn UnitGraph, unit_id: Ustr, reward: f32) -> Vec<(Ustr, f32)> {
         if reward > 0.0 {
-            self.data
-                .unit_graph
-                .read()
-                .get_encompasses(unit_id)
-                .unwrap_or_default()
-                .into_iter()
-                .collect()
+            unit_graph.get_encompasses(unit_id).unwrap_or_default()
         } else {
-            self.data
-                .unit_graph
-                .read()
-                .get_encompassed_by(unit_id)
-                .unwrap_or_default()
-                .into_iter()
-                .collect()
+            unit_graph.get_encompassed_by(unit_id).unwrap_or_default()
         }
     }
 
@@ -118,21 +107,27 @@ impl RewardPropagator {
         if lesson_id.is_empty() || course_id.is_empty() {
             return vec![]; // grcov-excl-line
         }
+        let unit_graph = self.data.unit_graph.read();
 
         // Populate the stack using the initial lessons and courses encompassed by this exercise.
         let initial_reward = Self::initial_reward(score);
-        let next_lessons = self.get_next_units(lesson_id, initial_reward);
-        let next_courses = self.get_next_units(course_id, initial_reward);
+        let next_lessons = Self::get_next_units(&*unit_graph, lesson_id, initial_reward);
+        let next_courses = Self::get_next_units(&*unit_graph, course_id, initial_reward);
         let mut stack: Vec<RewardStackItem> = Vec::new();
         next_lessons
             .iter()
             .chain(next_courses.iter())
-            .for_each(|(id, weight)| {
+            .for_each(|(id, edge_weight)| {
+                let value = edge_weight * initial_reward;
+                let weight = *edge_weight;
+                if Self::stop_propagation(value, weight) {
+                    return;
+                }
                 stack.push(RewardStackItem {
                     unit_id: *id,
                     reward: UnitReward {
-                        value: weight * initial_reward,
-                        weight: 1.0,
+                        value,
+                        weight,
                         timestamp,
                     },
                 });
@@ -140,37 +135,37 @@ impl RewardPropagator {
 
         // While the stack is not empty, pop the last element, push it into the results, and
         // continue the search with updated rewards and weights.
-        let mut results = UstrMap::default();
+        let mut results: UstrMap<UnitReward> = UstrMap::default();
         while let Some(item) = stack.pop() {
-            // Check if propagation should continue and if the unit has already been visited. If
-            // not, push the unit into the results and continue the search.
-            if Self::stop_propagation(item.reward.value, item.reward.weight)
-                || results.contains_key(&item.unit_id)
+            // Skip paths that have become too weak, or that are weaker than an already known path.
+            if Self::stop_propagation(item.reward.value, item.reward.weight) {
+                continue;
+            }
+            if let Some(existing_reward) = results.get(&item.unit_id)
+                && existing_reward.value.abs() >= item.reward.value.abs()
             {
                 continue;
             }
-            results.insert(
-                item.unit_id,
-                UnitReward {
-                    value: item.reward.value,
-                    weight: item.reward.weight,
-                    timestamp,
-                },
-            );
+            results.insert(item.unit_id, item.reward.clone());
 
             // Get the next units and push them onto the stack with updated rewards and weights.
-            self.get_next_units(item.unit_id, item.reward.value)
-                .iter()
-                .for_each(|(next_unit_id, edge_weight)| {
-                    stack.push(RewardStackItem {
-                        unit_id: *next_unit_id,
-                        reward: UnitReward {
-                            value: *edge_weight * REWARD_FACTOR * item.reward.value,
-                            weight: WEIGHT_FACTOR * item.reward.weight,
-                            timestamp,
-                        },
-                    });
+            for (next_unit_id, edge_weight) in
+                &Self::get_next_units(&*unit_graph, item.unit_id, item.reward.value)
+            {
+                let next_value = *edge_weight * REWARD_FACTOR * item.reward.value;
+                let next_weight = *edge_weight * WEIGHT_FACTOR * item.reward.weight;
+                if Self::stop_propagation(next_value, next_weight) {
+                    continue;
+                }
+                stack.push(RewardStackItem {
+                    unit_id: *next_unit_id,
+                    reward: UnitReward {
+                        value: next_value,
+                        weight: next_weight,
+                        timestamp,
+                    },
                 });
+            }
         }
         results.into_iter().collect()
     }
@@ -179,10 +174,71 @@ impl RewardPropagator {
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod test {
+    use anyhow::Result;
+    use std::collections::BTreeMap;
+    use ustr::{Ustr, UstrMap};
+
     use crate::{
-        data::MasteryScore,
+        data::{MasteryScore, UnitReward},
         scheduler::reward_propagator::{MIN_ABS_REWARD, MIN_WEIGHT, RewardPropagator},
+        test_utils::{TestCourse, TestId, TestLesson, init_test_simulation},
     };
+
+    fn build_course_with_path_weights(source_encompassed: Vec<(TestId, f32)>) -> Vec<TestCourse> {
+        vec![TestCourse {
+            id: TestId(0, None, None),
+            dependencies: vec![],
+            encompassed: vec![],
+            superseded: vec![],
+            metadata: BTreeMap::new(),
+            lessons: vec![
+                TestLesson {
+                    id: TestId(0, Some(0), None),
+                    dependencies: vec![],
+                    encompassed: source_encompassed,
+                    superseded: vec![],
+                    metadata: BTreeMap::new(),
+                    num_exercises: 1,
+                },
+                TestLesson {
+                    id: TestId(0, Some(1), None),
+                    dependencies: vec![],
+                    encompassed: vec![(TestId(0, Some(3), None), 1.0)],
+                    superseded: vec![],
+                    metadata: BTreeMap::new(),
+                    num_exercises: 1,
+                },
+                TestLesson {
+                    id: TestId(0, Some(2), None),
+                    dependencies: vec![],
+                    encompassed: vec![(TestId(0, Some(3), None), 1.0)],
+                    superseded: vec![],
+                    metadata: BTreeMap::new(),
+                    num_exercises: 1,
+                },
+                TestLesson {
+                    id: TestId(0, Some(3), None),
+                    dependencies: vec![],
+                    encompassed: vec![],
+                    superseded: vec![],
+                    metadata: BTreeMap::new(),
+                    num_exercises: 1,
+                },
+            ],
+        }]
+    }
+
+    fn propagate_five_rewards(courses: &Vec<TestCourse>) -> Result<UstrMap<UnitReward>> {
+        let temp_dir = tempfile::tempdir()?;
+        let library = init_test_simulation(temp_dir.path(), courses)?;
+        let scheduler_data = library.get_scheduler_data();
+        let reward_propagator = RewardPropagator {
+            data: scheduler_data,
+        };
+        let rewards =
+            reward_propagator.propagate_rewards(Ustr::from("0::0::0"), &MasteryScore::Five, 0);
+        Ok(rewards.into_iter().collect())
+    }
 
     /// Verifies the initial reward for each score.
     #[test]
@@ -213,5 +269,123 @@ mod test {
             MIN_ABS_REWARD,
             MIN_WEIGHT - 0.001,
         ));
+    }
+
+    /// Verifies that when multiple paths reach the same unit, the strongest path is used.
+    #[test]
+    fn strongest_path_wins() -> Result<()> {
+        let courses = build_course_with_path_weights(vec![
+            (TestId(0, Some(1), None), 1.0),
+            (TestId(0, Some(2), None), 0.5),
+        ]);
+        let reward_map = propagate_five_rewards(&courses)?;
+        let reward = reward_map.get(&Ustr::from("0::3")).unwrap();
+        assert!((reward.value - 0.72).abs() < f32::EPSILON);
+        assert!((reward.weight - 0.8).abs() < f32::EPSILON);
+        Ok(())
+    }
+
+    /// Verifies that the strongest-path result is independent of path insertion order.
+    #[test]
+    fn strongest_path_is_order_independent() -> Result<()> {
+        let first_order = build_course_with_path_weights(vec![
+            (TestId(0, Some(1), None), 1.0),
+            (TestId(0, Some(2), None), 0.5),
+        ]);
+        let second_order = build_course_with_path_weights(vec![
+            (TestId(0, Some(2), None), 0.5),
+            (TestId(0, Some(1), None), 1.0),
+        ]);
+        let first_reward = propagate_five_rewards(&first_order)?
+            .get(&Ustr::from("0::3"))
+            .cloned()
+            .unwrap();
+        let second_reward = propagate_five_rewards(&second_order)?
+            .get(&Ustr::from("0::3"))
+            .cloned()
+            .unwrap();
+        assert!((first_reward.value - second_reward.value).abs() < f32::EPSILON);
+        assert!((first_reward.weight - second_reward.weight).abs() < f32::EPSILON);
+        Ok(())
+    }
+
+    /// Verifies that edge weights attenuate both reward value and reward weight.
+    #[test]
+    fn edge_weights_attenuate_reward_weight() -> Result<()> {
+        let courses = vec![TestCourse {
+            id: TestId(0, None, None),
+            dependencies: vec![],
+            encompassed: vec![],
+            superseded: vec![],
+            metadata: BTreeMap::new(),
+            lessons: vec![
+                TestLesson {
+                    id: TestId(0, Some(0), None),
+                    dependencies: vec![],
+                    encompassed: vec![(TestId(0, Some(1), None), 0.8)],
+                    superseded: vec![],
+                    metadata: BTreeMap::new(),
+                    num_exercises: 1,
+                },
+                TestLesson {
+                    id: TestId(0, Some(1), None),
+                    dependencies: vec![],
+                    encompassed: vec![(TestId(0, Some(2), None), 0.8)],
+                    superseded: vec![],
+                    metadata: BTreeMap::new(),
+                    num_exercises: 1,
+                },
+                TestLesson {
+                    id: TestId(0, Some(2), None),
+                    dependencies: vec![],
+                    encompassed: vec![],
+                    superseded: vec![],
+                    metadata: BTreeMap::new(),
+                    num_exercises: 1,
+                },
+            ],
+        }];
+        let reward_map = propagate_five_rewards(&courses)?;
+        let first_hop = reward_map.get(&Ustr::from("0::1")).unwrap();
+        assert!((first_hop.value - 0.64).abs() < f32::EPSILON);
+        assert!((first_hop.weight - 0.8).abs() < f32::EPSILON);
+
+        let second_hop = reward_map.get(&Ustr::from("0::2")).unwrap();
+        assert!((second_hop.value - 0.4608).abs() < f32::EPSILON);
+        assert!((second_hop.weight - 0.512).abs() < f32::EPSILON);
+        Ok(())
+    }
+
+    /// Verifies that very weak initial edges are pruned before being recorded.
+    #[test]
+    fn weak_initial_edges_are_pruned() -> Result<()> {
+        let courses = vec![TestCourse {
+            id: TestId(0, None, None),
+            dependencies: vec![],
+            encompassed: vec![],
+            superseded: vec![],
+            metadata: BTreeMap::new(),
+            lessons: vec![
+                TestLesson {
+                    id: TestId(0, Some(0), None),
+                    dependencies: vec![],
+                    encompassed: vec![(TestId(0, Some(1), None), 0.1)],
+                    superseded: vec![],
+                    metadata: BTreeMap::new(),
+                    num_exercises: 1,
+                },
+                TestLesson {
+                    id: TestId(0, Some(1), None),
+                    dependencies: vec![],
+                    encompassed: vec![],
+                    superseded: vec![],
+                    metadata: BTreeMap::new(),
+                    num_exercises: 1,
+                },
+            ],
+        }];
+        let reward_map = propagate_five_rewards(&courses)?;
+        assert!(reward_map.is_empty());
+        Ok(())
     }
 }
