@@ -795,7 +795,7 @@ impl Default for PassingScoreOptions {
 impl PassingScoreOptions {
     /// Verifies that the options are valid.
     pub fn verify(&self) -> Result<()> {
-        if self.min_score < 0.0 || self.min_score > 4.5 {
+        if self.min_score < 0.0 || self.min_score >= 4.5 {
             bail!("invalid minimum score: {}", self.min_score);
         }
 
