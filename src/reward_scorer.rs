@@ -42,15 +42,15 @@ impl WeightedRewardScorer {
     /// Returns the number of days since the reward.
     #[inline]
     fn days_since(rewards: &[UnitReward]) -> Vec<f32> {
+        let now = Utc::now();
         rewards
             .iter()
             .map(|reward| {
-                let now = Utc::now();
                 let timestamp = Utc
                     .timestamp_opt(reward.timestamp, 0)
                     .earliest()
                     .unwrap_or_default();
-                (now - timestamp).num_days() as f32
+                (now - timestamp).num_days().max(0) as f32
             })
             .collect()
     }
