@@ -39,8 +39,8 @@ const PROCEDURAL_CURVE_DECAY: f32 = -0.3;
 const MIN_STABILITY: f32 = 0.5;
 
 /// The maximum stability value in days. Trane is designed for the long-life learning of acquiring
-/// mastery, so a high stability ceiling of ten years allows it to model this case.
-const MAX_STABILITY: f32 = 3650.0;
+/// mastery, so a high stability ceiling of two years allows it to model this case.
+const MAX_STABILITY: f32 = 730.0;
 
 /// The default stability for exercises with no review history.
 const DEFAULT_STABILITY: f32 = 1.0;
@@ -74,7 +74,7 @@ const PERFORMANCE_BASELINE_SCORE: f32 = 3.0;
 /// A scaling coefficient applied to the stability update term for each review. The per-review
 /// multiplicative change is `1 + STABILITY_COEFFICIENT * P * E * spacing_gain * S^(-k)`. The
 /// resulting stability is clamped to `MIN_STABILITY..MAX_STABILITY`.
-const STABILITY_COEFFICIENT: f32 = 3.5;
+const STABILITY_COEFFICIENT: f32 = 2.1;
 
 /// The minimum grade value used in performance calculations. Corresponds to complete failure. This
 /// is the same as the minimum mastery score, just with a different name to shorten formulas.
@@ -112,7 +112,7 @@ const SPACING_EFFECT_WEIGHT: f32 = 0.5;
 
 /// The exponent applied to stability when computing diminishing returns for repeated successful
 /// reviews. Larger values increase saturation strength at high stability.
-const STABILITY_DAMPING_EXP: f32 = 0.01;
+const STABILITY_DAMPING_EXP: f32 = 0.05;
 
 /// The minimum stability-loss fraction for a lapse.
 const MIN_LAPSE_DROP: f32 = 0.0;
@@ -130,7 +130,10 @@ const LAPSE_DIFFICULTY_WEIGHT: f32 = 0.25;
 /// penalties).
 const LAPSE_RETRIEVABILITY_WEIGHT: f32 = 0.30;
 
-/// The minimum weighted score required to apply the old-good retrievability floor.
+/// The minimum weighted score required to apply the old-good retrievability floor. This floor is
+/// applied to exercises with strong historical performance to prevent them from dropping too low
+/// after long gaps in practice. In such cases, it is better to allow students to see old exercises
+/// and have them fail than to have them stuck with review of very old exercises.
 const OLD_GOOD_MIN_SCORE: f32 = 4.0;
 
 /// The minimum number of scores required to apply the old-good retrievability floor.
@@ -140,7 +143,7 @@ const OLD_GOOD_MIN_SCORES: usize = 2;
 const OLD_GOOD_MIN_AGE: f32 = 50.0;
 
 /// The minimum retrievability used for old exercises with strong historical performance.
-const OLD_GOOD_FLOOR: f32 = 0.9;
+const OLD_GOOD_FLOOR: f32 = 0.75;
 
 /// A scorer that uses a power-law forgetting curve to compute the score of an exercise, using
 /// review-history-based estimation of stability and difficulty. This models memory retention more
@@ -184,7 +187,6 @@ pub struct PowerLawScorer {}
 impl PowerLawScorer {
     /// Estimates the difficulty of the exercise based on failure rates. Difficulty ranges from 1.0
     /// (easiest) to 10.0 (hardest).
-    #[inline]
     fn estimate_difficulty(previous_trials: &[ExerciseTrial]) -> f32 {
         // Assign the base difficulty to exercises with no history.
         if previous_trials.is_empty() {
@@ -207,7 +209,6 @@ impl PowerLawScorer {
     }
 
     /// Computes the exponentially weighted average performance from all trials.
-    #[inline]
     fn compute_weighted_avg(previous_trials: &[ExerciseTrial]) -> f32 {
         if previous_trials.is_empty() {
             return 0.0;
@@ -224,7 +225,6 @@ impl PowerLawScorer {
     }
 
     /// Returns the forgetting-curve decay exponent for the given exercise type.
-    #[inline]
     fn get_curve_decay(exercise_type: &ExerciseType) -> f32 {
         match exercise_type {
             ExerciseType::Declarative => DECLARATIVE_CURVE_DECAY,
@@ -239,7 +239,6 @@ impl PowerLawScorer {
     ///
     /// This calibration ensures `R(t = S, S) = TARGET_RETRIEVABILITY_AT_STABILITY` for each
     /// exercise type while still preserving shape differences through type-specific decay exponents.
-    #[inline]
     fn get_curve_factor(exercise_type: &ExerciseType) -> f32 {
         let decay_abs = Self::get_curve_decay(exercise_type).abs().max(f32::EPSILON);
         TARGET_RETRIEVABILITY_AT_STABILITY.powf(-1.0 / decay_abs) - 1.0
@@ -247,7 +246,6 @@ impl PowerLawScorer {
 
     /// Computes pre-review retrievability used by the interval-aware spacing effect. It uses the
     /// same decay exponent as final retrievability for the given exercise type.
-    #[inline]
     fn compute_spacing_retrievability(
         exercise_type: &ExerciseType,
         days_since_previous_review: f32,
@@ -263,7 +261,6 @@ impl PowerLawScorer {
     /// Computes the spacing gain multiplier for a review. Successful recalls (`performance_factor >
     /// 0`) receive additional growth after longer intervals. Non-successful reviews return a
     /// neutral multiplier so lapse handling is handled separately.
-    #[inline]
     fn compute_spacing_gain(
         exercise_type: &ExerciseType,
         days_since_previous_review: f32,
@@ -284,7 +281,6 @@ impl PowerLawScorer {
     }
 
     /// Returns whether this trial is considered a lapse for state updates.
-    #[inline]
     fn is_lapse(trial_score: f32) -> bool {
         trial_score < PERFORMANCE_BASELINE_SCORE
     }
@@ -293,7 +289,6 @@ impl PowerLawScorer {
     ///
     /// Good grades reduce difficulty, poor grades increase it. The result is then pulled back
     /// toward the base estimate to prevent drift.
-    #[inline]
     fn update_difficulty(difficulty: f32, base_difficulty: f32, trial_score: f32) -> f32 {
         let grade_delta = (PERFORMANCE_BASELINE_SCORE - trial_score) / GRADE_RANGE
             * DIFFICULTY_GRADE_ADJUSTMENT_SCALE;
@@ -308,7 +303,6 @@ impl PowerLawScorer {
     ///
     /// Returns a fractional reduction in current stability. Higher difficulty and more surprising
     /// lapses produce larger reductions.
-    #[inline]
     fn compute_lapse_drop(difficulty: f32, pre_review_retrievability: f32) -> f32 {
         let difficulty_adjust =
             ((difficulty - MIN_DIFFICULTY) / (MAX_DIFFICULTY - MIN_DIFFICULTY)).clamp(0.0, 1.0);
@@ -320,7 +314,6 @@ impl PowerLawScorer {
     }
 
     /// Applies a single review result to the current stability estimate.
-    #[inline]
     fn apply_stability_transition(
         exercise_type: &ExerciseType,
         stability: f32,
@@ -369,7 +362,6 @@ impl PowerLawScorer {
     ///
     /// Here P = (grade - GRADE_MIN) / GRADE_RANGE - 0.5 (performance, from -0.5 for fail to 0.5 for
     /// perfect), and E = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR (ease).
-    #[inline]
     fn compute_stability_and_difficulty(
         exercise_type: &ExerciseType,
         previous_trials: &[ExerciseTrial],
@@ -406,7 +398,6 @@ impl PowerLawScorer {
     ///
     /// Lower stability gets a stronger boost so weak memories can recover faster, while higher
     /// stability gets a smaller boost so already-strong memories do not keep accelerating.
-    #[inline]
     fn compute_stability_damping(stability: f32) -> f32 {
         stability.max(MIN_STABILITY).powf(-STABILITY_DAMPING_EXP)
     }
@@ -417,7 +408,6 @@ impl PowerLawScorer {
     /// The factor is derived from each type's decay exponent so that `R(t = S, S) = 0.9` for both
     /// declarative and procedural exercises. This keeps stability interpretation aligned across
     /// exercise types while retaining type-specific curve shapes.
-    #[inline]
     fn compute_retrievability(
         exercise_type: &ExerciseType,
         days_since_last: f32,
@@ -431,7 +421,6 @@ impl PowerLawScorer {
     /// Applies a retrievability floor for old exercises with strong weighted performance. It is
     /// preferable to show old exercises and have the student fail than to have students stuck with
     /// review of very old exercises after long gaps in their practice.
-    #[inline]
     fn apply_old_good_retrievability_floor(
         adjusted_retrievability: f32,
         weighted_score: f32,
