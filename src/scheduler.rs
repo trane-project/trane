@@ -34,7 +34,8 @@ use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
     data::{
-        ExerciseManifest, MasteryScore, SchedulerOptions, UnitType,
+        ExerciseManifest, FULL_CANDIDATES_SCORE, MasteryScore, PassingScoreOptions,
+        SchedulerOptions, UnitType,
         filter::{ExerciseFilter, KeyValueFilter, UnitFilter},
     },
     error::ExerciseSchedulerError,
@@ -235,7 +236,6 @@ impl DepthFirstScheduler {
     pub fn get_course_valid_starting_lessons(
         &self,
         course_id: Ustr,
-        depth: usize,
         metadata_filter: Option<&KeyValueFilter>,
     ) -> Result<Vec<Ustr>> {
         Ok(self
@@ -248,7 +248,7 @@ impl DepthFirstScheduler {
             .filter(|id| {
                 // Filter out lessons whose dependencies are not satisfied. Otherwise, those lessons
                 // would be traversed prematurely.
-                self.all_satisfied_dependencies(*id, depth, metadata_filter)
+                self.all_satisfied_dependencies(*id, metadata_filter)
             })
             .collect())
     }
@@ -263,7 +263,7 @@ impl DepthFirstScheduler {
         for course_id in starting_units {
             // Set the depth to zero since all the starting units are at the same depth.
             let lesson_ids = self
-                .get_course_valid_starting_lessons(course_id, 0, metadata_filter)
+                .get_course_valid_starting_lessons(course_id, metadata_filter)
                 .unwrap_or_default();
 
             if lesson_ids.is_empty() {
@@ -289,6 +289,40 @@ impl DepthFirstScheduler {
     }
     //>@lp-example-1
 
+    /// Selects the right number of candidates based on the score of the unit and the passing
+    /// options.
+    fn select_candidates(
+        candidates: Vec<Candidate>,
+        score: f32,
+        options: &PassingScoreOptions,
+    ) -> Vec<Candidate> {
+        // Return early when there are no candidates or all should be returned. Candidate selection
+        // should only apply to lessons above the mininum passing score.
+        if candidates.is_empty() {
+            return Vec::new();
+        }
+        if score >= FULL_CANDIDATES_SCORE || score < options.min_score {
+            return candidates;
+        }
+
+        // For scores after passing, linearly interpolate from min_fraction at min_score to 1.0 at
+        // FULL_SCALE. Make sure to return at least one candidate.
+        let min_fraction = options.min_fraction.clamp(0.0, 1.0);
+        let fraction = min_fraction
+            + ((score - options.min_score) / (FULL_CANDIDATES_SCORE - options.min_score))
+                * (1.0 - min_fraction);
+        let clamped_fraction = fraction.clamp(0.0, 1.0);
+        let mut num_to_select = (clamped_fraction * candidates.len() as f32).floor() as usize;
+        if clamped_fraction > 0.0 && num_to_select == 0 {
+            num_to_select = 1;
+        }
+
+        // Shuffle the candidates and select the right number.
+        let mut candidates = candidates;
+        candidates.shuffle(&mut rng());
+        candidates.into_iter().take(num_to_select).collect()
+    }
+
     /// Returns the list of candidates selected from the given lesson along with the average score.
     /// The average score is used to help decide whether to continue searching a path in the graph.
     fn get_candidates_from_lesson_helper(&self, item: &StackItem) -> Result<(Vec<Candidate>, f32)> {
@@ -301,7 +335,15 @@ impl DepthFirstScheduler {
 
         // Generate a list of candidates from the lesson's exercises.
         let course_id = self.data.get_course_id(item.unit_id).unwrap_or_default();
-        let candidates = exercises
+        let course_score = self
+            .unit_scorer
+            .get_unit_score(course_id)?
+            .unwrap_or_default();
+        let lesson_score = self
+            .unit_scorer
+            .get_unit_score(item.unit_id)?
+            .unwrap_or_default();
+        let mut candidates = exercises
             .into_iter()
             .map(|exercise_id| {
                 Ok(Candidate {
@@ -313,14 +355,8 @@ impl DepthFirstScheduler {
                         .unit_scorer
                         .get_unit_score(exercise_id)?
                         .unwrap_or_default(),
-                    lesson_score: self
-                        .unit_scorer
-                        .get_unit_score(item.unit_id)?
-                        .unwrap_or_default(),
-                    course_score: self
-                        .unit_scorer
-                        .get_unit_score(course_id)?
-                        .unwrap_or_default(),
+                    course_score,
+                    lesson_score,
                     num_trials: self
                         .unit_scorer
                         .get_num_trials(exercise_id)?
@@ -330,10 +366,20 @@ impl DepthFirstScheduler {
             })
             .collect::<Result<Vec<Candidate>>>()?;
 
-        // Calculate the average score of the candidates.
+        // Compute the lesson average directly from the candidate exercise scores and set that value
+        // as the lesson score for all candidates if needed.
         let avg_score =
-            candidates.iter().map(|c| c.exercise_score).sum::<f32>() / (candidates.len() as f32);
-        Ok((candidates, avg_score))
+            candidates.iter().map(|c| c.exercise_score).sum::<f32>() / candidates.len() as f32;
+        if lesson_score == 0.0 && avg_score > 0.0 {
+            for candidate in &mut candidates {
+                candidate.lesson_score = avg_score;
+            }
+        }
+
+        // Select the right fraction of candidates based on the lesson average and passing options.
+        let selected_candidates =
+            Self::select_candidates(candidates, avg_score, &self.data.options.passing_score_v2);
+        Ok((selected_candidates, avg_score))
     }
 
     /// Returns whether the given dependency can be considered as satisfied. If all the dependencies
@@ -341,7 +387,6 @@ impl DepthFirstScheduler {
     fn satisfied_dependency(
         &self,
         dependency_id: Ustr,
-        depth: usize,
         metadata_filter: Option<&KeyValueFilter>,
     ) -> bool {
         // Dependencies which do not pass the metadata filter are considered as satisfied, so the
@@ -383,7 +428,7 @@ impl DepthFirstScheduler {
         // as satisfied.
         let score = self.unit_scorer.get_unit_score(dependency_id);
         if let Ok(Some(score)) = score {
-            score >= self.data.options.passing_score.compute_score(depth)
+            score >= self.data.options.passing_score_v2.min_score
         } else {
             true
         }
@@ -393,7 +438,6 @@ impl DepthFirstScheduler {
     fn all_satisfied_dependencies(
         &self,
         unit_id: Ustr,
-        depth: usize,
         metadata_filter: Option<&KeyValueFilter>,
     ) -> bool {
         self.data
@@ -402,7 +446,7 @@ impl DepthFirstScheduler {
             .get_dependencies(unit_id)
             .unwrap_or_default()
             .into_iter()
-            .all(|dependency_id| self.satisfied_dependency(dependency_id, depth, metadata_filter))
+            .all(|dependency_id| self.satisfied_dependency(dependency_id, metadata_filter))
     }
 
     /// Returns the valid dependents which can be visited after the given unit. A valid dependent is
@@ -410,13 +454,12 @@ impl DepthFirstScheduler {
     fn get_valid_dependents(
         &self,
         unit_id: Ustr,
-        depth: usize,
         metadata_filter: Option<&KeyValueFilter>,
     ) -> Vec<Ustr> {
         self.data
             .get_all_dependents(unit_id)
             .into_iter()
-            .filter(|unit_id| self.all_satisfied_dependencies(*unit_id, depth, metadata_filter))
+            .filter(|unit_id| self.all_satisfied_dependencies(*unit_id, metadata_filter))
             .collect()
     }
 
@@ -541,11 +584,7 @@ impl DepthFirstScheduler {
             if unit_type == UnitType::Course {
                 // Retrieve the starting lessons in the course and add them to the stack.
                 let starting_lessons: Vec<Ustr> = self
-                    .get_course_valid_starting_lessons(
-                        curr_unit.unit_id,
-                        curr_unit.depth,
-                        metadata_filter,
-                    )
+                    .get_course_valid_starting_lessons(curr_unit.unit_id, metadata_filter)
                     .unwrap_or_default();
                 Self::shuffle_to_stack(&curr_unit, starting_lessons, &mut stack);
 
@@ -557,11 +596,7 @@ impl DepthFirstScheduler {
                     &mut pending_course_lessons,
                 ) {
                     visited.insert(curr_unit.unit_id);
-                    let valid_deps = self.get_valid_dependents(
-                        curr_unit.unit_id,
-                        curr_unit.depth,
-                        metadata_filter,
-                    );
+                    let valid_deps = self.get_valid_dependents(curr_unit.unit_id, metadata_filter);
                     Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
                 }
             } else if unit_type == UnitType::Lesson {
@@ -587,8 +622,7 @@ impl DepthFirstScheduler {
 
                 // Retrieve the valid dependents of the lesson, and directly skip the lesson if
                 // needed.
-                let valid_deps =
-                    self.get_valid_dependents(curr_unit.unit_id, curr_unit.depth, metadata_filter);
+                let valid_deps = self.get_valid_dependents(curr_unit.unit_id, metadata_filter);
                 if self.skip_lesson(curr_unit.unit_id, metadata_filter) {
                     Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
                     continue;
@@ -601,14 +635,7 @@ impl DepthFirstScheduler {
 
                 // Compare the score against the passing score to decide whether the search should
                 // continue past this lesson.
-                if num_candidates > 0
-                    && avg_score
-                        < self
-                            .data
-                            .options
-                            .passing_score
-                            .compute_score(curr_unit.depth)
-                {
+                if num_candidates > 0 && avg_score < self.data.options.passing_score_v2.min_score {
                     // Search reached a dead-end. If there are already enough candidates, terminate
                     // the search. Otherwise, continue with the search and shuffle the entire stack
                     // to prioritize other paths in the graph.
@@ -682,8 +709,7 @@ impl DepthFirstScheduler {
 
                 // Retrieve the valid dependents of the lesson, and directly skip the lesson if
                 // needed.
-                let valid_deps =
-                    self.get_valid_dependents(curr_unit.unit_id, curr_unit.depth, None);
+                let valid_deps = self.get_valid_dependents(curr_unit.unit_id, None);
                 if self.skip_lesson(curr_unit.unit_id, None) {
                     Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
                     continue;
@@ -696,14 +722,7 @@ impl DepthFirstScheduler {
 
                 // Compare the score against the passing score to decide whether the search should
                 // continue past this lesson.
-                if num_candidates > 0
-                    && avg_score
-                        < self
-                            .data
-                            .options
-                            .passing_score
-                            .compute_score(curr_unit.depth)
-                {
+                if num_candidates > 0 && avg_score < self.data.options.passing_score_v2.min_score {
                     // Search reached a dead-end. If there are already enough candidates, terminate
                     // the search. Otherwise, continue with the search and shuffle the entire stack
                     // to prioritize other
@@ -956,5 +975,125 @@ impl ExerciseScheduler for DepthFirstScheduler {
 
     fn reset_scheduler_options(&mut self) {
         self.data.options = SchedulerOptions::default();
+    }
+}
+
+#[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
+mod test {
+    use ustr::Ustr;
+
+    use super::*;
+
+    fn candidate(id: u32, lesson_score: f32, exercise_score: f32, depth: f32) -> Candidate {
+        let exercise_id = format!("exercise-{id}");
+        Candidate {
+            exercise_id: Ustr::from(exercise_id.as_str()),
+            lesson_id: Ustr::from("lesson"),
+            course_id: Ustr::from("course"),
+            depth,
+            exercise_score,
+            lesson_score,
+            course_score: 0.0,
+            num_trials: 0,
+            frequency: 0,
+        }
+    }
+
+    fn select(
+        lesson_score: f32,
+        num_candidates: usize,
+        options: PassingScoreOptions,
+    ) -> Vec<Candidate> {
+        let candidates = (0..num_candidates)
+            .map(|idx| candidate(idx as u32, lesson_score, 0.0, 1.0))
+            .collect::<Vec<_>>();
+        DepthFirstScheduler::select_candidates(candidates, lesson_score, &options)
+    }
+
+    #[test]
+    fn select_candidates_empty() {
+        assert!(
+            DepthFirstScheduler::select_candidates(vec![], 0.0, &PassingScoreOptions::default(),)
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn select_candidates_below_minimum_score() {
+        let candidates = select(
+            2.0,
+            5,
+            PassingScoreOptions {
+                min_score: 3.0,
+                min_fraction: 0.2,
+            },
+        );
+        assert_eq!(candidates.len(), 5);
+    }
+
+    #[test]
+    fn select_candidates_below_minimum_score_with_zero_fraction() {
+        let candidates = select(
+            2.0,
+            5,
+            PassingScoreOptions {
+                min_score: 3.0,
+                min_fraction: 0.0,
+            },
+        );
+        assert_eq!(candidates.len(), 5);
+    }
+
+    #[test]
+    fn select_candidates_minimum_score_guarantees_one() {
+        let candidates = select(
+            3.0,
+            2,
+            PassingScoreOptions {
+                min_score: 3.0,
+                min_fraction: 0.2,
+            },
+        );
+        assert_eq!(candidates.len(), 1);
+    }
+
+    #[test]
+    fn select_candidates_partial_selection() {
+        let candidates = select(
+            4.0,
+            10,
+            PassingScoreOptions {
+                min_score: 3.0,
+                min_fraction: 0.2,
+            },
+        );
+        assert_eq!(candidates.len(), 8);
+    }
+
+    #[test]
+    fn select_candidates_always_keep_one_when_fraction_positive() {
+        let candidates = select(
+            3.01,
+            2,
+            PassingScoreOptions {
+                min_score: 3.0,
+                min_fraction: 0.0,
+            },
+        );
+        assert_eq!(candidates.len(), 1);
+    }
+
+    #[test]
+    fn select_candidates_full_selection() {
+        let candidates = select(
+            5.0,
+            11,
+            PassingScoreOptions {
+                min_score: 3.0,
+                min_fraction: 0.2,
+            },
+        );
+        assert_eq!(candidates.len(), 11);
     }
 }

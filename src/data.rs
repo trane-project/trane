@@ -767,82 +767,45 @@ impl GetUnitType for ExerciseManifest {
     }
 }
 
-/// Options to compute the passing score for a unit.
+/// The score at which fractional selection reaches 100% of lesson candidates.
+pub const FULL_CANDIDATES_SCORE: f32 = 4.25;
+
+/// Options to control the passing score. Instead of a binary decision of whether a unit should
+/// block its dependents, Trane allows a more gradual transition so that a single unit without very
+/// high scores does not block progress along a path.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub enum PassingScoreOptions {
-    /// The passing score will be a fixed value. A unit will be considered mastered if the average
-    /// score of all its exercises is greater than or equal to this value.
-    ConstantScore(f32),
+pub struct PassingScoreOptions {
+    /// Instead of adding all the exercises of a passing score, the scheduler adds this fraction
+    /// of the exercises when the score of a unit is exactly passing_score and gradually ramps up
+    /// to adding all the exercises as the score increases.
+    pub min_fraction: f32,
 
-    /// The score will start at a fixed value and increase by a fixed amount based on the depth of
-    /// the unit relative to the starting unit. This is useful for allowing users to make faster
-    /// progress at the beginning, so to avoid boredom. Once enough of the graph has been mastered,
-    /// the passing score will settle to a fixed value.
-    IncreasingScore {
-        /// The initial score. The units at the starting depth will use this value as their passing
-        /// score.
-        starting_score: f32,
-
-        /// The amount by which the score will increase for each additional depth. For example, if
-        /// the unit is at depth 2, then the passing score will increase by `step_size * 2`.
-        step_size: f32,
-
-        /// The maximum number of steps that increase the passing score. Units that are deeper than
-        /// this will have a passing score of `starting_score + step_size * max_steps`.
-        max_steps: usize,
-    },
+    /// The minimum score of a unit required to move on to its dependents. Because of the gradual
+    /// transition achieved by min_fraction, this score can be made lower than it would be
+    /// otherwise.
+    pub min_score: f32,
 }
 
 impl Default for PassingScoreOptions {
     fn default() -> Self {
-        PassingScoreOptions::IncreasingScore {
-            starting_score: 3.50,
-            step_size: 0.01,
-            max_steps: 25,
+        PassingScoreOptions {
+            min_score: 3.0,
+            min_fraction: 0.4,
         }
     }
 }
 
 impl PassingScoreOptions {
-    /// Computes the passing score for a unit at the given depth.
-    #[must_use]
-    pub fn compute_score(&self, depth: usize) -> f32 {
-        match self {
-            PassingScoreOptions::ConstantScore(score) => score.min(5.0),
-            PassingScoreOptions::IncreasingScore {
-                starting_score,
-                step_size,
-                max_steps,
-            } => {
-                let steps = depth.min(*max_steps);
-                (starting_score + step_size * steps as f32).min(5.0)
-            }
-        }
-    }
-
     /// Verifies that the options are valid.
     pub fn verify(&self) -> Result<()> {
-        match self {
-            PassingScoreOptions::ConstantScore(score) => {
-                if *score < 0.0 || *score > 5.0 {
-                    bail!("Invalid score: {score}");
-                }
-                Ok(())
-            }
-            PassingScoreOptions::IncreasingScore {
-                starting_score,
-                step_size,
-                ..
-            } => {
-                if *starting_score < 0.0 || *starting_score > 5.0 {
-                    bail!("Invalid starting score: {starting_score}");
-                }
-                if *step_size < 0.0 {
-                    bail!("Invalid step size: {step_size}");
-                }
-                Ok(())
-            }
+        if self.min_score < 0.0 || self.min_score >= FULL_CANDIDATES_SCORE {
+            bail!("invalid minimum score: {}", self.min_score);
         }
+
+        if self.min_fraction < 0.0 || self.min_fraction > 1.0 {
+            bail!("invalid minimum fraction: {}", self.min_fraction);
+        }
+        Ok(())
     }
 }
 
@@ -907,8 +870,9 @@ pub struct SchedulerOptions {
     /// has properly mastered.
     pub mastered_window_opts: MasteryWindow,
 
-    /// The minimum average score of a unit required to move on to its dependents.
-    pub passing_score: PassingScoreOptions,
+    /// The options to control how the scheduler decides when to move on to the dependents of a
+    /// unit.
+    pub passing_score_v2: PassingScoreOptions,
 
     /// The minimum score required to supersede a unit. If unit A is superseded by B, then the
     /// exercises from unit A will not be shown once the score of unit B is greater than or equal to
@@ -930,10 +894,11 @@ impl SchedulerOptions {
 
     /// Verifies that the scheduler options are valid.
     pub fn verify(&self) -> Result<()> {
-        // The batch size must be greater than 0.
+        // The batch size must be greater than 0 and the passing options must be valid.
         if self.batch_size == 0 {
             bail!("invalid scheduler options: batch_size must be greater than 0");
         }
+        self.passing_score_v2.verify()?;
 
         // The sum of the percentages of the mastery windows must be 1.0.
         if !Self::float_equals(
@@ -1009,7 +974,7 @@ impl Default for SchedulerOptions {
                 percentage: 0.1,
                 range: (4.5, 5.0),
             },
-            passing_score: PassingScoreOptions::default(),
+            passing_score_v2: PassingScoreOptions::default(),
             superseding_score: 4.0,
             num_trials: 10,
             num_rewards: 5,
@@ -1306,66 +1271,53 @@ mod test {
         assert!(options.verify().is_err());
     }
 
-    /// Verifies that valid passing score options are recognized as such.
+    /// Verifies scheduler options with invalid passing score V2 settings are rejected.
     #[test]
-    fn verify_passing_score_options() {
-        let options = PassingScoreOptions::default();
-        assert!(options.verify().is_ok());
-
-        let options = PassingScoreOptions::ConstantScore(3.50);
-        assert!(options.verify().is_ok());
-    }
-
-    /// Verifies that invalid passing score options are recognized as such.
-    #[test]
-    fn verify_passing_score_options_invalid() {
-        let options = PassingScoreOptions::ConstantScore(-1.0);
-        assert!(options.verify().is_err());
-
-        let options = PassingScoreOptions::ConstantScore(6.0);
-        assert!(options.verify().is_err());
-
-        let options = PassingScoreOptions::IncreasingScore {
-            starting_score: -1.0,
-            step_size: 0.0,
-            max_steps: 0,
-        };
-        assert!(options.verify().is_err());
-
-        let options = PassingScoreOptions::IncreasingScore {
-            starting_score: 6.0,
-            step_size: 0.0,
-            max_steps: 0,
-        };
-        assert!(options.verify().is_err());
-
-        let options = PassingScoreOptions::IncreasingScore {
-            starting_score: 3.50,
-            step_size: -1.0,
-            max_steps: 0,
-        };
+    fn scheduler_options_invalid_passing_score_v2() {
+        let mut options = SchedulerOptions::default();
+        options.passing_score_v2.min_fraction = -0.1;
         assert!(options.verify().is_err());
     }
 
-    /// Verifies that the passing score is computed correctly.
+    /// Verifies that valid passing score V2 options are recognized as such.
     #[test]
-    fn compute_passing_score() {
-        let options = PassingScoreOptions::ConstantScore(3.50);
-        assert_eq!(options.compute_score(0), 3.50);
-        assert_eq!(options.compute_score(1), 3.50);
-        assert_eq!(options.compute_score(2), 3.50);
-        // Clone the score for code coverage.
-        assert_eq!(options, options.clone());
-
+    fn verify_passing_score_options_v2() {
         let options = PassingScoreOptions::default();
-        assert_eq!(options.compute_score(0), 3.50);
-        assert_eq!(options.compute_score(1), 3.51);
-        assert_eq!(options.compute_score(2), 3.52);
-        assert_eq!(options.compute_score(5), 3.55);
-        assert_eq!(options.compute_score(25), 3.75);
-        assert_eq!(options.compute_score(50), 3.75);
-        // Clone the score for code coverage.
-        assert_eq!(options, options.clone());
+        assert!(options.verify().is_ok());
+
+        let options = PassingScoreOptions {
+            min_score: 3.75,
+            min_fraction: 0.75,
+        };
+        assert!(options.verify().is_ok());
+    }
+
+    /// Verifies that invalid passing score V2 options are recognized as such.
+    #[test]
+    fn verify_passing_score_options_v2_invalid() {
+        let options = PassingScoreOptions {
+            min_score: -1.0,
+            min_fraction: 0.2,
+        };
+        assert!(options.verify().is_err());
+
+        let options = PassingScoreOptions {
+            min_score: 4.6,
+            min_fraction: 0.2,
+        };
+        assert!(options.verify().is_err());
+
+        let options = PassingScoreOptions {
+            min_score: 3.0,
+            min_fraction: -0.1,
+        };
+        assert!(options.verify().is_err());
+
+        let options = PassingScoreOptions {
+            min_score: 3.0,
+            min_fraction: 1.1,
+        };
+        assert!(options.verify().is_err());
     }
 
     /// Verifies that the default exercise type is Procedural. Written to satisfy code coverage.
