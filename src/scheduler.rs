@@ -298,27 +298,29 @@ impl DepthFirstScheduler {
         score: f32,
         options: &PassingScoreOptionsV2,
     ) -> Vec<Candidate> {
-        // Handle cases where none or all of the candidates should be returned.
-        if candidates.is_empty() || score < options.min_score {
+        // Return early when there are no candidates or all should be returned.
+        if candidates.is_empty() {
             return Vec::new();
-        } 
-        if score >= FULL_SCALE_SCORE {
+        }
+        if score >= FULL_SCALE_SCORE || score < options.min_score {
             return candidates;
         }
 
-        // Linearly interpolate between min_fraction at min_score and 1.0 at FULL_SCALE.
-        // Keep at least one candidate while there is at least one candidate to show.
+        // For scores after passing, linearly interpolate from min_fraction at min_score to 1.0 at
+        // FULL_SCALE.
         let min_fraction = options.min_fraction.clamp(0.0, 1.0);
         let fraction = min_fraction
             + ((score - options.min_score) / (FULL_SCALE_SCORE - options.min_score))
                 * (1.0 - min_fraction);
         let clamped_fraction = fraction.clamp(0.0, 1.0);
         let mut num_to_select = (clamped_fraction * candidates.len() as f32).floor() as usize;
+
+        // Keep at least one candidate while there is at least one candidate to show.
         if clamped_fraction > 0.0 && num_to_select == 0 {
             num_to_select = 1;
         }
 
-        // Shuffle the candidates and select the right number. 
+        // Shuffle the candidates and select the right number.
         let mut candidates = candidates;
         candidates.shuffle(&mut rng());
         candidates.into_iter().take(num_to_select).collect()
@@ -336,15 +338,11 @@ impl DepthFirstScheduler {
 
         // Generate a list of candidates from the lesson's exercises.
         let course_id = self.data.get_course_id(item.unit_id).unwrap_or_default();
-        let lesson_score = self
-            .unit_scorer
-            .get_unit_score(item.unit_id)?
-            .unwrap_or_default();
         let course_score = self
             .unit_scorer
             .get_unit_score(course_id)?
             .unwrap_or_default();
-        let candidates = exercises
+        let mut candidates = exercises
             .into_iter()
             .map(|exercise_id| {
                 Ok(Candidate {
@@ -356,7 +354,7 @@ impl DepthFirstScheduler {
                         .unit_scorer
                         .get_unit_score(exercise_id)?
                         .unwrap_or_default(),
-                    lesson_score,
+                    lesson_score: 0.0,
                     course_score,
                     num_trials: self
                         .unit_scorer
@@ -367,13 +365,18 @@ impl DepthFirstScheduler {
             })
             .collect::<Result<Vec<Candidate>>>()?;
 
-        // Select the right fraction of candidates based on the lesson score and the passing options.
-        let selected_candidates = Self::select_candidates(
-            candidates,
-            lesson_score,
-            &self.data.options.passing_score_v2,
-        );
-        Ok((selected_candidates, lesson_score))
+        // Compute the lesson average directly from the candidate exercise scores and set that value
+        // as the lesson score for all candidates.
+        let avg_score =
+            candidates.iter().map(|c| c.exercise_score).sum::<f32>() / candidates.len() as f32;
+        for candidate in &mut candidates {
+            candidate.lesson_score = avg_score;
+        }
+
+        // Select the right fraction of candidates based on the lesson average and passing options.
+        let selected_candidates =
+            Self::select_candidates(candidates, avg_score, &self.data.options.passing_score_v2);
+        Ok((selected_candidates, avg_score))
     }
 
     /// Returns whether the given dependency can be considered as satisfied. If all the dependencies
@@ -710,15 +713,13 @@ impl DepthFirstScheduler {
                 }
 
                 // Retrieve the candidates from the lesson and add them to the list of candidates.
-                let (candidates, lesson_score) =
-                    self.get_candidates_from_lesson_helper(&curr_unit)?;
+                let (candidates, avg_score) = self.get_candidates_from_lesson_helper(&curr_unit)?;
                 let num_candidates = candidates.len();
                 all_candidates.extend(candidates);
 
                 // Compare the score against the passing score to decide whether the search should
                 // continue past this lesson.
-                if num_candidates > 0 && lesson_score < self.data.options.passing_score_v2.min_score
-                {
+                if num_candidates > 0 && avg_score < self.data.options.passing_score_v2.min_score {
                     // Search reached a dead-end. If there are already enough candidates, terminate
                     // the search. Otherwise, continue with the search and shuffle the entire stack
                     // to prioritize other
@@ -1025,7 +1026,7 @@ mod test {
                 min_fraction: 0.2,
             },
         );
-        assert_eq!(candidates.len(), 0);
+        assert_eq!(candidates.len(), 5);
     }
 
     #[test]
@@ -1038,7 +1039,7 @@ mod test {
                 min_fraction: 0.0,
             },
         );
-        assert_eq!(candidates.len(), 0);
+        assert_eq!(candidates.len(), 5);
     }
 
     #[test]
