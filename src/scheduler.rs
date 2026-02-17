@@ -301,26 +301,26 @@ impl DepthFirstScheduler {
         // Handle cases where none or all of the candidates should be returned.
         if candidates.is_empty() || score < options.min_score {
             return Vec::new();
-        }
+        } 
         if score >= FULL_SCALE_SCORE {
             return candidates;
         }
 
         // Linearly interpolate between min_fraction at min_score and 1.0 at FULL_SCALE.
+        // Keep at least one candidate while there is at least one candidate to show.
         let min_fraction = options.min_fraction.clamp(0.0, 1.0);
         let fraction = min_fraction
             + ((score - options.min_score) / (FULL_SCALE_SCORE - options.min_score))
                 * (1.0 - min_fraction);
-        let mut candidates = candidates;
-        candidates.shuffle(&mut rng());
         let clamped_fraction = fraction.clamp(0.0, 1.0);
         let mut num_to_select = (clamped_fraction * candidates.len() as f32).floor() as usize;
-
-        // Keep at least one candidate while there is at least one candidate to show.
         if clamped_fraction > 0.0 && num_to_select == 0 {
             num_to_select = 1;
         }
 
+        // Shuffle the candidates and select the right number. 
+        let mut candidates = candidates;
+        candidates.shuffle(&mut rng());
         candidates.into_iter().take(num_to_select).collect()
     }
 
