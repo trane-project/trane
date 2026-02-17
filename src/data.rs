@@ -846,6 +846,31 @@ impl PassingScoreOptions {
     }
 }
 
+/// Options to control the passing score. Instead of a binary decision of whether a unit should
+/// block its dependents, Trane allows a more gradual transition so that a single unit without very
+/// high scores does not block progress along a path. 
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct PassingScoreOptionsV2 {
+    /// Instead of adding all the exercises of a passing score, the scheduler adds this fraction
+    /// of the exercises when the score of a unit is exactly passing_score and gradually ramps up
+    /// to adding all the exercises as the score increases.
+    pub min_fraction: f32,
+
+    /// The minimum score of a unit required to move on to its dependents. Because of the gradual
+    /// transition achieved by min_fraction, this score can be made lower than it would be
+    /// otherwise.
+    pub min_score: f32,
+}
+
+impl Default for PassingScoreOptionsV2 {
+    fn default() -> Self {
+        PassingScoreOptionsV2 {
+            min_score: 3.0,
+            min_fraction: 0.2,
+        }
+    }
+}
+
 /// A mastery window consists a range of scores and the percentage of the total exercises in the
 /// batch returned by the scheduler that will fall within that range.
 ///
@@ -909,6 +934,10 @@ pub struct SchedulerOptions {
 
     /// The minimum average score of a unit required to move on to its dependents.
     pub passing_score: PassingScoreOptions,
+
+    /// The options to control how the scheduler decides when to move on to the dependents of a
+    /// unit.
+    pub passing_score_v2: PassingScoreOptionsV2,
 
     /// The minimum score required to supersede a unit. If unit A is superseded by B, then the
     /// exercises from unit A will not be shown once the score of unit B is greater than or equal to
@@ -1010,6 +1039,7 @@ impl Default for SchedulerOptions {
                 range: (4.5, 5.0),
             },
             passing_score: PassingScoreOptions::default(),
+            passing_score_v2: PassingScoreOptionsV2::default(),
             superseding_score: 4.0,
             num_trials: 10,
             num_rewards: 5,

@@ -34,7 +34,7 @@ use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
     data::{
-        ExerciseManifest, MasteryScore, SchedulerOptions, UnitType,
+        ExerciseManifest, MasteryScore, PassingScoreOptionsV2, SchedulerOptions, UnitType,
         filter::{ExerciseFilter, KeyValueFilter, UnitFilter},
     },
     error::ExerciseSchedulerError,
@@ -235,7 +235,6 @@ impl DepthFirstScheduler {
     pub fn get_course_valid_starting_lessons(
         &self,
         course_id: Ustr,
-        depth: usize,
         metadata_filter: Option<&KeyValueFilter>,
     ) -> Result<Vec<Ustr>> {
         Ok(self
@@ -248,7 +247,7 @@ impl DepthFirstScheduler {
             .filter(|id| {
                 // Filter out lessons whose dependencies are not satisfied. Otherwise, those lessons
                 // would be traversed prematurely.
-                self.all_satisfied_dependencies(*id, depth, metadata_filter)
+                self.all_satisfied_dependencies(*id, metadata_filter)
             })
             .collect())
     }
@@ -263,7 +262,7 @@ impl DepthFirstScheduler {
         for course_id in starting_units {
             // Set the depth to zero since all the starting units are at the same depth.
             let lesson_ids = self
-                .get_course_valid_starting_lessons(course_id, 0, metadata_filter)
+                .get_course_valid_starting_lessons(course_id, metadata_filter)
                 .unwrap_or_default();
 
             if lesson_ids.is_empty() {
@@ -288,6 +287,15 @@ impl DepthFirstScheduler {
         initial_stack
     }
     //>@lp-example-1
+
+    /// Selects the right number of candidates based on the score of the unit and the passing
+    /// options.
+    fn select_candidates(
+        candidates: Vec<Candidate>,
+        options: PassingScoreOptionsV2,
+    ) -> Vec<Candidate> {
+        unimplemented!()
+    }
 
     /// Returns the list of candidates selected from the given lesson along with the average score.
     /// The average score is used to help decide whether to continue searching a path in the graph.
@@ -341,7 +349,6 @@ impl DepthFirstScheduler {
     fn satisfied_dependency(
         &self,
         dependency_id: Ustr,
-        depth: usize,
         metadata_filter: Option<&KeyValueFilter>,
     ) -> bool {
         // Dependencies which do not pass the metadata filter are considered as satisfied, so the
@@ -383,7 +390,7 @@ impl DepthFirstScheduler {
         // as satisfied.
         let score = self.unit_scorer.get_unit_score(dependency_id);
         if let Ok(Some(score)) = score {
-            score >= self.data.options.passing_score.compute_score(depth)
+            score >= self.data.options.passing_score_v2.min_score
         } else {
             true
         }
@@ -393,7 +400,6 @@ impl DepthFirstScheduler {
     fn all_satisfied_dependencies(
         &self,
         unit_id: Ustr,
-        depth: usize,
         metadata_filter: Option<&KeyValueFilter>,
     ) -> bool {
         self.data
@@ -402,7 +408,7 @@ impl DepthFirstScheduler {
             .get_dependencies(unit_id)
             .unwrap_or_default()
             .into_iter()
-            .all(|dependency_id| self.satisfied_dependency(dependency_id, depth, metadata_filter))
+            .all(|dependency_id| self.satisfied_dependency(dependency_id, metadata_filter))
     }
 
     /// Returns the valid dependents which can be visited after the given unit. A valid dependent is
@@ -410,13 +416,12 @@ impl DepthFirstScheduler {
     fn get_valid_dependents(
         &self,
         unit_id: Ustr,
-        depth: usize,
         metadata_filter: Option<&KeyValueFilter>,
     ) -> Vec<Ustr> {
         self.data
             .get_all_dependents(unit_id)
             .into_iter()
-            .filter(|unit_id| self.all_satisfied_dependencies(*unit_id, depth, metadata_filter))
+            .filter(|unit_id| self.all_satisfied_dependencies(*unit_id, metadata_filter))
             .collect()
     }
 
@@ -541,11 +546,7 @@ impl DepthFirstScheduler {
             if unit_type == UnitType::Course {
                 // Retrieve the starting lessons in the course and add them to the stack.
                 let starting_lessons: Vec<Ustr> = self
-                    .get_course_valid_starting_lessons(
-                        curr_unit.unit_id,
-                        curr_unit.depth,
-                        metadata_filter,
-                    )
+                    .get_course_valid_starting_lessons(curr_unit.unit_id, metadata_filter)
                     .unwrap_or_default();
                 Self::shuffle_to_stack(&curr_unit, starting_lessons, &mut stack);
 
@@ -557,11 +558,7 @@ impl DepthFirstScheduler {
                     &mut pending_course_lessons,
                 ) {
                     visited.insert(curr_unit.unit_id);
-                    let valid_deps = self.get_valid_dependents(
-                        curr_unit.unit_id,
-                        curr_unit.depth,
-                        metadata_filter,
-                    );
+                    let valid_deps = self.get_valid_dependents(curr_unit.unit_id, metadata_filter);
                     Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
                 }
             } else if unit_type == UnitType::Lesson {
@@ -587,8 +584,7 @@ impl DepthFirstScheduler {
 
                 // Retrieve the valid dependents of the lesson, and directly skip the lesson if
                 // needed.
-                let valid_deps =
-                    self.get_valid_dependents(curr_unit.unit_id, curr_unit.depth, metadata_filter);
+                let valid_deps = self.get_valid_dependents(curr_unit.unit_id, metadata_filter);
                 if self.skip_lesson(curr_unit.unit_id, metadata_filter) {
                     Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
                     continue;
@@ -601,14 +597,7 @@ impl DepthFirstScheduler {
 
                 // Compare the score against the passing score to decide whether the search should
                 // continue past this lesson.
-                if num_candidates > 0
-                    && avg_score
-                        < self
-                            .data
-                            .options
-                            .passing_score
-                            .compute_score(curr_unit.depth)
-                {
+                if num_candidates > 0 && avg_score < self.data.options.passing_score_v2.min_score {
                     // Search reached a dead-end. If there are already enough candidates, terminate
                     // the search. Otherwise, continue with the search and shuffle the entire stack
                     // to prioritize other paths in the graph.
@@ -682,8 +671,7 @@ impl DepthFirstScheduler {
 
                 // Retrieve the valid dependents of the lesson, and directly skip the lesson if
                 // needed.
-                let valid_deps =
-                    self.get_valid_dependents(curr_unit.unit_id, curr_unit.depth, None);
+                let valid_deps = self.get_valid_dependents(curr_unit.unit_id, None);
                 if self.skip_lesson(curr_unit.unit_id, None) {
                     Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
                     continue;
@@ -696,14 +684,7 @@ impl DepthFirstScheduler {
 
                 // Compare the score against the passing score to decide whether the search should
                 // continue past this lesson.
-                if num_candidates > 0
-                    && avg_score
-                        < self
-                            .data
-                            .options
-                            .passing_score
-                            .compute_score(curr_unit.depth)
-                {
+                if num_candidates > 0 && avg_score < self.data.options.passing_score_v2.min_score {
                     // Search reached a dead-end. If there are already enough candidates, terminate
                     // the search. Otherwise, continue with the search and shuffle the entire stack
                     // to prioritize other
