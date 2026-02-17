@@ -63,6 +63,12 @@ const MAX_NUM_TRIALS_WEIGHT: f32 = 1000.0;
 /// The factor by which the weight is mulitiplied when the number of trials is increased.
 const NUM_TRIALS_FACTOR: f32 = 0.75;
 
+/// The part of the weight that depends on the number of days since the exercise was last seen.
+const LAST_SEEN_WEIGHT_PER_DAY: f32 = 10.0;
+
+/// The maximum amount of weight this component can add.
+const MAX_LAST_SEEN_WEIGHT: f32 = 1000.0;
+
 /// The maximum weight that depends on the frequency of exercises from the same lesson. The weight
 /// will be divided equally among all the exercises from the same lesson.
 const MAX_LESSON_FREQUENCY_WEIGHT: f32 = 1000.0;
@@ -140,11 +146,13 @@ impl CandidateFilter {
     ///    exercises too often during the same session.
     /// 7. The number of trials for that candidate. A higher number of trials is assigned less
     ///    weight to favor exercises that have been practiced fewer times.
-    /// 8. The number of candidates in the same lesson. The more candidates there are in the same
+    /// 8. The number of days since this candidate was last seen. More days since last seen gets
+    ///    more weight.
+    /// 9. The number of candidates in the same lesson. The more candidates there are in the same
     ///    lesson, the less weight each candidate is assigned to avoid selecting too many exercises
     ///    from the same lesson.
-    /// 9. The number of candidates in the same course. The same logic applies as for the lesson
-    ///    frequency.
+    /// 10. The number of candidates in the same course. The same logic applies as for the lesson
+    ///     frequency.
     fn candidate_weight(
         c: &Candidate,
         encompassed_freq: u32,
@@ -174,6 +182,9 @@ impl CandidateFilter {
 
         // A part of the weight is based on the number of trials for that exercise.
         weight += MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR.powf(c.num_trials as f32);
+
+        // A part of the weight is based on the number of days since this exercise was last seen.
+        weight += (LAST_SEEN_WEIGHT_PER_DAY * c.last_seen).clamp(0.0, MAX_LAST_SEEN_WEIGHT);
 
         // A part of the weight is based on the number of candidates in the same lesson.
         weight += MAX_LESSON_FREQUENCY_WEIGHT / lesson_freq.max(1) as f32;
@@ -446,6 +457,7 @@ mod test {
                 lesson_score: 0.0,
                 course_score: 0.0,
                 num_trials: 0,
+                last_seen: 0.0,
                 frequency: 0,
             },
             Candidate {
@@ -457,6 +469,7 @@ mod test {
                 lesson_score: 0.0,
                 course_score: 0.0,
                 num_trials: 0,
+                last_seen: 0.0,
                 frequency: 0,
             },
             Candidate {
@@ -468,6 +481,7 @@ mod test {
                 lesson_score: 0.0,
                 course_score: 0.0,
                 num_trials: 0,
+                last_seen: 0.0,
                 frequency: 0,
             },
             Candidate {
@@ -479,6 +493,7 @@ mod test {
                 lesson_score: 0.0,
                 course_score: 0.0,
                 num_trials: 0,
+                last_seen: 0.0,
                 frequency: 0,
             },
         ];
@@ -504,6 +519,7 @@ mod test {
                 lesson_score: 0.0,
                 course_score: 0.0,
                 num_trials: 0,
+                last_seen: 0.0,
                 frequency: 0,
             },
             Candidate {
@@ -515,6 +531,7 @@ mod test {
                 lesson_score: 0.0,
                 course_score: 0.0,
                 num_trials: 0,
+                last_seen: 0.0,
                 frequency: 0,
             },
             Candidate {
@@ -526,6 +543,7 @@ mod test {
                 lesson_score: 0.0,
                 course_score: 0.0,
                 num_trials: 0,
+                last_seen: 0.0,
                 frequency: 0,
             },
             Candidate {
@@ -537,6 +555,7 @@ mod test {
                 lesson_score: 0.0,
                 course_score: 0.0,
                 num_trials: 0,
+                last_seen: 0.0,
                 frequency: 0,
             },
             Candidate {
@@ -548,6 +567,7 @@ mod test {
                 lesson_score: 0.0,
                 course_score: 0.0,
                 num_trials: 0,
+                last_seen: 0.0,
                 frequency: 0,
             },
         ];
@@ -587,6 +607,7 @@ mod test {
             lesson_score: 0.0,
             course_score: 0.0,
             num_trials: 0,
+            last_seen: 0.0,
             frequency: 0,
         }];
         let remainder = vec![
@@ -599,6 +620,7 @@ mod test {
                 lesson_score: 0.0,
                 course_score: 0.0,
                 num_trials: 0,
+                last_seen: 0.0,
                 frequency: 0,
             },
             Candidate {
@@ -610,6 +632,7 @@ mod test {
                 lesson_score: 0.0,
                 course_score: 0.0,
                 num_trials: 0,
+                last_seen: 0.0,
                 frequency: 0,
             },
             Candidate {
@@ -621,6 +644,7 @@ mod test {
                 lesson_score: 0.0,
                 course_score: 0.0,
                 num_trials: 0,
+                last_seen: 0.0,
                 frequency: 0,
             },
         ];
@@ -649,6 +673,7 @@ mod test {
                 lesson_score: 0.0,
                 course_score: 0.0,
                 num_trials: 0,
+                last_seen: 0.0,
                 frequency: 0,
             })
             .collect::<Vec<_>>();
@@ -672,6 +697,7 @@ mod test {
             lesson_score: 0.0,
             course_score: 0.0,
             num_trials: 0,
+            last_seen: 0.0,
             frequency: 0,
         }];
         let max_added = 1;
@@ -697,6 +723,7 @@ mod test {
             lesson_score: 0.0,
             course_score: 0.0,
             num_trials: 0,
+            last_seen: 0.0,
             frequency: 0,
         };
         let c2 = Candidate {
@@ -708,6 +735,7 @@ mod test {
             lesson_score: 0.0,
             course_score: 0.0,
             num_trials: 0,
+            last_seen: 0.0,
             frequency: 0,
         };
         assert!(
@@ -728,6 +756,7 @@ mod test {
             lesson_score: 5.0,
             course_score: 5.0,
             num_trials: 0,
+            last_seen: 0.0,
             frequency: 0,
         };
         let c2 = Candidate {
@@ -739,6 +768,7 @@ mod test {
             lesson_score: 1.0,
             course_score: 1.0,
             num_trials: 0,
+            last_seen: 0.0,
             frequency: 0,
         };
         assert!(
@@ -759,6 +789,7 @@ mod test {
             lesson_score: 5.0,
             course_score: 0.0,
             num_trials: 0,
+            last_seen: 0.0,
             frequency: 0,
         };
         let c2 = Candidate {
@@ -770,6 +801,7 @@ mod test {
             lesson_score: 1.0,
             course_score: 0.0,
             num_trials: 0,
+            last_seen: 0.0,
             frequency: 0,
         };
         assert!(
@@ -790,6 +822,7 @@ mod test {
             lesson_score: 0.0,
             course_score: 5.0,
             num_trials: 0,
+            last_seen: 0.0,
             frequency: 0,
         };
         let c2 = Candidate {
@@ -801,6 +834,7 @@ mod test {
             lesson_score: 0.0,
             course_score: 1.0,
             num_trials: 0,
+            last_seen: 0.0,
             frequency: 0,
         };
         assert!(
@@ -821,6 +855,7 @@ mod test {
             lesson_score: 0.0,
             course_score: 0.0,
             num_trials: 0,
+            last_seen: 0.0,
             frequency: 5,
         };
         let c2 = Candidate {
@@ -832,6 +867,7 @@ mod test {
             lesson_score: 0.0,
             course_score: 0.0,
             num_trials: 0,
+            last_seen: 0.0,
             frequency: 1,
         };
         assert!(
@@ -852,6 +888,7 @@ mod test {
             lesson_score: 0.0,
             course_score: 0.0,
             num_trials: 5,
+            last_seen: 0.0,
             frequency: 0,
         };
         let c2 = Candidate {
@@ -863,6 +900,40 @@ mod test {
             lesson_score: 0.0,
             course_score: 0.0,
             num_trials: 1,
+            last_seen: 0.0,
+            frequency: 0,
+        };
+        assert!(
+            CandidateFilter::candidate_weight(&c1, 0, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 0, 1, 1)
+        );
+    }
+
+    /// Verifies that candidates seen less recently are given more weight.
+    #[test]
+    fn more_days_since_last_seen_more_weight() {
+        let c1 = Candidate {
+            exercise_id: Ustr::from("exercise1"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            exercise_score: 0.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
+            num_trials: 0,
+            last_seen: 1.0,
+            frequency: 0,
+        };
+        let c2 = Candidate {
+            exercise_id: Ustr::from("exercise2"),
+            lesson_id: Ustr::from("lesson2"),
+            course_id: Ustr::from("course2"),
+            depth: 0.0,
+            exercise_score: 0.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
+            num_trials: 0,
+            last_seen: 20.0,
             frequency: 0,
         };
         assert!(
@@ -883,6 +954,7 @@ mod test {
             lesson_score: 0.0,
             course_score: 0.0,
             num_trials: 0,
+            last_seen: 0.0,
             frequency: 0,
         };
         let c2 = Candidate {
@@ -894,6 +966,7 @@ mod test {
             lesson_score: 0.0,
             course_score: 0.0,
             num_trials: 0,
+            last_seen: 0.0,
             frequency: 0,
         };
         assert!(
@@ -914,6 +987,7 @@ mod test {
             lesson_score: 0.0,
             course_score: 0.0,
             num_trials: 0,
+            last_seen: 0.0,
             frequency: 0,
         };
         let c2 = Candidate {
@@ -925,6 +999,7 @@ mod test {
             lesson_score: 0.0,
             course_score: 0.0,
             num_trials: 0,
+            last_seen: 0.0,
             frequency: 0,
         };
         assert!(
@@ -946,6 +1021,7 @@ mod test {
             lesson_score: 0.0,
             course_score: 0.0,
             num_trials: 0,
+            last_seen: 0.0,
             frequency: 0,
         };
         let c2 = Candidate {
@@ -957,6 +1033,7 @@ mod test {
             lesson_score: 0.0,
             course_score: 0.0,
             num_trials: 0,
+            last_seen: 0.0,
             frequency: 0,
         };
         assert!(
@@ -978,6 +1055,7 @@ mod test {
             lesson_score: 5.0,
             course_score: 5.0,
             num_trials: 1000,
+            last_seen: 0.0,
             frequency: 1000,
         };
         assert_eq!(
