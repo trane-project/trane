@@ -848,7 +848,7 @@ impl PassingScoreOptions {
 
 /// Options to control the passing score. Instead of a binary decision of whether a unit should
 /// block its dependents, Trane allows a more gradual transition so that a single unit without very
-/// high scores does not block progress along a path. 
+/// high scores does not block progress along a path.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct PassingScoreOptionsV2 {
     /// Instead of adding all the exercises of a passing score, the scheduler adds this fraction
@@ -868,6 +868,20 @@ impl Default for PassingScoreOptionsV2 {
             min_score: 3.0,
             min_fraction: 0.2,
         }
+    }
+}
+
+impl PassingScoreOptionsV2 {
+    /// Verifies that the options are valid.
+    pub fn verify(&self) -> Result<()> {
+        if self.min_score < 0.0 || self.min_score > 4.5 {
+            bail!("invalid minimum score: {}", self.min_score);
+        }
+
+        if self.min_fraction < 0.0 || self.min_fraction > 1.0 {
+            bail!("invalid minimum fraction: {}", self.min_fraction);
+        }
+        Ok(())
     }
 }
 
@@ -959,10 +973,12 @@ impl SchedulerOptions {
 
     /// Verifies that the scheduler options are valid.
     pub fn verify(&self) -> Result<()> {
-        // The batch size must be greater than 0.
+        // The batch size must be greater than 0 and the passing options must be valid.
         if self.batch_size == 0 {
             bail!("invalid scheduler options: batch_size must be greater than 0");
         }
+        self.passing_score.verify()?;
+        self.passing_score_v2.verify()?;
 
         // The sum of the percentages of the mastery windows must be 1.0.
         if !Self::float_equals(
@@ -1336,6 +1352,14 @@ mod test {
         assert!(options.verify().is_err());
     }
 
+    /// Verifies scheduler options with invalid passing score V2 settings are rejected.
+    #[test]
+    fn scheduler_options_invalid_passing_score_v2() {
+        let mut options = SchedulerOptions::default();
+        options.passing_score_v2.min_fraction = -0.1;
+        assert!(options.verify().is_err());
+    }
+
     /// Verifies that valid passing score options are recognized as such.
     #[test]
     fn verify_passing_score_options() {
@@ -1373,6 +1397,47 @@ mod test {
             starting_score: 3.50,
             step_size: -1.0,
             max_steps: 0,
+        };
+        assert!(options.verify().is_err());
+    }
+
+    /// Verifies that valid passing score V2 options are recognized as such.
+    #[test]
+    fn verify_passing_score_options_v2() {
+        let options = PassingScoreOptionsV2::default();
+        assert!(options.verify().is_ok());
+
+        let options = PassingScoreOptionsV2 {
+            min_score: 3.75,
+            min_fraction: 0.75,
+        };
+        assert!(options.verify().is_ok());
+    }
+
+    /// Verifies that invalid passing score V2 options are recognized as such.
+    #[test]
+    fn verify_passing_score_options_v2_invalid() {
+        let options = PassingScoreOptionsV2 {
+            min_score: -1.0,
+            min_fraction: 0.2,
+        };
+        assert!(options.verify().is_err());
+
+        let options = PassingScoreOptionsV2 {
+            min_score: 4.6,
+            min_fraction: 0.2,
+        };
+        assert!(options.verify().is_err());
+
+        let options = PassingScoreOptionsV2 {
+            min_score: 3.0,
+            min_fraction: -0.1,
+        };
+        assert!(options.verify().is_err());
+
+        let options = PassingScoreOptionsV2 {
+            min_score: 3.0,
+            min_fraction: 1.1,
         };
         assert!(options.verify().is_err());
     }

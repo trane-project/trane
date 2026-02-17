@@ -49,6 +49,9 @@ use crate::{
 /// search the entire graph if the search already found a decently sized pool of candidates.
 const MAX_CANDIDATE_FACTOR: usize = 10;
 
+/// The score at which fractional selection reaches 100% of lesson candidates.
+const FULL_SCALE_SCORE: f32 = 4.5;
+
 /// The trait that defines the interface for the scheduler. Contains functions to request a new
 /// batch of exercises and to provide Trane the self-reported scores for said exercises.
 pub trait ExerciseScheduler {
@@ -292,9 +295,39 @@ impl DepthFirstScheduler {
     /// options.
     fn select_candidates(
         candidates: Vec<Candidate>,
-        options: PassingScoreOptionsV2,
+        options: &PassingScoreOptionsV2,
     ) -> Vec<Candidate> {
-        unimplemented!()
+        // Handle cases where there are no candidates or the score is already good enough to return
+        // all of them.
+        if candidates.is_empty() {
+            return Vec::new();
+        }
+        let score = candidates[0].lesson_score;
+        if score >= FULL_SCALE_SCORE {
+            return candidates;
+        }
+
+        // Linearly interpolate between min_fraction at min_score and 1.0 at FULL_SCALE.
+        let clamped_min_fraction = options.min_fraction.clamp(0.0, 1.0);
+        let fraction = if score < options.min_score {
+            clamped_min_fraction
+        } else {
+            clamped_min_fraction
+                + ((score - options.min_score) / (FULL_SCALE_SCORE - options.min_score))
+                    * (1.0 - clamped_min_fraction)
+        };
+        let mut candidates = candidates;
+        candidates.shuffle(&mut rng());
+
+        let clamped_fraction = fraction.clamp(0.0, 1.0);
+        let mut num_to_select = (clamped_fraction * candidates.len() as f32).floor() as usize;
+
+        // Keep at least one candidate while there is at least one candidate to show.
+        if clamped_fraction > 0.0 && num_to_select == 0 {
+            num_to_select = 1;
+        }
+
+        candidates.into_iter().take(num_to_select).collect()
     }
 
     /// Returns the list of candidates selected from the given lesson along with the average score.
@@ -593,7 +626,10 @@ impl DepthFirstScheduler {
                 // Retrieve the candidates from the lesson and add them to the list of candidates.
                 let (candidates, avg_score) = self.get_candidates_from_lesson_helper(&curr_unit)?;
                 let num_candidates = candidates.len();
-                all_candidates.extend(candidates);
+                all_candidates.extend(Self::select_candidates(
+                    candidates,
+                    &self.data.options.passing_score_v2,
+                ));
 
                 // Compare the score against the passing score to decide whether the search should
                 // continue past this lesson.
@@ -680,7 +716,10 @@ impl DepthFirstScheduler {
                 // Retrieve the candidates from the lesson and add them to the list of candidates.
                 let (candidates, avg_score) = self.get_candidates_from_lesson_helper(&curr_unit)?;
                 let num_candidates = candidates.len();
-                all_candidates.extend(candidates);
+                all_candidates.extend(Self::select_candidates(
+                    candidates,
+                    &self.data.options.passing_score_v2,
+                ));
 
                 // Compare the score against the passing score to decide whether the search should
                 // continue past this lesson.
@@ -937,5 +976,125 @@ impl ExerciseScheduler for DepthFirstScheduler {
 
     fn reset_scheduler_options(&mut self) {
         self.data.options = SchedulerOptions::default();
+    }
+}
+
+#[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
+mod test {
+    use ustr::Ustr;
+
+    use super::*;
+
+    fn candidate(id: u32, lesson_score: f32, exercise_score: f32, depth: f32) -> Candidate {
+        let exercise_id = format!("exercise-{id}");
+        Candidate {
+            exercise_id: Ustr::from(exercise_id.as_str()),
+            lesson_id: Ustr::from("lesson"),
+            course_id: Ustr::from("course"),
+            depth,
+            exercise_score,
+            lesson_score,
+            course_score: 0.0,
+            num_trials: 0,
+            frequency: 0,
+        }
+    }
+
+    fn select(
+        lesson_score: f32,
+        num_candidates: usize,
+        options: PassingScoreOptionsV2,
+    ) -> Vec<Candidate> {
+        let candidates = (0..num_candidates)
+            .map(|idx| candidate(idx as u32, lesson_score, 0.0, 1.0))
+            .collect::<Vec<_>>();
+        DepthFirstScheduler::select_candidates(candidates, &options)
+    }
+
+    #[test]
+    fn select_candidates_empty() {
+        assert!(
+            DepthFirstScheduler::select_candidates(vec![], &PassingScoreOptionsV2::default())
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn select_candidates_below_minimum_score() {
+        let candidates = select(
+            2.0,
+            5,
+            PassingScoreOptionsV2 {
+                min_score: 3.0,
+                min_fraction: 0.2,
+            },
+        );
+        assert_eq!(candidates.len(), 1);
+    }
+
+    #[test]
+    fn select_candidates_below_minimum_score_with_zero_fraction() {
+        let candidates = select(
+            2.0,
+            5,
+            PassingScoreOptionsV2 {
+                min_score: 3.0,
+                min_fraction: 0.0,
+            },
+        );
+        assert_eq!(candidates.len(), 0);
+    }
+
+    #[test]
+    fn select_candidates_minimum_score_guarantees_one() {
+        let candidates = select(
+            3.0,
+            2,
+            PassingScoreOptionsV2 {
+                min_score: 3.0,
+                min_fraction: 0.2,
+            },
+        );
+        assert_eq!(candidates.len(), 1);
+    }
+
+    #[test]
+    fn select_candidates_partial_selection() {
+        let candidates = select(
+            4.0,
+            10,
+            PassingScoreOptionsV2 {
+                min_score: 3.0,
+                min_fraction: 0.2,
+            },
+        );
+        assert_eq!(candidates.len(), 7);
+    }
+
+    #[test]
+    fn select_candidates_always_keep_one_when_fraction_positive() {
+        let candidates = select(
+            3.01,
+            2,
+            PassingScoreOptionsV2 {
+                min_score: 3.0,
+                min_fraction: 0.0,
+            },
+        );
+        assert_eq!(candidates.len(), 1);
+    }
+
+    #[test]
+    fn select_candidates_full_selection() {
+        let candidates = select(
+            5.0,
+            11,
+            PassingScoreOptionsV2 {
+                min_score: 3.0,
+                min_fraction: 0.2,
+            },
+        );
+        assert_eq!(candidates.len(), 11);
     }
 }
