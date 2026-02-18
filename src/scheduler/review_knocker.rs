@@ -180,7 +180,9 @@ impl ReviewKnocker {
         let mut highly_encompassed = Vec::new();
         for candidate in initial_batch {
             if let Some(&frequency) = frequency_map.get(&candidate.exercise_id) {
-                if frequency >= VERY_HIGHLY_FREQUENCY {
+                if frequency >= VERY_HIGHLY_FREQUENCY
+                    && candidate.exercise_score >= VERY_HIGHLY_SCORE
+                {
                     continue;
                 }
                 if frequency >= HIGHLY_FREQUENCY && candidate.exercise_score >= HIGHLY_SCORE {
@@ -473,6 +475,18 @@ mod tests {
                 num_trials: 0,
                 last_seen: 0.0,
             },
+            Candidate {
+                exercise_id: Ustr::from("ex5"),
+                exercise_score: 4.0,
+                lesson_id: Ustr::from("lesson4"),
+                course_id: Ustr::from("course2"),
+                course_score: 0.0,
+                depth: 0.0,
+                frequency: 0,
+                lesson_score: 0.0,
+                num_trials: 0,
+                last_seen: 0.0,
+            },
         ];
 
         let mut frequency_map = UstrMap::default();
@@ -480,9 +494,11 @@ mod tests {
         frequency_map.insert(Ustr::from("ex2"), 8);
         frequency_map.insert(Ustr::from("ex3"), 2);
         frequency_map.insert(Ustr::from("ex4"), 3);
+        frequency_map.insert(Ustr::from("ex5"), 12);
         let result = ReviewKnocker::get_highly_encompassed(initial_batch, &frequency_map);
-        assert_eq!(result.len(), 1);
+        assert_eq!(result.len(), 2);
         assert!(result.iter().any(|c| c.exercise_id == Ustr::from("ex2")));
+        assert!(result.iter().any(|c| c.exercise_id == Ustr::from("ex5")));
         assert!(!result.iter().any(|c| c.exercise_id == Ustr::from("ex1")));
         assert!(!result.iter().any(|c| c.exercise_id == Ustr::from("ex3")));
         assert!(!result.iter().any(|c| c.exercise_id == Ustr::from("ex4")));
