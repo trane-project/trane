@@ -227,8 +227,9 @@ impl PowerLawScorer {
         let mut sum_weighted = 0.0;
         let mut sum_weights = 0.0;
         for trial in previous_trials {
-            let elapsed_days =
-                ((newest_timestamp - trial.timestamp) as f32 / SECONDS_PER_DAY).max(0.0);
+            let elapsed_days = ((newest_timestamp.saturating_sub(trial.timestamp)) as f32
+                / SECONDS_PER_DAY)
+                .max(0.0);
             let weight = PERFORMANCE_WEIGHT_DECAY
                 .powf(elapsed_days)
                 .max(PERFORMANCE_WEIGHT_MIN);
@@ -390,7 +391,7 @@ impl PowerLawScorer {
         for trial in previous_trials.iter().rev() {
             // Compute interval and review-derived signals from the current state.
             let days_since_previous_review = previous_timestamp.map_or(0.0, |timestamp| {
-                ((trial.timestamp - timestamp) as f32 / SECONDS_PER_DAY).max(0.0)
+                ((trial.timestamp.saturating_sub(timestamp)) as f32 / SECONDS_PER_DAY).max(0.0)
             });
 
             stability = Self::apply_stability_transition(
@@ -476,7 +477,9 @@ impl ExerciseScorer for PowerLawScorer {
         );
 
         // Project recall probability from the most recent review to now.
-        let days_since_last = ((Utc::now().timestamp() - previous_trials[0].timestamp) as f32
+        let days_since_last = ((Utc::now()
+            .timestamp()
+            .saturating_sub(previous_trials[0].timestamp)) as f32
             / SECONDS_PER_DAY)
             .max(0.0);
         let retrievability =
@@ -645,6 +648,26 @@ mod test {
         )?;
         assert!(score >= 0.0 && score <= 5.0);
         assert!(score < 1.0); // Low due to long time elapsed
+        Ok(())
+    }
+
+    /// Verifies extreme timestamp gaps do not overflow elapsed-time calculations.
+    #[test]
+    fn extreme_timestamp_gap_does_not_overflow() -> Result<()> {
+        let score = SCORER.score(
+            ExerciseType::Declarative,
+            &[
+                ExerciseTrial {
+                    score: 5.0,
+                    timestamp: i64::MAX,
+                },
+                ExerciseTrial {
+                    score: 1.0,
+                    timestamp: i64::MIN,
+                },
+            ],
+        )?;
+        assert!(score >= 0.0 && score <= 5.0);
         Ok(())
     }
 
