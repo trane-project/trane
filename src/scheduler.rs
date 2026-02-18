@@ -346,7 +346,7 @@ impl DepthFirstScheduler {
             .unit_scorer
             .get_unit_score(item.unit_id)?
             .unwrap_or_default();
-        let mut candidates = exercises
+        let candidates = exercises
             .into_iter()
             .map(|exercise_id| {
                 Ok(Candidate {
@@ -373,17 +373,10 @@ impl DepthFirstScheduler {
             })
             .collect::<Result<Vec<Candidate>>>()?;
 
-        // Compute the lesson average directly from the candidate exercise scores and set that value
-        // as the lesson score for all candidates if needed.
+        // Compute the lesson average directly from the candidate exercise scores and select the
+        // right fraction of candidates based on the lesson average and passing options. 
         let avg_score =
             candidates.iter().map(|c| c.exercise_score).sum::<f32>() / candidates.len() as f32;
-        if lesson_score == 0.0 && avg_score > 0.0 {
-            for candidate in &mut candidates {
-                candidate.lesson_score = avg_score;
-            }
-        }
-
-        // Select the right fraction of candidates based on the lesson average and passing options.
         let selected_candidates =
             Self::select_candidates(candidates, avg_score, &self.data.options.passing_score_v2);
         Ok((selected_candidates, avg_score))
