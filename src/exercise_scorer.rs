@@ -216,11 +216,13 @@ impl PowerLawScorer {
     /// Weights decay by elapsed days from the most recent trial so irregular practice cadence is
     /// modeled more accurately.
     fn compute_weighted_avg(previous_trials: &[ExerciseTrial]) -> f32 {
-        // Start from the latest timestamp and compute the weights of the rest based on the number
-        // of days from it.
         if previous_trials.is_empty() {
             return 0.0;
         }
+
+        // Start from the latest timestamp and compute the weights of the rest based on the number
+        // of days from it. No need to check for division by zero because the minimum score of
+        // a trial is 1 and the minimum weight is capped.
         let newest_timestamp = previous_trials[0].timestamp;
         let mut sum_weighted = 0.0;
         let mut sum_weights = 0.0;
@@ -232,11 +234,6 @@ impl PowerLawScorer {
                 .max(PERFORMANCE_WEIGHT_MIN);
             sum_weighted += trial.score * weight;
             sum_weights += weight;
-        }
-
-        // Compute the final result.
-        if sum_weights == 0.0 {
-            return 0.0;
         }
         sum_weighted / sum_weights
     }
