@@ -374,7 +374,7 @@ impl DepthFirstScheduler {
             .collect::<Result<Vec<Candidate>>>()?;
 
         // Compute the lesson average directly from the candidate exercise scores and select the
-        // right fraction of candidates based on the lesson average and passing options. 
+        // right fraction of candidates based on the lesson average and passing options.
         let avg_score =
             candidates.iter().map(|c| c.exercise_score).sum::<f32>() / candidates.len() as f32;
         let selected_candidates =
