@@ -584,8 +584,8 @@ impl DepthFirstScheduler {
             let unit_type = self.data.get_unit_type(curr_unit.unit_id);
             if unit_type.is_none() {
                 // The type of the unit is unknown. This can happen when a unit depends on some
-                // unknown unit.
-                continue;
+                // missing unit not in the course library.
+                continue; // grcov-excl-line
             }
             let unit_type = unit_type.unwrap();
 
