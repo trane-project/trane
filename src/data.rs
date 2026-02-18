@@ -955,11 +955,11 @@ impl Default for SchedulerOptions {
         SchedulerOptions {
             batch_size: 50,
             new_window_opts: MasteryWindow {
-                percentage: 0.3,
+                percentage: 0.2,
                 range: (0.0, 0.1),
             },
             target_window_opts: MasteryWindow {
-                percentage: 0.15,
+                percentage: 0.2,
                 range: (0.1, 2.5),
             },
             current_window_opts: MasteryWindow {
@@ -967,7 +967,7 @@ impl Default for SchedulerOptions {
                 range: (2.5, 3.75),
             },
             easy_window_opts: MasteryWindow {
-                percentage: 0.15,
+                percentage: 0.2,
                 range: (3.75, 4.5),
             },
             mastered_window_opts: MasteryWindow {
@@ -976,8 +976,8 @@ impl Default for SchedulerOptions {
             },
             passing_score_v2: PassingScoreOptions::default(),
             superseding_score: 4.0,
-            num_trials: 10,
-            num_rewards: 5,
+            num_trials: 15,
+            num_rewards: 10,
         }
     }
 }
