@@ -93,9 +93,12 @@ const DIFFICULTY_SCALE: f32 = 9.0;
 /// The number of seconds in a day, used for timestamp conversions.
 const SECONDS_PER_DAY: f32 = 86400.0;
 
-/// The decay factor for exponential weighting of performance. Latest score weight 1.0, then 0.8,
-/// 0.64, etc.
-const PERFORMANCE_WEIGHT_DECAY: f32 = 0.8;
+/// The per-day decay factor for exponential weighting of performance. Latest score weight 1.0,
+/// scores one day old are multiplied by it, two days old by its square and so on.
+const PERFORMANCE_WEIGHT_DECAY: f32 = 0.98;
+
+/// The minimum per-trial performance weight, ensuring very old trials never disappear entirely.
+const PERFORMANCE_WEIGHT_MIN: f32 = 0.1;
 
 /// The range of grade values used in performance calculations.
 const GRADE_RANGE: f32 = GRADE_MAX - GRADE_MIN;
@@ -208,18 +211,32 @@ impl PowerLawScorer {
         difficulty.clamp(MIN_DIFFICULTY, MAX_DIFFICULTY)
     }
 
-    /// Computes the exponentially weighted average performance from all trials.
+    /// Computes the time-decayed weighted average performance from all trials.
+    ///
+    /// Weights decay by elapsed days from the most recent trial so irregular practice cadence is
+    /// modeled more accurately.
     fn compute_weighted_avg(previous_trials: &[ExerciseTrial]) -> f32 {
+        // Start from the latest timestamp and compute the weights of the rest based on the number
+        // of days from it.
         if previous_trials.is_empty() {
             return 0.0;
         }
-        let mut weight = 1.0;
+        let newest_timestamp = previous_trials[0].timestamp;
         let mut sum_weighted = 0.0;
         let mut sum_weights = 0.0;
         for trial in previous_trials {
+            let elapsed_days =
+                ((newest_timestamp - trial.timestamp) as f32 / SECONDS_PER_DAY).max(0.0);
+            let weight = PERFORMANCE_WEIGHT_DECAY
+                .powf(elapsed_days)
+                .max(PERFORMANCE_WEIGHT_MIN);
             sum_weighted += trial.score * weight;
             sum_weights += weight;
-            weight *= PERFORMANCE_WEIGHT_DECAY;
+        }
+
+        // Compute the final result.
+        if sum_weights == 0.0 {
+            return 0.0;
         }
         sum_weighted / sum_weights
     }
@@ -1009,7 +1026,7 @@ mod test {
         }];
         assert!((PowerLawScorer::compute_weighted_avg(&single_trial) - 5.0).abs() < 1e-6);
 
-        // Multiple trials: [5.0, 4.0, 3.0] should be approx 4.147
+        // Multiple trials: [5.0, 4.0, 3.0] should be approx 4.03 at this decay rate.
         let multi_trials = vec![
             ExerciseTrial {
                 score: 5.0,
@@ -1025,7 +1042,70 @@ mod test {
             },
         ];
         let weighted = PowerLawScorer::compute_weighted_avg(&multi_trials);
-        assert!((weighted - 4.147).abs() < 0.001);
+        assert!((weighted - 4.013).abs() < 0.001);
+
+        // Irregular spacing should down-weight distant failures more than dense spacing.
+        let dense_low_tail = vec![
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(0),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(2),
+            },
+        ];
+        let sparse_low_tail = vec![
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(0),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(30),
+            },
+        ];
+        let dense_weighted = PowerLawScorer::compute_weighted_avg(&dense_low_tail);
+        let sparse_weighted = PowerLawScorer::compute_weighted_avg(&sparse_low_tail);
+        assert!(sparse_weighted > dense_weighted);
+
+        // Very old history contributes a floor weight and remains somewhat influential.
+        let compact = vec![
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(0),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(1),
+            },
+        ];
+        let with_ancient = vec![
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(0),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(365),
+            },
+        ];
+        let compact_weighted = PowerLawScorer::compute_weighted_avg(&compact);
+        let ancient_weighted = PowerLawScorer::compute_weighted_avg(&with_ancient);
+        assert!(ancient_weighted < compact_weighted);
+        assert!(ancient_weighted > 4.0);
     }
 
     /// Verifies that the old-good retrievability floor is applied only when thresholds are met.
