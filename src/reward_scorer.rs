@@ -27,7 +27,7 @@ pub trait RewardScorer {
 const REWARD_HALF_LIFE_DAYS: f32 = 14.0;
 
 /// Rewards with effective weights below this threshold are ignored.
-const MIN_EFFECTIVE_WEIGHT: f32 = 0.001;
+const MIN_EFFECTIVE_WEIGHT: f32 = 0.05;
 
 /// The weight of the course rewards in the final score.
 const COURSE_REWARDS_WEIGHT: f32 = 0.3;
