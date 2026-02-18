@@ -211,7 +211,7 @@ impl DepthFirstScheduler {
                     new_starting_courses.extend(self.data.get_all_dependents(*course_id).iter());
                 }
             }
-            if new_starting_courses.len() == starting_courses.len() {
+            if new_starting_courses.eq(&starting_courses) {
                 break;
             }
             starting_courses = new_starting_courses;
@@ -346,7 +346,7 @@ impl DepthFirstScheduler {
             .unit_scorer
             .get_unit_score(item.unit_id)?
             .unwrap_or_default();
-        let mut candidates = exercises
+        let candidates = exercises
             .into_iter()
             .map(|exercise_id| {
                 Ok(Candidate {
@@ -373,17 +373,10 @@ impl DepthFirstScheduler {
             })
             .collect::<Result<Vec<Candidate>>>()?;
 
-        // Compute the lesson average directly from the candidate exercise scores and set that value
-        // as the lesson score for all candidates if needed.
+        // Compute the lesson average directly from the candidate exercise scores and select the
+        // right fraction of candidates based on the lesson average and passing options.
         let avg_score =
             candidates.iter().map(|c| c.exercise_score).sum::<f32>() / candidates.len() as f32;
-        if lesson_score == 0.0 && avg_score > 0.0 {
-            for candidate in &mut candidates {
-                candidate.lesson_score = avg_score;
-            }
-        }
-
-        // Select the right fraction of candidates based on the lesson average and passing options.
         let selected_candidates =
             Self::select_candidates(candidates, avg_score, &self.data.options.passing_score_v2);
         Ok((selected_candidates, avg_score))
@@ -437,6 +430,8 @@ impl DepthFirstScheduler {
         if let Ok(Some(score)) = score {
             score >= self.data.options.passing_score_v2.min_score
         } else {
+            // If the score cannot be retrieved, consider the dependency as satisfied to avoid
+            // blocking the search in the case of blacklisted or missing units.
             true
         }
     }
@@ -582,8 +577,8 @@ impl DepthFirstScheduler {
             let unit_type = self.data.get_unit_type(curr_unit.unit_id);
             if unit_type.is_none() {
                 // The type of the unit is unknown. This can happen when a unit depends on some
-                // unknown unit.
-                continue;
+                // missing unit not in the course library.
+                continue; // grcov-excl-line
             }
             let unit_type = unit_type.unwrap();
 
@@ -615,7 +610,9 @@ impl DepthFirstScheduler {
                 let pending_lessons = pending_course_lessons
                     .entry(course_id)
                     .or_insert_with(|| self.data.get_num_lessons_in_course(course_id));
-                *pending_lessons -= 1;
+                if *pending_lessons > 0 {
+                    *pending_lessons -= 1;
+                }
 
                 // Check whether there are pending lessons.
                 if *pending_lessons == 0 {
@@ -1073,7 +1070,7 @@ mod test {
     #[test]
     fn select_candidates_partial_selection() {
         let candidates = select(
-            4.0,
+            3.8,
             10,
             PassingScoreOptions {
                 min_score: 3.0,
