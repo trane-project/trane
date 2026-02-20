@@ -149,6 +149,10 @@ struct Candidate {
     /// The number of times this exercise has been scheduled during the run of this scheduler. This
     /// value will be used to assign more weight to exercises that have been scheduled less often.
     frequency: usize,
+
+    /// Whether this candidate comes from a lesson where the search stopped because the lesson's
+    /// average score is still below the passing score.
+    dead_end: bool,
 }
 
 /// An implementation of [`ExerciseScheduler`] based on depth-first search.
@@ -369,6 +373,7 @@ impl DepthFirstScheduler {
                         .get_last_seen_days(exercise_id)?
                         .unwrap_or_default(),
                     frequency: self.data.get_exercise_frequency(exercise_id),
+                    dead_end: false,
                 })
             })
             .collect::<Result<Vec<Candidate>>>()?;
@@ -633,13 +638,18 @@ impl DepthFirstScheduler {
                 }
 
                 // Retrieve the candidates from the lesson and add them to the list of candidates.
-                let (candidates, avg_score) = self.get_candidates_from_lesson_helper(&curr_unit)?;
+                let (mut candidates, avg_score) =
+                    self.get_candidates_from_lesson_helper(&curr_unit)?;
                 let num_candidates = candidates.len();
-                all_candidates.extend(candidates);
 
                 // Compare the score against the passing score to decide whether the search should
                 // continue past this lesson.
                 if num_candidates > 0 && avg_score < self.data.options.passing_score_v2.min_score {
+                    for candidate in &mut candidates {
+                        candidate.dead_end = true;
+                    }
+                    all_candidates.extend(candidates);
+
                     // Search reached a dead-end. If there are already enough candidates, terminate
                     // the search. Otherwise, continue with the search and shuffle the entire stack
                     // to prioritize other paths in the graph.
@@ -650,8 +660,9 @@ impl DepthFirstScheduler {
                     continue;
                 }
 
-                // The search should continue past this lesson. Add its valid dependents to the
-                // stack.
+                // The search should continue past this lesson. Add the its candidates and continue
+                // the search via its valid dependents.
+                all_candidates.extend(candidates);
                 Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
             }
         }
@@ -720,13 +731,18 @@ impl DepthFirstScheduler {
                 }
 
                 // Retrieve the candidates from the lesson and add them to the list of candidates.
-                let (candidates, avg_score) = self.get_candidates_from_lesson_helper(&curr_unit)?;
+                let (mut candidates, avg_score) =
+                    self.get_candidates_from_lesson_helper(&curr_unit)?;
                 let num_candidates = candidates.len();
-                all_candidates.extend(candidates);
 
                 // Compare the score against the passing score to decide whether the search should
                 // continue past this lesson.
                 if num_candidates > 0 && avg_score < self.data.options.passing_score_v2.min_score {
+                    for candidate in &mut candidates {
+                        candidate.dead_end = true;
+                    }
+                    all_candidates.extend(candidates);
+
                     // Search reached a dead-end. If there are already enough candidates, terminate
                     // the search. Otherwise, continue with the search and shuffle the entire stack
                     // to prioritize other
@@ -737,7 +753,9 @@ impl DepthFirstScheduler {
                     continue;
                 }
 
-                // Add the lesson's valid dependents to the stack.
+                // The search should continue past this lesson. Add the its candidates and continue
+                // the search via its valid dependents.
+                all_candidates.extend(candidates);
                 Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
             }
         }
@@ -803,6 +821,7 @@ impl DepthFirstScheduler {
                             .get_last_seen_days(unit_id)?
                             .unwrap_or_default(),
                         frequency: *self.data.frequency_map.read().get(&unit_id).unwrap_or(&0),
+                        dead_end: false,
                     });
                 }
             }
@@ -1006,9 +1025,11 @@ mod test {
             num_trials: 0,
             last_seen: 0.0,
             frequency: 0,
+            dead_end: false,
         }
     }
 
+    /// Helper function to easily generate test cases for the `select_candidates` function.
     fn select(
         lesson_score: f32,
         num_candidates: usize,
@@ -1020,6 +1041,7 @@ mod test {
         DepthFirstScheduler::select_candidates(candidates, lesson_score, &options)
     }
 
+    /// Verifies that an empty list of candidates results in an empty selection.
     #[test]
     fn select_candidates_empty() {
         assert!(
@@ -1028,6 +1050,8 @@ mod test {
         );
     }
 
+    /// Verifies that when the lesson score is below the minimum score, the right fraction of
+    /// candidates is selected.
     #[test]
     fn select_candidates_below_minimum_score() {
         let candidates = select(
@@ -1041,6 +1065,8 @@ mod test {
         assert_eq!(candidates.len(), 5);
     }
 
+    /// Verifies that when the lesson score is below the minimum score but the minimum fraction is
+    /// zero, all candidates are selected.   
     #[test]
     fn select_candidates_below_minimum_score_with_zero_fraction() {
         let candidates = select(
@@ -1054,6 +1080,8 @@ mod test {
         assert_eq!(candidates.len(), 5);
     }
 
+    /// Verifies that when the lesson score is equal or above the minimum score, at least the minimum
+    /// fraction of candidates is selected.
     #[test]
     fn select_candidates_minimum_score_guarantees_one() {
         let candidates = select(
@@ -1067,6 +1095,8 @@ mod test {
         assert_eq!(candidates.len(), 1);
     }
 
+    /// Verifies that when the lesson score is above the minimum score, the right fraction of
+    /// candidates is selected.
     #[test]
     fn select_candidates_partial_selection() {
         let candidates = select(
@@ -1080,6 +1110,8 @@ mod test {
         assert_eq!(candidates.len(), 8);
     }
 
+    /// Verifies that when the lesson score is above the minimum score but the minimum fraction is
+    /// zero, at least one candidate is selected.
     #[test]
     fn select_candidates_always_keep_one_when_fraction_positive() {
         let candidates = select(
@@ -1093,6 +1125,7 @@ mod test {
         assert_eq!(candidates.len(), 1);
     }
 
+    /// Verifies that when the lesson score is at the maximum, all candidates are selected.
     #[test]
     fn select_candidates_full_selection() {
         let candidates = select(

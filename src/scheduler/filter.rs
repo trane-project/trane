@@ -43,6 +43,10 @@ const MAX_ENCOMPASSED_WEIGHT: f32 = 1000.0;
 /// depth and this factor.
 const DEPTH_WEIGHT_FACTOR: f32 = 25.0;
 
+/// The part of the weight that depends on whether the candidate was found at a dead-end in the
+/// graph.
+const DEAD_WEIGHT_FACTOR: f32 = 1000.0;
+
 /// The part of the weight that depends on the depth of the candidate will be capped at this value.
 const MAX_DEPTH_WEIGHT: f32 = 1000.0;
 
@@ -153,6 +157,8 @@ impl CandidateFilter {
     ///    from the same lesson.
     /// 10. The number of candidates in the same course. The same logic applies as for the lesson
     ///     frequency.
+    /// 11. Whether the candidate comes from a dead-end in the traversal. Dead-end candidates get a
+    ///     fixed bonus to prioritize the learner's frontier.
     fn candidate_weight(
         c: &Candidate,
         encompassed_freq: u32,
@@ -191,6 +197,11 @@ impl CandidateFilter {
 
         // A part of the weight is based on the number of candidates in the same course.
         weight += MAX_COURSE_FREQUENCY_WEIGHT / course_freq.max(1) as f32;
+
+        // A fixed part of the score depends on whether the candidate is at a dead-end.
+        if c.dead_end {
+            weight += DEAD_WEIGHT_FACTOR;
+        }
 
         // Give each candidates a minimum weight.
         weight.max(MIN_WEIGHT)
@@ -459,6 +470,7 @@ mod test {
                 num_trials: 0,
                 last_seen: 0.0,
                 frequency: 0,
+                dead_end: false,
             },
             Candidate {
                 exercise_id: Ustr::from("exercise2"),
@@ -471,6 +483,7 @@ mod test {
                 num_trials: 0,
                 last_seen: 0.0,
                 frequency: 0,
+                dead_end: false,
             },
             Candidate {
                 exercise_id: Ustr::from("exercise3"),
@@ -483,6 +496,7 @@ mod test {
                 num_trials: 0,
                 last_seen: 0.0,
                 frequency: 0,
+                dead_end: false,
             },
             Candidate {
                 exercise_id: Ustr::from("exercise4"),
@@ -495,6 +509,7 @@ mod test {
                 num_trials: 0,
                 last_seen: 0.0,
                 frequency: 0,
+                dead_end: false,
             },
         ];
 
@@ -521,6 +536,7 @@ mod test {
                 num_trials: 0,
                 last_seen: 0.0,
                 frequency: 0,
+                dead_end: false,
             },
             Candidate {
                 exercise_id: Ustr::from("exercise2"),
@@ -533,6 +549,7 @@ mod test {
                 num_trials: 0,
                 last_seen: 0.0,
                 frequency: 0,
+                dead_end: false,
             },
             Candidate {
                 exercise_id: Ustr::from("exercise3"),
@@ -545,6 +562,7 @@ mod test {
                 num_trials: 0,
                 last_seen: 0.0,
                 frequency: 0,
+                dead_end: false,
             },
             Candidate {
                 exercise_id: Ustr::from("exercise4"),
@@ -557,6 +575,7 @@ mod test {
                 num_trials: 0,
                 last_seen: 0.0,
                 frequency: 0,
+                dead_end: false,
             },
             Candidate {
                 exercise_id: Ustr::from("exercise5"),
@@ -569,6 +588,7 @@ mod test {
                 num_trials: 0,
                 last_seen: 0.0,
                 frequency: 0,
+                dead_end: false,
             },
         ];
         let window_opts = MasteryWindow {
@@ -609,6 +629,7 @@ mod test {
             num_trials: 0,
             last_seen: 0.0,
             frequency: 0,
+            dead_end: false,
         }];
         let remainder = vec![
             Candidate {
@@ -622,6 +643,7 @@ mod test {
                 num_trials: 0,
                 last_seen: 0.0,
                 frequency: 0,
+                dead_end: false,
             },
             Candidate {
                 exercise_id: Ustr::from("exercise3"),
@@ -634,6 +656,7 @@ mod test {
                 num_trials: 0,
                 last_seen: 0.0,
                 frequency: 0,
+                dead_end: false,
             },
             Candidate {
                 exercise_id: Ustr::from("exercise4"),
@@ -646,6 +669,7 @@ mod test {
                 num_trials: 0,
                 last_seen: 0.0,
                 frequency: 0,
+                dead_end: false,
             },
         ];
         let frequency_map = UstrMap::default();
@@ -675,6 +699,7 @@ mod test {
                 num_trials: 0,
                 last_seen: 0.0,
                 frequency: 0,
+                dead_end: false,
             })
             .collect::<Vec<_>>();
         let initial_len_full = final_candidates_full.len();
@@ -699,6 +724,7 @@ mod test {
             num_trials: 0,
             last_seen: 0.0,
             frequency: 0,
+            dead_end: false,
         }];
         let max_added = 1;
         CandidateFilter::add_remainder(
@@ -725,6 +751,7 @@ mod test {
             num_trials: 0,
             last_seen: 0.0,
             frequency: 0,
+            dead_end: false,
         };
         let c2 = Candidate {
             exercise_id: Ustr::from("exercise2"),
@@ -737,6 +764,7 @@ mod test {
             num_trials: 0,
             last_seen: 0.0,
             frequency: 0,
+            dead_end: false,
         };
         assert!(
             CandidateFilter::candidate_weight(&c1, 0, 1, 1)
@@ -758,6 +786,7 @@ mod test {
             num_trials: 0,
             last_seen: 0.0,
             frequency: 0,
+            dead_end: false,
         };
         let c2 = Candidate {
             exercise_id: Ustr::from("exercise2"),
@@ -770,6 +799,7 @@ mod test {
             num_trials: 0,
             last_seen: 0.0,
             frequency: 0,
+            dead_end: false,
         };
         assert!(
             CandidateFilter::candidate_weight(&c1, 0, 1, 1)
@@ -791,6 +821,7 @@ mod test {
             num_trials: 0,
             last_seen: 0.0,
             frequency: 0,
+            dead_end: false,
         };
         let c2 = Candidate {
             exercise_id: Ustr::from("exercise2"),
@@ -803,6 +834,7 @@ mod test {
             num_trials: 0,
             last_seen: 0.0,
             frequency: 0,
+            dead_end: false,
         };
         assert!(
             CandidateFilter::candidate_weight(&c1, 0, 1, 1)
@@ -824,6 +856,7 @@ mod test {
             num_trials: 0,
             last_seen: 0.0,
             frequency: 0,
+            dead_end: false,
         };
         let c2 = Candidate {
             exercise_id: Ustr::from("exercise2"),
@@ -836,6 +869,7 @@ mod test {
             num_trials: 0,
             last_seen: 0.0,
             frequency: 0,
+            dead_end: false,
         };
         assert!(
             CandidateFilter::candidate_weight(&c1, 0, 1, 1)
@@ -857,6 +891,7 @@ mod test {
             num_trials: 0,
             last_seen: 0.0,
             frequency: 5,
+            dead_end: false,
         };
         let c2 = Candidate {
             exercise_id: Ustr::from("exercise2"),
@@ -869,6 +904,7 @@ mod test {
             num_trials: 0,
             last_seen: 0.0,
             frequency: 1,
+            dead_end: false,
         };
         assert!(
             CandidateFilter::candidate_weight(&c1, 0, 1, 1)
@@ -890,6 +926,7 @@ mod test {
             num_trials: 5,
             last_seen: 0.0,
             frequency: 0,
+            dead_end: false,
         };
         let c2 = Candidate {
             exercise_id: Ustr::from("exercise2"),
@@ -902,6 +939,7 @@ mod test {
             num_trials: 1,
             last_seen: 0.0,
             frequency: 0,
+            dead_end: false,
         };
         assert!(
             CandidateFilter::candidate_weight(&c1, 0, 1, 1)
@@ -923,6 +961,7 @@ mod test {
             num_trials: 0,
             last_seen: 1.0,
             frequency: 0,
+            dead_end: false,
         };
         let c2 = Candidate {
             exercise_id: Ustr::from("exercise2"),
@@ -935,6 +974,7 @@ mod test {
             num_trials: 0,
             last_seen: 20.0,
             frequency: 0,
+            dead_end: false,
         };
         assert!(
             CandidateFilter::candidate_weight(&c1, 0, 1, 1)
@@ -956,6 +996,7 @@ mod test {
             num_trials: 0,
             last_seen: 0.0,
             frequency: 0,
+            dead_end: false,
         };
         let c2 = Candidate {
             exercise_id: Ustr::from("exercise2"),
@@ -968,6 +1009,7 @@ mod test {
             num_trials: 0,
             last_seen: 0.0,
             frequency: 0,
+            dead_end: false,
         };
         assert!(
             CandidateFilter::candidate_weight(&c1, 0, 10, 1)
@@ -989,6 +1031,7 @@ mod test {
             num_trials: 0,
             last_seen: 0.0,
             frequency: 0,
+            dead_end: false,
         };
         let c2 = Candidate {
             exercise_id: Ustr::from("exercise2"),
@@ -1001,6 +1044,7 @@ mod test {
             num_trials: 0,
             last_seen: 0.0,
             frequency: 0,
+            dead_end: false,
         };
         assert!(
             CandidateFilter::candidate_weight(&c1, 0, 1, 10)
@@ -1023,6 +1067,7 @@ mod test {
             num_trials: 0,
             last_seen: 0.0,
             frequency: 0,
+            dead_end: false,
         };
         let c2 = Candidate {
             exercise_id: Ustr::from("exercise2"),
@@ -1035,11 +1080,38 @@ mod test {
             num_trials: 0,
             last_seen: 0.0,
             frequency: 0,
+            dead_end: false,
         };
         assert!(
             CandidateFilter::candidate_weight(&c1, 10, 1, 1)
                 < CandidateFilter::candidate_weight(&c2, 3, 1, 1)
         );
+    }
+
+    /// Verifies that dead-end candidates get a fixed additional weight.
+    #[test]
+    fn dead_end_fixed_weight_bonus() {
+        let base = Candidate {
+            exercise_id: Ustr::from("exercise1"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            exercise_score: 0.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
+            num_trials: 0,
+            last_seen: 0.0,
+            frequency: 0,
+            dead_end: false,
+        };
+        let dead_end = Candidate {
+            dead_end: true,
+            ..base.clone()
+        };
+
+        let base_weight = CandidateFilter::candidate_weight(&base, 0, 1, 1);
+        let dead_end_weight = CandidateFilter::candidate_weight(&dead_end, 0, 1, 1);
+        assert_eq!(dead_end_weight - base_weight, DEAD_WEIGHT_FACTOR);
     }
 
     /// Verifies that the minimum weight is applied to candidates.
@@ -1057,6 +1129,7 @@ mod test {
             num_trials: 1000,
             last_seen: 0.0,
             frequency: 1000,
+            dead_end: false,
         };
         assert_eq!(
             CandidateFilter::candidate_weight(&c, 100, 1000, 1000),
