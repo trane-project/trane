@@ -8,7 +8,7 @@
 //!    current material as a dependency.
 //! 3. Optimize the difficulty of the schedule exercises so that the user is neither frustrated
 //!    because many of the exercises are too difficult or bored because they have become too easy.
-//!    The optimal are lies slightly outside their current comfort zone.
+//!    The optimal area lies slightly outside their current comfort zone.
 //! 4. Record the scores self-reported by the user to use them to drive the decisions done in
 //!    service of all the other goals.
 //!
@@ -304,7 +304,7 @@ impl DepthFirstScheduler {
         options: &PassingScoreOptions,
     ) -> Vec<Candidate> {
         // Return early when there are no candidates or all should be returned. Candidate selection
-        // should only apply to lessons above the mininum passing score.
+        // should only apply to lessons above the minimum passing score.
         if candidates.is_empty() {
             return Vec::new();
         }
@@ -502,7 +502,7 @@ impl DepthFirstScheduler {
             .is_superseded(course_id, &superseding_units);
 
         // The course should be skipped if the course is blacklisted, does not pass the filter, has
-        // no pending lessons, or if it' been superseded.
+        // no pending lessons, or if it's been superseded.
         blacklisted || !passes_filter || *pending_lessons == 0 || is_superseded
     }
 
@@ -772,7 +772,7 @@ impl DepthFirstScheduler {
         Ok(candidates)
     }
 
-    /// Searches from candidates from the units in the review list. This mode allows the student to
+    /// Searches for candidates from the units in the review list. This mode allows the student to
     /// exclusively practice the courses, lessons, and exercises they have marked for review.
     fn get_candidates_from_review_list(&self) -> Result<Vec<Candidate>> {
         // Retrieve candidates from each entry in the review list.

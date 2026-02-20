@@ -216,7 +216,7 @@ mod tests {
     use crate::graph::InMemoryUnitGraph;
     use anyhow::Result;
 
-    /// Verifies that the frequency map is computed correctly when there are serveral exercises that
+    /// Verifies that the frequency map is computed correctly when there are several exercises that
     /// are encompassed by many other exercises in the initial batch.
     #[test]
     fn test_compute_frequency_many_encompassed() -> Result<()> {

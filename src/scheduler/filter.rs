@@ -737,7 +737,7 @@ mod test {
         assert_eq!(final_candidates_limited.len(), 2);
     }
 
-    /// Verifies that candidates that took more hopes to reach are given more weight.
+    /// Verifies that candidates that took more hops to reach are given more weight.
     #[test]
     fn more_hops_more_weight() {
         let c1 = Candidate {
