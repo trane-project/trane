@@ -216,7 +216,7 @@ mod tests {
     use crate::graph::InMemoryUnitGraph;
     use anyhow::Result;
 
-    /// Verifies that the frequency map is computed correctly when there are serveral exercises that
+    /// Verifies that the frequency map is computed correctly when there are several exercises that
     /// are encompassed by many other exercises in the initial batch.
     #[test]
     fn test_compute_frequency_many_encompassed() -> Result<()> {
@@ -271,6 +271,7 @@ mod tests {
                     course_score: 0.0,
                     depth: 0.0,
                     frequency: 0,
+                    dead_end: false,
                     lesson_score: 0.0,
                     num_trials: 0,
                     last_seen: 0.0,
@@ -343,6 +344,7 @@ mod tests {
                     course_score: 0.0,
                     depth: 0.0,
                     frequency: 0,
+                    dead_end: false,
                     lesson_score: 0.0,
                     num_trials: 0,
                     last_seen: 0.0,
@@ -380,6 +382,7 @@ mod tests {
                 course_score: 0.0,
                 depth: 0.0,
                 frequency: 0,
+                dead_end: false,
                 lesson_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
@@ -392,6 +395,7 @@ mod tests {
                 course_score: 0.0,
                 depth: 0.0,
                 frequency: 0,
+                dead_end: false,
                 lesson_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
@@ -404,6 +408,7 @@ mod tests {
                 course_score: 0.0,
                 depth: 0.0,
                 frequency: 0,
+                dead_end: false,
                 lesson_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
@@ -435,6 +440,7 @@ mod tests {
                 course_score: 0.0,
                 depth: 0.0,
                 frequency: 0,
+                dead_end: false,
                 lesson_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
@@ -447,6 +453,7 @@ mod tests {
                 course_score: 0.0,
                 depth: 0.0,
                 frequency: 0,
+                dead_end: false,
                 lesson_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
@@ -459,6 +466,7 @@ mod tests {
                 course_score: 0.0,
                 depth: 0.0,
                 frequency: 0,
+                dead_end: false,
                 lesson_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
@@ -471,6 +479,7 @@ mod tests {
                 course_score: 0.0,
                 depth: 0.0,
                 frequency: 0,
+                dead_end: false,
                 lesson_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
@@ -483,6 +492,7 @@ mod tests {
                 course_score: 0.0,
                 depth: 0.0,
                 frequency: 0,
+                dead_end: false,
                 lesson_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
