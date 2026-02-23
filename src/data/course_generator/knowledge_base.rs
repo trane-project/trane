@@ -571,7 +571,7 @@ pub struct KnowledgeBaseConfig {
     /// If true, the front and back of the flashcards are inlined in the exercise manifests.
     /// Otherwise, the manifests point to the paths.
     #[serde(default)]
-    inlined: bool,
+    pub inlined: bool,
 }
 
 impl KnowledgeBaseConfig {
