@@ -573,9 +573,7 @@ pub enum ExerciseAsset {
     /// A basic asset storing the material of the exercise.
     BasicAsset(BasicAsset),
 
-    /// An asset representing a flashcard with a front and back each stored in a markdown file. The
-    /// first file stores the front (question) of the flashcard while the second file stores the
-    /// back (answer).
+    /// An asset representing a flashcard with a front and back each stored in a markdown file.
     FlashcardAsset {
         /// The path to the file containing the front of the flashcard.
         front_path: String,
@@ -586,6 +584,19 @@ pub enum ExerciseAsset {
         /// possibly the answer.
         #[serde(default)]
         back_path: Option<String>,
+    },
+
+    /// An asset representing a flashcard with a front and back with the content of both stored as
+    /// strings.
+    InlineFlashcardAsset {
+        /// The content of the front of the flashcard.
+        front_content: String,
+
+        /// The content of the back of the flashcard. This field is optional, because a flashcard
+        /// is not required to provide an answer. For example, the exercise is open-ended, or it is
+        /// referring to an external resource which contains the exercise and possibly the answer.
+        #[serde(default)]
+        back_content: Option<String>,
     },
 
     /// An asset representing a literacy exercise.
@@ -654,6 +665,7 @@ impl NormalizePaths for ExerciseAsset {
                     back_path: abs_back_path,
                 })
             }
+            ExerciseAsset::InlineFlashcardAsset { .. } => Ok(self.clone()), // grcov-excl-line
             ExerciseAsset::LiteracyAsset { .. } | ExerciseAsset::TranscriptionAsset { .. } => {
                 Ok(self.clone()) // grcov-excl-line
             }
@@ -694,6 +706,7 @@ impl VerifyPaths for ExerciseAsset {
                     Ok(front_abs_path.exists())
                 }
             }
+            ExerciseAsset::InlineFlashcardAsset { .. } => Ok(true),
             ExerciseAsset::LiteracyAsset { .. } | ExerciseAsset::TranscriptionAsset { .. } => {
                 Ok(true)
             }
@@ -1154,6 +1167,13 @@ mod test {
         let flashcard_asset = ExerciseAsset::FlashcardAsset {
             front_path: front_file.path().as_os_str().to_str().unwrap().to_string(),
             back_path: Some(back_file.path().as_os_str().to_str().unwrap().to_string()),
+        };
+        assert!(flashcard_asset.verify_paths(temp_dir.path())?);
+
+        // Verify an inlined flashcard.
+        let flashcard_asset = ExerciseAsset::InlineFlashcardAsset {
+            front_content: "Front".to_string(),
+            back_content: Some("Back".to_string()),
         };
         assert!(flashcard_asset.verify_paths(temp_dir.path())?);
         Ok(())

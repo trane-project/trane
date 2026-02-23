@@ -157,7 +157,9 @@ fn all_exercises_visited() -> Result<()> {
             metadata: None,
             course_material: None,
             course_instructions: None,
-            generator_config: Some(CourseGenerator::KnowledgeBase(KnowledgeBaseConfig {})),
+            generator_config: Some(CourseGenerator::KnowledgeBase(KnowledgeBaseConfig {
+                inlined: false,
+            })),
         },
         10,
         5,
@@ -175,7 +177,9 @@ fn all_exercises_visited() -> Result<()> {
             metadata: None,
             course_material: None,
             course_instructions: None,
-            generator_config: Some(CourseGenerator::KnowledgeBase(KnowledgeBaseConfig {})),
+            generator_config: Some(CourseGenerator::KnowledgeBase(KnowledgeBaseConfig {
+                inlined: true,
+            })),
         },
         10,
         5,

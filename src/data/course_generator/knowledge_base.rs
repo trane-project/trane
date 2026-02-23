@@ -5,7 +5,7 @@ use anyhow::{Context, Error, Result, anyhow};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
-    fs::{File, read_dir},
+    fs::{File, read_dir, read_to_string},
     io::BufReader,
     path::Path,
 };
@@ -213,12 +213,36 @@ impl KnowledgeBaseExercise {
     /// Generates the exercise manifest, using the provided default exercise type from the lesson
     /// if the exercise does not have its own type set. Falls back to `Procedural` if neither is
     /// set.
-    #[must_use]
     pub fn to_exercise_manifest(
         &self,
         default_exercise_type: Option<ExerciseType>,
-    ) -> ExerciseManifest {
-        ExerciseManifest {
+        inlined: bool,
+    ) -> Result<ExerciseManifest> {
+        let exercise_asset = if inlined {
+            let front_content = read_to_string(&self.front_file).context(format!(
+                "failed to read exercise front file {}",
+                self.front_file
+            ))?;
+            let back_content = self
+                .back_file
+                .as_ref()
+                .map(|path| {
+                    read_to_string(path)
+                        .context(format!("failed to read exercise back file {path}"))
+                })
+                .transpose()?;
+            ExerciseAsset::InlineFlashcardAsset {
+                front_content,
+                back_content,
+            }
+        } else {
+            ExerciseAsset::FlashcardAsset {
+                front_path: self.front_file.clone(),
+                back_path: self.back_file.clone(),
+            }
+        };
+
+        Ok(ExerciseManifest {
             id: format!(
                 "{}::{}::{}",
                 self.course_id, self.short_lesson_id, self.short_id
@@ -235,11 +259,8 @@ impl KnowledgeBaseExercise {
                 .exercise_type
                 .clone()
                 .unwrap_or(default_exercise_type.unwrap_or(ExerciseType::Procedural)),
-            exercise_asset: ExerciseAsset::FlashcardAsset {
-                front_path: self.front_file.clone(),
-                back_path: self.back_file.clone(),
-            },
-        }
+            exercise_asset,
+        })
     }
 
     /// Generates the exercise from a list of knowledge base files.
@@ -544,11 +565,14 @@ impl From<KnowledgeBaseLesson> for LessonManifest {
     }
 }
 
-/// The configuration for a knowledge base course. Currently, this is an empty struct, but it is
-/// added for consistency with other course generators and to implement the [`GenerateManifests`]
-/// trait.
+/// The configuration for a knowledge base course.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct KnowledgeBaseConfig {}
+pub struct KnowledgeBaseConfig {
+    /// If true, the front and back of the flashcards are inlined in the exercise manifests.
+    /// Otherwise, the manifests point to the paths.
+    #[serde(default)]
+    pub inlined: bool,
+}
 
 impl KnowledgeBaseConfig {
     // Checks if the dependencies, encompassed units, and superseded units refer to another lesson
@@ -651,11 +675,13 @@ impl GenerateManifests for KnowledgeBaseConfig {
                 let lesson_manifest = LessonManifest::from(lesson.clone());
                 let exercise_manifests = exercises
                     .into_iter()
-                    .map(|e| e.to_exercise_manifest(lesson.default_exercise_type.clone()))
-                    .collect();
-                (lesson_manifest, exercise_manifests)
+                    .map(|e| {
+                        e.to_exercise_manifest(lesson.default_exercise_type.clone(), self.inlined)
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                Ok((lesson_manifest, exercise_manifests))
             })
-            .collect();
+            .collect::<Result<Vec<_>>>()?;
 
         Ok(GeneratedCourse {
             lessons: manifests,
@@ -677,7 +703,7 @@ mod test {
 
     use super::*;
 
-    // Verifies opening a valid knowledge base file.
+    /// Verifies opening a valid knowledge base file.
     #[test]
     fn open_knowledge_base_file() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
@@ -690,7 +716,7 @@ mod test {
         Ok(())
     }
 
-    // Verifies the handling of invalid knowledge base files.
+    /// Verifies the handling of invalid knowledge base files.
     #[test]
     fn open_knowledge_base_file_bad_format() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
@@ -703,7 +729,7 @@ mod test {
         Ok(())
     }
 
-    // Verifies the handling of knowledge base files that cannot be opened.
+    /// Verifies the handling of knowledge base files that cannot be opened.
     #[test]
     fn open_knowledge_base_file_bad_permissions() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
@@ -719,7 +745,7 @@ mod test {
         Ok(())
     }
 
-    // Verifies that the all the files with knowledge base names are detected correctly.
+    /// Verifies that the all the files with knowledge base names are detected correctly.
     #[test]
     fn to_knowledge_base_file() {
         // Parse lesson file names.
@@ -785,7 +811,7 @@ mod test {
         assert!(KnowledgeBaseFile::try_from("ex1").is_err());
     }
 
-    // Verifies the conversion from a knowledge base lesson to a lesson manifest.
+    /// Verifies the conversion from a knowledge base lesson to a lesson manifest.
     #[test]
     fn lesson_to_manifest() {
         let lesson = KnowledgeBaseLesson {
@@ -846,11 +872,58 @@ mod test {
                 back_path: Some("ex1.back.md".into()),
             },
         };
-        let actual_manifest = exercise.to_exercise_manifest(None);
+        let actual_manifest = exercise.to_exercise_manifest(None, false).unwrap();
         assert_eq!(actual_manifest, expected_manifest);
     }
 
-    // Verifies the exercise type resolution priority: exercise type > lesson default > Procedural.
+    /// Verifies that inlining reads markdown file content into the manifest.
+    #[test]
+    fn exercise_to_manifest_inlined() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let front_path = temp_dir.path().join("ex1.front.md");
+        let back_path = temp_dir.path().join("ex1.back.md");
+        fs::write(&front_path, "Front content")?;
+        fs::write(&back_path, "Back content")?;
+
+        let exercise = KnowledgeBaseExercise {
+            short_id: "ex1".into(),
+            short_lesson_id: "lesson1".into(),
+            course_id: "course1".into(),
+            front_file: front_path.to_str().unwrap().to_string(),
+            back_file: Some(back_path.to_str().unwrap().to_string()),
+            name: Some("Name".into()),
+            description: Some("Description".into()),
+            exercise_type: Some(ExerciseType::Procedural),
+        };
+        let manifest = exercise.to_exercise_manifest(None, true)?;
+        assert_eq!(
+            manifest.exercise_asset,
+            ExerciseAsset::InlineFlashcardAsset {
+                front_content: "Front content".into(),
+                back_content: Some("Back content".into()),
+            }
+        );
+        Ok(())
+    }
+
+    /// Verifies that inlining returns an error when the front file cannot be read.
+    #[test]
+    fn exercise_to_manifest_inlined_missing_front() {
+        let exercise = KnowledgeBaseExercise {
+            short_id: "ex1".into(),
+            short_lesson_id: "lesson1".into(),
+            course_id: "course1".into(),
+            front_file: "/path/does/not/exist/front.md".into(),
+            back_file: None,
+            name: Some("Name".into()),
+            description: Some("Description".into()),
+            exercise_type: Some(ExerciseType::Procedural),
+        };
+        let manifest = exercise.to_exercise_manifest(None, true);
+        assert!(manifest.is_err());
+    }
+
+    /// Verifies the exercise type resolution priority: exercise type > lesson default > Procedural.
     #[test]
     fn exercise_type_resolution() {
         let base_exercise = KnowledgeBaseExercise {
@@ -869,7 +942,9 @@ mod test {
             exercise_type: Some(ExerciseType::Declarative),
             ..base_exercise.clone()
         };
-        let manifest = exercise_with_type.to_exercise_manifest(Some(ExerciseType::Procedural));
+        let manifest = exercise_with_type
+            .to_exercise_manifest(Some(ExerciseType::Procedural), false)
+            .unwrap();
         assert_eq!(manifest.exercise_type, ExerciseType::Declarative);
 
         // Exercise has no type, use lesson default.
@@ -877,16 +952,18 @@ mod test {
             exercise_type: None,
             ..base_exercise.clone()
         };
-        let manifest = exercise_no_type.to_exercise_manifest(Some(ExerciseType::Declarative));
+        let manifest = exercise_no_type
+            .to_exercise_manifest(Some(ExerciseType::Declarative), false)
+            .unwrap();
         assert_eq!(manifest.exercise_type, ExerciseType::Declarative);
 
         // Exercise has no type, lesson has no default, fall back to Procedural.
-        let manifest = exercise_no_type.to_exercise_manifest(None);
+        let manifest = exercise_no_type.to_exercise_manifest(None, false).unwrap();
         assert_eq!(manifest.exercise_type, ExerciseType::Procedural);
     }
 
-    // Verifies that dependencies or superseded units referenced by their short IDs are converted
-    // to full IDs.
+    /// Verifies that dependencies or superseded units referenced by their short IDs are converted
+    /// to full IDs.
     #[test]
     fn convert_to_full_ids() {
         // Create an example course manifest.
@@ -991,7 +1068,7 @@ mod test {
         assert!(!exercise_map.contains_key(&ex3_id));
     }
 
-    // Serializes the object in JSON and writes it to the given file.
+    /// Serializes the object in JSON and writes it to the given file.
     fn write_json<T: Serialize>(obj: &T, file: &Path) -> Result<()> {
         let file = File::create(file)?;
         let writer = BufWriter::new(file);
@@ -999,7 +1076,7 @@ mod test {
         Ok(())
     }
 
-    // Verifies opening a lesson directory.
+    /// Verifies opening a lesson directory.
     #[test]
     fn open_lesson_dir() -> Result<()> {
         // Create a test course and lesson directory.
