@@ -650,7 +650,7 @@ impl UnitGraph for InMemoryUnitGraph {
         let empty = UstrSet::default();
         for course_id in self.course_lesson_map.keys() {
             let lessons = self.course_lesson_map.get(course_id).unwrap_or(&empty);
-            let starting_lessons = lessons
+            let starting_lessons: UstrSet = lessons
                 .iter()
                 .copied()
                 .filter(|lesson_id| {
@@ -664,6 +664,24 @@ impl UnitGraph for InMemoryUnitGraph {
                 })
                 .collect();
 
+            // Before updating the map, the dependency sinks need to be updated as well. The course
+            // is no longer a dependency sink if any of its starting lessons have dependencies to
+            // other valid units in the graph.
+            if self.dependency_sinks.contains(course_id) {
+                let has_starting_dependencies = starting_lessons.iter().any(|lesson_id| {
+                    self.get_dependencies(*lesson_id)
+                        .map(|dependencies| {
+                            !dependencies.is_empty()
+                                && dependencies
+                                    .iter()
+                                    .all(|dep| self.get_unit_type(*dep).is_some())
+                        })
+                        .unwrap_or(false)
+                });
+                if has_starting_dependencies {
+                    self.dependency_sinks.remove(course_id);
+                }
+            }
             self.starting_lessons_map
                 .insert(*course_id, starting_lessons);
         }
