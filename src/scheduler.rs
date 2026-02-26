@@ -387,23 +387,153 @@ impl DepthFirstScheduler {
         Ok((selected_candidates, avg_score))
     }
 
-    /// Returns whether the given dependency can be considered as satisfied. If all the dependencies
-    /// of a unit are met, the search can continue with the unit.
-    fn satisfied_dependency(
+    /// Returns the matching lessons in a course that have no matching dependents in the same
+    /// course. These lessons represent the edge of progress within the filtered subset of the
+    /// course.
+    fn last_matching_lessons_in_course(
+        &self,
+        course_id: Ustr,
+        metadata_filter: Option<&KeyValueFilter>,
+    ) -> UstrSet {
+        // Get the lessons that match the filter.
+        let matching_lessons: UstrSet = self
+            .data
+            .unit_graph
+            .read()
+            .get_course_lessons(course_id)
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|lesson_id| {
+                self.data
+                    .unit_passes_filter(*lesson_id, metadata_filter)
+                    .unwrap_or(false)
+            })
+            .collect();
+        if matching_lessons.is_empty() {
+            return UstrSet::default();
+        }
+
+        // Find the last matching lessons, which are those that do not have dependents on the other
+        // lessons.
+        let last_matching_lessons: UstrSet = matching_lessons
+            .iter()
+            .copied()
+            .filter(|lesson_id| {
+                let dependents = self
+                    .data
+                    .unit_graph
+                    .read()
+                    .get_dependents(*lesson_id)
+                    .unwrap_or_default();
+                dependents.is_disjoint(&matching_lessons)
+            })
+            .collect();
+        if last_matching_lessons.is_empty() {
+            matching_lessons
+        } else {
+            last_matching_lessons
+        }
+    }
+
+    /// Resolves effective dependencies, bridging through units filtered out by metadata.
+    fn resolve_effective_dependencies(
         &self,
         dependency_id: Ustr,
         metadata_filter: Option<&KeyValueFilter>,
-    ) -> bool {
-        // Dependencies which do not pass the metadata filter are considered as satisfied, so the
-        // search can continue past them.
+        visited: &mut UstrSet,
+    ) -> UstrSet {
+        // Skip nodes that were already visited while resolving this dependency to avoid cycles.
+        if !visited.insert(dependency_id) {
+            return UstrSet::default();
+        }
+
+        // If the unit passes the metadata filter, it is an effective dependency.
         let passes_filter = self
             .data
             .unit_passes_filter(dependency_id, metadata_filter)
             .unwrap_or(false);
-        if !passes_filter {
-            return true;
+        if passes_filter {
+            return [dependency_id].into_iter().collect();
         }
 
+        match self.data.get_unit_type(dependency_id) {
+            // For filtered-out lessons, bridge through the lesson dependencies. If the lesson is a
+            // starting lesson in its course, also bridge through the course dependencies.
+            Some(UnitType::Lesson) => {
+                // Get the dependencies of the lesson.
+                let mut next_dependencies: UstrSet = self
+                    .data
+                    .unit_graph
+                    .read()
+                    .get_dependencies(dependency_id)
+                    .unwrap_or_default();
+
+                // Starting lessons are effectively dependent on the course dependencies, so add
+                // them as well.
+                let course_id = self
+                    .data
+                    .get_lesson_course(dependency_id)
+                    .unwrap_or_default();
+                let is_starting_lesson = self
+                    .data
+                    .unit_graph
+                    .read()
+                    .get_starting_lessons(course_id)
+                    .unwrap_or_default()
+                    .contains(&dependency_id);
+                if is_starting_lesson {
+                    next_dependencies.extend(
+                        self.data
+                            .unit_graph
+                            .read()
+                            .get_dependencies(course_id)
+                            .unwrap_or_default(),
+                    );
+                }
+
+                next_dependencies
+                    .into_iter()
+                    .flat_map(|next_dependency| {
+                        self.resolve_effective_dependencies(
+                            next_dependency,
+                            metadata_filter,
+                            visited,
+                        )
+                        .into_iter()
+                    })
+                    .collect()
+            }
+            // For filtered-out courses, bridge to the last matching lessons. If there are no
+            // matching lessons, bridge through the course dependencies.
+            Some(UnitType::Course) => {
+                let last_matching_lessons =
+                    self.last_matching_lessons_in_course(dependency_id, metadata_filter);
+                if !last_matching_lessons.is_empty() {
+                    return last_matching_lessons;
+                }
+
+                self.data
+                    .unit_graph
+                    .read()
+                    .get_dependencies(dependency_id)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .flat_map(|next_dependency| {
+                        self.resolve_effective_dependencies(
+                            next_dependency,
+                            metadata_filter,
+                            visited,
+                        )
+                        .into_iter()
+                    })
+                    .collect()
+            }
+            _ => UstrSet::default(),
+        }
+    }
+
+    /// Returns whether an effective dependency can be considered as satisfied.
+    fn satisfied_effective_dependency(&self, dependency_id: Ustr) -> bool {
         // Dependencies in the blacklist are considered as satisfied, so the search can continue
         // past them.
         let blacklisted = self.data.blacklisted(dependency_id);
@@ -439,6 +569,24 @@ impl DepthFirstScheduler {
             // blocking the search in the case of blacklisted or missing units.
             true
         }
+    }
+
+    /// Returns whether the given dependency is satisfied, bridging through filtered-out units to
+    /// find the effective dependencies that should gate traversal.
+    fn satisfied_dependency(
+        &self,
+        dependency_id: Ustr,
+        metadata_filter: Option<&KeyValueFilter>,
+    ) -> bool {
+        let mut visited = UstrSet::default();
+        let targets =
+            self.resolve_effective_dependencies(dependency_id, metadata_filter, &mut visited);
+        if targets.is_empty() {
+            return true;
+        }
+        targets
+            .into_iter()
+            .all(|target| self.satisfied_effective_dependency(target))
     }
 
     /// Returns whether all the dependencies of the given unit are satisfied.
