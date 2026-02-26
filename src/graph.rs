@@ -972,6 +972,27 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that courses whose starting lessons have dependencies to other valid units in the
+    /// graph are not included in the dependency sinks.
+    #[test]
+    fn courses_with_starting_dependencies_not_in_sinks() -> Result<()> {
+        let mut graph = InMemoryUnitGraph::default();
+        let course1_id = Ustr::from("course1");
+        let course2_id = Ustr::from("course2");
+        let course2_lesson_1_id = Ustr::from("course2::lesson1");
+        graph.add_course(course1_id)?;
+        graph.add_course(course2_id)?;
+        graph.add_lesson(course2_lesson_1_id, course2_id)?;
+        graph.add_dependencies(course1_id, UnitType::Course, &[])?;
+        graph.add_dependencies(course2_id, UnitType::Course, &[])?;
+        graph.add_dependencies(course2_lesson_1_id, UnitType::Lesson, &[course1_id])?;
+        graph.update_starting_lessons();
+
+        let sinks = graph.get_dependency_sinks();
+        assert_eq!(sinks, vec![course1_id].into_iter().collect());
+        Ok(())
+    }
+
     /// Verifies retrieving the correct encompassed and encompassed_by units from the graph.
     #[test]
     fn encompassing_graph() -> Result<()> {
