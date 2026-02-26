@@ -670,13 +670,12 @@ impl UnitGraph for InMemoryUnitGraph {
             if self.dependency_sinks.contains(course_id) {
                 let has_starting_dependencies = starting_lessons.iter().any(|lesson_id| {
                     self.get_dependencies(*lesson_id)
-                        .map(|dependencies| {
+                        .is_some_and(|dependencies| {
                             !dependencies.is_empty()
                                 && dependencies
                                     .iter()
                                     .all(|dep| self.get_unit_type(*dep).is_some())
                         })
-                        .unwrap_or(false)
                 });
                 if has_starting_dependencies {
                     self.dependency_sinks.remove(course_id);
