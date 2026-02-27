@@ -650,7 +650,7 @@ impl UnitGraph for InMemoryUnitGraph {
         let empty = UstrSet::default();
         for course_id in self.course_lesson_map.keys() {
             let lessons = self.course_lesson_map.get(course_id).unwrap_or(&empty);
-            let starting_lessons = lessons
+            let starting_lessons: UstrSet = lessons
                 .iter()
                 .copied()
                 .filter(|lesson_id| {
@@ -664,6 +664,23 @@ impl UnitGraph for InMemoryUnitGraph {
                 })
                 .collect();
 
+            // Before updating the map, the dependency sinks need to be updated as well. The course
+            // is no longer a dependency sink if any of its starting lessons have dependencies to
+            // other valid units in the graph.
+            if self.dependency_sinks.contains(course_id) {
+                let has_starting_dependencies = starting_lessons.iter().any(|lesson_id| {
+                    self.get_dependencies(*lesson_id)
+                        .is_some_and(|dependencies| {
+                            !dependencies.is_empty()
+                                && dependencies
+                                    .iter()
+                                    .all(|dep| self.get_unit_type(*dep).is_some())
+                        })
+                });
+                if has_starting_dependencies {
+                    self.dependency_sinks.remove(course_id);
+                }
+            }
             self.starting_lessons_map
                 .insert(*course_id, starting_lessons);
         }
@@ -952,6 +969,27 @@ mod test {
         assert!(sinks.contains(&course1_id));
 
         graph.check_cycles()?;
+        Ok(())
+    }
+
+    /// Verifies that courses whose starting lessons have dependencies to other valid units in the
+    /// graph are not included in the dependency sinks.
+    #[test]
+    fn courses_with_starting_dependencies_not_in_sinks() -> Result<()> {
+        let mut graph = InMemoryUnitGraph::default();
+        let course1_id = Ustr::from("course1");
+        let course2_id = Ustr::from("course2");
+        let course2_lesson_1_id = Ustr::from("course2::lesson1");
+        graph.add_course(course1_id)?;
+        graph.add_course(course2_id)?;
+        graph.add_lesson(course2_lesson_1_id, course2_id)?;
+        graph.add_dependencies(course1_id, UnitType::Course, &[])?;
+        graph.add_dependencies(course2_id, UnitType::Course, &[])?;
+        graph.add_dependencies(course2_lesson_1_id, UnitType::Lesson, &[course1_id])?;
+        graph.update_starting_lessons();
+
+        let sinks = graph.get_dependency_sinks();
+        assert_eq!(sinks, vec![course1_id].into_iter().collect());
         Ok(())
     }
 
