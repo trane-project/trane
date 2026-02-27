@@ -415,7 +415,7 @@ impl DepthFirstScheduler {
 
         // Find the last matching lessons, which are those that do not have dependents on the other
         // lessons.
-        let last_matching_lessons: UstrSet = matching_lessons
+        matching_lessons
             .iter()
             .copied()
             .filter(|lesson_id| {
@@ -427,12 +427,7 @@ impl DepthFirstScheduler {
                     .unwrap_or_default();
                 dependents.is_disjoint(&matching_lessons)
             })
-            .collect();
-        if last_matching_lessons.is_empty() {
-            matching_lessons
-        } else {
-            last_matching_lessons
-        }
+            .collect()
     }
 
     /// Resolves effective dependencies, bridging through units filtered out by metadata.
@@ -444,7 +439,7 @@ impl DepthFirstScheduler {
     ) -> UstrSet {
         // Skip nodes that were already visited while resolving this dependency to avoid cycles.
         if !visited.insert(dependency_id) {
-            return UstrSet::default();
+            return UstrSet::default(); // grcov-excl-line
         }
 
         // If the unit passes the metadata filter, it is an effective dependency.
