@@ -277,13 +277,22 @@ static LIBRARY: LazyLock<Vec<TestCourse>> = LazyLock::new(|| {
                 },
             ],
         },
+        // Course with no lessons.
         TestCourse {
             id: TestId(8, None, None),
             dependencies: vec![TestId(7, None, None)],
             encompassed: vec![],
             superseded: vec![],
             metadata: BTreeMap::default(),
-            // Course with no lessons.
+            lessons: vec![],
+        },
+        // Course with no lessons and no dependencies.
+        TestCourse {
+            id: TestId(9, None, None),
+            dependencies: vec![],
+            encompassed: vec![],
+            superseded: vec![],
+            metadata: BTreeMap::default(),
             lessons: vec![],
         },
     ]
@@ -307,6 +316,7 @@ fn get_unit_ids() -> Result<()> {
         Ustr::from("6"),
         Ustr::from("7"),
         Ustr::from("8"),
+        Ustr::from("9"),
     ];
     assert_eq!(course_ids, expected_course_ids);
 
