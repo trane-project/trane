@@ -62,10 +62,10 @@ const DIFFICULTY_FACTOR: f32 = 30.0;
 
 /// The per-trial difficulty adjustment scale. Good grades reduce difficulty, poor grades increase
 /// it.
-const DIFFICULTY_GRADE_ADJUSTMENT_SCALE: f32 = 0.4;
+const DIFFICULTY_GRADE_ADJUSTMENT_SCALE: f32 = 0.6;
 
 /// How much the dynamic difficulty is pulled back toward the base estimate after each review.
-const DIFFICULTY_REVERSION_WEIGHT: f32 = 0.2;
+const DIFFICULTY_REVERSION_WEIGHT: f32 = 0.1;
 
 /// The baseline score used to calculate the performance factor. Scores above this baseline improve
 /// stability and difficulty estimates.
@@ -940,7 +940,6 @@ mod test {
     fn difficulty_mean_reversion_prevents_runaway() {
         // Repeated failures should increase difficulty, but reversion toward BASE_DIFFICULTY
         // prevents runaway growth.
-        let base_difficulty = 2.0;
         let failures = (0..20)
             .map(|days| ExerciseTrial {
                 score: 1.0,
@@ -951,10 +950,10 @@ mod test {
         let (_stability, adjusted_difficulty) = PowerLawScorer::compute_stability_and_difficulty(
             &ExerciseType::Declarative,
             &failures,
-            base_difficulty,
+            BASE_DIFFICULTY,
         );
-        assert!(adjusted_difficulty > base_difficulty);
-        assert!(adjusted_difficulty < MAX_DIFFICULTY);
+        assert!(adjusted_difficulty > BASE_DIFFICULTY);
+        assert!(adjusted_difficulty < MAX_DIFFICULTY - 1.0);
     }
 
     /// Verifies retrievability computation using power-law decay.
