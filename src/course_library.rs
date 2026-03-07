@@ -10,18 +10,10 @@ use parking_lot::RwLock;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use serde::de::DeserializeOwned;
 use std::{
-    collections::BTreeMap,
     fs::File,
     io::BufReader,
     path::{self, Path, PathBuf},
     sync::Arc,
-};
-use tantivy::{
-    Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocument,
-    collector::TopDocs,
-    doc,
-    query::QueryParser,
-    schema::{Field, STORED, Schema, TEXT, Value},
 };
 use ustr::{Ustr, UstrMap, UstrSet};
 use walkdir::WalkDir;
@@ -31,7 +23,6 @@ use crate::{
         CourseManifest, ExerciseManifest, GenerateManifests, LessonManifest, NormalizePaths,
         UnitType, UserPreferences,
     },
-    error::CourseLibraryError,
     graph::{InMemoryUnitGraph, UnitGraph},
 };
 
@@ -43,18 +34,6 @@ pub const LESSON_MANIFEST_FILENAME: &str = "lesson_manifest.json";
 
 /// The file name for all exercise manifests.
 pub const EXERCISE_MANIFEST_FILENAME: &str = "exercise_manifest.json";
-
-/// The name of the field for the unit ID in the search schema.
-const ID_SCHEMA_FIELD: &str = "id";
-
-/// The name of the field for the unit name in the search schema.
-const NAME_SCHEMA_FIELD: &str = "name";
-
-/// The name of the field for the unit description in the search schema.
-const DESCRIPTION_SCHEMA_FIELD: &str = "description";
-
-/// The name of the field for the unit metadata in the search schema.
-const METADATA_SCHEMA_FIELD: &str = "metadata";
 
 /// A trait that manages a course library, its corresponding manifest files, and provides basic
 /// operations to retrieve the courses, lessons in a course, and exercises in a lesson.
@@ -83,9 +62,6 @@ pub trait CourseLibrary {
     /// Returns the set of units whose ID starts with the given prefix and are of the given type.
     /// If `unit_type` is `None`, then all unit types are considered.
     fn get_matching_prefix(&self, prefix: &str, unit_type: Option<UnitType>) -> UstrSet;
-
-    /// Returns the IDs of all the units which match the given query.
-    fn search(&self, query: &str) -> Result<Vec<Ustr>, CourseLibraryError>;
 }
 
 /// A trait that retrieves the unit graph generated after reading a course library.
@@ -186,65 +162,9 @@ pub struct LocalCourseLibrary {
 
     /// The user preferences.
     pub user_preferences: UserPreferences,
-
-    /// A tantivy index used for searching the course library.
-    index: Index,
-
-    /// A reader to access the search index.
-    reader: Option<IndexReader>,
 }
 
 impl LocalCourseLibrary {
-    /// Returns the tantivy schema used for searching the course library.
-    fn search_schema() -> Schema {
-        let mut schema = Schema::builder();
-        schema.add_text_field(ID_SCHEMA_FIELD, TEXT | STORED);
-        schema.add_text_field(NAME_SCHEMA_FIELD, TEXT | STORED);
-        schema.add_text_field(DESCRIPTION_SCHEMA_FIELD, TEXT | STORED);
-        schema.add_text_field(METADATA_SCHEMA_FIELD, TEXT | STORED);
-        schema.build()
-    }
-
-    /// Returns the field in the search schema with the given name.
-    fn schema_field(field_name: &str) -> Result<Field> {
-        let schema = Self::search_schema();
-        let field = schema.get_field(field_name)?;
-        Ok(field)
-    }
-
-    /// Adds the unit with the given field values to the search index.
-    fn add_to_index_writer(
-        index_writer: &mut IndexWriter,
-        id: Ustr,
-        name: &str,
-        description: Option<&str>,
-        metadata: Option<&BTreeMap<String, Vec<String>>>,
-    ) -> Result<()> {
-        // Extract the description from the `Option` value to satisfy the borrow checker.
-        let empty = String::new();
-        let description = description.unwrap_or(&empty);
-
-        // Declare the base document with the ID, name, and description fields.
-        let mut doc = doc!(
-            Self::schema_field(ID_SCHEMA_FIELD)? => id.to_string(),
-            Self::schema_field(NAME_SCHEMA_FIELD)? => name.to_string(),
-            Self::schema_field(DESCRIPTION_SCHEMA_FIELD)? => description.to_string(),
-        );
-
-        // Add the metadata. Encode each key-value pair as a string in the format "key:value". Then
-        // add the document to the index.
-        let metadata_field = Self::schema_field(METADATA_SCHEMA_FIELD)?;
-        if let Some(metadata) = metadata {
-            for (key, values) in metadata {
-                for value in values {
-                    doc.add_text(metadata_field, format!("{key}:{value}"));
-                }
-            }
-        }
-        index_writer.add_document(doc)?;
-        Ok(())
-    }
-
     /// Opens the course, lesson, or exercise manifest located at the given path.
     fn open_manifest<T: DeserializeOwned>(path: &Path) -> Result<T> {
         let display = path.display();
@@ -420,11 +340,7 @@ impl LocalCourseLibrary {
     }
 
     /// Inserts the results of opening the courses into the course library.
-    fn process_results(
-        &mut self,
-        courses: Vec<OpenCourseResult>,
-        index_writer: &mut IndexWriter,
-    ) -> Result<()> {
+    fn process_results(&mut self, courses: Vec<OpenCourseResult>) -> Result<()> {
         // Keep track of whether the encompassing and dependency graphs are effectively the same.
         // This is done to save memory when this is true.
         let mut encompassing_equals_dependency = true;
@@ -447,16 +363,9 @@ impl LocalCourseLibrary {
                 .write()
                 .add_superseded(course.manifest.id, &course.manifest.superseded);
 
-            // Add the course manifest to the course map and index.
+            // Add the course manifest to the course map.
             self.course_map
                 .insert(course.manifest.id, course.manifest.clone());
-            Self::add_to_index_writer(
-                index_writer,
-                course.manifest.id,
-                &course.manifest.name,
-                course.manifest.description.as_deref(),
-                course.manifest.metadata.as_ref(),
-            )?;
 
             // The encompassing and dependency graphs are not the same if the course manifest has
             // the encompassing field set.
@@ -490,28 +399,12 @@ impl LocalCourseLibrary {
                     encompassing_equals_dependency = false;
                 }
 
-                // Add the lesson manifest to the lesson map and the search index.
+                // Add the lesson manifest to the lesson map.
                 self.lesson_map
                     .insert(lesson_manifest.id, lesson_manifest.clone());
-                Self::add_to_index_writer(
-                    index_writer,
-                    lesson_manifest.id,
-                    &lesson_manifest.name,
-                    lesson_manifest.description.as_deref(),
-                    lesson_manifest.metadata.as_ref(),
-                )?;
 
                 // Process the exercises.
                 for exercise_manifest in exercises {
-                    // Add the exercise manifest to the search index.
-                    Self::add_to_index_writer(
-                        index_writer,
-                        exercise_manifest.id,
-                        &exercise_manifest.name,
-                        exercise_manifest.description.as_deref(),
-                        None,
-                    )?;
-
                     // Add the exercise to the unit graph and exercise map.
                     self.unit_graph
                         .write()
@@ -544,12 +437,7 @@ impl LocalCourseLibrary {
             exercise_map: UstrMap::default(),
             user_preferences,
             unit_graph: Arc::new(RwLock::new(InMemoryUnitGraph::default())),
-            index: Index::create_in_ram(Self::search_schema()),
-            reader: None,
         };
-
-        // Initialize the search index writer with an initial arena size of 150 MB.
-        let mut index_writer = library.index.writer(150_000_000)?;
 
         // Convert the list of paths to ignore into absolute paths.
         let absolute_root = path::absolute(library_root)?;
@@ -609,17 +497,7 @@ impl LocalCourseLibrary {
                 library.process_course_manifest(&course.course_root, course.course_manifest)
             })
             .collect::<Result<Vec<_>>>()?;
-        library.process_results(course_results, &mut index_writer)?;
-
-        // Commit the search index writer and initialize the reader in the course library.
-        index_writer.commit()?;
-        library.reader = Some(
-            library
-                .index
-                .reader_builder()
-                .reload_policy(ReloadPolicy::OnCommitWithDelay)
-                .try_into()?,
-        );
+        library.process_results(course_results)?;
         Ok(library)
     }
 
@@ -628,91 +506,13 @@ impl LocalCourseLibrary {
         serialized_library: SerializedCourseLibrary,
         user_preferences: UserPreferences,
     ) -> Result<Self> {
-        // Initialize the course library with the serialized data.
-        let mut library = LocalCourseLibrary {
+        Ok(LocalCourseLibrary {
             course_map: serialized_library.course_map,
             lesson_map: serialized_library.lesson_map,
             exercise_map: serialized_library.exercise_map,
             user_preferences,
             unit_graph: Arc::new(RwLock::new(serialized_library.unit_graph)),
-            index: Index::create_in_ram(Self::search_schema()),
-            reader: None,
-        };
-
-        // Initialize the search index writer with an initial arena size of 150 MB.
-        let mut index_writer = library.index.writer(150_000_000)?;
-
-        // Add the manifests to the index.
-        for manifest in library.course_map.values() {
-            Self::add_to_index_writer(
-                &mut index_writer,
-                manifest.id,
-                &manifest.name,
-                manifest.description.as_deref(),
-                manifest.metadata.as_ref(),
-            )?;
-        }
-        for manifest in library.lesson_map.values() {
-            Self::add_to_index_writer(
-                &mut index_writer,
-                manifest.id,
-                &manifest.name,
-                manifest.description.as_deref(),
-                manifest.metadata.as_ref(),
-            )?;
-        }
-        for manifest in library.exercise_map.values() {
-            Self::add_to_index_writer(
-                &mut index_writer,
-                manifest.id,
-                &manifest.name,
-                manifest.description.as_deref(),
-                None,
-            )?;
-        }
-
-        // Commit the search index writer and initialize the reader in the course library.
-        index_writer.commit()?;
-        library.reader = Some(
-            library
-                .index
-                .reader_builder()
-                .reload_policy(ReloadPolicy::OnCommitWithDelay)
-                .try_into()?,
-        );
-
-        Ok(library)
-    }
-
-    /// Helper function to search the course library.
-    fn search_helper(&self, query: &str) -> Result<Vec<Ustr>> {
-        // Retrieve a searcher from the reader and parse the query.
-        if self.reader.is_none() {
-            return Ok(Vec::new()); // grcov-excl-line
-        }
-        let searcher = self.reader.as_ref().unwrap().searcher();
-        let id_field = Self::schema_field(ID_SCHEMA_FIELD)?;
-        let query_parser = QueryParser::for_index(
-            &self.index,
-            vec![
-                id_field,
-                Self::schema_field(NAME_SCHEMA_FIELD)?,
-                Self::schema_field(DESCRIPTION_SCHEMA_FIELD)?,
-                Self::schema_field(METADATA_SCHEMA_FIELD)?,
-            ],
-        );
-        let query = query_parser.parse_query(query)?;
-
-        // Execute the query and return the results as a list of unit IDs.
-        let top_docs = searcher.search(&query, &TopDocs::with_limit(50))?;
-        top_docs
-            .into_iter()
-            .map(|(_, doc_address)| {
-                let doc: TantivyDocument = searcher.doc(doc_address)?;
-                let id = doc.get_first(id_field).unwrap();
-                Ok(id.as_str().unwrap_or("").to_string().into())
-            })
-            .collect::<Result<Vec<Ustr>>>()
+        })
     }
 }
 
@@ -840,11 +640,6 @@ impl CourseLibrary for LocalCourseLibrary {
                 .copied()
                 .collect(),
         }
-    }
-
-    fn search(&self, query: &str) -> Result<Vec<Ustr>, CourseLibraryError> {
-        self.search_helper(query)
-            .map_err(|e| CourseLibraryError::Search(query.into(), e))
     }
 }
 
