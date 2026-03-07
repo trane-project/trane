@@ -417,10 +417,6 @@ impl CourseLibrary for Trane {
             .read()
             .get_matching_prefix(prefix, unit_type)
     }
-
-    fn search(&self, query: &str) -> Result<Vec<Ustr>, CourseLibraryError> {
-        self.course_library.read().search(query)
-    }
 }
 
 #[cfg_attr(coverage, coverage(off))]

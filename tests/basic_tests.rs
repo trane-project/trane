@@ -1054,78 +1054,6 @@ fn get_matching_units() -> Result<()> {
     Ok(())
 }
 
-/// Verifies searching for courses in the course library.
-#[test]
-fn course_library_search_courses() -> Result<()> {
-    // Initialize test course library.
-    let temp_dir = TempDir::new()?;
-    let trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
-
-    // Search for a course's ID.
-    let search_results = trane.search("\"2\"")?;
-    let expected_id = TestId(2, None, None).to_ustr();
-    assert!(search_results.contains(&expected_id));
-
-    // Search for a course's name.
-    let search_results = trane.search("\"Course 2\"")?;
-    let expected_id = TestId(2, None, None).to_ustr();
-    assert!(search_results.contains(&expected_id));
-
-    // Search for a course's description.
-    let search_results = trane.search("\"Description for course 2\"")?;
-    let expected_id = TestId(2, None, None).to_ustr();
-    assert!(search_results.contains(&expected_id));
-    Ok(())
-}
-
-/// Verifies searching for lessons in the course library.
-#[test]
-fn course_library_search_lessons() -> Result<()> {
-    // Initialize test course library.
-    let temp_dir = TempDir::new()?;
-    let trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
-
-    // Search for a lesson's ID.
-    let search_results = trane.search("\"2::1\"")?;
-    let expected_id = TestId(2, Some(1), None).to_ustr();
-    assert!(search_results.contains(&expected_id));
-
-    // Search for a lesson's name.
-    let search_results = trane.search("\"Lesson 2::1\"")?;
-    let expected_id = TestId(2, Some(1), None).to_ustr();
-    assert!(search_results.contains(&expected_id));
-
-    // Search for a lesson's description.
-    let search_results = trane.search("\"Description for lesson 2::1\"")?;
-    let expected_id = TestId(2, Some(1), None).to_ustr();
-    assert!(search_results.contains(&expected_id));
-    Ok(())
-}
-
-/// Verifies that searching for exercises in the course library.
-#[test]
-fn course_library_search_exercises() -> Result<()> {
-    // Initialize test course library.
-    let temp_dir = TempDir::new()?;
-    let trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
-
-    // Search for an exercise ID.
-    let search_results = trane.search("\"2::1::7\"")?;
-    let expected_id = TestId(2, Some(1), Some(7)).to_ustr();
-    assert!(search_results.contains(&expected_id));
-
-    // Search for an exercise name.
-    let search_results = trane.search("\"Exercise 2::1::7\"")?;
-    let expected_id = TestId(2, Some(1), Some(7)).to_ustr();
-    assert!(search_results.contains(&expected_id));
-
-    // Search for an exercise description.
-    let search_results = trane.search("\"Description for exercise 2::1::7\"")?;
-    let expected_id = TestId(2, Some(1), Some(7)).to_ustr();
-    assert!(search_results.contains(&expected_id));
-    Ok(())
-}
-
 /// Verifies setting the scheduler options.
 #[test]
 fn set_scheduler_options() -> Result<()> {
@@ -1235,11 +1163,6 @@ fn serialized_course_library() -> Result<()> {
         *course_library.unit_graph.read(),
         *from_serialized_library.unit_graph.read(),
     );
-
-    // Verify the search index of the new library works.
-    let search_results = from_serialized_library.search("\"Exercise 2::1::7\"")?;
-    let expected_id = TestId(2, Some(1), Some(7)).to_ustr();
-    assert!(search_results.contains(&expected_id));
 
     // Open a new trane instance using the serialized library.
     let trane = Trane::new_local_from_serialized(temp_dir.path(), serialized_data)?;

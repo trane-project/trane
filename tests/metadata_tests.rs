@@ -937,31 +937,3 @@ fn scheduler_bridges_filtered_course_dependencies() -> Result<()> {
     );
     Ok(())
 }
-
-/// Verifies searching for courses via metadata in the course library.
-#[test]
-fn course_library_search_course_metadata() -> Result<()> {
-    // Initialize test course library.
-    let temp_dir = TempDir::new()?;
-    let trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
-
-    // Search for a course's metadata.
-    let search_results = trane.search("\"course_key_2:value_2\"")?;
-    let expected_id = TestId(2, None, None).to_ustr();
-    assert!(search_results.contains(&expected_id));
-    Ok(())
-}
-
-/// Verifies searching for lessons via metadata in the course library.
-#[test]
-fn course_library_search_lesson_metadata() -> Result<()> {
-    // Initialize test course library.
-    let temp_dir = TempDir::new()?;
-    let trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
-
-    // Search for a lesson's metadata.
-    let search_results = trane.search("\"lesson_key_2:value_4\"")?;
-    let expected_id = TestId(2, Some(1), None).to_ustr();
-    assert!(search_results.contains(&expected_id));
-    Ok(())
-}

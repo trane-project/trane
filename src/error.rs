@@ -22,14 +22,6 @@ pub enum BlacklistError {
     RemoveUnit(Ustr, #[source] anyhow::Error),
 }
 
-/// An error returned when dealing with the course library.
-#[derive(Debug, Error)]
-#[allow(missing_docs)]
-pub enum CourseLibraryError {
-    #[error("cannot process query {0}: {1}")]
-    Search(String, #[source] anyhow::Error),
-}
-
 /// An error returned when dealing with the exercise scheduler.
 #[derive(Debug, Error)]
 #[allow(missing_docs)]
