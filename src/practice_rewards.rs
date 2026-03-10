@@ -89,13 +89,11 @@ impl RewardCache {
     /// Stores the new reward. Replaces the oldest reward in the cache with the given reward if the
     /// cache is full. Assumes that the cache is already sorted by ascending timestamp.
     fn add_new_reward(&mut self, unit_id: Ustr, reward: UnitReward) {
-        let rewards = self.cache.get(&unit_id).cloned().unwrap_or_default();
-        let mut new_rewards = rewards;
-        if new_rewards.len() >= MAX_CACHE_SIZE {
-            new_rewards.pop_front();
+        let rewards = self.cache.entry(unit_id).or_default();
+        if rewards.len() >= MAX_CACHE_SIZE {
+            rewards.pop_front();
         }
-        new_rewards.push_back(reward);
-        self.cache.insert(unit_id, new_rewards);
+        rewards.push_back(reward);
     }
 }
 

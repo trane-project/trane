@@ -382,15 +382,15 @@ impl Blacklist for Trane {
 
 #[cfg_attr(coverage, coverage(off))]
 impl CourseLibrary for Trane {
-    fn get_course_manifest(&self, course_id: Ustr) -> Option<CourseManifest> {
+    fn get_course_manifest(&self, course_id: Ustr) -> Option<Arc<CourseManifest>> {
         self.course_library.read().get_course_manifest(course_id)
     }
 
-    fn get_lesson_manifest(&self, lesson_id: Ustr) -> Option<LessonManifest> {
+    fn get_lesson_manifest(&self, lesson_id: Ustr) -> Option<Arc<LessonManifest>> {
         self.course_library.read().get_lesson_manifest(lesson_id)
     }
 
-    fn get_exercise_manifest(&self, exercise_id: Ustr) -> Option<ExerciseManifest> {
+    fn get_exercise_manifest(&self, exercise_id: Ustr) -> Option<Arc<ExerciseManifest>> {
         self.course_library
             .read()
             .get_exercise_manifest(exercise_id)
@@ -633,11 +633,11 @@ impl UnitGraph for Trane {
         self.unit_graph.read().get_unit_type(unit_id)
     }
 
-    fn get_course_lessons(&self, course_id: Ustr) -> Option<UstrSet> {
+    fn get_course_lessons(&self, course_id: Ustr) -> Option<Arc<UstrSet>> {
         self.unit_graph.read().get_course_lessons(course_id)
     }
 
-    fn get_starting_lessons(&self, course_id: Ustr) -> Option<UstrSet> {
+    fn get_starting_lessons(&self, course_id: Ustr) -> Option<Arc<UstrSet>> {
         self.unit_graph.read().get_starting_lessons(course_id)
     }
 
@@ -649,7 +649,7 @@ impl UnitGraph for Trane {
         self.unit_graph.read().get_lesson_course(lesson_id)
     }
 
-    fn get_lesson_exercises(&self, lesson_id: Ustr) -> Option<UstrSet> {
+    fn get_lesson_exercises(&self, lesson_id: Ustr) -> Option<Arc<UstrSet>> {
         self.unit_graph.read().get_lesson_exercises(lesson_id)
     }
 
@@ -657,11 +657,11 @@ impl UnitGraph for Trane {
         self.unit_graph.read().get_exercise_lesson(exercise_id)
     }
 
-    fn get_dependencies(&self, unit_id: Ustr) -> Option<UstrSet> {
+    fn get_dependencies(&self, unit_id: Ustr) -> Option<Arc<UstrSet>> {
         self.unit_graph.read().get_dependencies(unit_id)
     }
 
-    fn get_dependents(&self, unit_id: Ustr) -> Option<UstrSet> {
+    fn get_dependents(&self, unit_id: Ustr) -> Option<Arc<UstrSet>> {
         self.unit_graph.read().get_dependents(unit_id)
     }
 
@@ -673,15 +673,15 @@ impl UnitGraph for Trane {
         self.unit_graph.read().get_encompassed_by(unit_id)
     }
 
-    fn get_dependency_sinks(&self) -> UstrSet {
+    fn get_dependency_sinks(&self) -> Arc<UstrSet> {
         self.unit_graph.read().get_dependency_sinks()
     }
 
-    fn get_supersedes(&self, unit_id: Ustr) -> Option<UstrSet> {
+    fn get_supersedes(&self, unit_id: Ustr) -> Option<Arc<UstrSet>> {
         self.unit_graph.read().get_supersedes(unit_id)
     }
 
-    fn get_superseded_by(&self, unit_id: Ustr) -> Option<UstrSet> {
+    fn get_superseded_by(&self, unit_id: Ustr) -> Option<Arc<UstrSet>> {
         self.unit_graph.read().get_superseded_by(unit_id)
     }
 

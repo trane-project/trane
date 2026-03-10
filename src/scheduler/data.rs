@@ -92,16 +92,16 @@ impl SchedulerData {
 
     /// Returns the manifest for the course with the given ID.
     #[inline]
-    pub fn get_course_manifest(&self, course_id: Ustr) -> Result<CourseManifest> {
+    pub fn get_course_manifest(&self, course_id: Ustr) -> Result<Arc<CourseManifest>> {
         self.course_library
             .read()
             .get_course_manifest(course_id)
             .ok_or(anyhow!("missing manifest for course with ID {course_id}"))
     }
 
-    /// Returns the manifest for the course with the given ID.
+    /// Returns the manifest for the lesson with the given ID.
     #[inline]
-    pub fn get_lesson_manifest(&self, lesson_id: Ustr) -> Result<LessonManifest> {
+    pub fn get_lesson_manifest(&self, lesson_id: Ustr) -> Result<Arc<LessonManifest>> {
         self.course_library
             .read()
             .get_lesson_manifest(lesson_id)
@@ -110,7 +110,7 @@ impl SchedulerData {
 
     /// Returns the manifest for the exercise with the given ID.
     #[inline]
-    pub fn get_exercise_manifest(&self, exercise_id: Ustr) -> Result<ExerciseManifest> {
+    pub fn get_exercise_manifest(&self, exercise_id: Ustr) -> Result<Arc<ExerciseManifest>> {
         self.course_library
             .read()
             .get_exercise_manifest(exercise_id)
@@ -135,14 +135,15 @@ impl SchedulerData {
             .read()
             .get_dependents(unit_id)
             .unwrap_or_default()
-            .into_iter()
+            .iter()
+            .copied()
             .collect();
     }
 
     /// Returns all the units that supersede the unit with the given ID.
     #[inline]
     #[must_use]
-    pub fn get_superseding(&self, unit_id: Ustr) -> Option<UstrSet> {
+    pub fn get_superseding(&self, unit_id: Ustr) -> Option<Arc<UstrSet>> {
         return self.unit_graph.read().get_superseded_by(unit_id);
     }
 
@@ -170,7 +171,8 @@ impl SchedulerData {
                         // Continue the search with the dependencies of the candidate.
                         stack.extend(
                             candidate_dependencies
-                                .into_iter()
+                                .iter()
+                                .copied()
                                 .map(|dependency| (dependency, candidate_depth + 1)),
                         );
                     }
@@ -220,7 +222,8 @@ impl SchedulerData {
             .read()
             .get_lesson_exercises(unit_id)
             .unwrap_or_default()
-            .into_iter()
+            .iter()
+            .copied()
             .collect()
     }
 
@@ -228,12 +231,11 @@ impl SchedulerData {
     #[inline]
     #[must_use]
     pub fn get_num_lessons_in_course(&self, course_id: Ustr) -> usize {
-        let lessons: UstrSet = self
-            .unit_graph
+        self.unit_graph
             .read()
             .get_course_lessons(course_id)
-            .unwrap_or_default();
-        lessons.len()
+            .unwrap_or_default()
+            .len()
     }
 
     /// Returns whether the unit passes the metadata filter, handling all interactions between
@@ -262,7 +264,7 @@ impl SchedulerData {
                 Ok(metadata_filter
                     .as_ref()
                     .unwrap()
-                    .apply_to_course(&course_manifest))
+                    .apply_to_course(&*course_manifest))
             }
             UnitType::Lesson => {
                 // Retrieve the lesson and course manifests and check if the lesson passes the
@@ -273,7 +275,7 @@ impl SchedulerData {
                 Ok(metadata_filter
                     .as_ref()
                     .unwrap()
-                    .apply_to_lesson(&course_manifest, &lesson_manifest))
+                    .apply_to_lesson(&*course_manifest, &*lesson_manifest))
             }
         }
     }
@@ -373,7 +375,8 @@ impl SchedulerData {
                     .get_course_lessons(unit_id)
                     .unwrap_or_default();
                 lessons
-                    .into_iter()
+                    .iter()
+                    .copied()
                     .flat_map(|lesson_id| self.all_valid_exercises_in_lesson(lesson_id))
                     .collect()
             }

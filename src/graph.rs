@@ -44,6 +44,7 @@
 use anyhow::{Result, anyhow, bail, ensure};
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
+use std::sync::Arc;
 use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{data::UnitType, error::UnitGraphError};
@@ -105,7 +106,7 @@ pub trait UnitGraph {
     fn get_unit_type(&self, unit_id: Ustr) -> Option<UnitType>;
 
     /// Returns the lessons belonging to the given course.
-    fn get_course_lessons(&self, course_id: Ustr) -> Option<UstrSet>;
+    fn get_course_lessons(&self, course_id: Ustr) -> Option<Arc<UstrSet>>;
 
     /// Updates the starting lessons for all courses. The starting lessons of the course are those
     /// of its lessons that should be practiced first when the course is introduced to the student.
@@ -115,22 +116,22 @@ pub trait UnitGraph {
     fn update_starting_lessons(&mut self);
 
     /// Returns the starting lessons for the given course.
-    fn get_starting_lessons(&self, course_id: Ustr) -> Option<UstrSet>;
+    fn get_starting_lessons(&self, course_id: Ustr) -> Option<Arc<UstrSet>>;
 
     /// Returns the course to which the given lesson belongs.
     fn get_lesson_course(&self, lesson_id: Ustr) -> Option<Ustr>;
 
     /// Returns the exercises belonging to the given lesson.
-    fn get_lesson_exercises(&self, lesson_id: Ustr) -> Option<UstrSet>;
+    fn get_lesson_exercises(&self, lesson_id: Ustr) -> Option<Arc<UstrSet>>;
 
     /// Returns the lesson to which the given exercise belongs.
     fn get_exercise_lesson(&self, exercise_id: Ustr) -> Option<Ustr>;
 
     /// Returns the weights of the dependencies of the given unit.
-    fn get_dependencies(&self, unit_id: Ustr) -> Option<UstrSet>;
+    fn get_dependencies(&self, unit_id: Ustr) -> Option<Arc<UstrSet>>;
 
     /// Returns all the units which depend on the given unit.
-    fn get_dependents(&self, unit_id: Ustr) -> Option<UstrSet>;
+    fn get_dependents(&self, unit_id: Ustr) -> Option<Arc<UstrSet>>;
 
     /// Returns the dependency sinks of the graph. A dependency sink is a unit with no dependencies
     /// from which a walk of the entire unit graph needs to start. Because the lessons in a course
@@ -140,7 +141,7 @@ pub trait UnitGraph {
     /// never added to the graph because they are missing from the course library. Those units are
     /// added as dependency sinks so that the scheduler can reach their dependents, which are part
     /// of the library.
-    fn get_dependency_sinks(&self) -> UstrSet;
+    fn get_dependency_sinks(&self) -> Arc<UstrSet>;
 
     /// Returns the units that this unit encompasses.
     fn get_encompasses(&self, unit_id: Ustr) -> Option<Vec<(Ustr, f32)>>;
@@ -149,10 +150,10 @@ pub trait UnitGraph {
     fn get_encompassed_by(&self, unit_id: Ustr) -> Option<Vec<(Ustr, f32)>>;
 
     /// Returns the units that this unit supersedes.
-    fn get_supersedes(&self, unit_id: Ustr) -> Option<UstrSet>;
+    fn get_supersedes(&self, unit_id: Ustr) -> Option<Arc<UstrSet>>;
 
     /// Returns the units that the given unit is superseded by.
-    fn get_superseded_by(&self, unit_id: Ustr) -> Option<UstrSet>;
+    fn get_superseded_by(&self, unit_id: Ustr) -> Option<Arc<UstrSet>>;
 
     /// Performs a cycle check on the graph, done currently when opening the Trane library to
     /// prevent any infinite traversal of the graph and immediately inform the user of the issue.
@@ -183,28 +184,28 @@ pub struct InMemoryUnitGraph {
     type_map: UstrMap<UnitType>,
 
     /// The mapping of a course to its lessons.
-    course_lesson_map: UstrMap<UstrSet>,
+    course_lesson_map: UstrMap<Arc<UstrSet>>,
 
     /// The mapping of a course to its starting lessons.
-    starting_lessons_map: UstrMap<UstrSet>,
+    starting_lessons_map: UstrMap<Arc<UstrSet>>,
 
     /// The mapping of a lesson to its course.
     lesson_course_map: UstrMap<Ustr>,
 
     /// The mapping of a lesson to its exercises.
-    lesson_exercise_map: UstrMap<UstrSet>,
+    lesson_exercise_map: UstrMap<Arc<UstrSet>>,
 
     /// The mapping of an exercise to its lesson.
     exercise_lesson_map: UstrMap<Ustr>,
 
     /// The mapping of a unit to its dependencies.
-    dependency_graph: UstrMap<UstrSet>,
+    dependency_graph: UstrMap<Arc<UstrSet>>,
 
     /// The mapping of a unit to all its dependents.
-    dependent_graph: UstrMap<UstrSet>,
+    dependent_graph: UstrMap<Arc<UstrSet>>,
 
     /// The set of all dependency sinks in the graph.
-    dependency_sinks: UstrSet,
+    dependency_sinks: Arc<UstrSet>,
 
     /// The mapping of a unit to the units it encompasses as a list of tuples (ID, weight).
     encompasses_graph: UstrMap<Vec<(Ustr, f32)>>,
@@ -213,10 +214,10 @@ pub struct InMemoryUnitGraph {
     encompassed_by: UstrMap<Vec<(Ustr, f32)>>,
 
     /// The mapping of a unit to the units it supersedes.
-    supersedes_graph: UstrMap<UstrSet>,
+    supersedes_graph: UstrMap<Arc<UstrSet>>,
 
     /// The mapping of a unit to the units that supersede it.
-    superseded_by: UstrMap<UstrSet>,
+    superseded_by: UstrMap<Arc<UstrSet>>,
 }
 
 impl InMemoryUnitGraph {
@@ -225,19 +226,19 @@ impl InMemoryUnitGraph {
     fn update_dependency_sinks(&mut self, unit_id: Ustr, dependencies: &[Ustr]) {
         // If the current dependencies and the new dependencies are both empty, keep the unit in the
         // set of dependency sinks. Otherwise, remove it.
-        let empty = UstrSet::default();
+        let empty = Arc::new(UstrSet::default());
         let current_dependencies = self.dependency_graph.get(&unit_id).unwrap_or(&empty);
         if current_dependencies.is_empty() && dependencies.is_empty() {
-            self.dependency_sinks.insert(unit_id);
+            Arc::make_mut(&mut self.dependency_sinks).insert(unit_id);
         } else {
-            self.dependency_sinks.remove(&unit_id);
+            Arc::make_mut(&mut self.dependency_sinks).remove(&unit_id);
         }
 
         // Remove the unit from the dependency sinks if it's a lesson and its course exists. If the
         // course is a dependency sink, the lesson is redundant. If the course is not a dependency
         // sink, the lesson is not a dependency sink either.
         if self.get_lesson_course(unit_id).is_some() {
-            self.dependency_sinks.remove(&unit_id);
+            Arc::make_mut(&mut self.dependency_sinks).remove(&unit_id);
         }
 
         // If a course is mentioned as a dependency, but it's missing, it should be a dependency
@@ -299,10 +300,7 @@ impl InMemoryUnitGraph {
 
         // Update the map of lesson to course and course to lessons.
         self.lesson_course_map.insert(lesson_id, course_id);
-        self.course_lesson_map
-            .entry(course_id)
-            .or_default()
-            .insert(lesson_id);
+        Arc::make_mut(self.course_lesson_map.entry(course_id).or_default()).insert(lesson_id);
         Ok(())
     }
 
@@ -319,10 +317,7 @@ impl InMemoryUnitGraph {
         self.update_unit_type(lesson_id, UnitType::Lesson)?;
 
         // Update the map of exercise to lesson and lesson to exercises.
-        self.lesson_exercise_map
-            .entry(lesson_id)
-            .or_default()
-            .insert(exercise_id);
+        Arc::make_mut(self.lesson_exercise_map.entry(lesson_id).or_default()).insert(exercise_id);
         self.exercise_lesson_map.insert(exercise_id, lesson_id);
         Ok(())
     }
@@ -362,17 +357,11 @@ impl InMemoryUnitGraph {
 
         // Update the dependency sinks and dependency map.
         self.update_dependency_sinks(unit_id, dependencies);
-        self.dependency_graph
-            .entry(unit_id)
-            .or_default()
-            .extend(dependencies);
+        Arc::make_mut(self.dependency_graph.entry(unit_id).or_default()).extend(dependencies);
 
         // For each dependency, insert the equivalent dependent relationship.
         for dependency_id in dependencies {
-            self.dependent_graph
-                .entry(*dependency_id)
-                .or_default()
-                .insert(unit_id);
+            Arc::make_mut(self.dependent_graph.entry(*dependency_id).or_default()).insert(unit_id);
         }
         Ok(())
     }
@@ -444,7 +433,7 @@ impl InMemoryUnitGraph {
                 // Get the dependencies of the current node, check that the dependency and dependent
                 // graph agree with each other, and generate new paths to add to the stack.
                 if let Some(dependencies) = self.get_dependencies(current_id) {
-                    for dependency_id in dependencies {
+                    for dependency_id in dependencies.iter().copied() {
                         // Verify that the dependency and dependent graphs agree with each other by
                         // checking that this dependency lists the current unit as a dependent.
                         let dependents = self.get_dependents(dependency_id).unwrap_or_default();
@@ -493,7 +482,7 @@ impl InMemoryUnitGraph {
                 // Get the  of the current node, check that the superseded and superseding graphs
                 // agree with each other, and generate new paths to add to the stack.
                 if let Some(superseded) = self.get_supersedes(current_id) {
-                    for superseded_id in superseded {
+                    for superseded_id in superseded.iter().copied() {
                         let superseding = self.get_superseded_by(superseded_id).unwrap_or_default();
                         if !superseding.contains(&current_id) {
                             bail!(
@@ -619,17 +608,11 @@ impl UnitGraph for InMemoryUnitGraph {
         if superseded.is_empty() {
             return;
         }
-        self.supersedes_graph
-            .entry(unit_id)
-            .or_default()
-            .extend(superseded);
+        Arc::make_mut(self.supersedes_graph.entry(unit_id).or_default()).extend(superseded);
 
         // For each superseded ID, insert the equivalent superseding relationship.
         for superseded_id in superseded {
-            self.superseded_by
-                .entry(*superseded_id)
-                .or_default()
-                .insert(unit_id);
+            Arc::make_mut(self.superseded_by.entry(*superseded_id).or_default()).insert(unit_id);
         }
     }
 
@@ -637,17 +620,17 @@ impl UnitGraph for InMemoryUnitGraph {
         self.type_map.get(&unit_id).cloned()
     }
 
-    fn get_course_lessons(&self, course_id: Ustr) -> Option<UstrSet> {
+    fn get_course_lessons(&self, course_id: Ustr) -> Option<Arc<UstrSet>> {
         self.course_lesson_map.get(&course_id).cloned()
     }
 
-    fn get_starting_lessons(&self, course_id: Ustr) -> Option<UstrSet> {
+    fn get_starting_lessons(&self, course_id: Ustr) -> Option<Arc<UstrSet>> {
         self.starting_lessons_map.get(&course_id).cloned()
     }
 
     fn update_starting_lessons(&mut self) {
         // Find the starting lessons for each course.
-        let empty = UstrSet::default();
+        let empty = Arc::new(UstrSet::default());
         for course_id in self.course_lesson_map.keys() {
             let lessons = self.course_lesson_map.get(course_id).unwrap_or(&empty);
             let starting_lessons: UstrSet = lessons
@@ -678,11 +661,11 @@ impl UnitGraph for InMemoryUnitGraph {
                         })
                 });
                 if has_starting_dependencies {
-                    self.dependency_sinks.remove(course_id);
+                    Arc::make_mut(&mut self.dependency_sinks).remove(course_id);
                 }
             }
             self.starting_lessons_map
-                .insert(*course_id, starting_lessons);
+                .insert(*course_id, Arc::new(starting_lessons));
         }
     }
 
@@ -690,7 +673,7 @@ impl UnitGraph for InMemoryUnitGraph {
         self.lesson_course_map.get(&lesson_id).copied()
     }
 
-    fn get_lesson_exercises(&self, lesson_id: Ustr) -> Option<UstrSet> {
+    fn get_lesson_exercises(&self, lesson_id: Ustr) -> Option<Arc<UstrSet>> {
         self.lesson_exercise_map.get(&lesson_id).cloned()
     }
 
@@ -698,15 +681,15 @@ impl UnitGraph for InMemoryUnitGraph {
         self.exercise_lesson_map.get(&exercise_id).copied()
     }
 
-    fn get_dependencies(&self, unit_id: Ustr) -> Option<UstrSet> {
+    fn get_dependencies(&self, unit_id: Ustr) -> Option<Arc<UstrSet>> {
         self.dependency_graph.get(&unit_id).cloned()
     }
 
-    fn get_dependents(&self, unit_id: Ustr) -> Option<UstrSet> {
+    fn get_dependents(&self, unit_id: Ustr) -> Option<Arc<UstrSet>> {
         self.dependent_graph.get(&unit_id).cloned()
     }
 
-    fn get_dependency_sinks(&self) -> UstrSet {
+    fn get_dependency_sinks(&self) -> Arc<UstrSet> {
         self.dependency_sinks.clone()
     }
 
@@ -714,7 +697,7 @@ impl UnitGraph for InMemoryUnitGraph {
         // Use the dependency graph if the graph is empty.
         if self.encompasses_graph.is_empty() {
             self.get_dependencies(unit_id)
-                .map(|dependencies| dependencies.into_iter().map(|dep| (dep, 1.0)).collect())
+                .map(|dependencies| dependencies.iter().copied().map(|dep| (dep, 1.0)).collect())
         } else {
             self.encompasses_graph.get(&unit_id).cloned()
         }
@@ -724,17 +707,17 @@ impl UnitGraph for InMemoryUnitGraph {
         // Use the dependent graph if the graph is empty.
         if self.encompassed_by.is_empty() {
             self.get_dependents(unit_id)
-                .map(|dependents| dependents.into_iter().map(|dep| (dep, 1.0)).collect())
+                .map(|dependents| dependents.iter().copied().map(|dep| (dep, 1.0)).collect())
         } else {
             self.encompassed_by.get(&unit_id).cloned()
         }
     }
 
-    fn get_supersedes(&self, unit_id: Ustr) -> Option<UstrSet> {
+    fn get_supersedes(&self, unit_id: Ustr) -> Option<Arc<UstrSet>> {
         self.supersedes_graph.get(&unit_id).cloned()
     }
 
-    fn get_superseded_by(&self, unit_id: Ustr) -> Option<UstrSet> {
+    fn get_superseded_by(&self, unit_id: Ustr) -> Option<Arc<UstrSet>> {
         self.superseded_by.get(&unit_id).cloned()
     }
 
@@ -759,7 +742,8 @@ impl UnitGraph for InMemoryUnitGraph {
             let mut dependents = self
                 .get_dependents(course_id)
                 .unwrap_or_default()
-                .into_iter()
+                .iter()
+                .copied()
                 .collect::<Vec<_>>();
             dependents.retain(|dependent_id| {
                 if courses_only {
@@ -800,7 +784,8 @@ impl UnitGraph for InMemoryUnitGraph {
             let mut lessons = self
                 .get_course_lessons(course_id)
                 .unwrap_or_default()
-                .into_iter()
+                .iter()
+                .copied()
                 .collect::<Vec<_>>();
             lessons.sort();
             for lesson_id in lessons {
@@ -811,7 +796,8 @@ impl UnitGraph for InMemoryUnitGraph {
                 let mut dependents = self
                     .get_dependents(lesson_id)
                     .unwrap_or_default()
-                    .into_iter()
+                    .iter()
+                    .copied()
                     .collect::<Vec<_>>();
                 dependents.sort();
                 for dependent in dependents {
@@ -831,6 +817,7 @@ impl UnitGraph for InMemoryUnitGraph {
 mod test {
     use anyhow::Result;
     use indoc::indoc;
+    use std::sync::Arc;
     use ustr::{Ustr, UstrSet};
 
     use crate::{
@@ -989,7 +976,7 @@ mod test {
         graph.update_starting_lessons();
 
         let sinks = graph.get_dependency_sinks();
-        assert_eq!(sinks, vec![course1_id].into_iter().collect());
+        assert_eq!(*sinks, vec![course1_id].into_iter().collect::<UstrSet>());
         Ok(())
     }
 
@@ -1316,7 +1303,9 @@ mod test {
 
         // Manually remove the dependent relationship to trigger the check and make the cycle
         // detection fail.
-        graph.dependent_graph.insert(lesson1_id, UstrSet::default());
+        graph
+            .dependent_graph
+            .insert(lesson1_id, Arc::new(UstrSet::default()));
         assert!(graph.check_cycles().is_err());
         // Also check that the check fails if the dependents value is `None`.
         graph.dependency_graph.remove(&lesson1_id);
@@ -1352,7 +1341,9 @@ mod test {
 
         // Manually remove the superseding relationship to trigger the check and make the cycle
         // detection fail.
-        graph.superseded_by.insert(lesson1_id, UstrSet::default());
+        graph
+            .superseded_by
+            .insert(lesson1_id, Arc::new(UstrSet::default()));
         assert!(graph.check_cycles().is_err());
         // Also check that the check fails if the superseding value is `None`.
         graph.dependency_graph.remove(&lesson1_id);

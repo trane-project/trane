@@ -12,6 +12,7 @@
 
 use anyhow::Result;
 use rand::{prelude::SliceRandom, rng, seq::IndexedRandom};
+use std::sync::Arc;
 use ustr::{UstrMap, UstrSet};
 
 use crate::{
@@ -288,7 +289,7 @@ impl CandidateFilter {
             .into_iter()
             .map(|c| -> Result<_> {
                 let manifest = self.data.get_exercise_manifest(c.exercise_id)?;
-                Ok(manifest)
+                Ok(Arc::unwrap_or_clone(manifest))
             })
             .collect::<Result<Vec<_>>>()?;
 
