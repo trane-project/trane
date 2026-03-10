@@ -301,7 +301,7 @@ impl SchedulerData {
 
     /// Returns the unit filter for the saved filter with the given ID. Returns an error if no
     /// filter exists with that ID exists.
-    pub fn get_saved_filter(&self, filter_id: &str) -> Result<SavedFilter> {
+    pub fn get_saved_filter(&self, filter_id: &str) -> Result<Arc<SavedFilter>> {
         match self.filter_manager.read().get_filter(filter_id) {
             Some(filter) => Ok(filter),
             None => Err(anyhow!("no saved filter with ID {filter_id} exists")),
@@ -319,7 +319,7 @@ impl SchedulerData {
             SessionPart::UnitFilter { filter, .. } => Ok(Some(filter)),
             SessionPart::SavedFilter { filter_id, .. } => {
                 let saved_filter = self.get_saved_filter(&filter_id)?;
-                Ok(Some(saved_filter.filter))
+                Ok(Some(saved_filter.filter.clone()))
             }
         }
     }
@@ -541,11 +541,11 @@ mod test {
         scheduler_data.filter_manager = Arc::new(RwLock::new(LocalFilterManager {
             filters: HashMap::from([(
                 "saved_filter".to_string(),
-                SavedFilter {
+                Arc::new(SavedFilter {
                     id: "saved_filter".to_string(),
                     description: "Saved filter".to_string(),
                     filter: UnitFilter::ReviewListFilter,
-                },
+                }),
             )]),
         }));
 
