@@ -39,13 +39,13 @@ pub const EXERCISE_MANIFEST_FILENAME: &str = "exercise_manifest.json";
 /// operations to retrieve the courses, lessons in a course, and exercises in a lesson.
 pub trait CourseLibrary {
     /// Returns the course manifest for the given course.
-    fn get_course_manifest(&self, course_id: Ustr) -> Option<CourseManifest>;
+    fn get_course_manifest(&self, course_id: Ustr) -> Option<Arc<CourseManifest>>;
 
     /// Returns the lesson manifest for the given lesson.
-    fn get_lesson_manifest(&self, lesson_id: Ustr) -> Option<LessonManifest>;
+    fn get_lesson_manifest(&self, lesson_id: Ustr) -> Option<Arc<LessonManifest>>;
 
     /// Returns the exercise manifest for the given exercise.
-    fn get_exercise_manifest(&self, exercise_id: Ustr) -> Option<ExerciseManifest>;
+    fn get_exercise_manifest(&self, exercise_id: Ustr) -> Option<Arc<ExerciseManifest>>;
 
     /// Returns the IDs of all courses in the library sorted alphabetically.
     fn get_course_ids(&self) -> Vec<Ustr>;
@@ -97,9 +97,21 @@ impl From<&LocalCourseLibrary> for SerializedCourseLibrary {
     fn from(library: &LocalCourseLibrary) -> Self {
         SerializedCourseLibrary {
             unit_graph: (*library.unit_graph.read()).clone(),
-            course_map: library.course_map.clone(),
-            lesson_map: library.lesson_map.clone(),
-            exercise_map: library.exercise_map.clone(),
+            course_map: library
+                .course_map
+                .iter()
+                .map(|(k, v)| (*k, (**v).clone()))
+                .collect(),
+            lesson_map: library
+                .lesson_map
+                .iter()
+                .map(|(k, v)| (*k, (**v).clone()))
+                .collect(),
+            exercise_map: library
+                .exercise_map
+                .iter()
+                .map(|(k, v)| (*k, (**v).clone()))
+                .collect(),
         }
     }
 }
@@ -152,13 +164,13 @@ pub struct LocalCourseLibrary {
     pub unit_graph: Arc<RwLock<InMemoryUnitGraph>>,
 
     /// A mapping of course ID to its corresponding course manifest.
-    pub course_map: UstrMap<CourseManifest>,
+    pub course_map: UstrMap<Arc<CourseManifest>>,
 
     /// A mapping of lesson ID to its corresponding lesson manifest.
-    pub lesson_map: UstrMap<LessonManifest>,
+    pub lesson_map: UstrMap<Arc<LessonManifest>>,
 
     /// A mapping of exercise ID to its corresponding exercise manifest.
-    pub exercise_map: UstrMap<ExerciseManifest>,
+    pub exercise_map: UstrMap<Arc<ExerciseManifest>>,
 
     /// The user preferences.
     pub user_preferences: UserPreferences,
@@ -363,15 +375,13 @@ impl LocalCourseLibrary {
                 .write()
                 .add_superseded(course.manifest.id, &course.manifest.superseded);
 
-            // Add the course manifest to the course map.
-            self.course_map
-                .insert(course.manifest.id, course.manifest.clone());
-
-            // The encompassing and dependency graphs are not the same if the course manifest has
-            // the encompassing field set.
+            // Check if the encompassing and dependency graphs are the same and add the manifest
+            // to the course map.
             if !course.manifest.encompassed.is_empty() {
                 encompassing_equals_dependency = false;
             }
+            self.course_map
+                .insert(course.manifest.id, Arc::new(course.manifest));
 
             // Process the lessons.
             for (lesson_manifest, exercises) in course.lessons {
@@ -393,15 +403,13 @@ impl LocalCourseLibrary {
                     .write()
                     .add_superseded(lesson_manifest.id, &lesson_manifest.superseded);
 
-                // The encompassing and dependency graphs are not the same if the lesson manifest
-                // has the encompassing field set.
+                // Check if the encompassing and dependency graphs are the same and add the manifest
+                // to the lesson map.
                 if !lesson_manifest.encompassed.is_empty() {
                     encompassing_equals_dependency = false;
                 }
-
-                // Add the lesson manifest to the lesson map.
                 self.lesson_map
-                    .insert(lesson_manifest.id, lesson_manifest.clone());
+                    .insert(lesson_manifest.id, Arc::new(lesson_manifest));
 
                 // Process the exercises.
                 for exercise_manifest in exercises {
@@ -410,7 +418,7 @@ impl LocalCourseLibrary {
                         .write()
                         .add_exercise(exercise_manifest.id, exercise_manifest.lesson_id)?;
                     self.exercise_map
-                        .insert(exercise_manifest.id, exercise_manifest);
+                        .insert(exercise_manifest.id, Arc::new(exercise_manifest));
                 }
             }
         }
@@ -507,9 +515,21 @@ impl LocalCourseLibrary {
         user_preferences: UserPreferences,
     ) -> Result<Self> {
         Ok(LocalCourseLibrary {
-            course_map: serialized_library.course_map,
-            lesson_map: serialized_library.lesson_map,
-            exercise_map: serialized_library.exercise_map,
+            course_map: serialized_library
+                .course_map
+                .into_iter()
+                .map(|(k, v)| (k, Arc::new(v)))
+                .collect(),
+            lesson_map: serialized_library
+                .lesson_map
+                .into_iter()
+                .map(|(k, v)| (k, Arc::new(v)))
+                .collect(),
+            exercise_map: serialized_library
+                .exercise_map
+                .into_iter()
+                .map(|(k, v)| (k, Arc::new(v)))
+                .collect(),
             user_preferences,
             unit_graph: Arc::new(RwLock::new(serialized_library.unit_graph)),
         })
@@ -517,15 +537,15 @@ impl LocalCourseLibrary {
 }
 
 impl CourseLibrary for LocalCourseLibrary {
-    fn get_course_manifest(&self, course_id: Ustr) -> Option<CourseManifest> {
+    fn get_course_manifest(&self, course_id: Ustr) -> Option<Arc<CourseManifest>> {
         self.course_map.get(&course_id).cloned()
     }
 
-    fn get_lesson_manifest(&self, lesson_id: Ustr) -> Option<LessonManifest> {
+    fn get_lesson_manifest(&self, lesson_id: Ustr) -> Option<Arc<LessonManifest>> {
         self.lesson_map.get(&lesson_id).cloned()
     }
 
-    fn get_exercise_manifest(&self, exercise_id: Ustr) -> Option<ExerciseManifest> {
+    fn get_exercise_manifest(&self, exercise_id: Ustr) -> Option<Arc<ExerciseManifest>> {
         self.exercise_map.get(&exercise_id).cloned()
     }
 
@@ -540,7 +560,8 @@ impl CourseLibrary for LocalCourseLibrary {
             .unit_graph
             .read()
             .get_course_lessons(course_id)?
-            .into_iter()
+            .iter()
+            .copied()
             .collect::<Vec<Ustr>>();
         lessons.sort();
         Some(lessons)
@@ -551,37 +572,39 @@ impl CourseLibrary for LocalCourseLibrary {
             .unit_graph
             .read()
             .get_lesson_exercises(lesson_id)?
-            .into_iter()
+            .iter()
+            .copied()
             .collect::<Vec<Ustr>>();
         exercises.sort();
         Some(exercises)
     }
 
     fn get_all_exercise_ids(&self, unit_id: Option<Ustr>) -> Vec<Ustr> {
+        let unit_graph = self.unit_graph.read();
         let mut exercises = match unit_id {
             Some(unit_id) => {
                 // Return the exercises according to the type of the unit.
-                let unit_type = self.unit_graph.read().get_unit_type(unit_id);
+                let unit_type = unit_graph.get_unit_type(unit_id);
                 match unit_type {
-                    Some(UnitType::Course) => self
-                        .unit_graph
-                        .read()
+                    Some(UnitType::Course) => unit_graph
                         .get_course_lessons(unit_id)
                         .unwrap_or_default()
-                        .into_iter()
+                        .iter()
+                        .copied()
                         .flat_map(|lesson_id| {
-                            self.unit_graph
-                                .read()
+                            unit_graph
                                 .get_lesson_exercises(lesson_id)
                                 .unwrap_or_default()
+                                .iter()
+                                .copied()
+                                .collect::<Vec<Ustr>>()
                         })
                         .collect::<Vec<Ustr>>(),
-                    Some(UnitType::Lesson) => self
-                        .unit_graph
-                        .read()
+                    Some(UnitType::Lesson) => unit_graph
                         .get_lesson_exercises(unit_id)
                         .unwrap_or_default()
-                        .into_iter()
+                        .iter()
+                        .copied()
                         .collect::<Vec<Ustr>>(),
                     Some(UnitType::Exercise) => vec![unit_id],
                     None => vec![],

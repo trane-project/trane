@@ -92,8 +92,8 @@ impl UnitScorer {
         if is_lesson {
             let exercises = self.data.unit_graph.read().get_lesson_exercises(unit_id);
             if let Some(exercise_ids) = exercises {
-                for exercise_id in exercise_ids {
-                    self.exercise_cache.borrow_mut().remove(&exercise_id);
+                for exercise_id in exercise_ids.iter() {
+                    self.exercise_cache.borrow_mut().remove(exercise_id);
                 }
             }
         }
@@ -103,12 +103,12 @@ impl UnitScorer {
         if is_course {
             let lessons = self.data.unit_graph.read().get_course_lessons(unit_id);
             if let Some(lesson_ids) = lessons {
-                for lesson_id in lesson_ids {
-                    self.lesson_cache.borrow_mut().remove(&lesson_id);
-                    let exercises = self.data.unit_graph.read().get_lesson_exercises(lesson_id);
+                for lesson_id in lesson_ids.iter() {
+                    self.lesson_cache.borrow_mut().remove(lesson_id);
+                    let exercises = self.data.unit_graph.read().get_lesson_exercises(*lesson_id);
                     if let Some(exercise_ids) = exercises {
-                        for exercise_id in exercise_ids {
-                            self.exercise_cache.borrow_mut().remove(&exercise_id);
+                        for exercise_id in exercise_ids.iter() {
+                            self.exercise_cache.borrow_mut().remove(exercise_id);
                         }
                     }
                 }
@@ -134,9 +134,13 @@ impl UnitScorer {
     /// Returns the score for the given exercise.
     fn get_exercise_score(&self, exercise_id: Ustr) -> Result<f32> {
         // Return the cached score if it exists.
-        let cached_score = self.exercise_cache.borrow().get(&exercise_id).cloned();
-        if let Some(cached_score) = cached_score {
-            return Ok(cached_score.score);
+        let cached_score = self
+            .exercise_cache
+            .borrow()
+            .get(&exercise_id)
+            .map(|c| c.score);
+        if let Some(score) = cached_score {
+            return Ok(score);
         }
 
         // Retrieve the exercise's type and previous trials and compute its score.
@@ -145,7 +149,9 @@ impl UnitScorer {
             .course_library
             .read()
             .get_exercise_manifest(exercise_id)
-            .map_or(ExerciseType::Procedural, |manifest| manifest.exercise_type);
+            .map_or(ExerciseType::Procedural, |manifest| {
+                manifest.exercise_type.clone()
+            });
         let scores = self
             .data
             .practice_stats
@@ -209,31 +215,47 @@ impl UnitScorer {
     /// exercise.
     pub(super) fn get_num_trials(&self, exercise_id: Ustr) -> Result<Option<usize>> {
         // Return the cached value if it exists.
-        let cached_score = self.exercise_cache.borrow().get(&exercise_id).cloned();
-        if let Some(cached_score) = cached_score {
-            return Ok(Some(cached_score.num_trials));
+        let cached_num_trials = self
+            .exercise_cache
+            .borrow()
+            .get(&exercise_id)
+            .map(|c| c.num_trials);
+        if let Some(num_trials) = cached_num_trials {
+            return Ok(Some(num_trials));
         }
 
         // Compute the exercise's score, which populates the cache. Then, retrieve the number of
         // trials from the cache.
         self.get_exercise_score(exercise_id)?;
-        let cached_score = self.exercise_cache.borrow().get(&exercise_id).cloned();
-        Ok(cached_score.map(|s| s.num_trials))
+        let cached_num_trials = self
+            .exercise_cache
+            .borrow()
+            .get(&exercise_id)
+            .map(|s| s.num_trials);
+        Ok(cached_num_trials)
     }
 
     /// Returns the number of days since the last trial for the given exercise.
     pub(super) fn get_last_seen_days(&self, exercise_id: Ustr) -> Result<Option<f32>> {
         // Return the cached value if it exists.
-        let cached_score = self.exercise_cache.borrow().get(&exercise_id).cloned();
-        if let Some(cached_score) = cached_score {
-            return Ok(Some(cached_score.last_seen));
+        let cached_last_seen = self
+            .exercise_cache
+            .borrow()
+            .get(&exercise_id)
+            .map(|c| c.last_seen);
+        if let Some(last_seen) = cached_last_seen {
+            return Ok(Some(last_seen));
         }
 
         // Compute the exercise's score, which populates the cache. Then, retrieve the days since last
         // seen from the cache.
         self.get_exercise_score(exercise_id)?;
-        let cached_score = self.exercise_cache.borrow().get(&exercise_id).cloned();
-        Ok(cached_score.map(|s| s.last_seen))
+        let cached_last_seen = self
+            .exercise_cache
+            .borrow()
+            .get(&exercise_id)
+            .map(|s| s.last_seen);
+        Ok(cached_last_seen)
     }
 
     /// Returns whether all the exercises in the unit have valid scores.
@@ -279,15 +301,15 @@ impl UnitScorer {
 
     /// Recursively check if each superseding unit has itself been superseded by another unit and
     /// replace them from the original set with those units.
-    fn replace_superseding(&self, superseding_ids: UstrSet) -> UstrSet {
+    fn replace_superseding(&self, superseding_ids: &UstrSet) -> UstrSet {
         let mut result = UstrSet::default();
-        for id in superseding_ids {
+        for id in superseding_ids.iter().copied() {
             let superseding = self.data.get_superseding(id);
             if let Some(superseding) = superseding {
                 // The unit has some superseding units of its own. If the unit has been superseded
                 // by them, recursively call this function. Otherwise, add the unit to the result.
                 if self.is_superseded(id, &superseding) {
-                    result.extend(self.replace_superseding(superseding));
+                    result.extend(self.replace_superseding(&superseding));
                 } else {
                     result.insert(id);
                 }
@@ -303,7 +325,7 @@ impl UnitScorer {
     /// superseded.
     pub(super) fn get_superseding_recursive(&self, unit_id: Ustr) -> Option<UstrSet> {
         let superseding_ids = self.data.get_superseding(unit_id);
-        superseding_ids.map(|ids| self.replace_superseding(ids))
+        superseding_ids.map(|ids| self.replace_superseding(&ids))
     }
 
     /// Returns the average score of all the exercises in the given lesson.
@@ -341,7 +363,8 @@ impl UnitScorer {
             Some(exercise_ids) => {
                 // Compute the list of valid exercises. All blacklisted exercises are ignored.
                 let valid_exercises = exercise_ids
-                    .into_iter()
+                    .iter()
+                    .copied()
                     .filter(|exercise_id| {
                         let blacklisted = blacklist.blacklisted(*exercise_id);
                         !blacklisted.unwrap_or(false)
@@ -404,7 +427,8 @@ impl UnitScorer {
             Some(lesson_ids) => {
                 // Collect all the valid scores from the course's lessons.
                 let valid_lesson_scores = lesson_ids
-                    .into_iter()
+                    .iter()
+                    .copied()
                     .map(|lesson_id| self.get_lesson_score(lesson_id))
                     .filter(|score| {
                         // Filter out any lesson whose score is not valid.

@@ -30,6 +30,7 @@ use anyhow::Result;
 use chrono::Utc;
 use rand::{rng, seq::SliceRandom};
 use reward_propagator::RewardPropagator;
+use std::sync::Arc;
 use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
@@ -205,7 +206,8 @@ impl DepthFirstScheduler {
     fn get_all_starting_units(&self) -> UstrSet {
         // Replace any missing units with their dependents and repeat this process until there are
         // no missing courses.
-        let mut starting_courses = self.data.unit_graph.read().get_dependency_sinks();
+        let mut starting_courses =
+            Arc::unwrap_or_clone(self.data.unit_graph.read().get_dependency_sinks());
         loop {
             let mut new_starting_courses = UstrSet::default();
             for course_id in &starting_courses {
@@ -251,7 +253,8 @@ impl DepthFirstScheduler {
             .read()
             .get_starting_lessons(course_id)
             .unwrap_or_default()
-            .into_iter()
+            .iter()
+            .copied()
             .filter(|id| {
                 // Filter out lessons whose dependencies are not satisfied. Otherwise, those lessons
                 // would be traversed prematurely.
@@ -402,7 +405,8 @@ impl DepthFirstScheduler {
             .read()
             .get_course_lessons(course_id)
             .unwrap_or_default()
-            .into_iter()
+            .iter()
+            .copied()
             .filter(|lesson_id| {
                 self.data
                     .unit_passes_filter(*lesson_id, metadata_filter)
@@ -461,7 +465,10 @@ impl DepthFirstScheduler {
                     .unit_graph
                     .read()
                     .get_dependencies(dependency_id)
-                    .unwrap_or_default();
+                    .unwrap_or_default()
+                    .iter()
+                    .copied()
+                    .collect();
 
                 // Starting lessons are effectively dependent on the course dependencies, so add
                 // them as well.
@@ -482,7 +489,9 @@ impl DepthFirstScheduler {
                             .unit_graph
                             .read()
                             .get_dependencies(course_id)
-                            .unwrap_or_default(),
+                            .unwrap_or_default()
+                            .iter()
+                            .copied(),
                     );
                 }
 
@@ -512,7 +521,8 @@ impl DepthFirstScheduler {
                     .read()
                     .get_dependencies(dependency_id)
                     .unwrap_or_default()
-                    .into_iter()
+                    .iter()
+                    .copied()
                     .flat_map(|next_dependency| {
                         self.resolve_effective_dependencies(
                             next_dependency,
@@ -595,7 +605,8 @@ impl DepthFirstScheduler {
             .read()
             .get_dependencies(unit_id)
             .unwrap_or_default()
-            .into_iter()
+            .iter()
+            .copied()
             .all(|dependency_id| self.satisfied_dependency(dependency_id, metadata_filter))
     }
 
@@ -821,18 +832,16 @@ impl DepthFirstScheduler {
         let mut stack: Vec<StackItem> = Vec::new();
         let mut visited = UstrSet::default();
         for course_id in course_ids {
-            let starting_lessons = self
+            let lessons = self
                 .data
                 .unit_graph
                 .read()
                 .get_starting_lessons(*course_id)
-                .unwrap_or_default()
-                .into_iter()
-                .map(|id| StackItem {
-                    unit_id: id,
-                    depth: 0,
-                });
-            stack.extend(starting_lessons);
+                .unwrap_or_default();
+            stack.extend(lessons.iter().copied().map(|id| StackItem {
+                unit_id: id,
+                depth: 0,
+            }));
             visited.insert(*course_id);
         }
 
