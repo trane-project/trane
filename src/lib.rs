@@ -464,7 +464,7 @@ impl ExerciseScheduler for Trane {
 
 #[cfg_attr(coverage, coverage(off))]
 impl FilterManager for Trane {
-    fn get_filter(&self, id: &str) -> Option<SavedFilter> {
+    fn get_filter(&self, id: &str) -> Option<Arc<SavedFilter>> {
         self.filter_manager.read().get_filter(id)
     }
 

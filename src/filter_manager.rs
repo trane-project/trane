@@ -5,7 +5,7 @@
 //! re-use filters they have previously saved.
 
 use anyhow::{Context, Result, bail};
-use std::{collections::HashMap, fs::File, io::BufReader};
+use std::{collections::HashMap, fs::File, io::BufReader, sync::Arc};
 
 use crate::data::filter::SavedFilter;
 
@@ -13,7 +13,7 @@ use crate::data::filter::SavedFilter;
 /// identifier and contains a `UnitFilter`.
 pub trait FilterManager {
     /// Gets the filter with the given ID.
-    fn get_filter(&self, id: &str) -> Option<SavedFilter>;
+    fn get_filter(&self, id: &str) -> Option<Arc<SavedFilter>>;
 
     /// Returns a list of filter IDs and descriptions.
     fn list_filters(&self) -> Vec<(String, String)>;
@@ -22,12 +22,12 @@ pub trait FilterManager {
 /// An implementation of [`FilterManager`] backed by the local file system.
 pub struct LocalFilterManager {
     /// A map of filter IDs to filters.
-    pub filters: HashMap<String, SavedFilter>,
+    pub filters: HashMap<String, Arc<SavedFilter>>,
 }
 
 impl LocalFilterManager {
     /// Scans all `NamedFilters` in the given directory and returns a map of filters.
-    fn scan_filters(filter_directory: &str) -> Result<HashMap<String, SavedFilter>> {
+    fn scan_filters(filter_directory: &str) -> Result<HashMap<String, Arc<SavedFilter>>> {
         let mut filters = HashMap::new();
         for entry in
             std::fs::read_dir(filter_directory).context("Failed to read filter directory")?
@@ -48,7 +48,7 @@ impl LocalFilterManager {
             if filters.contains_key(&filter.id) {
                 bail!("Found multiple filters with ID {}", filter.id);
             }
-            filters.insert(filter.id.clone(), filter);
+            filters.insert(filter.id.clone(), Arc::new(filter));
         }
         Ok(filters)
     }
@@ -62,7 +62,7 @@ impl LocalFilterManager {
 }
 
 impl FilterManager for LocalFilterManager {
-    fn get_filter(&self, id: &str) -> Option<SavedFilter> {
+    fn get_filter(&self, id: &str) -> Option<Arc<SavedFilter>> {
         self.filters.get(id).cloned()
     }
 
@@ -172,7 +172,7 @@ mod test {
             let filter = manager.get_filter(id);
             assert!(filter.is_some());
             let filter = filter.unwrap();
-            assert_eq!(filters[index], filter);
+            assert_eq!(filters[index], *filter);
         }
         Ok(())
     }
