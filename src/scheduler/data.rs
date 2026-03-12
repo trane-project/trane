@@ -1,6 +1,6 @@
 //! Defines the data used by the scheduler and several convenience functions.
 
-use anyhow::{Result, anyhow};
+use anyhow::{Ok, Result, anyhow};
 use chrono::{DateTime, Utc};
 use parking_lot::RwLock;
 use std::sync::Arc;
@@ -124,6 +124,25 @@ impl SchedulerData {
     pub fn blacklisted(&self, unit_id: Ustr) -> Result<bool> {
         let blacklisted = self.blacklist.read().blacklisted(unit_id)?;
         Ok(blacklisted)
+    }
+
+    /// Returns whether the unit with the given ID is blacklisted or inside a blacklisted unit.
+    pub fn inside_blacklisted(&self, unit_id: Ustr) -> Result<bool> {
+        // Check if the unit itself is blacklisted.
+        let blacklisted = self.blacklist.read().blacklisted(unit_id)?;
+        if blacklisted {
+            return Ok(true);
+        }
+
+        // Check whether the lesson and course to which the unit belongs are blacklisted. Assumes
+        // that the unit is either an exercise or a lesson.
+        let lesson_id = self.get_lesson_id(unit_id).unwrap_or_default();
+        let lesson_blacklisted = self.blacklist.read().blacklisted(lesson_id)?;
+        if lesson_blacklisted {
+            return Ok(true);
+        }
+        let course_id = self.get_course_id(unit_id).unwrap_or_default();
+        Ok(self.blacklist.read().blacklisted(course_id)?)
     }
 
     /// Returns all the units that are dependencies of the unit with the given ID.

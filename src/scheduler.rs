@@ -22,6 +22,7 @@
 
 pub mod data;
 mod filter;
+mod relearn_pile;
 mod review_knocker;
 mod reward_propagator;
 mod unit_scorer;
@@ -41,8 +42,8 @@ use crate::{
     },
     error::ExerciseSchedulerError,
     scheduler::{
-        data::SchedulerData, filter::CandidateFilter, review_knocker::ReviewKnocker,
-        unit_scorer::UnitScorer,
+        data::SchedulerData, filter::CandidateFilter, relearn_pile::RelearnPile,
+        review_knocker::ReviewKnocker, unit_scorer::UnitScorer,
     },
 };
 
@@ -176,6 +177,10 @@ pub struct DepthFirstScheduler {
     /// The filter used to build the final batch of exercises among the candidates found during the
     /// graph search.
     filter: CandidateFilter,
+
+    /// The pile of recently failed exercises that need to be re-scheduled soon to improve
+    /// retention.
+    relearn_pile: RelearnPile,
 }
 
 impl DepthFirstScheduler {
@@ -187,6 +192,7 @@ impl DepthFirstScheduler {
             unit_scorer: UnitScorer::new(data.clone(), data.options.clone()),
             reward_propagator: RewardPropagator { data: data.clone() },
             review_knocker: ReviewKnocker::new(data.clone()),
+            relearn_pile: RelearnPile::new(data.options.clone()),
             filter: CandidateFilter::new(data),
         }
     }
@@ -1050,6 +1056,22 @@ impl DepthFirstScheduler {
 
         Ok(candidates)
     }
+
+    /// Takes a list of candidates and returns a vector of tuples of exercises IDs and manifests.
+    fn candidates_to_exercises(&self, candidates: Vec<Candidate>) -> Result<Vec<ExerciseManifest>> {
+        // Retrieve the manifests for each candidate.
+        let mut exercises = candidates
+            .into_iter()
+            .map(|c| -> Result<_> {
+                let manifest = self.data.get_exercise_manifest(c.exercise_id)?;
+                Ok(Arc::unwrap_or_clone(manifest))
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        // Shuffle the list one more time to add more randomness to the final batch.
+        exercises.shuffle(&mut rng());
+        Ok(exercises)
+    }
 }
 
 impl ExerciseScheduler for DepthFirstScheduler {
@@ -1067,20 +1089,41 @@ impl ExerciseScheduler for DepthFirstScheduler {
         let knocked_out = self.review_knocker.knock_out_reviews(initial_candidates);
 
         // Sort the candidates into buckets, select the right number from each, and convert them
-        // into a final batch of exercises.
-        let final_candidates = self
-            .filter
-            .filter_candidates(knocked_out)
+        // into a balanced batch of exercises.
+        let filtered_candidates = self.filter.filter_candidates(knocked_out);
+
+        // Select candidates from the relearning pile. Filter blacklisted exercises and exercises
+        // that are already in the batch.
+        let relearn_candidates = self
+            .relearn_pile
+            .select_exercises()
+            .into_iter()
+            .filter(|candidate| {
+                !self
+                    .data
+                    .inside_blacklisted(candidate.exercise_id)
+                    .unwrap_or(false)
+                    && !filtered_candidates
+                        .iter()
+                        .any(|c| c.exercise_id == candidate.exercise_id)
+            })
+            .collect::<Vec<_>>();
+
+        // Create the final list of candidates and convert them to manifests.
+        let final_candidates = filtered_candidates
+            .into_iter()
+            .chain(relearn_candidates)
+            .collect::<Vec<_>>();
+        let manifests = self
+            .candidates_to_exercises(final_candidates)
             .map_err(ExerciseSchedulerError::GetExerciseBatch)?;
 
         // Increment the frequency of the exercises in the batch. These exercises will have a lower
-        // chance of being selected in the future, so that exercises that have not been selected as
-        // often have a higher chance of being selected.
-        for exercise_manifest in &final_candidates {
+        // chance of being selected in the future.
+        for exercise_manifest in &manifests {
             self.data.increment_exercise_frequency(exercise_manifest.id);
         }
-
-        Ok(final_candidates)
+        Ok(manifests)
     }
 
     fn score_exercise(
@@ -1089,13 +1132,15 @@ impl ExerciseScheduler for DepthFirstScheduler {
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<(), ExerciseSchedulerError> {
-        // Write the score to the practice stats database.
+        // Write the score to the practice stats database, invalidate the cache, and update the
+        // relearning pile.
         self.data
             .practice_stats
             .write()
             .record_exercise_score(exercise_id, score.clone(), timestamp)
             .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?;
         self.unit_scorer.invalidate_cached_score(exercise_id);
+        self.relearn_pile.update(exercise_id, &score);
 
         // Propagate the rewards along the unit graph and store them.
         let rewards = self
