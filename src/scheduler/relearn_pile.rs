@@ -40,6 +40,11 @@ impl RelearnPile {
         };
     }
 
+    /// Removes an exercise from the relearn pile.
+    pub fn remove(&self, exercise_id: Ustr) {
+        self.pile.write().remove(&exercise_id);
+    }
+
     /// Adds exercises from the relearn pile to the final batch.
     pub fn select_exercises(&self) -> Vec<Candidate> {
         // Select a random subset of exercises from the relearn pile.
@@ -90,6 +95,17 @@ mod tests {
         relearn_pile.update(exercise_id_2, &MasteryScore::Five);
         assert!(!relearn_pile.pile.read().contains(&exercise_id));
         assert!(!relearn_pile.pile.read().contains(&exercise_id_2));
+    }
+
+    /// Verifies that removing an exercise from the relearn pile works correctly.
+    #[test]
+    fn test_remove() {
+        let relearn_pile = RelearnPile::new(SchedulerOptions::default());
+        let exercise_id = Ustr::from("exercise_1");
+        relearn_pile.update(exercise_id, &MasteryScore::One);
+        assert!(relearn_pile.pile.read().contains(&exercise_id));
+        relearn_pile.remove(exercise_id);
+        assert!(!relearn_pile.pile.read().contains(&exercise_id));
     }
 
     /// Verifies exercises from the relearn pile are added to the batch.

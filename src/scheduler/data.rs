@@ -137,11 +137,9 @@ impl SchedulerData {
         // Check whether the lesson and course to which the exercise belongs are blacklisted.
         let lesson_id = self.get_lesson_id(exercise_id).unwrap_or_default();
         let lesson_blacklisted = self.blacklist.read().blacklisted(lesson_id)?;
-        if lesson_blacklisted {
-            return Ok(true);
-        }
         let course_id = self.get_course_id(lesson_id).unwrap_or_default();
-        Ok(self.blacklist.read().blacklisted(course_id)?)
+        let course_blacklisted = self.blacklist.read().blacklisted(course_id)?;
+        Ok(lesson_blacklisted || course_blacklisted)
     }
 
     /// Returns all the units that are dependencies of the unit with the given ID.

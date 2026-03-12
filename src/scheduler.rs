@@ -1092,22 +1092,27 @@ impl ExerciseScheduler for DepthFirstScheduler {
         // into a balanced batch of exercises.
         let filtered_candidates = self.filter.filter_candidates(knocked_out);
 
-        // Select candidates from the relearning pile. Filter blacklisted exercises and exercises
-        // that are already in the batch.
+        // Select candidates from the relearning pile. Filter exercises already in the batch and
+        // blacklisted exercises.
         let relearn_candidates = self
             .relearn_pile
             .select_exercises()
             .into_iter()
             .filter(|candidate| {
-                !self
-                    .data
-                    .inside_blacklisted(candidate.exercise_id)
-                    .unwrap_or(false)
-                    && !filtered_candidates
-                        .iter()
-                        .any(|c| c.exercise_id == candidate.exercise_id)
+                !filtered_candidates
+                    .iter()
+                    .any(|c| c.exercise_id == candidate.exercise_id)
             })
             .collect::<Vec<_>>();
+        let (blacklisted_in_pile, relearn_candidates): (Vec<_>, Vec<_>) =
+            relearn_candidates.into_iter().partition(|candidate| {
+                self.data
+                    .inside_blacklisted(candidate.exercise_id)
+                    .unwrap_or(false)
+            });
+        for candidate in &blacklisted_in_pile {
+            self.relearn_pile.remove(candidate.exercise_id);
+        }
 
         // Create the final list of candidates and convert them to manifests.
         let final_candidates = filtered_candidates
