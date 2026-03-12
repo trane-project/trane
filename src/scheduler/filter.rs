@@ -10,13 +10,11 @@
 //!    number of factors, including the number of hops that were needed to reach a candidate, the
 //!    score, and the frequency with which the exercise has been scheduled in the past.
 
-use anyhow::Result;
-use rand::{prelude::SliceRandom, rng, seq::IndexedRandom};
-use std::sync::Arc;
+use rand::{rng, seq::IndexedRandom};
 use ustr::{UstrMap, UstrSet};
 
 use crate::{
-    data::{ExerciseManifest, MasteryWindow},
+    data::MasteryWindow,
     scheduler::{Candidate, SchedulerData, review_knocker::KnockoutResult},
 };
 
@@ -282,22 +280,6 @@ impl CandidateFilter {
         final_candidates.extend(remainder_candidates);
     }
 
-    /// Takes a list of candidates and returns a vector of tuples of exercises IDs and manifests.
-    fn candidates_to_exercises(&self, candidates: Vec<Candidate>) -> Result<Vec<ExerciseManifest>> {
-        // Retrieve the manifests for each candidate.
-        let mut exercises = candidates
-            .into_iter()
-            .map(|c| -> Result<_> {
-                let manifest = self.data.get_exercise_manifest(c.exercise_id)?;
-                Ok(Arc::unwrap_or_clone(manifest))
-            })
-            .collect::<Result<Vec<_>>>()?;
-
-        // Shuffle the list one more time to add more randomness to the final batch.
-        exercises.shuffle(&mut rng());
-        Ok(exercises)
-    }
-
     /// Computes the batch size to use based on the number of candidates and the batch size defined
     /// in the scheduler options.
     fn dynamic_batch_size(batch_size: usize, num_candidates: usize) -> usize {
@@ -317,7 +299,7 @@ impl CandidateFilter {
 
     /// Takes a list of exercises and filters them so that the end result is a list of exercise
     /// manifests which fit the mastery windows defined in the scheduler options.
-    pub fn filter_candidates(&self, result: KnockoutResult) -> Result<Vec<ExerciseManifest>> {
+    pub fn filter_candidates(&self, result: KnockoutResult) -> Vec<Candidate> {
         // Find the batch size to use.
         let candidates = &result.candidates;
         let options = &self.data.options;
@@ -423,9 +405,7 @@ impl CandidateFilter {
             frequency_map,
             Some(base_remainder),
         );
-
-        // Convert the list of candidates into a list of tuples of exercise IDs and manifests.
-        self.candidates_to_exercises(final_candidates)
+        final_candidates
     }
 }
 

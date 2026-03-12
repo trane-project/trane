@@ -863,6 +863,9 @@ pub struct SchedulerOptions {
     /// The maximum number of candidates to return each time the scheduler is called.
     pub batch_size: usize,
 
+    /// The number of recently failed exercises to re-schedule as a fraction of the batch size.
+    pub relearn_fraction: f32,
+
     /// The options of the new mastery window. That is, the window of exercises that have not
     /// received a score so far.
     pub new_window_opts: MasteryWindow,
@@ -907,9 +910,13 @@ impl SchedulerOptions {
 
     /// Verifies that the scheduler options are valid.
     pub fn verify(&self) -> Result<()> {
-        // The batch size must be greater than 0 and the passing options must be valid.
+        // The batch size must be greater than 0, the relearn fraction must be between 0.0 and 1.0,
+        // and the passing options must be valid.
         if self.batch_size == 0 {
             bail!("invalid scheduler options: batch_size must be greater than 0");
+        }
+        if self.relearn_fraction < 0.0 || self.relearn_fraction > 1.0 {
+            bail!("invalid scheduler options: relearn_fraction must be between 0.0 and 1.0");
         }
         self.passing_score_v2.verify()?;
 
@@ -967,6 +974,7 @@ impl Default for SchedulerOptions {
         // like all the others.
         SchedulerOptions {
             batch_size: 50,
+            relearn_fraction: 0.1,
             new_window_opts: MasteryWindow {
                 percentage: 0.2,
                 range: (0.0, 0.1),
@@ -1242,6 +1250,22 @@ mod test {
     fn scheduler_options_invalid_batch_size() {
         let options = SchedulerOptions {
             batch_size: 0,
+            ..Default::default()
+        };
+        assert!(options.verify().is_err());
+    }
+
+    /// Verifies scheduler options with an invalid relearn fraction are invalid.
+    #[test]
+    fn scheduler_options_invalid_relearn_fraction() {
+        let options = SchedulerOptions {
+            relearn_fraction: -0.1,
+            ..Default::default()
+        };
+        assert!(options.verify().is_err());
+
+        let options = SchedulerOptions {
+            relearn_fraction: 1.1,
             ..Default::default()
         };
         assert!(options.verify().is_err());
