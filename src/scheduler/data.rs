@@ -126,22 +126,21 @@ impl SchedulerData {
         Ok(blacklisted)
     }
 
-    /// Returns whether the unit with the given ID is blacklisted or inside a blacklisted unit.
-    pub fn inside_blacklisted(&self, unit_id: Ustr) -> Result<bool> {
-        // Check if the unit itself is blacklisted.
-        let blacklisted = self.blacklist.read().blacklisted(unit_id)?;
+    /// Returns whether the exercise with the given ID is blacklisted or inside a blacklisted unit.
+    pub fn inside_blacklisted(&self, exercise_id: Ustr) -> Result<bool> {
+        // Check if the exercise itself is blacklisted.
+        let blacklisted = self.blacklist.read().blacklisted(exercise_id)?;
         if blacklisted {
             return Ok(true);
         }
 
-        // Check whether the lesson and course to which the unit belongs are blacklisted. Assumes
-        // that the unit is either an exercise or a lesson.
-        let lesson_id = self.get_lesson_id(unit_id).unwrap_or_default();
+        // Check whether the lesson and course to which the exercise belongs are blacklisted.
+        let lesson_id = self.get_lesson_id(exercise_id).unwrap_or_default();
         let lesson_blacklisted = self.blacklist.read().blacklisted(lesson_id)?;
         if lesson_blacklisted {
             return Ok(true);
         }
-        let course_id = self.get_course_id(unit_id).unwrap_or_default();
+        let course_id = self.get_course_id(lesson_id).unwrap_or_default();
         Ok(self.blacklist.read().blacklisted(course_id)?)
     }
 
