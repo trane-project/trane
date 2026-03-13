@@ -97,6 +97,10 @@ const SECONDS_PER_DAY: f32 = 86400.0;
 /// scores one day old are multiplied by it, two days old by its square and so on.
 const PERFORMANCE_WEIGHT_DECAY: f32 = 0.98;
 
+/// Coefficient for the confidence penalty. Exercises with higher variance and lower number of
+/// trials receive a larger penalty to reflect higher uncertainty in the score estimate.
+const CONFIDENCE_PENALTY_COEFFICIENT: f32 = 0.2;
+
 /// The minimum per-trial performance weight, ensuring very old trials never disappear entirely.
 const PERFORMANCE_WEIGHT_MIN: f32 = 0.1;
 
@@ -211,20 +215,22 @@ impl PowerLawScorer {
         difficulty.clamp(MIN_DIFFICULTY, MAX_DIFFICULTY)
     }
 
-    /// Computes the time-decayed weighted average performance from all trials.
+    /// Computes the time-decayed weighted average performance and weighted variance from all
+    /// trials.
     ///
     /// Weights decay by elapsed days from the most recent trial so irregular practice cadence is
-    /// modeled more accurately.
-    fn compute_weighted_avg(previous_trials: &[ExerciseTrial]) -> f32 {
+    /// modeled more accurately. Returns `(weighted_mean, weighted_variance)`, or `(0.0, 0.0)` for
+    /// empty trials.
+    fn compute_weighted_avg_and_variance(previous_trials: &[ExerciseTrial]) -> (f32, f32) {
         if previous_trials.is_empty() {
-            return 0.0;
+            return (0.0, 0.0);
         }
 
-        // Start from the latest timestamp and compute the weights of the rest based on the number
-        // of days from it. No need to check for division by zero because the minimum score of
-        // a trial is 1 and the minimum weight is capped.
+        // Start from the latest timestamp and compute the weights and squared weights of the rest
+        // based on the number of days from it.
         let newest_timestamp = previous_trials[0].timestamp;
         let mut sum_weighted = 0.0;
+        let mut sum_weighted_sq = 0.0;
         let mut sum_weights = 0.0;
         for trial in previous_trials {
             let elapsed_days = ((newest_timestamp.saturating_sub(trial.timestamp)) as f32
@@ -233,10 +239,16 @@ impl PowerLawScorer {
             let weight = PERFORMANCE_WEIGHT_DECAY
                 .powf(elapsed_days)
                 .max(PERFORMANCE_WEIGHT_MIN);
-            sum_weighted += trial.score * weight;
+            sum_weighted += weight * trial.score;
+            sum_weighted_sq += weight * trial.score * trial.score;
             sum_weights += weight;
         }
-        sum_weighted / sum_weights
+
+        // Compute the mean and variance. No need to check for division by zero because the minimum
+        // score of a trial is 1 and the minimum weight is capped.
+        let mean = sum_weighted / sum_weights;
+        let variance = sum_weighted_sq / sum_weights - mean * mean;
+        (mean, variance)
     }
 
     /// Returns the forgetting-curve decay exponent for the given exercise type.
@@ -496,15 +508,21 @@ impl ExerciseScorer for PowerLawScorer {
             MIN_DIFFICULTY + (final_difficulty - MIN_DIFFICULTY) / DIFFICULTY_FACTOR;
         let adjusted_retrievability = retrievability.powf(difficulty_exponent);
 
-        // Combine memory state with recent weighted performance and clamp to the output range.
-        let weighted_score = Self::compute_weighted_avg(previous_trials);
+        // Compute the weighted score and variance and apply the old-good retrievability floor.
+        let (weighted_score, weighted_variance) =
+            Self::compute_weighted_avg_and_variance(previous_trials);
         let effective_retrievability = Self::apply_old_good_retrievability_floor(
             adjusted_retrievability,
             weighted_score,
             days_since_last,
             previous_trials.len(),
         );
-        Ok((effective_retrievability * weighted_score).clamp(0.0, 5.0))
+        let raw_score = effective_retrievability * weighted_score;
+
+        // Apply the confidence penalty and clamp the final score to the [0.0, 5.0] range.
+        let confidence_penalty = CONFIDENCE_PENALTY_COEFFICIENT * weighted_variance
+            / (previous_trials.len() as f32).sqrt();
+        Ok((raw_score - confidence_penalty).clamp(0.0, 5.0))
     }
 }
 
@@ -1050,18 +1068,23 @@ mod test {
         assert_eq!(failure_gain, 1.0);
     }
 
-    /// Verifies that the weighted average is computed correctly.
+    /// Verifies that the weighted average and variance are computed correctly.
     #[test]
-    fn compute_weighted_avg() {
-        // Empty trials should return 0.0.
-        assert_eq!(PowerLawScorer::compute_weighted_avg(&[]), 0.0);
+    fn compute_weighted_avg_and_variance() {
+        // Empty trials should return (0.0, 0.0).
+        assert_eq!(
+            PowerLawScorer::compute_weighted_avg_and_variance(&[]),
+            (0.0, 0.0)
+        );
 
-        // Single trial with score 5.0 returns 5.0.
+        // Single trial with score 5.0 returns mean 5.0, variance 0.0.
         let single_trial = vec![ExerciseTrial {
             score: 5.0,
             timestamp: generate_timestamp(0),
         }];
-        assert!((PowerLawScorer::compute_weighted_avg(&single_trial) - 5.0).abs() < 1e-6);
+        let (mean, var) = PowerLawScorer::compute_weighted_avg_and_variance(&single_trial);
+        assert!((mean - 5.0).abs() < 1e-6);
+        assert!(var.abs() < 1e-6);
 
         // Multiple trials: [5.0, 4.0, 3.0] should be approx 4.03 at this decay rate.
         let multi_trials = vec![
@@ -1078,8 +1101,9 @@ mod test {
                 timestamp: generate_timestamp(2),
             },
         ];
-        let weighted = PowerLawScorer::compute_weighted_avg(&multi_trials);
+        let (weighted, var) = PowerLawScorer::compute_weighted_avg_and_variance(&multi_trials);
         assert!((weighted - 4.013).abs() < 0.001);
+        assert!(var > 0.0);
 
         // Irregular spacing should down-weight distant failures more than dense spacing.
         let dense_low_tail = vec![
@@ -1110,9 +1134,12 @@ mod test {
                 timestamp: generate_timestamp(30),
             },
         ];
-        let dense_weighted = PowerLawScorer::compute_weighted_avg(&dense_low_tail);
-        let sparse_weighted = PowerLawScorer::compute_weighted_avg(&sparse_low_tail);
+        let (dense_weighted, dense_variance) =
+            PowerLawScorer::compute_weighted_avg_and_variance(&dense_low_tail);
+        let (sparse_weighted, sparse_variance) =
+            PowerLawScorer::compute_weighted_avg_and_variance(&sparse_low_tail);
         assert!(sparse_weighted > dense_weighted);
+        assert!(sparse_variance > dense_variance);
 
         // Very old history contributes a floor weight and remains somewhat influential.
         let compact = vec![
@@ -1139,10 +1166,13 @@ mod test {
                 timestamp: generate_timestamp(365),
             },
         ];
-        let compact_weighted = PowerLawScorer::compute_weighted_avg(&compact);
-        let ancient_weighted = PowerLawScorer::compute_weighted_avg(&with_ancient);
+        let (compact_weighted, compact_variance) =
+            PowerLawScorer::compute_weighted_avg_and_variance(&compact);
+        let (ancient_weighted, ancient_variance) =
+            PowerLawScorer::compute_weighted_avg_and_variance(&with_ancient);
         assert!(ancient_weighted < compact_weighted);
         assert!(ancient_weighted > 4.0);
+        assert!(ancient_variance > compact_variance);
     }
 
     /// Verifies that the old-good retrievability floor is applied only when thresholds are met.
@@ -1435,5 +1465,137 @@ mod test {
         let score = SCORER.score(ExerciseType::Declarative, &trials)?;
         assert!(score >= 3.5);
         Ok(())
+    }
+
+    /// Verifies that high-variance trials score lower than consistent trials with the same mean.
+    #[test]
+    fn confidence_penalty_reduces_high_variance_score() -> Result<()> {
+        // High variance: [5.0, 1.0], mean ~3.0.
+        let high_var = vec![
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(0),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(1),
+            },
+        ];
+        // Low variance: [3.0, 3.0], mean = 3.0.
+        let low_var = vec![
+            ExerciseTrial {
+                score: 3.0,
+                timestamp: generate_timestamp(0),
+            },
+            ExerciseTrial {
+                score: 3.0,
+                timestamp: generate_timestamp(1),
+            },
+        ];
+        let high_var_score = SCORER.score(ExerciseType::Declarative, &high_var)?;
+        let low_var_score = SCORER.score(ExerciseType::Declarative, &low_var)?;
+        assert!(low_var_score > high_var_score);
+        Ok(())
+    }
+
+    /// Verifies that the confidence penalty diminishes as the number of trials increases.
+    #[test]
+    fn confidence_penalty_diminishes_with_trials() -> Result<()> {
+        // Fewer trials: alternating [5.0, 1.0].
+        let few = vec![
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(0),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(1),
+            },
+        ];
+        // More trials: alternating [5.0, 1.0, 5.0, 1.0, 5.0, 1.0].
+        let many = vec![
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(0),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(2),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(3),
+            },
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(4),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(5),
+            },
+        ];
+        let few_score = SCORER.score(ExerciseType::Declarative, &few)?;
+        let many_score = SCORER.score(ExerciseType::Declarative, &many)?;
+        assert!(many_score > few_score,);
+        Ok(())
+    }
+
+    /// Verifies that a single trial has zero variance and thus zero confidence penalty.
+    #[test]
+    fn confidence_penalty_zero_for_single_trial() {
+        let single = vec![ExerciseTrial {
+            score: 4.0,
+            timestamp: generate_timestamp(0),
+        }];
+        let (_, var) = PowerLawScorer::compute_weighted_avg_and_variance(&single);
+        assert!(var.abs() < 1e-6);
+    }
+
+    /// Verifies that identical scores yield zero variance and thus zero confidence penalty.
+    #[test]
+    fn confidence_penalty_zero_for_consistent_trials() {
+        let consistent = vec![
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(0),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(2),
+            },
+        ];
+        let (mean, var) = PowerLawScorer::compute_weighted_avg_and_variance(&consistent);
+        assert!((mean - 4.0).abs() < 1e-6);
+        assert!(var.abs() < 1e-5);
+    }
+
+    /// Verifies the weighted variance computation against hand-calculated values.
+    #[test]
+    fn weighted_variance_correctness() {
+        // Two trials at the same timestamp (equal weights): scores [4.0, 2.0].
+        // Mean = 3.0, variance = ((4-3)^2 + (2-3)^2) / 2 = 1.0.
+        let now = generate_timestamp(0);
+        let trials = vec![
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: now,
+            },
+            ExerciseTrial {
+                score: 2.0,
+                timestamp: now,
+            },
+        ];
+        let (mean, var) = PowerLawScorer::compute_weighted_avg_and_variance(&trials);
+        assert!((mean - 3.0).abs() < 1e-6);
+        assert!((var - 1.0).abs() < 1e-6);
     }
 }
