@@ -1,24 +1,18 @@
 //! Defines and implements the data structures used to schedule batches of exercises to show to the
 //! user. This module is the core mechanism of how Trane guides students to mastery of the material.
 //!
-//! The scheduler has a few core goals:
-//! 1. Schedule exercises the user has practiced before in order to improve them and keep them up to
-//!    date if they have been mastered already.
-//! 2. Once the current material has been sufficiently mastered, schedule exercises that list the
-//!    current material as a dependency.
-//! 3. Optimize the difficulty of the schedule exercises so that the user is neither frustrated
-//!    because many of the exercises are too difficult or bored because they have become too easy.
-//!    The optimal area lies slightly outside their current comfort zone.
-//! 4. Record the scores self-reported by the user to use them to drive the decisions done in
-//!    service of all the other goals.
+//! The scheduler's job is to return optimized batches of exercises based on the student's past
+//! performance. The current implementation does this in multiple phases.
 //!
-//! In more formal terms, the scheduler's job is to plan the most optimal traversal of the graph of
-//! skills as the student's performance blocks or unblocks certain paths. The current implementation
-//! uses depth-first search to traverse the graph and collect a large pool of exercises, a multiple
-//! of the actual exercises included in the final batch. From this large pool, the candidates are
-//! split in groups of exercises which each match a disjoint range of scores to be randomly selected
-//! into a list of fixed size. The result is combined, shuffled, and becomes the final batch
-//! presented to the student.
+//! 1. First, it performs a depth-first search to traverse the graph and collect a large pool of
+//!    exercises, a multiple of the actual exercises included in the final batch.
+//! 2. It removes or penalizes exercises that are very highly or highly encompassed by other
+//!    exercises in the pool to prevent excessive review of mastered material.
+//! 3. Then the candidates grouped by difficulty, weighted, and randomly selected to create a
+//!    balanced batch.
+//! 4. A small amount of exercises that were recently failed are added to the batch to improve
+//!    retention of these exercises.
+//! 5. The result is combined, shuffled, and becomes the final batch presented to the student.
 
 pub mod data;
 mod filter;
