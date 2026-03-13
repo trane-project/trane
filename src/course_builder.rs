@@ -8,8 +8,6 @@
 //! makes it easier to make updates to the files as the format changes.
 
 pub mod knowledge_base_builder;
-#[cfg_attr(coverage, coverage(off))]
-pub mod music;
 
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};

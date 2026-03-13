@@ -4,8 +4,6 @@
 
 pub mod course_generator;
 pub mod filter;
-#[cfg_attr(coverage, coverage(off))]
-pub mod music;
 
 use anyhow::{Result, bail};
 use derive_builder::Builder;
