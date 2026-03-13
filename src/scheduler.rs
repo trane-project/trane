@@ -696,6 +696,141 @@ impl DepthFirstScheduler {
         blacklisted || !passes_filter || is_lesson_superseded || is_course_superseded
     }
 
+    fn get_candidates_helper(
+        &self,
+        mut stack: Vec<StackItem>,
+        mut visited: UstrSet,
+        metadata_filter: Option<&KeyValueFilter>,
+        allowed_courses: &[Ustr],
+        allow_course_traversal: bool,
+    ) -> Result<Vec<Candidate>> {
+        // Initialize the list of candidates.
+        let max_candidates = self.data.options.batch_size * MAX_CANDIDATE_FACTOR;
+        let mut all_candidates: Vec<Candidate> = Vec::new();
+
+        // The dependency relationships between a course and its lessons are not explicitly encoded
+        // in the graph. While this would simplify this section of the search logic, it would
+        // require that courses are represented by two nodes. The first incoming node would connect
+        // the course dependencies to the first lessons in the course. The second outgoing node
+        // would connect the last lessons in the course to the course dependents.
+        //
+        // To get past this limitation, the search will only add the course dependents until all of
+        // its lessons have been visited and mastered. This value is tracked by the
+        // `pending_course_lessons` map.
+        let mut pending_course_lessons: UstrMap<usize> = UstrMap::default();
+
+        // Perform a depth-first search of the graph.
+        while let Some(curr_unit) = stack.pop() {
+            // Immediately skip the item if it has been visited.
+            if visited.contains(&curr_unit.unit_id) {
+                continue;
+            }
+
+            // The logic past this point depends on the type of the unit.
+            let unit_type = self.data.get_unit_type(curr_unit.unit_id);
+            if unit_type.is_none() {
+                // The type of the unit is unknown. This can happen when a unit depends on some
+                // missing unit not in the course library.
+                continue; // grcov-excl-line
+            }
+            let unit_type = unit_type.unwrap();
+
+            // Handle lessons and courses if allowed. Exercises are skipped by the search.
+            if unit_type == UnitType::Course && allow_course_traversal {
+                // Retrieve the starting lessons in the course and add them to the stack.
+                let starting_lessons: Vec<Ustr> = self
+                    .get_course_valid_starting_lessons(curr_unit.unit_id, metadata_filter)
+                    .unwrap_or_default();
+                Self::shuffle_to_stack(&curr_unit, starting_lessons, &mut stack);
+
+                // The course can be skipped. Add it to the visited set, push its valid dependents
+                // onto the stack, and continue.
+                if self.skip_course(
+                    curr_unit.unit_id,
+                    metadata_filter,
+                    &mut pending_course_lessons,
+                ) {
+                    visited.insert(curr_unit.unit_id);
+                    let valid_deps = self.get_valid_dependents(curr_unit.unit_id, metadata_filter);
+                    Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
+                }
+            } else if unit_type == UnitType::Lesson {
+                // If the searched reached this point, the unit must be a lesson.
+                visited.insert(curr_unit.unit_id);
+
+                // If course traversal is not allowed, ignore lessons from other courses that might
+                // have been added to the stack if a lesson has dependencies from a course not in
+                // the input courses.
+                let lesson_course_id = self
+                    .data
+                    .get_lesson_course(curr_unit.unit_id)
+                    .unwrap_or_default();
+                if !allow_course_traversal && !allowed_courses.contains(&lesson_course_id) {
+                    continue;
+                }
+
+                // Update the number of lessons pending to be processed.
+                if allow_course_traversal {
+                    let course_id = self.data.get_course_id(curr_unit.unit_id)?;
+                    let pending_lessons = pending_course_lessons
+                        .entry(course_id)
+                        .or_insert_with(|| self.data.get_num_lessons_in_course(course_id));
+                    if *pending_lessons > 0 {
+                        *pending_lessons -= 1;
+                    }
+
+                    // Check whether there are pending lessons.
+                    if *pending_lessons == 0 {
+                        // Once all the lessons in the course have been visited, re-add the course
+                        // to the stack, so the search can continue exploring its dependents.
+                        stack.push(StackItem {
+                            unit_id: course_id,
+                            depth: curr_unit.depth + 1,
+                        });
+                    }
+                }
+
+                // Retrieve the valid dependents of the lesson, and directly skip the lesson if
+                // needed.
+                let valid_deps = self.get_valid_dependents(curr_unit.unit_id, metadata_filter);
+                if self.skip_lesson(curr_unit.unit_id, metadata_filter) {
+                    Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
+                    continue;
+                }
+
+                // Retrieve the candidates from the lesson and add them to the list of candidates.
+                let (mut candidates, avg_score) =
+                    self.get_candidates_from_lesson_helper(&curr_unit)?;
+                let num_candidates = candidates.len();
+
+                // Compare the score against the passing score to decide whether the search should
+                // continue past this lesson.
+                if num_candidates > 0 && avg_score < self.data.options.passing_score_v2.min_score {
+                    for candidate in &mut candidates {
+                        candidate.dead_end = true;
+                    }
+                    all_candidates.extend(candidates);
+
+                    // Search reached a dead-end. If there are already enough candidates, terminate
+                    // the search. Otherwise, continue with the search and shuffle the entire stack
+                    // to prioritize other paths in the graph.
+                    if all_candidates.len() >= max_candidates {
+                        break; // grcov-excl-line
+                    }
+                    stack.shuffle(&mut rng());
+                    continue;
+                }
+
+                // The search should continue past this lesson. Add the its candidates and continue
+                // the search via its valid dependents.
+                all_candidates.extend(candidates);
+                Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
+            }
+        }
+
+        Ok(all_candidates)
+    }
+
     /// Searches for candidates across the entire graph. An optional metadata filter can be used to
     /// only select exercises from the courses and lessons that match the filter and ignore the rest
     /// of the graph while still respecting the dependency relationships.
@@ -996,7 +1131,7 @@ impl DepthFirstScheduler {
                 // Otherwise, use the given filter to select how candidates are retrieved.
                 ExerciseFilter::UnitFilter(filter) => match filter {
                     UnitFilter::CourseFilter { course_ids } => {
-                        self.get_candidates_from_course(&course_ids[..])?
+                        self.get_candidates_from_course(&course_ids)?
                     }
                     UnitFilter::LessonFilter { lesson_ids } => {
                         let mut candidates = Vec::new();
