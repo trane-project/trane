@@ -1138,7 +1138,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
         timestamp: i64,
     ) -> Result<(), ExerciseSchedulerError> {
         // Write the score to the practice stats database, invalidate the cache, and update the
-        // relearning pile.
+        // relearning pile and the success rate.
         self.data
             .practice_stats
             .write()
@@ -1146,6 +1146,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
             .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?;
         self.unit_scorer.invalidate_cached_score(exercise_id);
         self.relearn_pile.update(exercise_id, &score);
+        self.data.update_success_rate(&score);
 
         // Propagate the rewards along the unit graph and store them.
         let rewards = self
