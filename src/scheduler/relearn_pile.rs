@@ -6,7 +6,7 @@ use ustr::{Ustr, UstrSet};
 
 use crate::{
     data::{MasteryScore, SchedulerOptions},
-    scheduler::Candidate,
+    scheduler::{Candidate, data::SchedulerData},
 };
 
 /// Stores recently failed exercises so that they can be re-scheduled soon. Research has shown that
@@ -40,13 +40,8 @@ impl RelearnPile {
         };
     }
 
-    /// Removes an exercise from the relearn pile.
-    pub fn remove(&self, exercise_id: Ustr) {
-        self.pile.write().remove(&exercise_id);
-    }
-
-    /// Adds exercises from the relearn pile to the final batch.
-    pub fn select_exercises(&self) -> Vec<Candidate> {
+    /// Helper function to add exercises from the relearn pile to the final batch.
+    fn select_exercises_helper(&self) -> Vec<Candidate> {
         // Select a random subset of exercises from the relearn pile.
         let num_to_add = (self.options.batch_size as f32 * self.options.relearn_fraction) as usize;
         let pile = self.pile.read();
@@ -70,6 +65,14 @@ impl RelearnPile {
                 dead_end: false,
             })
             .collect()
+    }
+
+    /// Cleans up blacklisted exercises from the pile before selecting exercises.
+    pub fn select_exercises(&self, data: &SchedulerData) -> Vec<Candidate> {
+        self.pile
+            .write()
+            .retain(|id| !data.inside_blacklisted(*id).unwrap_or(false));
+        self.select_exercises_helper()
     }
 }
 
@@ -97,17 +100,6 @@ mod tests {
         assert!(!relearn_pile.pile.read().contains(&exercise_id_2));
     }
 
-    /// Verifies that removing an exercise from the relearn pile works correctly.
-    #[test]
-    fn test_remove() {
-        let relearn_pile = RelearnPile::new(SchedulerOptions::default());
-        let exercise_id = Ustr::from("exercise_1");
-        relearn_pile.update(exercise_id, &MasteryScore::One);
-        assert!(relearn_pile.pile.read().contains(&exercise_id));
-        relearn_pile.remove(exercise_id);
-        assert!(!relearn_pile.pile.read().contains(&exercise_id));
-    }
-
     /// Verifies exercises from the relearn pile are added to the batch.
     #[test]
     fn test_add_to_batch() {
@@ -121,7 +113,7 @@ mod tests {
             let exercise_id = Ustr::from(&format!("exercise_{}", i));
             relearn_pile.update(exercise_id, &MasteryScore::One);
         }
-        let pile = relearn_pile.select_exercises();
+        let pile = relearn_pile.select_exercises_helper();
         assert_eq!(pile.len(), 5);
     }
 }
