@@ -10,7 +10,7 @@ use crate::{
     blacklist::Blacklist,
     course_library::CourseLibrary,
     data::{
-        CourseManifest, ExerciseManifest, LessonManifest, SchedulerOptions, UnitType,
+        CourseManifest, ExerciseManifest, LessonManifest, MasteryScore, SchedulerOptions, UnitType,
         filter::{KeyValueFilter, SavedFilter, SessionPart, StudySessionData, UnitFilter},
     },
     filter_manager::FilterManager,
@@ -51,6 +51,12 @@ pub struct SchedulerData {
     /// scheduler. The value is used to give more weight during filtering to exercises that have
     /// been scheduled less often.
     pub frequency_map: Arc<RwLock<UstrMap<usize>>>,
+
+    /// The number of successful exercises during the session.
+    pub successful_exercises: Arc<RwLock<usize>>,
+
+    /// The number of failed exercises during the session.
+    pub failed_exercises: Arc<RwLock<usize>>,
 }
 
 impl SchedulerData {
@@ -398,6 +404,33 @@ impl SchedulerData {
             }
         }
     }
+
+    /// Update the count of successful and failed exercises based on the given score.
+    pub fn update_success_rate(&self, score: &MasteryScore) {
+        match score {
+            MasteryScore::One | MasteryScore::Two => {
+                let mut failed_exercises = self.failed_exercises.write();
+                *failed_exercises += 1;
+            }
+            MasteryScore::Three | MasteryScore::Four | MasteryScore::Five => {
+                let mut successful_exercises = self.successful_exercises.write();
+                *successful_exercises += 1;
+            }
+        }
+    }
+
+    /// Returns the success rate of the current session.
+    #[must_use]
+    pub fn get_success_rate(&self) -> f32 {
+        let successful_exercises = self.successful_exercises.read();
+        let failed_exercises = self.failed_exercises.read();
+        let total_exercises = *successful_exercises + *failed_exercises;
+        if total_exercises == 0 {
+            1.0
+        } else {
+            *successful_exercises as f32 / total_exercises as f32
+        }
+    }
 }
 
 #[cfg(test)]
@@ -414,7 +447,7 @@ mod test {
 
     use crate::{
         data::{
-            UnitType,
+            MasteryScore, UnitType,
             filter::{
                 FilterType, KeyValueFilter, SavedFilter, SessionPart, StudySession,
                 StudySessionData, UnitFilter,
@@ -691,6 +724,27 @@ mod test {
                 .is_empty()
         );
 
+        Ok(())
+    }
+
+    /// Verifies that the success rate is correctly updated and retrieved.
+    #[test]
+    fn success_rate() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
+        let scheduler_data = library.get_scheduler_data();
+
+        // Verify the initial success rate is 1.0.
+        assert_eq!(scheduler_data.get_success_rate(), 1.0);
+
+        // Add some successes and failures and verify the success rate. Score 3 counts as
+        // success, so One and Two are failures, Three, Four, and Five are successes.
+        scheduler_data.update_success_rate(&MasteryScore::One);
+        scheduler_data.update_success_rate(&MasteryScore::Two);
+        scheduler_data.update_success_rate(&MasteryScore::Three);
+        scheduler_data.update_success_rate(&MasteryScore::Four);
+        scheduler_data.update_success_rate(&MasteryScore::Five);
+        assert_eq!(scheduler_data.get_success_rate(), 0.6);
         Ok(())
     }
 }

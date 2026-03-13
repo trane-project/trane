@@ -833,7 +833,8 @@ impl PassingScoreOptions {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct MasteryWindow {
     /// The percentage of the exercises in each batch returned by the scheduler whose scores should
-    /// fall within this window.
+    /// fall within this window. Percentages might be adjusted by the scheduler based on the success
+    /// rate of the exercises shown to the student, but this value provides the target.
     pub percentage: f32,
 
     /// The range of scores which fall on this window. Scores whose values are in the range

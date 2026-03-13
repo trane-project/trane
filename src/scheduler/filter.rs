@@ -14,7 +14,7 @@ use rand::{rng, seq::IndexedRandom};
 use ustr::{UstrMap, UstrSet};
 
 use crate::{
-    data::MasteryWindow,
+    data::{MasteryWindow, SchedulerOptions},
     scheduler::{Candidate, SchedulerData, review_knocker::KnockoutResult},
 };
 
@@ -297,12 +297,54 @@ impl CandidateFilter {
         batch_size
     }
 
+    /// Takes the base scheduler options and updates the mastery windows percentages based on the
+    /// success rate of the session.
+    fn adjusted_mastery_windows(options: &SchedulerOptions, success_rate: f32) -> SchedulerOptions {
+        let mut adjusted_options = options.clone();
+
+        // The optimal zone is a success rate between 75% and 90%. No adjustment is needed if
+        // the success rate is in this range.
+        let shift = if success_rate > 0.90 {
+            0.05_f32
+        } else if (0.75..=0.90).contains(&success_rate) {
+            return adjusted_options;
+        } else if (0.50..0.75).contains(&success_rate) {
+            -0.05_f32
+        } else {
+            // success_rate < 0.50
+            -0.10_f32
+        };
+
+        // Shift harder and easier window percentages in opposite directions. Clamp each percentage
+        // to [0.05, 0.50] to keep all windows represented.
+        let clamp = |p: f32| p.clamp(0.05, 0.50);
+        adjusted_options.new_window_opts.percentage =
+            clamp(options.new_window_opts.percentage + shift);
+        adjusted_options.target_window_opts.percentage =
+            clamp(options.target_window_opts.percentage + shift);
+        adjusted_options.easy_window_opts.percentage =
+            clamp(options.easy_window_opts.percentage - shift);
+        adjusted_options.mastered_window_opts.percentage =
+            clamp(options.mastered_window_opts.percentage - shift);
+
+        // Normalize so all five windows still sum to 1.0. The current window absorbs the rounding
+        // difference since it represents the mid-difficulty sweet spot.
+        let sum = adjusted_options.new_window_opts.percentage
+            + adjusted_options.target_window_opts.percentage
+            + adjusted_options.easy_window_opts.percentage
+            + adjusted_options.mastered_window_opts.percentage;
+        adjusted_options.current_window_opts.percentage = (1.0_f32 - sum).max(0.05);
+
+        adjusted_options
+    }
+
     /// Takes a list of exercises and filters them so that the end result is a list of exercise
     /// manifests which fit the mastery windows defined in the scheduler options.
     pub fn filter_candidates(&self, result: KnockoutResult) -> Vec<Candidate> {
         // Find the batch size to use.
         let candidates = &result.candidates;
-        let options = &self.data.options;
+        let options =
+            Self::adjusted_mastery_windows(&self.data.options, self.data.get_success_rate());
         let batch_size = Self::dynamic_batch_size(options.batch_size, candidates.len());
         let batch_size_float = batch_size as f32;
 
@@ -996,6 +1038,91 @@ mod test {
             CandidateFilter::candidate_weight(&c1, 0, 10, 1)
                 < CandidateFilter::candidate_weight(&c2, 0, 3, 1)
         );
+    }
+
+    /// Verifies that the mastery windows are adjusted based on the success rate.
+    #[test]
+    fn adjusted_mastery_windows() {
+        // In the optimal zone (75%-90%), windows are unchanged.
+        let options = SchedulerOptions::default();
+        let adjusted = CandidateFilter::adjusted_mastery_windows(&options, 0.85);
+        assert_eq!(
+            adjusted.new_window_opts.percentage,
+            options.new_window_opts.percentage
+        );
+        assert_eq!(
+            adjusted.target_window_opts.percentage,
+            options.target_window_opts.percentage
+        );
+        assert_eq!(
+            adjusted.current_window_opts.percentage,
+            options.current_window_opts.percentage
+        );
+        assert_eq!(
+            adjusted.easy_window_opts.percentage,
+            options.easy_window_opts.percentage
+        );
+        assert_eq!(
+            adjusted.mastered_window_opts.percentage,
+            options.mastered_window_opts.percentage
+        );
+
+        // At the boundaries of the optimal zone, windows are also unchanged.
+        let adjusted_low = CandidateFilter::adjusted_mastery_windows(&options, 0.75);
+        assert_eq!(
+            adjusted_low.new_window_opts.percentage,
+            options.new_window_opts.percentage
+        );
+        let adjusted_high = CandidateFilter::adjusted_mastery_windows(&options, 0.90);
+        assert_eq!(
+            adjusted_high.new_window_opts.percentage,
+            options.new_window_opts.percentage
+        );
+
+        // Success rate > 90%: too easy, shift toward harder windows.
+        let adjusted = CandidateFilter::adjusted_mastery_windows(&options, 0.95);
+        assert!(adjusted.new_window_opts.percentage > options.new_window_opts.percentage);
+        assert!(adjusted.target_window_opts.percentage > options.target_window_opts.percentage);
+        assert!(adjusted.easy_window_opts.percentage < options.easy_window_opts.percentage);
+        assert!(adjusted.mastered_window_opts.percentage < options.mastered_window_opts.percentage);
+
+        // Success rate 50%-75%: too hard, shift toward easier windows.
+        let adjusted = CandidateFilter::adjusted_mastery_windows(&options, 0.60);
+        assert!(adjusted.new_window_opts.percentage < options.new_window_opts.percentage);
+        assert!(adjusted.target_window_opts.percentage < options.target_window_opts.percentage);
+        assert!(adjusted.easy_window_opts.percentage > options.easy_window_opts.percentage);
+        assert!(adjusted.mastered_window_opts.percentage > options.mastered_window_opts.percentage);
+
+        // Success rate < 50%: very hard, shift even more toward easier windows.
+        let adjusted_very_hard = CandidateFilter::adjusted_mastery_windows(&options, 0.30);
+        let adjusted_hard = CandidateFilter::adjusted_mastery_windows(&options, 0.60);
+        assert!(
+            adjusted_very_hard.easy_window_opts.percentage
+                > adjusted_hard.easy_window_opts.percentage
+        );
+        assert!(
+            adjusted_very_hard.mastered_window_opts.percentage
+                > adjusted_hard.mastered_window_opts.percentage
+        );
+        assert!(
+            adjusted_very_hard.new_window_opts.percentage
+                < adjusted_hard.new_window_opts.percentage
+        );
+        assert!(
+            adjusted_very_hard.target_window_opts.percentage
+                < adjusted_hard.target_window_opts.percentage
+        );
+
+        // All five windows always sum to 1.0.
+        for rate in [0.0, 0.30, 0.60, 0.80, 0.95, 1.0] {
+            let adj = CandidateFilter::adjusted_mastery_windows(&options, rate);
+            let sum = adj.new_window_opts.percentage
+                + adj.target_window_opts.percentage
+                + adj.current_window_opts.percentage
+                + adj.easy_window_opts.percentage
+                + adj.mastered_window_opts.percentage;
+            assert!((sum - 1.0).abs() < 1e-6);
+        }
     }
 
     /// Verifies that candidates from courses with more candidates are given less weight.
