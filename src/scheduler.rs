@@ -1092,11 +1092,11 @@ impl ExerciseScheduler for DepthFirstScheduler {
         let rewards = self
             .reward_propagator
             .propagate_rewards(exercise_id, &score, timestamp);
-        for (unit_id, reward) in &rewards {
+        for reward in &rewards {
             // Ignore rewards for units with no previous scores.
             let unit_score = self
                 .unit_scorer
-                .get_unit_score(*unit_id)
+                .get_unit_score(reward.unit_id)
                 .unwrap_or_default()
                 .unwrap_or_default();
             if unit_score == 0.0 {
@@ -1107,10 +1107,10 @@ impl ExerciseScheduler for DepthFirstScheduler {
                 .data
                 .practice_rewards
                 .write()
-                .record_unit_reward(*unit_id, reward)
+                .record_unit_reward(reward)
                 .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?;
             if updated {
-                self.unit_scorer.invalidate_cached_score(*unit_id);
+                self.unit_scorer.invalidate_cached_score(reward.unit_id);
             }
         }
 

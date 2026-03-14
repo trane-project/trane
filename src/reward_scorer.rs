@@ -147,6 +147,7 @@ impl RewardScorer for WeightedRewardScorer {
 #[cfg_attr(coverage, coverage(off))]
 mod test {
     use chrono::Utc;
+    use ustr::Ustr;
 
     use crate::{
         data::{ExerciseTrial, UnitReward},
@@ -181,6 +182,7 @@ mod test {
         let now = Utc::now();
 
         let reward = UnitReward {
+            unit_id: Ustr::default(),
             value: 1.0,
             weight: 2.0,
             timestamp: generate_timestamp(14),
@@ -190,6 +192,7 @@ mod test {
         assert!((weight - 1.0).abs() < 0.001);
 
         let reward = UnitReward {
+            unit_id: Ustr::default(),
             value: -1.0,
             weight: 1.0,
             timestamp: generate_timestamp(14),
@@ -204,6 +207,7 @@ mod test {
     fn test_future_timestamp_is_clamped() {
         let now = Utc::now();
         let reward = UnitReward {
+            unit_id: Ustr::default(),
             value: 1.0,
             weight: 2.0,
             timestamp: generate_future_timestamp(3),
@@ -227,11 +231,13 @@ mod test {
         let scorer = WeightedRewardScorer {};
         let lesson_rewards = vec![
             UnitReward {
+                unit_id: Ustr::default(),
                 value: 1.0,
                 weight: 1.0,
                 timestamp: generate_timestamp(1),
             },
             UnitReward {
+                unit_id: Ustr::default(),
                 value: 2.0,
                 weight: 1.0,
                 timestamp: generate_timestamp(2),
@@ -247,11 +253,13 @@ mod test {
         let scorer = WeightedRewardScorer {};
         let course_rewards = vec![
             UnitReward {
+                unit_id: Ustr::default(),
                 value: 1.0,
                 weight: 1.0,
                 timestamp: generate_timestamp(1),
             },
             UnitReward {
+                unit_id: Ustr::default(),
                 value: 2.0,
                 weight: 1.0,
                 timestamp: generate_timestamp(2),
@@ -267,11 +275,13 @@ mod test {
         let scorer = WeightedRewardScorer {};
         let course_rewards = vec![
             UnitReward {
+                unit_id: Ustr::default(),
                 value: 1.0,
                 weight: 1.0,
                 timestamp: generate_timestamp(1),
             },
             UnitReward {
+                unit_id: Ustr::default(),
                 value: 2.0,
                 weight: 1.0,
                 timestamp: generate_timestamp(2),
@@ -279,11 +289,13 @@ mod test {
         ];
         let lesson_rewards = vec![
             UnitReward {
+                unit_id: Ustr::default(),
                 value: 2.0,
                 weight: 1.0,
                 timestamp: generate_timestamp(1),
             },
             UnitReward {
+                unit_id: Ustr::default(),
                 value: 4.0,
                 weight: 2.0,
                 timestamp: generate_timestamp(2),
@@ -301,11 +313,13 @@ mod test {
         let scorer = WeightedRewardScorer {};
         let lesson_rewards = vec![
             UnitReward {
+                unit_id: Ustr::default(),
                 value: 2.0,
                 weight: 1.0,
                 timestamp: generate_timestamp(0),
             },
             UnitReward {
+                unit_id: Ustr::default(),
                 value: 1.0,
                 weight: 0.0001,
                 timestamp: generate_timestamp(0) - 1,
@@ -321,11 +335,13 @@ mod test {
         let scorer = WeightedRewardScorer {};
         let lesson_rewards = vec![
             UnitReward {
+                unit_id: Ustr::default(),
                 value: 1.0,
                 weight: 10.0,
                 timestamp: generate_timestamp(70),
             },
             UnitReward {
+                unit_id: Ustr::default(),
                 value: 1.0,
                 weight: 1.0,
                 timestamp: generate_timestamp(0),

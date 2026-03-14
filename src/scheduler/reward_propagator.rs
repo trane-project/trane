@@ -59,15 +59,6 @@ pub(super) struct RewardPropagator {
     pub data: SchedulerData,
 }
 
-/// An item in the reward propagation stack.
-struct RewardStackItem {
-    /// The unit ID.
-    unit_id: Ustr,
-
-    /// The reward associated with this unit.
-    reward: UnitReward,
-}
-
 impl RewardPropagator {
     /// Sets the initial reward for the given score.
     fn initial_reward(score: &MasteryScore) -> f32 {
@@ -109,7 +100,7 @@ impl RewardPropagator {
         course_id: Ustr,
         score: &MasteryScore,
         timestamp: i64,
-    ) -> Vec<(Ustr, UnitReward)> {
+    ) -> Vec<UnitReward> {
         if lesson_id.is_empty() || course_id.is_empty() {
             return vec![]; // grcov-excl-line
         }
@@ -118,7 +109,7 @@ impl RewardPropagator {
         let initial_reward = Self::initial_reward(score);
         let next_lessons = Self::get_next_units(unit_graph, lesson_id, initial_reward);
         let next_courses = Self::get_next_units(unit_graph, course_id, initial_reward);
-        let mut stack: Vec<RewardStackItem> = Vec::new();
+        let mut stack: Vec<UnitReward> = Vec::new();
         next_lessons
             .iter()
             .chain(next_courses.iter())
@@ -128,13 +119,11 @@ impl RewardPropagator {
                 if Self::stop_propagation(value, weight) {
                     return;
                 }
-                stack.push(RewardStackItem {
+                stack.push(UnitReward {
                     unit_id: *id,
-                    reward: UnitReward {
-                        value,
-                        weight,
-                        timestamp,
-                    },
+                    value,
+                    weight,
+                    timestamp,
                 });
             });
 
@@ -144,32 +133,30 @@ impl RewardPropagator {
         while let Some(item) = stack.pop() {
             // Skip paths that are weaker than an already known path.
             if let Some(existing_reward) = results.get(&item.unit_id)
-                && existing_reward.value.abs() >= item.reward.value.abs()
+                && existing_reward.value.abs() >= item.value.abs()
             {
                 continue;
             }
-            results.insert(item.unit_id, item.reward.clone());
+            results.insert(item.unit_id, item.clone());
 
             // Get the next units and push them onto the stack with updated rewards and weights.
             for (next_unit_id, edge_weight) in
-                &Self::get_next_units(unit_graph, item.unit_id, item.reward.value)
+                &Self::get_next_units(unit_graph, item.unit_id, item.value)
             {
-                let next_value = *edge_weight * REWARD_FACTOR * item.reward.value;
-                let next_weight = *edge_weight * WEIGHT_FACTOR * item.reward.weight;
+                let next_value = *edge_weight * REWARD_FACTOR * item.value;
+                let next_weight = *edge_weight * WEIGHT_FACTOR * item.weight;
                 if Self::stop_propagation(next_value, next_weight) {
                     continue;
                 }
-                stack.push(RewardStackItem {
+                stack.push(UnitReward {
                     unit_id: *next_unit_id,
-                    reward: UnitReward {
-                        value: next_value,
-                        weight: next_weight,
-                        timestamp,
-                    },
+                    value: next_value,
+                    weight: next_weight,
+                    timestamp,
                 });
             }
         }
-        results.into_iter().collect()
+        results.values().cloned().collect()
     }
 
     /// Propagates the given score through the graph.
@@ -178,7 +165,7 @@ impl RewardPropagator {
         exercise_id: Ustr,
         score: &MasteryScore,
         timestamp: i64,
-    ) -> Vec<(Ustr, UnitReward)> {
+    ) -> Vec<UnitReward> {
         let unit_graph = self.data.unit_graph.read();
         let roots = Self::resolve_roots(&*unit_graph, exercise_id);
         let Some((lesson_id, course_id)) = roots else {
@@ -200,6 +187,7 @@ mod test {
         scheduler::reward_propagator::{MIN_ABS_REWARD, MIN_WEIGHT, RewardPropagator},
     };
 
+    /// Builds a graph with two paths from the root to the same unit, with different weights.
     fn build_path_graph(source_encompassed: &[(Ustr, f32)]) -> Result<InMemoryUnitGraph> {
         let mut graph = InMemoryUnitGraph::default();
         graph.add_course(Ustr::from("0"))?;
@@ -215,6 +203,7 @@ mod test {
         Ok(graph)
     }
 
+    /// Propagates a score of five through the graph and return the rewards as a map.
     fn propagate_five_rewards(unit_graph: &dyn UnitGraph) -> Result<UstrMap<UnitReward>> {
         let rewards = RewardPropagator::propagate_rewards_helper(
             unit_graph,
@@ -223,7 +212,10 @@ mod test {
             &MasteryScore::Five,
             0,
         );
-        Ok(rewards.into_iter().collect())
+        Ok(rewards
+            .into_iter()
+            .map(|reward| (reward.unit_id, reward))
+            .collect())
     }
 
     /// Verifies the initial reward for each score.
