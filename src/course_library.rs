@@ -358,22 +358,21 @@ impl LocalCourseLibrary {
         let mut encompassing_equals_dependency = true;
 
         // Process the courses and the units inside them.
+        let mut graph = self.unit_graph.write();
         for course in courses {
             // Add the course and update all the graphs.
-            self.unit_graph.write().add_course(course.manifest.id)?;
-            self.unit_graph.write().add_dependencies(
+            graph.add_course(course.manifest.id)?;
+            graph.add_dependencies(
                 course.manifest.id,
                 UnitType::Course,
                 &course.manifest.dependencies,
             )?;
-            self.unit_graph.write().add_encompassed(
+            graph.add_encompassed(
                 course.manifest.id,
                 &course.manifest.dependencies,
                 &course.manifest.encompassed,
             )?;
-            self.unit_graph
-                .write()
-                .add_superseded(course.manifest.id, &course.manifest.superseded);
+            graph.add_superseded(course.manifest.id, &course.manifest.superseded);
 
             // Check if the encompassing and dependency graphs are the same and add the manifest
             // to the course map.
@@ -386,22 +385,18 @@ impl LocalCourseLibrary {
             // Process the lessons.
             for (lesson_manifest, exercises) in course.lessons {
                 // Add the lesson and update all the graphs.
-                self.unit_graph
-                    .write()
-                    .add_lesson(lesson_manifest.id, lesson_manifest.course_id)?;
-                self.unit_graph.write().add_dependencies(
+                graph.add_lesson(lesson_manifest.id, lesson_manifest.course_id)?;
+                graph.add_dependencies(
                     lesson_manifest.id,
                     UnitType::Lesson,
                     &lesson_manifest.dependencies,
                 )?;
-                self.unit_graph.write().add_encompassed(
+                graph.add_encompassed(
                     lesson_manifest.id,
                     &lesson_manifest.dependencies,
                     &lesson_manifest.encompassed,
                 )?;
-                self.unit_graph
-                    .write()
-                    .add_superseded(lesson_manifest.id, &lesson_manifest.superseded);
+                graph.add_superseded(lesson_manifest.id, &lesson_manifest.superseded);
 
                 // Check if the encompassing and dependency graphs are the same and add the manifest
                 // to the lesson map.
@@ -414,9 +409,7 @@ impl LocalCourseLibrary {
                 // Process the exercises.
                 for exercise_manifest in exercises {
                     // Add the exercise to the unit graph and exercise map.
-                    self.unit_graph
-                        .write()
-                        .add_exercise(exercise_manifest.id, exercise_manifest.lesson_id)?;
+                    graph.add_exercise(exercise_manifest.id, exercise_manifest.lesson_id)?;
                     self.exercise_map
                         .insert(exercise_manifest.id, Arc::new(exercise_manifest));
                 }
@@ -425,14 +418,14 @@ impl LocalCourseLibrary {
 
         // Compute the lessons in a course not dependent on any other lesson in the course. This
         // allows the scheduler to traverse the lessons in a course in the correct order.
-        self.unit_graph.write().update_starting_lessons();
+        graph.update_starting_lessons();
 
         // Perform a check to detect cyclic dependencies to prevent infinite loops during traversal.
-        self.unit_graph.read().check_cycles()?;
+        graph.check_cycles()?;
 
         // Delete the encompassing graph if possible to save memory.
         if encompassing_equals_dependency {
-            self.unit_graph.write().set_encompasing_equals_dependency();
+            graph.set_encompasing_equals_dependency();
         }
         Ok(())
     }

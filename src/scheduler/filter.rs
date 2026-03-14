@@ -356,7 +356,7 @@ impl CandidateFilter {
             .iter()
             .map(|c| c.exercise_id)
             .collect();
-        let mastered_candidates =
+        let mut mastered_candidates =
             Self::candidates_in_window(candidates, &encompassed_set, &options.mastered_window_opts);
         let easy_candidates =
             Self::candidates_in_window(candidates, &encompassed_set, &options.easy_window_opts);
@@ -366,7 +366,7 @@ impl CandidateFilter {
             Self::candidates_in_window(candidates, &encompassed_set, &options.target_window_opts);
         let new_candidates =
             Self::candidates_in_window(candidates, &encompassed_set, &options.new_window_opts);
-        let mastered_candidates = [mastered_candidates, result.highly_encompassed].concat();
+        mastered_candidates.extend(result.highly_encompassed);
 
         // Initialize the final list. For each window in descending order of mastery, add the
         // appropriate number of candidates to the final list.

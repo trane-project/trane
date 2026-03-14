@@ -181,13 +181,19 @@ impl DepthFirstScheduler {
     /// Creates a new scheduler.
     #[must_use]
     pub fn new(data: SchedulerData) -> Self {
+        let options = data.options.clone();
+        let unit_scorer = UnitScorer::new(data.clone(), options.clone());
+        let reward_propagator = RewardPropagator { data: data.clone() };
+        let review_knocker = ReviewKnocker::new(data.clone());
+        let filter = CandidateFilter::new(data.clone());
+        let relearn_pile = RelearnPile::new(options);
         Self {
-            data: data.clone(),
-            unit_scorer: UnitScorer::new(data.clone(), data.options.clone()),
-            reward_propagator: RewardPropagator { data: data.clone() },
-            review_knocker: ReviewKnocker::new(data.clone()),
-            relearn_pile: RelearnPile::new(data.options.clone()),
-            filter: CandidateFilter::new(data),
+            data,
+            unit_scorer,
+            reward_propagator,
+            review_knocker,
+            filter,
+            relearn_pile,
         }
     }
 
