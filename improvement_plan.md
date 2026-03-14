@@ -59,53 +59,24 @@ learning, retrieval is identified as a fundamental process alongside reasoning a
 (Krakauer et al., eLife 2024). Rawson & Dunlosky's research suggests "practice recalling to an
 initial criterion of 3 correct recalls, then relearn at widely spaced intervals."
 
-**What Trane does now:** The shuffler blocks low-scoring same-course exercises together and scatters
-high-scoring exercises. The DFS traversal touches prerequisites before dependents. But there's no
-explicit mechanism to *sequence prerequisite retrieval immediately before new dependent material*.
+**What Trane does now:** The shuffler groups exercises into course-blocked chunks (low-scoring) or
+individual groups (high-scoring), then shuffles the groups uniformly at random. New/unseen exercises
+have no positional bias — they can appear anywhere in the batch.
 
-**What's different:** The forward testing effect says that practicing a partially-mastered
-prerequisite *right before* first exposure to a dependent exercise actively enhances learning of the
-new exercise. This is a specific ordering optimization within a batch, not just difficulty
-balancing.
+**What's different:** By biasing new exercises toward the end of the batch, the learner naturally
+does retrieval practice on familiar material first. This produces the forward testing effect without
+needing explicit dependency graph lookups during shuffling.
 
 **Implementation sketch:**
-- In the shuffler, when a batch contains both a new/unseen exercise and a partially-mastered
-  exercise from a prerequisite lesson, position the prerequisite exercise immediately before the new
-  one.
-- This is a post-filter ordering optimization in `Shuffler::shuffle_candidates` that uses the
-  dependency graph to inform sequencing.
+- Replace the uniform group shuffle in `Shuffler::shuffle_candidates` with a keyed sort.
+- Assign each group a random `f64` sort key:
+  - **Existing exercises** (`num_trials > 0`): key drawn uniformly from [0.0, 1.0].
+  - **New exercises** (`num_trials == 0`): key drawn uniformly from [0.5, 1.0].
+- Sort all groups by their key, then flatten into the final batch order.
+- This biases new exercises toward the back half of the batch while preserving randomness. New
+  exercises can still appear in the middle, just not as often at the very beginning.
+- The existing course-blocking for low-scoring exercises and individual grouping for high-scoring
+  exercises remain unchanged — this only affects the final ordering of groups.
 
 **Expected impact:** Moderate but well-supported. The forward testing effect is one of the most
 robust findings in memory research.
-
----
-
-## 3. Contextual Interference via Related-Skill Interleaving
-
-**Literature:** A 2024 meta-analysis in *Scientific Reports* found that high contextual interference
-(random/interleaved practice) produces a medium effect on retention (SMD = 0.63, p < 0.001). The
-forgetting-reconstruction hypothesis (Lee & Magill, 1983) explains why: switching between related
-tasks forces the learner to forget and reconstruct the action plan, building stronger memory traces
-through effortful reconstruction. Critically, this is about interleaving *related but different*
-skills, not just mixing difficulty levels.
-
-**What Trane does now:** Interleaves difficulty levels (low-scoring exercises blocked by course,
-high-scoring scattered). But doesn't specifically interleave *related skills from different lessons
-within the same course*.
-
-**What's different:** The CI literature specifically says the benefit comes from switching between
-*related* tasks that require different action plans. Two exercises from the same lesson test the
-same skill — the CI benefit comes from interleaving exercises from *different* lessons that share a
-parent course or dependency relationship.
-
-**Implementation sketch:**
-- In the shuffler, for high-scoring exercises, prefer orderings that alternate between different
-  lessons within the same course (or lessons connected by dependency edges).
-- For low-scoring exercises, the current blocking behavior is correct — CI research shows that
-  blocking is better for initial acquisition of complex skills.
-
-**Important caveat:** A sub-additive interaction finding from Bjork's lab shows that variation is
-beneficial primarily at shorter spacing intervals. At longer intervals, variation may not add
-benefit.
-
-**Expected impact:** ~5-10% retention improvement for review exercises, minimal for new material.
