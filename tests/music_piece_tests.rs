@@ -254,7 +254,7 @@ fn all_exercises_visited_complex() -> Result<()> {
     let exercise_ids = trane.get_all_exercise_ids(None);
     assert!(!exercise_ids.is_empty());
     let mut simulation = TraneSimulation::new(
-        exercise_ids.len() * 5,
+        exercise_ids.len() * 10,
         Box::new(|_| Some(MasteryScore::Five)),
     );
     simulation.run_simulation(&mut trane, &vec![], &None)?;

@@ -369,7 +369,7 @@ impl DepthFirstScheduler {
                     lesson_score,
                     num_trials: self
                         .unit_scorer
-                        .get_num_trials(exercise_id)?
+                        .get_exercise_num_trials(exercise_id)?
                         .unwrap_or_default(),
                     last_seen: self
                         .unit_scorer
@@ -386,7 +386,7 @@ impl DepthFirstScheduler {
         let avg_score =
             candidates.iter().map(|c| c.exercise_score).sum::<f32>() / candidates.len() as f32;
         let selected_candidates =
-            Self::select_candidates(candidates, avg_score, &self.data.options.passing_score_v2);
+            Self::select_candidates(candidates, avg_score, &self.data.options.passing_score);
         Ok((selected_candidates, avg_score))
     }
 
@@ -537,6 +537,21 @@ impl DepthFirstScheduler {
         }
     }
 
+    /// Returns whether the unit passses the threshold set by the passing score options.
+    fn passes_threshold(
+        options: &PassingScoreOptions,
+        avg_score: Option<f32>,
+        avg_trials: Option<f32>,
+    ) -> bool {
+        if let (Some(avg_score), Some(avg_trials)) = (avg_score, avg_trials) {
+            avg_score >= options.min_score && avg_trials >= options.min_avg_trials
+        } else {
+            // If the values cannot be retrieved, consider the dependency as satisfied to avoid
+            // blocking the search in the case of blacklisted or missing units.
+            true
+        }
+    }
+
     /// Returns whether an effective dependency can be considered as satisfied.
     fn satisfied_effective_dependency(&self, dependency_id: Ustr) -> bool {
         // Dependencies in the blacklist are considered as satisfied, so the search can continue
@@ -564,16 +579,13 @@ impl DepthFirstScheduler {
             return true;
         }
 
-        // Finally, dependencies with a score equal or greater than the passing score are considered
-        // as satisfied.
-        let score = self.unit_scorer.get_unit_score(dependency_id);
-        if let Ok(Some(score)) = score {
-            score >= self.data.options.passing_score_v2.min_score
-        } else {
-            // If the score cannot be retrieved, consider the dependency as satisfied to avoid
-            // blocking the search in the case of blacklisted or missing units.
-            true
-        }
+        // Finally, check if the unit passes the threshold to consider the dependency as satisfied.
+        let score = self
+            .unit_scorer
+            .get_unit_score(dependency_id)
+            .unwrap_or_default();
+        let avg_num_trials = self.unit_scorer.get_avg_trials(dependency_id);
+        Self::passes_threshold(&self.data.options.passing_score, score, avg_num_trials)
     }
 
     /// Returns whether the given dependency is satisfied, bridging through filtered-out units to
@@ -807,9 +819,15 @@ impl DepthFirstScheduler {
                     self.get_candidates_from_lesson_helper(&curr_unit)?;
                 let num_candidates = candidates.len();
 
-                // Compare the score against the passing score to decide whether the search should
-                // continue past this lesson.
-                if num_candidates > 0 && avg_score < self.data.options.passing_score_v2.min_score {
+                // Check if the lesson passes the threshold to continue traversing its dependents.
+                let avg_trials = self.unit_scorer.get_avg_trials(curr_unit.unit_id);
+                let avg_score = if num_candidates > 0 {
+                    Some(avg_score)
+                } else {
+                    None
+                };
+                if !Self::passes_threshold(&self.data.options.passing_score, avg_score, avg_trials)
+                {
                     for candidate in &mut candidates {
                         candidate.dead_end = true;
                     }
@@ -919,7 +937,7 @@ impl DepthFirstScheduler {
                             .unwrap_or_default(),
                         num_trials: self
                             .unit_scorer
-                            .get_num_trials(unit_id)?
+                            .get_exercise_num_trials(unit_id)?
                             .unwrap_or_default(),
                         last_seen: self
                             .unit_scorer
@@ -1200,6 +1218,7 @@ mod test {
             PassingScoreOptions {
                 min_score: 3.0,
                 min_fraction: 0.2,
+                min_avg_trials: 2.0,
             },
         );
         assert_eq!(candidates.len(), 5);
@@ -1215,6 +1234,7 @@ mod test {
             PassingScoreOptions {
                 min_score: 3.0,
                 min_fraction: 0.0,
+                min_avg_trials: 2.0,
             },
         );
         assert_eq!(candidates.len(), 5);
@@ -1230,6 +1250,7 @@ mod test {
             PassingScoreOptions {
                 min_score: 3.0,
                 min_fraction: 0.2,
+                min_avg_trials: 2.0,
             },
         );
         assert_eq!(candidates.len(), 1);
@@ -1245,6 +1266,7 @@ mod test {
             PassingScoreOptions {
                 min_score: 3.0,
                 min_fraction: 0.2,
+                min_avg_trials: 2.0,
             },
         );
         assert_eq!(candidates.len(), 8);
@@ -1260,6 +1282,7 @@ mod test {
             PassingScoreOptions {
                 min_score: 3.0,
                 min_fraction: 0.0,
+                min_avg_trials: 2.0,
             },
         );
         assert_eq!(candidates.len(), 1);
@@ -1274,6 +1297,7 @@ mod test {
             PassingScoreOptions {
                 min_score: 3.0,
                 min_fraction: 0.2,
+                min_avg_trials: 2.0,
             },
         );
         assert_eq!(candidates.len(), 11);

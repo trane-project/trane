@@ -211,30 +211,6 @@ impl UnitScorer {
         Ok(final_score)
     }
 
-    /// Returns the number of trials that were considered when computing the score for the given
-    /// exercise.
-    pub(super) fn get_num_trials(&self, exercise_id: Ustr) -> Result<Option<usize>> {
-        // Return the cached value if it exists.
-        let cached_num_trials = self
-            .exercise_cache
-            .borrow()
-            .get(&exercise_id)
-            .map(|c| c.num_trials);
-        if let Some(num_trials) = cached_num_trials {
-            return Ok(Some(num_trials));
-        }
-
-        // Compute the exercise's score, which populates the cache. Then, retrieve the number of
-        // trials from the cache.
-        self.get_exercise_score(exercise_id)?;
-        let cached_num_trials = self
-            .exercise_cache
-            .borrow()
-            .get(&exercise_id)
-            .map(|s| s.num_trials);
-        Ok(cached_num_trials)
-    }
-
     /// Returns the number of days since the last trial for the given exercise.
     pub(super) fn get_last_seen_days(&self, exercise_id: Ustr) -> Result<Option<f32>> {
         // Return the cached value if it exists.
@@ -479,6 +455,104 @@ impl UnitScorer {
             UnitType::Exercise => self.get_exercise_score(unit_id).map(Some),
         }
     }
+
+    /// Returns the number of trials that were considered when computing the score for the given
+    /// exercise.
+    pub(super) fn get_exercise_num_trials(&self, exercise_id: Ustr) -> Result<Option<usize>> {
+        // Return the cached value if it exists.
+        let cached_num_trials = self
+            .exercise_cache
+            .borrow()
+            .get(&exercise_id)
+            .map(|c| c.num_trials);
+        if let Some(num_trials) = cached_num_trials {
+            return Ok(Some(num_trials));
+        }
+
+        // Compute the exercise's score, which populates the cache. Then, retrieve the number of
+        // trials from the cache.
+        self.get_exercise_score(exercise_id)?;
+        let cached_num_trials = self
+            .exercise_cache
+            .borrow()
+            .get(&exercise_id)
+            .map(|s| s.num_trials);
+        Ok(cached_num_trials)
+    }
+
+    /// Returns the average number of trials across all the exercises in the given lesson.
+    pub(super) fn get_lesson_num_trials(&self, lesson_id: Ustr) -> Option<f32> {
+        // Get all the exercises in the lesson and filter those that are blacklisted.
+        let exercise_ids: Vec<Ustr> = self
+            .data
+            .unit_graph
+            .read()
+            .get_lesson_exercises(lesson_id)?
+            .iter()
+            .copied()
+            .filter(|exercise_id| {
+                let blacklisted = self.data.blacklist.read().blacklisted(*exercise_id);
+                !blacklisted.unwrap_or(false)
+            })
+            .collect();
+
+        // Compute the average number of trials across all the exercises in the lesson.
+        let valid_exercise_trials: Vec<usize> = exercise_ids
+            .iter()
+            .filter_map(|exercise_id| self.get_exercise_num_trials(*exercise_id).unwrap_or(None))
+            .collect();
+        if valid_exercise_trials.is_empty() {
+            return None;
+        }
+        let total_num_trials: usize = valid_exercise_trials.iter().sum();
+        Some(total_num_trials as f32 / valid_exercise_trials.len() as f32)
+    }
+
+    /// Returns the average number of trials across all the lessons in the given course.
+    pub(super) fn get_course_num_trials(&self, course_id: Ustr) -> Option<f32> {
+        // Get all the lessons in the course and filter those that are blacklisted or superseded.
+        let lesson_ids: Vec<Ustr> = self
+            .data
+            .unit_graph
+            .read()
+            .get_course_lessons(course_id)
+            .unwrap_or_default()
+            .iter()
+            .copied()
+            .filter(|lesson_id| {
+                let blacklisted = self.data.blacklist.read().blacklisted(*lesson_id);
+                let superseding_ids = self.get_superseding_recursive(*lesson_id);
+                let superseded = if let Some(superseding_ids) = superseding_ids {
+                    self.is_superseded(*lesson_id, &superseding_ids)
+                } else {
+                    false
+                };
+                !blacklisted.unwrap_or(false) && !superseded
+            })
+            .collect();
+
+        // Compute the average number of trials across all the lessons in the course.
+        let valid_lesson_trials: Vec<f32> = lesson_ids
+            .iter()
+            .filter_map(|lesson_id| self.get_lesson_num_trials(*lesson_id))
+            .collect();
+        if valid_lesson_trials.is_empty() {
+            return None;
+        }
+        let total_num_trials: f32 = valid_lesson_trials.iter().sum();
+        Some(total_num_trials / valid_lesson_trials.len() as f32)
+    }
+
+    /// Returns the number of trials for the unit. If the unit is a course or lesson, the average
+    /// number of trials across the valid exercises in the unit is returned.
+    pub(super) fn get_avg_trials(&self, unit_id: Ustr) -> Option<f32> {
+        let unit_type = self.data.unit_graph.read().get_unit_type(unit_id);
+        match unit_type {
+            Some(UnitType::Course) => self.get_course_num_trials(unit_id),
+            Some(UnitType::Lesson) => self.get_lesson_num_trials(unit_id),
+            _ => None, // grcov-excl-line
+        }
+    }
 }
 
 #[cfg(test)]
@@ -688,14 +762,14 @@ mod test {
         library.score_exercise(exercise_id, MasteryScore::Five, 2)?;
 
         // Retrieve the number of trials twice. The second time should hit the cache.
-        assert_eq!(Some(2), cache.get_num_trials(exercise_id)?);
-        assert_eq!(Some(2), cache.get_num_trials(exercise_id)?);
+        assert_eq!(Some(2), cache.get_exercise_num_trials(exercise_id)?);
+        assert_eq!(Some(2), cache.get_exercise_num_trials(exercise_id)?);
 
         // Add another score and invalidate the cache. The change in the number of trials should be
         // reflected.
         library.score_exercise(exercise_id, MasteryScore::Four, 3)?;
         cache.invalidate_cached_score(exercise_id);
-        assert_eq!(Some(3), cache.get_num_trials(exercise_id)?);
+        assert_eq!(Some(3), cache.get_exercise_num_trials(exercise_id)?);
         Ok(())
     }
 

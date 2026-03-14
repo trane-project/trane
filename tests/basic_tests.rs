@@ -388,7 +388,7 @@ fn all_exercises_scheduled() -> Result<()> {
     let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Run the simulation.
-    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    let mut simulation = TraneSimulation::new(1000, Box::new(|_| Some(MasteryScore::Five)));
     simulation.run_simulation(&mut trane, &vec![], &None)?;
 
     // Every exercise ID should be in `simulation.answer_history`.
