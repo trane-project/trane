@@ -693,6 +693,8 @@ impl UnitGraph for Trane {
     }
 }
 
+/// Implementation of `Send` and `Sync` for `Trane`. The implementation is safe because all the
+/// internal mutability of `Trane` is managed by `Arc<RwLock<...>>`.
 unsafe impl Send for Trane {}
 unsafe impl Sync for Trane {}
 
