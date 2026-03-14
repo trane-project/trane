@@ -4,6 +4,9 @@ use rand::seq::SliceRandom;
 
 use crate::{data::SchedulerOptions, scheduler::Candidate};
 
+/// The maximum number of low-scoring candidates from the same course in a single group.
+const MAX_GROUP_SIZE: usize = 5;
+
 pub(crate) struct Shuffler;
 
 impl Shuffler {
@@ -25,10 +28,13 @@ impl Shuffler {
         low_candidates.sort_by_key(|candidate| candidate.course_id);
         let grouped_low_candidates: Vec<Vec<Candidate>> = low_candidates
             .chunk_by(|a, b| a.course_id == b.course_id)
-            .map(|chunk| {
+            .flat_map(|chunk| {
                 let mut chunk = chunk.to_vec();
                 chunk.shuffle(rng);
                 chunk
+                    .chunks(MAX_GROUP_SIZE)
+                    .map(|c| c.to_vec())
+                    .collect::<Vec<_>>()
             })
             .collect();
         let grouped_high_candidates: Vec<Vec<Candidate>> = high_candidates
@@ -50,7 +56,7 @@ mod tests {
 
     use crate::{data::SchedulerOptions, scheduler::Candidate};
 
-    use super::Shuffler;
+    use super::{Shuffler, MAX_GROUP_SIZE};
 
     /// Creates a candidate with the given course ID, exercise ID, and exercise score.
     fn candidate(course_id: &str, exercise_id: &str, exercise_score: f32) -> Candidate {
@@ -168,5 +174,43 @@ mod tests {
             assert!(is_contiguous(&result, |c| c.course_id == "c1"));
             assert!(is_contiguous(&result, |c| c.course_id == "c2"));
         }
+    }
+
+    /// Verifies that a course with more than MAX_GROUP_SIZE low-scoring exercises is split into
+    /// multiple groups of at most MAX_GROUP_SIZE.
+    #[test]
+    fn large_course_split_into_chunks() {
+        let options = SchedulerOptions::default();
+        let mut candidates: Vec<Candidate> = (0..8)
+            .map(|i| candidate("c1", &format!("e_c1_{i}"), 1.0))
+            .collect();
+        // Add enough other groups so the c1 chunks are likely to be separated.
+        for i in 0..5 {
+            candidates.push(candidate(&format!("c{}", i + 2), &format!("e_other_{i}"), 1.0));
+        }
+
+        let mut saw_split = false;
+        for _ in 0..20 {
+            let result = Shuffler::shuffle_candidates(candidates.clone(), &options);
+            assert_eq!(result.len(), 13);
+
+            // Find contiguous runs of c1 exercises. If splitting works, the maximum run should be
+            // at most MAX_GROUP_SIZE in at least some iterations.
+            let mut run_length = 0;
+            let mut max_run = 0;
+            for c in &result {
+                if c.course_id == "c1" {
+                    run_length += 1;
+                    max_run = max_run.max(run_length);
+                } else {
+                    run_length = 0;
+                }
+            }
+            if max_run <= MAX_GROUP_SIZE {
+                saw_split = true;
+                break;
+            }
+        }
+        assert!(saw_split);
     }
 }
