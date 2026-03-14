@@ -51,12 +51,12 @@ impl Shuffler {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod tests {
     use ustr::Ustr;
 
     use crate::{data::SchedulerOptions, scheduler::Candidate};
-
-    use super::{MAX_GROUP_SIZE, Shuffler};
+    use super::*;
 
     /// Creates a candidate with the given course ID, exercise ID, and exercise score.
     fn candidate(course_id: &str, exercise_id: &str, exercise_score: f32) -> Candidate {
