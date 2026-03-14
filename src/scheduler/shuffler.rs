@@ -55,8 +55,8 @@ impl Shuffler {
 mod tests {
     use ustr::Ustr;
 
-    use crate::{data::SchedulerOptions, scheduler::Candidate};
     use super::*;
+    use crate::{data::SchedulerOptions, scheduler::Candidate};
 
     /// Creates a candidate with the given course ID, exercise ID, and exercise score.
     fn candidate(course_id: &str, exercise_id: &str, exercise_score: f32) -> Candidate {
