@@ -31,7 +31,7 @@ use ustr::{Ustr, UstrMap, UstrSet};
 use crate::{
     data::{
         ExerciseManifest, FULL_CANDIDATES_SCORE, MasteryScore, PassingScoreOptions,
-        SchedulerOptions, UnitType,
+        SchedulerOptions, UnitReward, UnitType,
         filter::{ExerciseFilter, KeyValueFilter, UnitFilter},
     },
     error::ExerciseSchedulerError,
@@ -1088,32 +1088,31 @@ impl ExerciseScheduler for DepthFirstScheduler {
         self.relearn_pile.update(exercise_id, &score);
         self.data.update_success_rate(&score);
 
-        // Propagate the rewards along the unit graph and store them.
+        // Propagate the rewards along the unit graph and store those that have existing scores.
         let rewards = self
             .reward_propagator
             .propagate_rewards(exercise_id, &score, timestamp);
-        for reward in &rewards {
-            // Ignore rewards for units with no previous scores.
-            let unit_score = self
-                .unit_scorer
-                .get_unit_score(reward.unit_id)
-                .unwrap_or_default()
-                .unwrap_or_default();
-            if unit_score == 0.0 {
-                continue;
-            }
+        let valid_rewards: Vec<UnitReward> = rewards
+            .into_iter()
+            .filter(|r| {
+                self.unit_scorer
+                    .get_unit_score(r.unit_id)
+                    .unwrap_or_default()
+                    .unwrap_or_default()
+                    != 0.0
+            })
+            .collect();
+        let updated_ids = self
+            .data
+            .practice_rewards
+            .write()
+            .record_unit_rewards(&valid_rewards)
+            .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?;
 
-            let updated = self
-                .data
-                .practice_rewards
-                .write()
-                .record_unit_reward(reward)
-                .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?;
-            if updated {
-                self.unit_scorer.invalidate_cached_score(reward.unit_id);
-            }
+        // Invalidate caches for units were updated.
+        for unit_id in updated_ids {
+            self.unit_scorer.invalidate_cached_score(unit_id);
         }
-
         Ok(())
     }
 

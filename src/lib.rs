@@ -487,8 +487,11 @@ impl PracticeRewards for Trane {
             .get_rewards(unit_id, num_rewards)
     }
 
-    fn record_unit_reward(&mut self, reward: &UnitReward) -> Result<bool, PracticeRewardsError> {
-        self.practice_rewards.write().record_unit_reward(reward)
+    fn record_unit_rewards(
+        &mut self,
+        rewards: &[UnitReward],
+    ) -> Result<Vec<Ustr>, PracticeRewardsError> {
+        self.practice_rewards.write().record_unit_rewards(rewards)
     }
 
     fn trim_rewards(&mut self, num_rewards: usize) -> Result<(), PracticeRewardsError> {
