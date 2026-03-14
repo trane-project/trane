@@ -546,7 +546,7 @@ impl DepthFirstScheduler {
         if let (Some(avg_score), Some(avg_trials)) = (avg_score, avg_trials) {
             avg_score >= options.min_score && avg_trials >= options.min_avg_trials
         } else {
-            // If the score cannot be retrieved, consider the dependency as satisfied to avoid
+            // If the values cannot be retrieved, consider the dependency as satisfied to avoid
             // blocking the search in the case of blacklisted or missing units.
             true
         }

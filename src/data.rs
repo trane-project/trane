@@ -806,8 +806,8 @@ impl Default for PassingScoreOptions {
     fn default() -> Self {
         PassingScoreOptions {
             min_score: 3.0,
-            min_fraction: 0.6,
-            min_avg_trials: 1.5,
+            min_fraction: 0.5,
+            min_avg_trials: 2.0,
         }
     }
 }
