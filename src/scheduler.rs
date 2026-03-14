@@ -19,6 +19,7 @@ mod filter;
 mod relearn_pile;
 mod review_knocker;
 mod reward_propagator;
+mod shuffler;
 mod unit_scorer;
 
 use anyhow::Result;
@@ -37,7 +38,7 @@ use crate::{
     error::ExerciseSchedulerError,
     scheduler::{
         data::SchedulerData, filter::CandidateFilter, relearn_pile::RelearnPile,
-        review_knocker::ReviewKnocker, unit_scorer::UnitScorer,
+        review_knocker::ReviewKnocker, shuffler::Shuffler, unit_scorer::UnitScorer,
     },
 };
 
@@ -1047,17 +1048,13 @@ impl DepthFirstScheduler {
 
     /// Takes a list of candidates and returns a vector of tuples of exercises IDs and manifests.
     fn candidates_to_exercises(&self, candidates: Vec<Candidate>) -> Result<Vec<ExerciseManifest>> {
-        // Retrieve the manifests for each candidate.
-        let mut exercises = candidates
+        let exercises = candidates
             .into_iter()
             .map(|c| -> Result<_> {
                 let manifest = self.data.get_exercise_manifest(c.exercise_id)?;
                 Ok(Arc::unwrap_or_clone(manifest))
             })
             .collect::<Result<Vec<_>>>()?;
-
-        // Shuffle the list one more time to add more randomness to the final batch.
-        exercises.shuffle(&mut rng());
         Ok(exercises)
     }
 }
@@ -1092,13 +1089,15 @@ impl ExerciseScheduler for DepthFirstScheduler {
             })
             .collect::<Vec<_>>();
 
-        // Create the final list of candidates and convert them to manifests.
+        // Create the final list of candidates, shuffle them, and convert them to manifests.
         let final_candidates = filtered_candidates
             .into_iter()
             .chain(relearn_candidates)
             .collect::<Vec<_>>();
+        let shuffled_candidates =
+            Shuffler::shuffle_candidates(final_candidates, &self.data.options);
         let manifests = self
-            .candidates_to_exercises(final_candidates)
+            .candidates_to_exercises(shuffled_candidates)
             .map_err(ExerciseSchedulerError::GetExerciseBatch)?;
 
         // Increment the frequency of the exercises in the batch. These exercises will have a lower
