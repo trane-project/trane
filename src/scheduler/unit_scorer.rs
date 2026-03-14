@@ -482,18 +482,6 @@ impl UnitScorer {
 
     /// Returns the average number of trials across all the exercises in the given lesson.
     pub(super) fn get_lesson_num_trials(&self, lesson_id: Ustr) -> Option<f32> {
-        // Check if the lesson is blacklisted or superseded.
-        let blacklisted = self.data.blacklist.read().blacklisted(lesson_id);
-        if blacklisted.unwrap_or(false) {
-            return None;
-        }
-        let superseding_ids = self.get_superseding_recursive(lesson_id);
-        if let Some(superseding_ids) = superseding_ids
-            && self.is_superseded(lesson_id, &superseding_ids)
-        {
-            return None;
-        }
-
         // Get all the exercises in the lesson and filter those that are blacklisted.
         let exercise_ids: Vec<Ustr> = self
             .data
@@ -522,18 +510,6 @@ impl UnitScorer {
 
     /// Returns the average number of trials across all the lessons in the given course.
     pub(super) fn get_course_num_trials(&self, course_id: Ustr) -> Option<f32> {
-        // Check if the course is blacklisted or superseded.
-        let blacklisted = self.data.blacklist.read().blacklisted(course_id);
-        if blacklisted.unwrap_or(false) {
-            return None;
-        }
-        let superseding_ids = self.get_superseding_recursive(course_id);
-        if let Some(superseding_ids) = superseding_ids
-            && self.is_superseded(course_id, &superseding_ids)
-        {
-            return None;
-        }
-
         // Get all the lessons in the course and filter those that are blacklisted or superseded.
         let lesson_ids: Vec<Ustr> = self
             .data
