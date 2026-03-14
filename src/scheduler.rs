@@ -212,8 +212,8 @@ impl DepthFirstScheduler {
     fn get_all_starting_units(&self) -> UstrSet {
         // Replace any missing units with their dependents and repeat this process until there are
         // no missing courses.
-        let mut starting_courses =
-            Arc::unwrap_or_clone(self.data.unit_graph.read().get_dependency_sinks());
+        let graph = self.data.unit_graph.read();
+        let mut starting_courses = Arc::unwrap_or_clone(graph.get_dependency_sinks());
         loop {
             let mut new_starting_courses = UstrSet::default();
             for course_id in &starting_courses {
@@ -235,9 +235,7 @@ impl DepthFirstScheduler {
         starting_courses
             .into_iter()
             .filter(|course_id| {
-                self.data
-                    .unit_graph
-                    .read()
+                graph
                     .get_dependencies(*course_id)
                     .unwrap_or_default()
                     .iter()
@@ -405,10 +403,8 @@ impl DepthFirstScheduler {
         metadata_filter: Option<&KeyValueFilter>,
     ) -> UstrSet {
         // Get the lessons that match the filter.
-        let matching_lessons: UstrSet = self
-            .data
-            .unit_graph
-            .read()
+        let graph = self.data.unit_graph.read();
+        let matching_lessons: UstrSet = graph
             .get_course_lessons(course_id)
             .unwrap_or_default()
             .iter()
@@ -429,12 +425,7 @@ impl DepthFirstScheduler {
             .iter()
             .copied()
             .filter(|lesson_id| {
-                let dependents = self
-                    .data
-                    .unit_graph
-                    .read()
-                    .get_dependents(*lesson_id)
-                    .unwrap_or_default();
+                let dependents = graph.get_dependents(*lesson_id).unwrap_or_default();
                 dependents.is_disjoint(&matching_lessons)
             })
             .collect()
@@ -461,15 +452,13 @@ impl DepthFirstScheduler {
             return [dependency_id].into_iter().collect();
         }
 
+        let graph = self.data.unit_graph.read();
         match self.data.get_unit_type(dependency_id) {
             // For filtered-out lessons, bridge through the lesson dependencies. If the lesson is a
             // starting lesson in its course, also bridge through the course dependencies.
             Some(UnitType::Lesson) => {
                 // Get the dependencies of the lesson.
-                let mut next_dependencies: UstrSet = self
-                    .data
-                    .unit_graph
-                    .read()
+                let mut next_dependencies: UstrSet = graph
                     .get_dependencies(dependency_id)
                     .unwrap_or_default()
                     .iter()
@@ -482,18 +471,13 @@ impl DepthFirstScheduler {
                     .data
                     .get_lesson_course(dependency_id)
                     .unwrap_or_default();
-                let is_starting_lesson = self
-                    .data
-                    .unit_graph
-                    .read()
+                let is_starting_lesson = graph
                     .get_starting_lessons(course_id)
                     .unwrap_or_default()
                     .contains(&dependency_id);
                 if is_starting_lesson {
                     next_dependencies.extend(
-                        self.data
-                            .unit_graph
-                            .read()
+                        graph
                             .get_dependencies(course_id)
                             .unwrap_or_default()
                             .iter()
@@ -522,9 +506,7 @@ impl DepthFirstScheduler {
                     return last_matching_lessons;
                 }
 
-                self.data
-                    .unit_graph
-                    .read()
+                graph
                     .get_dependencies(dependency_id)
                     .unwrap_or_default()
                     .iter()
@@ -876,13 +858,9 @@ impl DepthFirstScheduler {
         // asked for questions from these courses.
         let mut stack: Vec<StackItem> = Vec::new();
         let mut visited = UstrSet::default();
+        let graph = self.data.unit_graph.read();
         for course_id in course_ids {
-            let lessons = self
-                .data
-                .unit_graph
-                .read()
-                .get_starting_lessons(*course_id)
-                .unwrap_or_default();
+            let lessons = graph.get_starting_lessons(*course_id).unwrap_or_default();
             stack.extend(lessons.iter().copied().map(|id| StackItem {
                 unit_id: id,
                 depth: 0,
@@ -907,6 +885,7 @@ impl DepthFirstScheduler {
         // Retrieve candidates from each entry in the review list.
         let mut candidates = vec![];
         let review_list = self.data.review_list.read().get_review_list_entries()?;
+        let frequency_map = self.data.frequency_map.read();
         for unit_id in review_list {
             match self.data.get_unit_type_strict(unit_id)? {
                 UnitType::Course => {
@@ -949,7 +928,7 @@ impl DepthFirstScheduler {
                             .unit_scorer
                             .get_last_seen_days(unit_id)?
                             .unwrap_or_default(),
-                        frequency: *self.data.frequency_map.read().get(&unit_id).unwrap_or(&0),
+                        frequency: *frequency_map.get(&unit_id).unwrap_or(&0),
                         dead_end: false,
                     });
                 }
