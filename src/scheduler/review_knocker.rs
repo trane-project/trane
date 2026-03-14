@@ -174,7 +174,7 @@ impl ReviewKnocker {
 
     /// Returns a set containing the highly encompassed exercises.
     fn get_highly_encompassed(
-        initial_batch: Vec<Candidate>,
+        initial_batch: &[Candidate],
         frequency_map: &UstrMap<u32>,
     ) -> Vec<Candidate> {
         let mut highly_encompassed = Vec::new();
@@ -186,7 +186,7 @@ impl ReviewKnocker {
                     continue;
                 }
                 if frequency >= HIGHLY_FREQUENCY && candidate.exercise_score >= HIGHLY_SCORE {
-                    highly_encompassed.push(candidate);
+                    highly_encompassed.push(candidate.clone());
                 }
             }
         }
@@ -199,8 +199,7 @@ impl ReviewKnocker {
         let unit_graph = self.data.unit_graph.read();
         let frequency_map = Self::compute_frequency_map(&initial_batch, &*unit_graph);
         let processed_batch = Self::remove_very_highly_encompassed(initial_batch, &frequency_map);
-        let highly_encompassed =
-            Self::get_highly_encompassed(processed_batch.clone(), &frequency_map);
+        let highly_encompassed = Self::get_highly_encompassed(&processed_batch, &frequency_map);
         KnockoutResult {
             candidates: processed_batch,
             frequency_map,
@@ -505,7 +504,7 @@ mod tests {
         frequency_map.insert(Ustr::from("ex3"), 2);
         frequency_map.insert(Ustr::from("ex4"), 3);
         frequency_map.insert(Ustr::from("ex5"), 12);
-        let result = ReviewKnocker::get_highly_encompassed(initial_batch, &frequency_map);
+        let result = ReviewKnocker::get_highly_encompassed(&initial_batch, &frequency_map);
         assert_eq!(result.len(), 2);
         assert!(result.iter().any(|c| c.exercise_id == Ustr::from("ex2")));
         assert!(result.iter().any(|c| c.exercise_id == Ustr::from("ex5")));
