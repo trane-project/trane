@@ -912,6 +912,11 @@ pub struct SchedulerOptions {
 
     /// The number of rewards to retrieve from the practice rewards to compute a unit's reward.
     pub num_rewards: usize,
+
+    /// The maximum number of lessons in progress to include in a batch. A lesson is in progress if
+    /// it's not been seen before or its score is below the target window's range. The limit
+    /// prevents the student from splitting attention between too many new or difficult lessons.
+    pub max_lessons_in_progress: usize,
 }
 
 impl SchedulerOptions {
@@ -1011,6 +1016,7 @@ impl Default for SchedulerOptions {
             superseding_score: 4.0,
             num_trials: 15,
             num_rewards: 10,
+            max_lessons_in_progress: 5,
         }
     }
 }
