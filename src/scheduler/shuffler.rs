@@ -33,7 +33,7 @@ impl Shuffler {
                 chunk.shuffle(rng);
                 chunk
                     .chunks(MAX_GROUP_SIZE)
-                    .map(|c| c.to_vec())
+                    .map(<[Candidate]>::to_vec)
                     .collect::<Vec<_>>()
             })
             .collect();
