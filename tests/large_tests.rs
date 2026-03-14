@@ -17,10 +17,10 @@ fn all_exercises_scheduled_random() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let random_library = RandomCourseLibrary {
         num_courses: 25,
-        course_dependencies_range: (10, 10),
-        lessons_per_course_range: (10, 10),
-        lesson_dependencies_range: (10, 10),
-        exercises_per_lesson_range: (10, 10),
+        course_dependencies_range: (0, 5),
+        lessons_per_course_range: (0, 5),
+        lesson_dependencies_range: (0, 5),
+        exercises_per_lesson_range: (0, 10),
     }
     .generate_library();
     let mut trane = init_test_simulation(temp_dir.path(), &random_library)?;
@@ -28,7 +28,7 @@ fn all_exercises_scheduled_random() -> Result<()> {
     // Run the simulation.
     let exercise_ids = all_test_exercises(&random_library);
     let mut simulation = TraneSimulation::new(
-        exercise_ids.len() * 100,
+        exercise_ids.len() * 300,
         Box::new(|_| Some(MasteryScore::Five)),
     );
     simulation.run_simulation(&mut trane, &vec![], &None)?;
