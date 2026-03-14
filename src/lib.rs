@@ -86,7 +86,7 @@ use crate::{
     course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary, SerializedCourseLibrary},
     data::{
         CourseManifest, ExerciseManifest, ExerciseTrial, LessonManifest, MasteryScore,
-        SchedulerOptions, SchedulerPreferences, UnitType, UserPreferences,
+        SchedulerOptions, SchedulerPreferences, UnitReward, UnitType, UserPreferences,
         filter::{ExerciseFilter, SavedFilter},
     },
     filter_manager::{FilterManager, LocalFilterManager},
@@ -487,14 +487,11 @@ impl PracticeRewards for Trane {
             .get_rewards(unit_id, num_rewards)
     }
 
-    fn record_unit_reward(
+    fn record_unit_rewards(
         &mut self,
-        unit_id: Ustr,
-        reward: &data::UnitReward,
-    ) -> Result<bool, PracticeRewardsError> {
-        self.practice_rewards
-            .write()
-            .record_unit_reward(unit_id, reward)
+        rewards: &[UnitReward],
+    ) -> Result<Vec<Ustr>, PracticeRewardsError> {
+        self.practice_rewards.write().record_unit_rewards(rewards)
     }
 
     fn trim_rewards(&mut self, num_rewards: usize) -> Result<(), PracticeRewardsError> {

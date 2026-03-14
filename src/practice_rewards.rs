@@ -33,16 +33,12 @@ pub trait PracticeRewards {
         num_rewards: usize,
     ) -> Result<Vec<UnitReward>, PracticeRewardsError>;
 
-    /// Records the reward assigned to the unit. Only lessons and courses should have rewards.
-    /// However, the caller must enforce this requirement. Because similar exercises can write
-    /// similar rewards in quick succession, the implementation can choose to skip the reward if it
-    /// is deemed too similar to another recent one. If that's the case, the function returns
-    /// `false`.
-    fn record_unit_reward(
+    /// Records multiple rewards in a single transaction. Returns the list of unit IDs whose
+    /// rewards were actually written (not skipped by cache).
+    fn record_unit_rewards(
         &mut self,
-        unit_id: Ustr,
-        reward: &UnitReward,
-    ) -> Result<bool, PracticeRewardsError>;
+        rewards: &[UnitReward],
+    ) -> Result<Vec<Ustr>, PracticeRewardsError>;
 
     /// Deletes all rewards of the given unit except for the last given number with the aim of
     /// keeping the storage size under check.
@@ -179,6 +175,7 @@ impl LocalPracticeRewards {
                 let weight = row.get(1)?;
                 let timestamp = row.get(2)?;
                 rusqlite::Result::Ok(UnitReward {
+                    unit_id,
                     value,
                     weight,
                     timestamp,
@@ -189,46 +186,47 @@ impl LocalPracticeRewards {
         Ok(rows)
     }
 
-    /// Helper function to record a reward to the database.
-    fn record_unit_reward_helper(&mut self, unit_id: Ustr, reward: &UnitReward) -> Result<bool> {
-        // Check the cache and exit early if there is a similar reward.
-        if self.cache.has_similar_reward(unit_id, reward) {
-            return Ok(false);
+    /// Helper function to record multiple rewards in a single transaction.
+    fn record_unit_rewards_helper(&mut self, rewards: &[UnitReward]) -> Result<Vec<Ustr>> {
+        let mut updated = Vec::new();
+        let mut connection = self.pool.get()?;
+        let tx = connection.transaction()?;
+        {
+            for reward in rewards {
+                if self.cache.has_similar_reward(reward.unit_id, reward) {
+                    continue;
+                }
+
+                let mut uid_stmt =
+                    tx.prepare_cached("INSERT OR IGNORE INTO uids(unit_id) VALUES ($1);")?;
+                uid_stmt.execute(params![reward.unit_id.as_str()])?;
+
+                let mut stmt = tx.prepare_cached(
+                    "INSERT INTO practice_rewards (unit_uid, reward, weight, timestamp) VALUES (
+                        (SELECT unit_uid FROM uids WHERE unit_id = $1), $2, $3, $4);",
+                )?;
+                stmt.execute(params![
+                    reward.unit_id.as_str(),
+                    reward.value,
+                    reward.weight,
+                    reward.timestamp
+                ])?;
+
+                let mut del_stmt = tx.prepare_cached(
+                    "DELETE FROM practice_rewards WHERE id IN (
+                        SELECT id FROM practice_rewards WHERE unit_uid = (
+                            SELECT unit_uid FROM uids WHERE unit_id = $1)
+                        ORDER BY timestamp DESC LIMIT -1 OFFSET 20
+                    );",
+                )?;
+                let _ = del_stmt.execute(params![reward.unit_id.as_str()])?;
+
+                self.cache.add_new_reward(reward.unit_id, reward.clone());
+                updated.push(reward.unit_id);
+            }
         }
-
-        // Update the mapping of unit ID to unique integer ID.
-        let connection = self.pool.get()?;
-        let mut uid_stmt =
-            connection.prepare_cached("INSERT OR IGNORE INTO uids(unit_id) VALUES ($1);")?;
-        uid_stmt.execute(params![unit_id.as_str()])?;
-
-        // Insert the unit reward into the database.
-        let mut stmt = connection.prepare_cached(
-            "INSERT INTO practice_rewards (unit_uid, reward, weight, timestamp) VALUES (
-                (SELECT unit_uid FROM uids WHERE unit_id = $1), $2, $3, $4);",
-        )?;
-        stmt.execute(params![
-            unit_id.as_str(),
-            reward.value,
-            reward.weight,
-            reward.timestamp
-        ])?;
-
-        // Update the cache with the new reward.
-        self.cache.add_new_reward(unit_id, reward.clone());
-
-        // Delete the oldest trials and keep the most recent 20 rewards. Otherwise, the database can
-        // grow indefinitely.
-        let mut stmt = connection.prepare_cached(
-            "DELETE FROM practice_rewards WHERE id IN (
-                    SELECT id FROM practice_rewards WHERE unit_uid = (
-                        SELECT unit_uid FROM uids WHERE unit_id = $1)
-                    ORDER BY timestamp DESC LIMIT -1 OFFSET 20
-                );",
-        )?;
-        let _ = stmt.execute(params![unit_id.as_str()])?;
-
-        Ok(true)
+        tx.commit()?;
+        Ok(updated)
     }
 
     /// Helper function to trim the number of rewards for each unit to the given number. If the
@@ -282,13 +280,12 @@ impl PracticeRewards for LocalPracticeRewards {
             .map_err(|e| PracticeRewardsError::GetRewards(unit_id, e))
     }
 
-    fn record_unit_reward(
+    fn record_unit_rewards(
         &mut self,
-        unit_id: Ustr,
-        reward: &UnitReward,
-    ) -> Result<bool, PracticeRewardsError> {
-        self.record_unit_reward_helper(unit_id, reward)
-            .map_err(|e| PracticeRewardsError::RecordReward(unit_id, e))
+        rewards: &[UnitReward],
+    ) -> Result<Vec<Ustr>, PracticeRewardsError> {
+        self.record_unit_rewards_helper(rewards)
+            .map_err(PracticeRewardsError::RecordRewards)
     }
 
     fn trim_rewards(&mut self, num_rewards: usize) -> Result<(), PracticeRewardsError> {
@@ -343,14 +340,12 @@ mod test {
     fn basic() -> Result<()> {
         let mut practice_rewards = new_tests_rewards()?;
         let unit_id = Ustr::from("unit_123");
-        practice_rewards.record_unit_reward(
+        practice_rewards.record_unit_rewards(&[UnitReward {
             unit_id,
-            &UnitReward {
-                value: 3.0,
-                weight: 1.0,
-                timestamp: 1,
-            },
-        )?;
+            value: 3.0,
+            weight: 1.0,
+            timestamp: 1,
+        }])?;
         let rewards = practice_rewards.get_rewards(unit_id, 1)?;
         assert_rewards(&[3.0], &[1.0], &rewards);
         Ok(())
@@ -361,30 +356,24 @@ mod test {
     fn multiple_rewards() -> Result<()> {
         let mut practice_rewards = new_tests_rewards()?;
         let unit_id = Ustr::from("unit_123");
-        practice_rewards.record_unit_reward(
+        practice_rewards.record_unit_rewards(&[UnitReward {
             unit_id,
-            &UnitReward {
-                value: 3.0,
-                weight: 1.0,
-                timestamp: 1,
-            },
-        )?;
-        practice_rewards.record_unit_reward(
+            value: 3.0,
+            weight: 1.0,
+            timestamp: 1,
+        }])?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
             unit_id,
-            &UnitReward {
-                value: 2.0,
-                weight: 1.0,
-                timestamp: 2,
-            },
-        )?;
-        practice_rewards.record_unit_reward(
+            value: 2.0,
+            weight: 1.0,
+            timestamp: 2,
+        }])?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
             unit_id,
-            &UnitReward {
-                value: -1.0,
-                weight: 0.05,
-                timestamp: 3,
-            },
-        )?;
+            value: -1.0,
+            weight: 0.05,
+            timestamp: 3,
+        }])?;
 
         let one_reward = practice_rewards.get_rewards(unit_id, 1)?;
         assert_rewards(&[-1.0], &[0.05], &one_reward);
@@ -403,14 +392,12 @@ mod test {
         let mut practice_rewards = new_tests_rewards()?;
         let unit_id = Ustr::from("unit_123");
         for i in 0..20 {
-            practice_rewards.record_unit_reward(
+            practice_rewards.record_unit_rewards(&[UnitReward {
                 unit_id,
-                &UnitReward {
-                    value: i as f32,
-                    weight: 1.0,
-                    timestamp: i as i64,
-                },
-            )?;
+                value: i as f32,
+                weight: 1.0,
+                timestamp: i as i64,
+            }])?;
         }
 
         let rewards = practice_rewards.get_rewards(unit_id, 10)?;
@@ -434,57 +421,45 @@ mod test {
     fn trim_rewards_some_rewards_removed() -> Result<()> {
         let mut practice_rewards = new_tests_rewards()?;
         let unit1_id = Ustr::from("unit1");
-        practice_rewards.record_unit_reward(
-            unit1_id,
-            &UnitReward {
-                value: 3.0,
-                weight: 1.0,
-                timestamp: 1,
-            },
-        )?;
-        practice_rewards.record_unit_reward(
-            unit1_id,
-            &UnitReward {
-                value: 4.0,
-                weight: 1.0,
-                timestamp: 2,
-            },
-        )?;
-        practice_rewards.record_unit_reward(
-            unit1_id,
-            &UnitReward {
-                value: 5.0,
-                weight: 1.0,
-                timestamp: 3,
-            },
-        )?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
+            unit_id: unit1_id,
+            value: 3.0,
+            weight: 1.0,
+            timestamp: 1,
+        }])?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
+            unit_id: unit1_id,
+            value: 4.0,
+            weight: 1.0,
+            timestamp: 2,
+        }])?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
+            unit_id: unit1_id,
+            value: 5.0,
+            weight: 1.0,
+            timestamp: 3,
+        }])?;
         assert_eq!(3, practice_rewards.get_rewards(unit1_id, 10)?.len());
 
         let unit2_id = Ustr::from("unit2");
-        practice_rewards.record_unit_reward(
-            unit2_id,
-            &UnitReward {
-                value: 1.0,
-                weight: 1.0,
-                timestamp: 1,
-            },
-        )?;
-        practice_rewards.record_unit_reward(
-            unit2_id,
-            &UnitReward {
-                value: 2.0,
-                weight: 1.0,
-                timestamp: 2,
-            },
-        )?;
-        practice_rewards.record_unit_reward(
-            unit2_id,
-            &UnitReward {
-                value: 3.0,
-                weight: 1.0,
-                timestamp: 3,
-            },
-        )?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
+            unit_id: unit2_id,
+            value: 1.0,
+            weight: 1.0,
+            timestamp: 1,
+        }])?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
+            unit_id: unit2_id,
+            value: 2.0,
+            weight: 1.0,
+            timestamp: 2,
+        }])?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
+            unit_id: unit2_id,
+            value: 3.0,
+            weight: 1.0,
+            timestamp: 3,
+        }])?;
         assert_eq!(3, practice_rewards.get_rewards(unit2_id, 10)?.len());
 
         practice_rewards.trim_rewards(2)?;
@@ -500,56 +475,44 @@ mod test {
     fn trim_rewards_no_rewards_removed() -> Result<()> {
         let mut practice_rewards = new_tests_rewards()?;
         let unit1_id = Ustr::from("unit1");
-        practice_rewards.record_unit_reward(
-            unit1_id,
-            &UnitReward {
-                value: 3.0,
-                weight: 1.0,
-                timestamp: 1,
-            },
-        )?;
-        practice_rewards.record_unit_reward(
-            unit1_id,
-            &UnitReward {
-                value: 4.0,
-                weight: 1.0,
-                timestamp: 2,
-            },
-        )?;
-        practice_rewards.record_unit_reward(
-            unit1_id,
-            &UnitReward {
-                value: 5.0,
-                weight: 1.0,
-                timestamp: 3,
-            },
-        )?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
+            unit_id: unit1_id,
+            value: 3.0,
+            weight: 1.0,
+            timestamp: 1,
+        }])?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
+            unit_id: unit1_id,
+            value: 4.0,
+            weight: 1.0,
+            timestamp: 2,
+        }])?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
+            unit_id: unit1_id,
+            value: 5.0,
+            weight: 1.0,
+            timestamp: 3,
+        }])?;
 
         let unit2_id = Ustr::from("unit2");
-        practice_rewards.record_unit_reward(
-            unit2_id,
-            &UnitReward {
-                value: 1.0,
-                weight: 1.0,
-                timestamp: 1,
-            },
-        )?;
-        practice_rewards.record_unit_reward(
-            unit2_id,
-            &UnitReward {
-                value: 2.0,
-                weight: 1.0,
-                timestamp: 2,
-            },
-        )?;
-        practice_rewards.record_unit_reward(
-            unit2_id,
-            &UnitReward {
-                value: 3.0,
-                weight: 1.0,
-                timestamp: 3,
-            },
-        )?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
+            unit_id: unit2_id,
+            value: 1.0,
+            weight: 1.0,
+            timestamp: 1,
+        }])?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
+            unit_id: unit2_id,
+            value: 2.0,
+            weight: 1.0,
+            timestamp: 2,
+        }])?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
+            unit_id: unit2_id,
+            value: 3.0,
+            weight: 1.0,
+            timestamp: 3,
+        }])?;
 
         practice_rewards.trim_rewards(10)?;
 
@@ -565,82 +528,64 @@ mod test {
     fn remove_rewards_with_prefix() -> Result<()> {
         let mut practice_rewards = new_tests_rewards()?;
         let unit1_id = Ustr::from("unit1");
-        practice_rewards.record_unit_reward(
-            unit1_id,
-            &UnitReward {
-                value: 3.0,
-                weight: 1.0,
-                timestamp: 1,
-            },
-        )?;
-        practice_rewards.record_unit_reward(
-            unit1_id,
-            &UnitReward {
-                value: 4.0,
-                weight: 1.0,
-                timestamp: 2,
-            },
-        )?;
-        practice_rewards.record_unit_reward(
-            unit1_id,
-            &UnitReward {
-                value: 5.0,
-                weight: 1.0,
-                timestamp: 3,
-            },
-        )?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
+            unit_id: unit1_id,
+            value: 3.0,
+            weight: 1.0,
+            timestamp: 1,
+        }])?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
+            unit_id: unit1_id,
+            value: 4.0,
+            weight: 1.0,
+            timestamp: 2,
+        }])?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
+            unit_id: unit1_id,
+            value: 5.0,
+            weight: 1.0,
+            timestamp: 3,
+        }])?;
 
         let unit2_id = Ustr::from("unit2");
-        practice_rewards.record_unit_reward(
-            unit2_id,
-            &UnitReward {
-                value: 1.0,
-                weight: 1.0,
-                timestamp: 1,
-            },
-        )?;
-        practice_rewards.record_unit_reward(
-            unit2_id,
-            &UnitReward {
-                value: 2.0,
-                weight: 1.0,
-                timestamp: 2,
-            },
-        )?;
-        practice_rewards.record_unit_reward(
-            unit2_id,
-            &UnitReward {
-                value: 3.0,
-                weight: 1.0,
-                timestamp: 3,
-            },
-        )?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
+            unit_id: unit2_id,
+            value: 1.0,
+            weight: 1.0,
+            timestamp: 1,
+        }])?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
+            unit_id: unit2_id,
+            value: 2.0,
+            weight: 1.0,
+            timestamp: 2,
+        }])?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
+            unit_id: unit2_id,
+            value: 3.0,
+            weight: 1.0,
+            timestamp: 3,
+        }])?;
 
         let unit3_id = Ustr::from("unit3");
-        practice_rewards.record_unit_reward(
-            unit3_id,
-            &UnitReward {
-                value: 1.0,
-                weight: 1.0,
-                timestamp: 1,
-            },
-        )?;
-        practice_rewards.record_unit_reward(
-            unit3_id,
-            &UnitReward {
-                value: 2.0,
-                weight: 1.0,
-                timestamp: 2,
-            },
-        )?;
-        practice_rewards.record_unit_reward(
-            unit3_id,
-            &UnitReward {
-                value: 3.0,
-                weight: 1.0,
-                timestamp: 3,
-            },
-        )?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
+            unit_id: unit3_id,
+            value: 1.0,
+            weight: 1.0,
+            timestamp: 1,
+        }])?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
+            unit_id: unit3_id,
+            value: 2.0,
+            weight: 1.0,
+            timestamp: 2,
+        }])?;
+        practice_rewards.record_unit_rewards(&[UnitReward {
+            unit_id: unit3_id,
+            value: 3.0,
+            weight: 1.0,
+            timestamp: 3,
+        }])?;
 
         // Remove the prefix "unit1".
         practice_rewards.remove_rewards_with_prefix("unit1")?;

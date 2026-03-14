@@ -43,8 +43,8 @@ pub enum PracticeRewardsError {
     #[error("cannot get rewards for unit {0}: {1}")]
     GetRewards(Ustr, #[source] anyhow::Error),
 
-    #[error("cannot record reward for unit {0}: {1}")]
-    RecordReward(Ustr, #[source] anyhow::Error),
+    #[error("cannot record rewards: {0}")]
+    RecordRewards(#[source] anyhow::Error),
 
     #[error("cannot trim rewards: {0}")]
     TrimReward(#[source] anyhow::Error),

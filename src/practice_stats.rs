@@ -144,22 +144,26 @@ impl LocalPracticeStats {
         score: &MasteryScore,
         timestamp: i64,
     ) -> Result<()> {
-        // Update the mapping of unit ID to unique integer ID.
-        let connection = self.pool.get()?;
-        let mut uid_stmt =
-            connection.prepare_cached("INSERT OR IGNORE INTO uids(unit_id) VALUES ($1);")?;
-        uid_stmt.execute(params![exercise_id.as_str()])?;
+        // Update the mapping of unit ID to unique integer ID and add the trial in a single
+        // transaction.
+        let mut connection = self.pool.get()?;
+        let tx = connection.transaction()?;
+        {
+            let mut uid_stmt =
+                tx.prepare_cached("INSERT OR IGNORE INTO uids(unit_id) VALUES ($1);")?;
+            uid_stmt.execute(params![exercise_id.as_str()])?;
 
-        // Insert the exercise trial into the database.
-        let mut stmt = connection.prepare_cached(
-            "INSERT INTO practice_stats (unit_uid, score, timestamp) VALUES (
+            let mut stmt = tx.prepare_cached(
+                "INSERT INTO practice_stats (unit_uid, score, timestamp) VALUES (
                 (SELECT unit_uid FROM uids WHERE unit_id = $1), $2, $3);",
-        )?;
-        stmt.execute(params![
-            exercise_id.as_str(),
-            score.float_score(),
-            timestamp
-        ])?;
+            )?;
+            stmt.execute(params![
+                exercise_id.as_str(),
+                score.float_score(),
+                timestamp
+            ])?;
+        }
+        tx.commit()?;
         Ok(())
     }
 

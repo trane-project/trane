@@ -113,6 +113,9 @@ pub struct ExerciseTrial {
 /// on performance of related exercises.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct UnitReward {
+    /// The ID of the unit to which the reward is attached.
+    pub unit_id: Ustr,
+
     /// The reward assigned to the exercise. The value can be negative, zero, or positive.
     pub value: f32,
 
@@ -1435,6 +1438,7 @@ mod test {
     #[test]
     fn unit_reward_clone() {
         let reward = UnitReward {
+            unit_id: Ustr::from("unit"),
             timestamp: 1,
             value: 1.0,
             weight: 1.0,

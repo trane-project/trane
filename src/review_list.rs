@@ -71,7 +71,7 @@ impl LocalReviewList {
                 // of SQLite. See the SQLite [docs](https://www.sqlite.org/pragma.html) for more
                 // information.
                 connection.pragma_update(None, "journal_mode", "WAL")?;
-                connection.pragma_update(None, "synchronous", "NORMAL")
+                connection.pragma_update(None, "synchronous", "OFF")
             },
         );
         Self::new(connection_manager)

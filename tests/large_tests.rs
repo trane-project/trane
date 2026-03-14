@@ -28,7 +28,7 @@ fn all_exercises_scheduled_random() -> Result<()> {
     // Run the simulation.
     let exercise_ids = all_test_exercises(&random_library);
     let mut simulation = TraneSimulation::new(
-        exercise_ids.len() * 100,
+        exercise_ids.len() * 300,
         Box::new(|_| Some(MasteryScore::Five)),
     );
     simulation.run_simulation(&mut trane, &vec![], &None)?;
