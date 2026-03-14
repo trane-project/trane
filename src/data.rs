@@ -912,6 +912,11 @@ pub struct SchedulerOptions {
 
     /// The number of rewards to retrieve from the practice rewards to compute a unit's reward.
     pub num_rewards: usize,
+
+    /// The maximum number of lessons in progress to include in a batch. A lesson is in progress if
+    /// it's not been seen before or its score is below the target window's range. The limit
+    /// prevents the student from splitting attention between too many new or difficult lessons.
+    pub max_lessons_in_progress: usize,
 }
 
 impl SchedulerOptions {
@@ -974,6 +979,11 @@ impl SchedulerOptions {
             bail!("invalid scheduler options: there must be no gaps in the mastery windows");
         }
 
+        // The maximum number of lessons in progress must be at least 1.
+        if self.max_lessons_in_progress == 0 {
+            bail!("invalid scheduler options: max_lessons_in_progress must be greater than 0");
+        }
+
         Ok(())
     }
 }
@@ -1011,6 +1021,7 @@ impl Default for SchedulerOptions {
             superseding_score: 4.0,
             num_trials: 15,
             num_rewards: 10,
+            max_lessons_in_progress: 10,
         }
     }
 }
@@ -1329,7 +1340,7 @@ mod test {
 
     /// Verifies scheduler options with invalid passing score V2 settings are rejected.
     #[test]
-    fn scheduler_options_invalid_passing_score_v2() {
+    fn scheduler_options_invalid_passing_score() {
         let mut options = SchedulerOptions::default();
         options.passing_score.min_fraction = -0.1;
         assert!(options.verify().is_err());
@@ -1337,7 +1348,7 @@ mod test {
 
     /// Verifies that valid passing score V2 options are recognized as such.
     #[test]
-    fn verify_passing_score_options_v2() {
+    fn verify_passing_score_options() {
         let options = PassingScoreOptions::default();
         assert!(options.verify().is_ok());
 
@@ -1351,7 +1362,7 @@ mod test {
 
     /// Verifies that invalid passing score V2 options are recognized as such.
     #[test]
-    fn verify_passing_score_options_v2_invalid() {
+    fn verify_passing_score_options_invalid() {
         let options = PassingScoreOptions {
             min_score: -1.0,
             min_fraction: 0.2,
@@ -1384,6 +1395,16 @@ mod test {
             min_score: 3.0,
             min_fraction: 0.2,
             min_avg_trials: -0.1,
+        };
+        assert!(options.verify().is_err());
+    }
+
+    /// Verifies that scheduler options with max_lessons_in_progress set to 0 fail verification.
+    #[test]
+    fn verify_scheduler_options_zero_max_lessons() {
+        let options = SchedulerOptions {
+            max_lessons_in_progress: 0,
+            ..Default::default()
         };
         assert!(options.verify().is_err());
     }

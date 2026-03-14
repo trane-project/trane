@@ -696,6 +696,29 @@ impl DepthFirstScheduler {
         blacklisted || !passes_filter || is_lesson_superseded || is_course_superseded
     }
 
+    /// Adds the candidates from the given lesson, taking care of checking the maximum number of
+    /// lessons in progress and updating the lessons in progress if needed.
+    fn extend_candidates(
+        all_candidates: &mut Vec<Candidate>,
+        candidates: Vec<Candidate>,
+        lesson_id: Ustr,
+        lesson_score: Option<f32>,
+        lessons_in_progress: &mut UstrSet,
+        options: &SchedulerOptions,
+    ) {
+        let in_progress = match lesson_score {
+            Some(score) => score <= options.target_window_opts.range.1,
+            None => true,
+        };
+        if in_progress && !lessons_in_progress.contains(&lesson_id) {
+            if lessons_in_progress.len() >= options.max_lessons_in_progress {
+                return;
+            }
+            lessons_in_progress.insert(lesson_id);
+        }
+        all_candidates.extend(candidates);
+    }
+
     /// Searches for candidates across the graph starting from the given stack. If course traversal
     /// is not allowed, the search will only happen within the given allowed courses. The optional
     /// metadata filter is used to restrict the search to only the units that match the filter while
@@ -711,6 +734,7 @@ impl DepthFirstScheduler {
         // Initialize the list of candidates.
         let max_candidates = self.data.options.batch_size * MAX_CANDIDATE_FACTOR;
         let mut all_candidates: Vec<Candidate> = Vec::new();
+        let mut lessons_in_progress = UstrSet::default();
 
         // The dependency relationships between a course and its lessons are not explicitly encoded
         // in the graph. While this would simplify this section of the search logic, it would
@@ -819,7 +843,14 @@ impl DepthFirstScheduler {
                     for candidate in &mut candidates {
                         candidate.dead_end = true;
                     }
-                    all_candidates.extend(candidates);
+                    Self::extend_candidates(
+                        &mut all_candidates,
+                        candidates,
+                        curr_unit.unit_id,
+                        avg_score,
+                        &mut lessons_in_progress,
+                        &self.data.options,
+                    );
 
                     // Search reached a dead-end. If there are already enough candidates, terminate
                     // the search. Otherwise, continue with the search and shuffle the entire stack
@@ -833,7 +864,14 @@ impl DepthFirstScheduler {
 
                 // The search should continue past this lesson. Add its candidates and continue the
                 // search via its valid dependents.
-                all_candidates.extend(candidates);
+                Self::extend_candidates(
+                    &mut all_candidates,
+                    candidates,
+                    curr_unit.unit_id,
+                    avg_score,
+                    &mut lessons_in_progress,
+                    &self.data.options,
+                );
                 Self::shuffle_to_stack(&curr_unit, valid_deps, &mut stack);
             }
         }
@@ -1154,6 +1192,7 @@ mod test {
 
     use super::*;
 
+    /// Returns a candidate with the given parameters.
     fn candidate(id: u32, lesson_score: f32, exercise_score: f32, depth: f32) -> Candidate {
         let exercise_id = format!("exercise-{id}");
         Candidate {
@@ -1181,6 +1220,31 @@ mod test {
             .map(|idx| candidate(idx as u32, lesson_score, 0.0, 1.0))
             .collect::<Vec<_>>();
         DepthFirstScheduler::select_candidates(candidates, lesson_score, &options)
+    }
+
+    /// Returns a candidate with the given exercise and lesson IDs.
+    fn candidate_with_lesson(id: u32, lesson_id: &str) -> Candidate {
+        Candidate {
+            exercise_id: Ustr::from(&format!("exercise-{id}")),
+            lesson_id: Ustr::from(lesson_id),
+            course_id: Ustr::from("course"),
+            depth: 1.0,
+            exercise_score: 0.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
+            num_trials: 0,
+            last_seen: 0.0,
+            frequency: 0,
+            dead_end: false,
+        }
+    }
+
+    /// Returns options with the given maximum number of lessons in progress.
+    fn default_options_with_max_lessons(max: usize) -> SchedulerOptions {
+        SchedulerOptions {
+            max_lessons_in_progress: max,
+            ..Default::default()
+        }
     }
 
     /// Verifies that an empty list of candidates results in an empty selection.
@@ -1224,8 +1288,8 @@ mod test {
         assert_eq!(candidates.len(), 5);
     }
 
-    /// Verifies that when the lesson score is equal or above the minimum score, at least the minimum
-    /// fraction of candidates is selected.
+    /// Verifies that when the lesson score is equal or above the minimum score, at least the
+    /// minimum fraction of candidates is selected.
     #[test]
     fn select_candidates_minimum_score_guarantees_one() {
         let candidates = select(
@@ -1285,5 +1349,150 @@ mod test {
             },
         );
         assert_eq!(candidates.len(), 11);
+    }
+
+    /// Verifies that in-progress lessons within the limit are added.
+    #[test]
+    fn extend_candidates_within_limit() {
+        let options = default_options_with_max_lessons(3);
+        let mut all_candidates = Vec::new();
+        let mut lessons_in_progress = UstrSet::default();
+
+        // Add candidates from two in-progress lessons (score below target window range).
+        let candidates_a = vec![candidate_with_lesson(0, "lesson-a")];
+        let candidates_b = vec![candidate_with_lesson(1, "lesson-b")];
+        DepthFirstScheduler::extend_candidates(
+            &mut all_candidates,
+            candidates_a,
+            Ustr::from("lesson-a"),
+            Some(1.0),
+            &mut lessons_in_progress,
+            &options,
+        );
+        DepthFirstScheduler::extend_candidates(
+            &mut all_candidates,
+            candidates_b,
+            Ustr::from("lesson-b"),
+            Some(1.0),
+            &mut lessons_in_progress,
+            &options,
+        );
+        assert_eq!(all_candidates.len(), 2);
+        assert_eq!(lessons_in_progress.len(), 2);
+    }
+
+    /// Verifies that candidates from a lesson exceeding the limit are skipped.
+    #[test]
+    fn extend_candidates_exceeds_limit() {
+        let options = default_options_with_max_lessons(2);
+        let mut all_candidates = Vec::new();
+        let mut lessons_in_progress = UstrSet::default();
+
+        // Fill up the limit with two lessons.
+        for lesson in &["lesson-a", "lesson-b"] {
+            DepthFirstScheduler::extend_candidates(
+                &mut all_candidates,
+                vec![candidate_with_lesson(0, lesson)],
+                Ustr::from(lesson),
+                Some(1.0),
+                &mut lessons_in_progress,
+                &options,
+            );
+        }
+
+        // A third in-progress lesson should be rejected.
+        DepthFirstScheduler::extend_candidates(
+            &mut all_candidates,
+            vec![candidate_with_lesson(2, "lesson-c")],
+            Ustr::from("lesson-c"),
+            Some(1.0),
+            &mut lessons_in_progress,
+            &options,
+        );
+        assert_eq!(all_candidates.len(), 2);
+        assert_eq!(lessons_in_progress.len(), 2);
+    }
+
+    /// Verifies that an already-tracked in-progress lesson continues contributing candidates.
+    #[test]
+    fn extend_candidates_already_tracked_lesson() {
+        let options = default_options_with_max_lessons(1);
+        let mut all_candidates = Vec::new();
+        let mut lessons_in_progress = UstrSet::default();
+
+        // Add two batches from the same lesson.
+        for id in 0..2 {
+            DepthFirstScheduler::extend_candidates(
+                &mut all_candidates,
+                vec![candidate_with_lesson(id, "lesson-a")],
+                Ustr::from("lesson-a"),
+                Some(1.0),
+                &mut lessons_in_progress,
+                &options,
+            );
+        }
+        assert_eq!(all_candidates.len(), 2);
+        assert_eq!(lessons_in_progress.len(), 1);
+    }
+
+    /// Verifies that lessons above the target window range are always included regardless of the
+    /// limit.
+    #[test]
+    fn extend_candidates_passed_lessons_bypass_limit() {
+        let options = default_options_with_max_lessons(1);
+        let mut all_candidates = Vec::new();
+        let mut lessons_in_progress = UstrSet::default();
+
+        // Fill the limit.
+        DepthFirstScheduler::extend_candidates(
+            &mut all_candidates,
+            vec![candidate_with_lesson(0, "lesson-a")],
+            Ustr::from("lesson-a"),
+            Some(1.0),
+            &mut lessons_in_progress,
+            &options,
+        );
+
+        // A lesson above the target window range should still be included.
+        DepthFirstScheduler::extend_candidates(
+            &mut all_candidates,
+            vec![candidate_with_lesson(1, "lesson-b")],
+            Ustr::from("lesson-b"),
+            Some(3.0),
+            &mut lessons_in_progress,
+            &options,
+        );
+        assert_eq!(all_candidates.len(), 2);
+        assert_eq!(lessons_in_progress.len(), 1);
+    }
+
+    /// Verifies that lessons with no score (unseen) count as in-progress.
+    #[test]
+    fn extend_candidates_no_score_counts_as_in_progress() {
+        let options = default_options_with_max_lessons(1);
+        let mut all_candidates = Vec::new();
+        let mut lessons_in_progress = UstrSet::default();
+
+        // Fill the limit with an unseen lesson.
+        DepthFirstScheduler::extend_candidates(
+            &mut all_candidates,
+            vec![candidate_with_lesson(0, "lesson-a")],
+            Ustr::from("lesson-a"),
+            None,
+            &mut lessons_in_progress,
+            &options,
+        );
+
+        // A second unseen lesson should be rejected.
+        DepthFirstScheduler::extend_candidates(
+            &mut all_candidates,
+            vec![candidate_with_lesson(1, "lesson-b")],
+            Ustr::from("lesson-b"),
+            None,
+            &mut lessons_in_progress,
+            &options,
+        );
+        assert_eq!(all_candidates.len(), 1);
+        assert_eq!(lessons_in_progress.len(), 1);
     }
 }

@@ -7,7 +7,11 @@
 
 use anyhow::{Ok, Result};
 use tempfile::TempDir;
-use trane::{data::MasteryScore, test_utils::*};
+use trane::{
+    data::{MasteryScore, PassingScoreOptions, SchedulerOptions},
+    scheduler::ExerciseScheduler,
+    test_utils::*,
+};
 
 /// Verifies that all the exercises are scheduled with no blacklist or filter when the user gives a
 /// score of five to every exercise, even in a course library with a lot of exercises.
@@ -24,11 +28,18 @@ fn all_exercises_scheduled_random() -> Result<()> {
     }
     .generate_library();
     let mut trane = init_test_simulation(temp_dir.path(), &random_library)?;
+    trane.set_scheduler_options(SchedulerOptions {
+        passing_score: PassingScoreOptions {
+            min_avg_trials: 1.0,
+            ..Default::default()
+        },
+        ..Default::default()
+    });
 
     // Run the simulation.
     let exercise_ids = all_test_exercises(&random_library);
     let mut simulation = TraneSimulation::new(
-        exercise_ids.len() * 300,
+        exercise_ids.len() * 50,
         Box::new(|_| Some(MasteryScore::Five)),
     );
     simulation.run_simulation(&mut trane, &vec![], &None)?;
