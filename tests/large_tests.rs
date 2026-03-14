@@ -17,10 +17,10 @@ fn all_exercises_scheduled_random() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let random_library = RandomCourseLibrary {
         num_courses: 25,
-        course_dependencies_range: (5, 5),
-        lessons_per_course_range: (5, 5),
-        lesson_dependencies_range: (5, 5),
-        exercises_per_lesson_range: (5, 5),
+        course_dependencies_range: (10, 10),
+        lessons_per_course_range: (10, 10),
+        lesson_dependencies_range: (10, 10),
+        exercises_per_lesson_range: (10, 10),
     }
     .generate_library();
     let mut trane = init_test_simulation(temp_dir.path(), &random_library)?;
