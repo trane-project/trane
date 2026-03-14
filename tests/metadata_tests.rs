@@ -829,7 +829,7 @@ fn scheduler_bridges_filtered_dependency_chain() -> Result<()> {
     // downstream endpoint remains blocked.
     let a_exercise = TestId(0, Some(0), Some(0)).to_ustr();
     let d_exercise = TestId(3, Some(0), Some(0)).to_ustr();
-    let passing_score = trane.get_scheduler_options().passing_score_v2.min_score;
+    let passing_score = trane.get_scheduler_options().passing_score.min_score;
     assert!(
         trane.get_exercise_ids(a_lesson).unwrap_or_default().len() > 0,
         "lesson {:?} should contain at least one exercise",

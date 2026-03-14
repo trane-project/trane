@@ -791,17 +791,23 @@ pub struct PassingScoreOptions {
     /// to adding all the exercises as the score increases.
     pub min_fraction: f32,
 
-    /// The minimum score of a unit required to move on to its dependents. Because of the gradual
-    /// transition achieved by min_fraction, this score can be made lower than it would be
+    /// The minimum score of a unit required to move on to the unit's dependents. Because of the
+    /// gradual transition achieved by min_fraction, this score can be made lower than it would be
     /// otherwise.
     pub min_score: f32,
+
+    /// The minimum average number of trials per exercise required to move on to the unit's
+    /// dependents. Prevents moving on from this lesson too early without sufficient evidence of
+    /// mastery.
+    pub min_avg_trials: f32,
 }
 
 impl Default for PassingScoreOptions {
     fn default() -> Self {
         PassingScoreOptions {
             min_score: 3.0,
-            min_fraction: 0.4,
+            min_fraction: 0.6,
+            min_avg_trials: 1.5,
         }
     }
 }
@@ -815,6 +821,10 @@ impl PassingScoreOptions {
 
         if self.min_fraction < 0.0 || self.min_fraction > 1.0 {
             bail!("invalid minimum fraction: {}", self.min_fraction);
+        }
+
+        if self.min_avg_trials < 1.0 {
+            bail!("invalid minimum average trials: {}", self.min_avg_trials);
         }
         Ok(())
     }
@@ -887,7 +897,7 @@ pub struct SchedulerOptions {
 
     /// The options to control how the scheduler decides when to move on to the dependents of a
     /// unit.
-    pub passing_score_v2: PassingScoreOptions,
+    pub passing_score: PassingScoreOptions,
 
     /// The minimum score required to supersede a unit. If unit A is superseded by B, then the
     /// exercises from unit A will not be shown once the score of unit B is greater than or equal to
@@ -917,7 +927,7 @@ impl SchedulerOptions {
         if self.relearn_fraction < 0.0 || self.relearn_fraction > 1.0 {
             bail!("invalid scheduler options: relearn_fraction must be between 0.0 and 1.0");
         }
-        self.passing_score_v2.verify()?;
+        self.passing_score.verify()?;
 
         // The sum of the percentages of the mastery windows must be 1.0.
         if !Self::float_equals(
@@ -994,7 +1004,7 @@ impl Default for SchedulerOptions {
                 percentage: 0.1,
                 range: (4.5, 5.0),
             },
-            passing_score_v2: PassingScoreOptions::default(),
+            passing_score: PassingScoreOptions::default(),
             superseding_score: 4.0,
             num_trials: 15,
             num_rewards: 10,
@@ -1318,7 +1328,7 @@ mod test {
     #[test]
     fn scheduler_options_invalid_passing_score_v2() {
         let mut options = SchedulerOptions::default();
-        options.passing_score_v2.min_fraction = -0.1;
+        options.passing_score.min_fraction = -0.1;
         assert!(options.verify().is_err());
     }
 
@@ -1331,6 +1341,7 @@ mod test {
         let options = PassingScoreOptions {
             min_score: 3.75,
             min_fraction: 0.75,
+            min_avg_trials: 1.0,
         };
         assert!(options.verify().is_ok());
     }
@@ -1341,24 +1352,35 @@ mod test {
         let options = PassingScoreOptions {
             min_score: -1.0,
             min_fraction: 0.2,
+            min_avg_trials: 1.0,
         };
         assert!(options.verify().is_err());
 
         let options = PassingScoreOptions {
             min_score: 4.6,
             min_fraction: 0.2,
+            min_avg_trials: 1.0,
         };
         assert!(options.verify().is_err());
 
         let options = PassingScoreOptions {
             min_score: 3.0,
             min_fraction: -0.1,
+            min_avg_trials: 1.0,
         };
         assert!(options.verify().is_err());
 
         let options = PassingScoreOptions {
             min_score: 3.0,
             min_fraction: 1.1,
+            min_avg_trials: 1.0,
+        };
+        assert!(options.verify().is_err());
+
+        let options = PassingScoreOptions {
+            min_score: 3.0,
+            min_fraction: 0.2,
+            min_avg_trials: -0.1,
         };
         assert!(options.verify().is_err());
     }

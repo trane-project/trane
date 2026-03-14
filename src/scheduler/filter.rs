@@ -263,8 +263,8 @@ impl CandidateFilter {
         frequency_map: &UstrMap<u32>,
         max_added: Option<usize>,
     ) {
-        // Do not fill batches past 2/3 of the batch size to avoid creating unbalanced batches.
-        if final_candidates.len() >= batch_size * 2 / 3 {
+        // Do not fill batches past 3/4 of the batch size to avoid creating unbalanced batches.
+        if final_candidates.len() >= batch_size * 3 / 4 {
             return;
         }
 
@@ -411,7 +411,7 @@ impl CandidateFilter {
         //
         // The number of exercises added is a multiple of 1/20th of the batch size to make the
         // values proportional to it.
-        let base_remainder = (batch_size / 20).max(1);
+        let base_remainder = (batch_size / 10).max(1);
         Self::add_remainder(
             batch_size,
             &mut final_candidates,
@@ -438,14 +438,14 @@ impl CandidateFilter {
             &mut final_candidates,
             &easy_remainder,
             frequency_map,
-            Some(2 * base_remainder),
+            Some(3 * base_remainder),
         );
         Self::add_remainder(
             batch_size,
             &mut final_candidates,
             &mastered_remainder,
             frequency_map,
-            Some(base_remainder),
+            None,
         );
         final_candidates
     }
