@@ -56,7 +56,7 @@ mod tests {
 
     use crate::{data::SchedulerOptions, scheduler::Candidate};
 
-    use super::{Shuffler, MAX_GROUP_SIZE};
+    use super::{MAX_GROUP_SIZE, Shuffler};
 
     /// Creates a candidate with the given course ID, exercise ID, and exercise score.
     fn candidate(course_id: &str, exercise_id: &str, exercise_score: f32) -> Candidate {
@@ -186,7 +186,11 @@ mod tests {
             .collect();
         // Add enough other groups so the c1 chunks are likely to be separated.
         for i in 0..5 {
-            candidates.push(candidate(&format!("c{}", i + 2), &format!("e_other_{i}"), 1.0));
+            candidates.push(candidate(
+                &format!("c{}", i + 2),
+                &format!("e_other_{i}"),
+                1.0,
+            ));
         }
 
         let mut saw_split = false;
