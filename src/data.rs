@@ -1021,7 +1021,7 @@ impl Default for SchedulerOptions {
             superseding_score: 4.0,
             num_trials: 15,
             num_rewards: 10,
-            max_lessons_in_progress: 5,
+            max_lessons_in_progress: 10,
         }
     }
 }
