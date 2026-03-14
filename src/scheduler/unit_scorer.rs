@@ -42,6 +42,12 @@ pub(super) struct UnitScorer {
     /// A mapping of course ID to cached score.
     course_cache: RefCell<UstrMap<Option<f32>>>,
 
+    /// A mapping of lesson ID to cached average number of trials.
+    lesson_trials_cache: RefCell<UstrMap<Option<f32>>>,
+
+    /// A mapping of course ID to cached average number of trials.
+    course_trials_cache: RefCell<UstrMap<Option<f32>>>,
+
     /// The data used by the scheduler.
     data: SchedulerData,
 
@@ -62,6 +68,8 @@ impl UnitScorer {
             exercise_cache: RefCell::new(UstrMap::default()),
             lesson_cache: RefCell::new(UstrMap::default()),
             course_cache: RefCell::new(UstrMap::default()),
+            lesson_trials_cache: RefCell::new(UstrMap::default()),
+            course_trials_cache: RefCell::new(UstrMap::default()),
             data,
             options,
             exercise_scorer: Box::new(PowerLawScorer {}),
@@ -72,46 +80,55 @@ impl UnitScorer {
     /// Removes the cached score for the given unit and all units affected by an update to its
     /// score.
     pub(super) fn invalidate_cached_score(&self, unit_id: Ustr) {
-        // Remove the unit itself from the cache.
-        let is_exercise = self.exercise_cache.borrow_mut().remove(&unit_id).is_some();
-        let is_lesson = self.lesson_cache.borrow_mut().remove(&unit_id).is_some();
-        let is_course = self.course_cache.borrow_mut().remove(&unit_id).is_some();
+        // Remove the unit itself from all caches.
+        self.exercise_cache.borrow_mut().remove(&unit_id);
+        self.lesson_cache.borrow_mut().remove(&unit_id);
+        self.course_cache.borrow_mut().remove(&unit_id);
+        self.lesson_trials_cache.borrow_mut().remove(&unit_id);
+        self.course_trials_cache.borrow_mut().remove(&unit_id);
 
-        // If the unit is an exercise, invalidate the cached score of its lesson and course. If the
-        // unit is a lesson, invalidate the cached score of its course.
+        // Invalidate the caches depending on the type of the unit.
         let graph = self.data.unit_graph.read();
-        if is_exercise && let Some(lesson_id) = graph.get_exercise_lesson(unit_id) {
-            self.lesson_cache.borrow_mut().remove(&lesson_id);
-            if let Some(course_id) = graph.get_lesson_course(lesson_id) {
-                self.course_cache.borrow_mut().remove(&course_id);
-            }
-        }
-
-        // Invalidate the scores of all exercises in the lesson.
-        if is_lesson {
-            let exercises = graph.get_lesson_exercises(unit_id);
-            if let Some(exercise_ids) = exercises {
-                for exercise_id in exercise_ids.iter() {
-                    self.exercise_cache.borrow_mut().remove(exercise_id);
+        match graph.get_unit_type(unit_id) {
+            // If the unit is an exercise, invalidate the cached score of its lesson and course. If
+            // the unit is a lesson, invalidate the cached score of its course.
+            Some(UnitType::Exercise) => {
+                if let Some(lesson_id) = graph.get_exercise_lesson(unit_id) {
+                    self.lesson_cache.borrow_mut().remove(&lesson_id);
+                    self.lesson_trials_cache.borrow_mut().remove(&lesson_id);
+                    if let Some(course_id) = graph.get_lesson_course(lesson_id) {
+                        self.course_cache.borrow_mut().remove(&course_id);
+                        self.course_trials_cache.borrow_mut().remove(&course_id);
+                    }
                 }
             }
-        }
-
-        // Invalidate the scores of all lessons in the course and all exercises in those
-        // lessons.
-        if is_course {
-            let lessons = graph.get_course_lessons(unit_id);
-            if let Some(lesson_ids) = lessons {
-                for lesson_id in lesson_ids.iter() {
-                    self.lesson_cache.borrow_mut().remove(lesson_id);
-                    let exercises = graph.get_lesson_exercises(*lesson_id);
-                    if let Some(exercise_ids) = exercises {
-                        for exercise_id in exercise_ids.iter() {
-                            self.exercise_cache.borrow_mut().remove(exercise_id);
+            // For lessons, invalidate the scores of all exercises in the lesson.
+            Some(UnitType::Lesson) => {
+                if let Some(course_id) = graph.get_lesson_course(unit_id) {
+                    self.course_cache.borrow_mut().remove(&course_id);
+                    self.course_trials_cache.borrow_mut().remove(&course_id);
+                }
+                if let Some(exercise_ids) = graph.get_lesson_exercises(unit_id) {
+                    for exercise_id in exercise_ids.iter() {
+                        self.exercise_cache.borrow_mut().remove(exercise_id);
+                    }
+                }
+            }
+            // For courses, invalidate the scores of all lessons and exercises in the course.
+            Some(UnitType::Course) => {
+                if let Some(lesson_ids) = graph.get_course_lessons(unit_id) {
+                    for lesson_id in lesson_ids.iter() {
+                        self.lesson_cache.borrow_mut().remove(lesson_id);
+                        self.lesson_trials_cache.borrow_mut().remove(lesson_id);
+                        if let Some(exercise_ids) = graph.get_lesson_exercises(*lesson_id) {
+                            for exercise_id in exercise_ids.iter() {
+                                self.exercise_cache.borrow_mut().remove(exercise_id);
+                            }
                         }
                     }
                 }
             }
+            None => {}
         }
     }
 
@@ -126,6 +143,12 @@ impl UnitScorer {
             .borrow_mut()
             .retain(|unit_id, _| !unit_id.starts_with(prefix));
         self.course_cache
+            .borrow_mut()
+            .retain(|unit_id, _| !unit_id.starts_with(prefix));
+        self.lesson_trials_cache
+            .borrow_mut()
+            .retain(|unit_id, _| !unit_id.starts_with(prefix));
+        self.course_trials_cache
             .borrow_mut()
             .retain(|unit_id, _| !unit_id.starts_with(prefix));
     }
@@ -467,6 +490,11 @@ impl UnitScorer {
 
     /// Returns the average number of trials across all the exercises in the given lesson.
     pub(super) fn get_lesson_num_trials(&self, lesson_id: Ustr) -> Option<f32> {
+        // Return the cached value if it exists.
+        if let Some(cached) = self.lesson_trials_cache.borrow().get(&lesson_id) {
+            return *cached;
+        }
+
         // Get all the exercises in the lesson and filter those that are blacklisted.
         let blacklist = self.data.blacklist.read();
         let exercise_ids: Vec<Ustr> = self
@@ -487,15 +515,26 @@ impl UnitScorer {
             .iter()
             .filter_map(|exercise_id| self.get_exercise_num_trials(*exercise_id).unwrap_or(None))
             .collect();
-        if valid_exercise_trials.is_empty() {
-            return None;
-        }
-        let total_num_trials: usize = valid_exercise_trials.iter().sum();
-        Some(total_num_trials as f32 / valid_exercise_trials.len() as f32)
+        let result = if valid_exercise_trials.is_empty() {
+            None
+        } else {
+            let total_num_trials: usize = valid_exercise_trials.iter().sum();
+            Some(total_num_trials as f32 / valid_exercise_trials.len() as f32)
+        };
+
+        self.lesson_trials_cache
+            .borrow_mut()
+            .insert(lesson_id, result);
+        result
     }
 
     /// Returns the average number of trials across all the lessons in the given course.
     pub(super) fn get_course_num_trials(&self, course_id: Ustr) -> Option<f32> {
+        // Return the cached value if it exists.
+        if let Some(cached) = self.course_trials_cache.borrow().get(&course_id) {
+            return *cached;
+        }
+
         // Get all the lessons in the course and filter those that are blacklisted or superseded.
         let blacklist = self.data.blacklist.read();
         let lesson_ids: Vec<Ustr> = self
@@ -523,11 +562,17 @@ impl UnitScorer {
             .iter()
             .filter_map(|lesson_id| self.get_lesson_num_trials(*lesson_id))
             .collect();
-        if valid_lesson_trials.is_empty() {
-            return None;
-        }
-        let total_num_trials: f32 = valid_lesson_trials.iter().sum();
-        Some(total_num_trials / valid_lesson_trials.len() as f32)
+        let result = if valid_lesson_trials.is_empty() {
+            None
+        } else {
+            let total_num_trials: f32 = valid_lesson_trials.iter().sum();
+            Some(total_num_trials / valid_lesson_trials.len() as f32)
+        };
+
+        self.course_trials_cache
+            .borrow_mut()
+            .insert(course_id, result);
+        result
     }
 
     /// Returns the number of trials for the unit. If the unit is a course or lesson, the average
