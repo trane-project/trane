@@ -697,7 +697,7 @@ impl DepthFirstScheduler {
     }
 
     /// Adds the candidates from the given lesson, taking care of checking the maximum number of
-    /// lessons in progress and updating the count.
+    /// lessons in progress and updating the lessons in progress if needed.
     fn extend_candidates(
         all_candidates: &mut Vec<Candidate>,
         candidates: Vec<Candidate>,
@@ -710,15 +710,13 @@ impl DepthFirstScheduler {
             Some(score) => score <= options.target_window_opts.range.1,
             None => true,
         };
-        if in_progress {
-            if !lessons_in_progress.contains(&lesson_id) {
-                if lessons_in_progress.len() >= options.max_lessons_in_progress {
-                    return;
-                }
-                lessons_in_progress.insert(lesson_id);
+        if in_progress && !lessons_in_progress.contains(&lesson_id) {
+            if lessons_in_progress.len() >= options.max_lessons_in_progress {
+                return;
             }
+            lessons_in_progress.insert(lesson_id);
         }
-        all_candidates.extend(candidates)
+        all_candidates.extend(candidates);
     }
 
     /// Searches for candidates across the graph starting from the given stack. If course traversal
@@ -1194,6 +1192,7 @@ mod test {
 
     use super::*;
 
+    /// Returns a candidate with the given parameters.
     fn candidate(id: u32, lesson_score: f32, exercise_score: f32, depth: f32) -> Candidate {
         let exercise_id = format!("exercise-{id}");
         Candidate {
@@ -1221,6 +1220,31 @@ mod test {
             .map(|idx| candidate(idx as u32, lesson_score, 0.0, 1.0))
             .collect::<Vec<_>>();
         DepthFirstScheduler::select_candidates(candidates, lesson_score, &options)
+    }
+
+    /// Returns a candidate with the given exercise and lesson IDs.
+    fn candidate_with_lesson(id: u32, lesson_id: &str) -> Candidate {
+        Candidate {
+            exercise_id: Ustr::from(&format!("exercise-{id}")),
+            lesson_id: Ustr::from(lesson_id),
+            course_id: Ustr::from("course"),
+            depth: 1.0,
+            exercise_score: 0.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
+            num_trials: 0,
+            last_seen: 0.0,
+            frequency: 0,
+            dead_end: false,
+        }
+    }
+
+    /// Returns options with the given maximum number of lessons in progress.
+    fn default_options_with_max_lessons(max: usize) -> SchedulerOptions {
+        SchedulerOptions {
+            max_lessons_in_progress: max,
+            ..Default::default()
+        }
     }
 
     /// Verifies that an empty list of candidates results in an empty selection.
@@ -1264,8 +1288,8 @@ mod test {
         assert_eq!(candidates.len(), 5);
     }
 
-    /// Verifies that when the lesson score is equal or above the minimum score, at least the minimum
-    /// fraction of candidates is selected.
+    /// Verifies that when the lesson score is equal or above the minimum score, at least the
+    /// minimum fraction of candidates is selected.
     #[test]
     fn select_candidates_minimum_score_guarantees_one() {
         let candidates = select(
@@ -1327,29 +1351,6 @@ mod test {
         assert_eq!(candidates.len(), 11);
     }
 
-    fn candidate_with_lesson(id: u32, lesson_id: &str) -> Candidate {
-        Candidate {
-            exercise_id: Ustr::from(&format!("exercise-{id}")),
-            lesson_id: Ustr::from(lesson_id),
-            course_id: Ustr::from("course"),
-            depth: 1.0,
-            exercise_score: 0.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            frequency: 0,
-            dead_end: false,
-        }
-    }
-
-    fn default_options_with_max_lessons(max: usize) -> SchedulerOptions {
-        SchedulerOptions {
-            max_lessons_in_progress: max,
-            ..Default::default()
-        }
-    }
-
     /// Verifies that in-progress lessons within the limit are added.
     #[test]
     fn extend_candidates_within_limit() {
@@ -1376,7 +1377,6 @@ mod test {
             &mut lessons_in_progress,
             &options,
         );
-
         assert_eq!(all_candidates.len(), 2);
         assert_eq!(lessons_in_progress.len(), 2);
     }
@@ -1409,7 +1409,6 @@ mod test {
             &mut lessons_in_progress,
             &options,
         );
-
         assert_eq!(all_candidates.len(), 2);
         assert_eq!(lessons_in_progress.len(), 2);
     }
@@ -1432,7 +1431,6 @@ mod test {
                 &options,
             );
         }
-
         assert_eq!(all_candidates.len(), 2);
         assert_eq!(lessons_in_progress.len(), 1);
     }
@@ -1464,7 +1462,6 @@ mod test {
             &mut lessons_in_progress,
             &options,
         );
-
         assert_eq!(all_candidates.len(), 2);
         assert_eq!(lessons_in_progress.len(), 1);
     }
@@ -1495,7 +1492,6 @@ mod test {
             &mut lessons_in_progress,
             &options,
         );
-
         assert_eq!(all_candidates.len(), 1);
         assert_eq!(lessons_in_progress.len(), 1);
     }
