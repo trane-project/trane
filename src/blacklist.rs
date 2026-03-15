@@ -39,8 +39,11 @@ pub struct LocalBlacklist {
     /// A cache of the blacklist entries used to avoid unnecessary queries to the database.
     cache: RwLock<UstrMap<bool>>,
 
-    /// A connection to the database.
-    connection: Mutex<Connection>,
+    /// A connection used for read-only queries.
+    read_connection: Mutex<Connection>,
+
+    /// A connection used for write operations.
+    write_connection: Mutex<Connection>,
 }
 
 impl LocalBlacklist {
@@ -60,16 +63,19 @@ impl LocalBlacklist {
     /// already, they will have no effect on the database.
     fn init(&mut self) -> Result<()> {
         let migrations = Self::migrations();
-        let mut connection = self.connection.lock();
+        let mut connection = self.write_connection.lock();
         migrations.to_latest(&mut connection)?;
         Ok(())
     }
 
-    /// Creates a connection pool and initializes the database and in-memory cache.
-    fn new(connection: Connection) -> Result<LocalBlacklist> {
+    /// Opens two connections to the given database path and initializes the schema and in-memory
+    /// cache. One connection is used for reads and one for writes to avoid prepared statement
+    /// invalidation.
+    pub fn new(db_path: &str) -> Result<LocalBlacklist> {
         let mut blacklist = LocalBlacklist {
             cache: RwLock::new(UstrMap::default()),
-            connection: Mutex::new(connection),
+            read_connection: Mutex::new(utils::new_connection(db_path)?),
+            write_connection: Mutex::new(utils::new_connection(db_path)?),
         };
         blacklist.init()?;
 
@@ -79,12 +85,6 @@ impl LocalBlacklist {
         }
 
         Ok(blacklist)
-    }
-
-    /// A constructor taking the path to the database file.
-    pub fn new_from_disk(db_path: &str) -> Result<LocalBlacklist> {
-        let connection = utils::new_connection(db_path)?;
-        Self::new(connection)
     }
 
     /// Returns whether there's an entry for the given unit in the blacklist.
@@ -109,7 +109,7 @@ impl LocalBlacklist {
         }
 
         // Add the entry to the database.
-        let connection = self.connection.lock();
+        let connection = self.write_connection.lock();
         let mut stmt = connection.prepare_cached("INSERT INTO blacklist (unit_id) VALUES (?1)")?;
         stmt.execute(params![unit_id.as_str()])?;
 
@@ -121,7 +121,7 @@ impl LocalBlacklist {
     /// Helper function to remove a unit from the blacklist.
     fn remove_from_blacklist_helper(&mut self, unit_id: Ustr) -> Result<()> {
         // Remove the entry from the database.
-        let connection = self.connection.lock();
+        let connection = self.write_connection.lock();
         let mut stmt = connection.prepare_cached("DELETE FROM blacklist WHERE unit_id = $1")?;
         stmt.execute(params![unit_id.as_str()])?;
 
@@ -133,7 +133,7 @@ impl LocalBlacklist {
     /// Helper function to remove all the entries with the given prefix from the blacklist.
     fn remove_prefix_from_blacklist_helper(&mut self, prefix: &str) -> Result<()> {
         // Search for all the entries with the given prefix.
-        let connection = self.connection.lock();
+        let connection = self.write_connection.lock();
         let mut stmt =
             connection.prepare_cached("SELECT unit_id from blacklist WHERE unit_id LIKE $1;")?;
         let mut rows = stmt.query(params![format!("{}%", prefix)])?;
@@ -157,7 +157,7 @@ impl LocalBlacklist {
     /// Helper function to retrieve all the entries in the blacklist.
     fn all_blacklist_entries_helper(&self) -> Result<Vec<Ustr>> {
         // Get all the entries from the database.
-        let connection = self.connection.lock();
+        let connection = self.read_connection.lock();
         let mut stmt = connection.prepare_cached("SELECT unit_id from blacklist;")?;
         let mut rows = stmt.query(params![])?;
 
@@ -201,16 +201,20 @@ impl Blacklist for LocalBlacklist {
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod test {
+    use std::sync::atomic::{AtomicU64, Ordering};
+
     use anyhow::Result;
-    use rusqlite::Connection;
     use tempfile::tempdir;
     use ustr::Ustr;
 
     use crate::blacklist::{Blacklist, LocalBlacklist};
 
     fn new_test_blacklist() -> Result<Box<dyn Blacklist>> {
-        let connection = Connection::open_in_memory()?;
-        let blacklist = LocalBlacklist::new(connection)?;
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let blacklist = LocalBlacklist::new(&format!(
+            "file:blacklist_test_{id}?mode=memory&cache=shared"
+        ))?;
         Ok(Box::new(blacklist))
     }
 
@@ -311,14 +315,12 @@ mod test {
     #[test]
     fn reopen_blacklist() -> Result<()> {
         let dir = tempdir()?;
-        let mut blacklist =
-            LocalBlacklist::new_from_disk(dir.path().join("blacklist.db").to_str().unwrap())?;
+        let mut blacklist = LocalBlacklist::new(dir.path().join("blacklist.db").to_str().unwrap())?;
         let unit_id = Ustr::from("unit_id");
         blacklist.add_to_blacklist(unit_id)?;
         assert!(blacklist.blacklisted(unit_id)?);
 
-        let new_blacklist =
-            LocalBlacklist::new_from_disk(dir.path().join("blacklist.db").to_str().unwrap())?;
+        let new_blacklist = LocalBlacklist::new(dir.path().join("blacklist.db").to_str().unwrap())?;
         assert!(new_blacklist.blacklisted(unit_id)?);
         Ok(())
     }

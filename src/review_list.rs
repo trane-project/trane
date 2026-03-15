@@ -27,8 +27,11 @@ pub trait ReviewList {
 
 /// An implementation of [`ReviewList`] backed by `SQLite`.
 pub struct LocalReviewList {
-    /// A connection to the database.
-    connection: Mutex<Connection>,
+    /// A connection used for read-only queries.
+    read_connection: Mutex<Connection>,
+
+    /// A connection used for write operations.
+    write_connection: Mutex<Connection>,
 }
 
 impl LocalReviewList {
@@ -48,30 +51,27 @@ impl LocalReviewList {
     /// already, they will have no effect on the database.
     fn init(&mut self) -> Result<()> {
         let migrations = Self::migrations();
-        let mut connection = self.connection.lock();
+        let mut connection = self.write_connection.lock();
         migrations
             .to_latest(&mut connection)
             .context("failed to initialize review list DB")
     }
 
-    /// Creates a new instance with the given connection and initializes the database.
-    fn new(connection: Connection) -> Result<LocalReviewList> {
+    /// Opens two connections to the given database path and initializes the schema. One connection
+    /// is used for reads and one for writes to avoid prepared statement invalidation.
+    pub fn new(db_path: &str) -> Result<LocalReviewList> {
         let mut review_list = LocalReviewList {
-            connection: Mutex::new(connection),
+            read_connection: Mutex::new(utils::new_connection(db_path)?),
+            write_connection: Mutex::new(utils::new_connection(db_path)?),
         };
         review_list.init()?;
         Ok(review_list)
     }
 
-    /// A constructor taking the path to the database file.
-    pub fn new_from_disk(db_path: &str) -> Result<LocalReviewList> {
-        Self::new(utils::new_connection(db_path)?)
-    }
-
     /// Helper to add a unit to the review list.
     fn add_to_review_list_helper(&mut self, unit_id: Ustr) -> Result<()> {
         // Add the unit to the database.
-        let connection = self.connection.lock();
+        let connection = self.write_connection.lock();
         let mut stmt =
             connection.prepare_cached("INSERT OR IGNORE INTO review_list (unit_id) VALUES (?1)")?;
         stmt.execute(params![unit_id.as_str()])?;
@@ -81,7 +81,7 @@ impl LocalReviewList {
     /// Helper to remove a unit from the review list.
     fn remove_from_review_list_helper(&mut self, unit_id: Ustr) -> Result<()> {
         // Remove the unit from the database.
-        let connection = self.connection.lock();
+        let connection = self.write_connection.lock();
         let mut stmt = connection.prepare_cached("DELETE FROM review_list WHERE unit_id = $1")?;
         stmt.execute(params![unit_id.as_str()])?;
         Ok(())
@@ -90,7 +90,7 @@ impl LocalReviewList {
     /// Helper to get all the entries in the review list.
     fn get_review_list_entries_helper(&self) -> Result<Vec<Ustr>> {
         // Retrieve all the units from the database.
-        let connection = self.connection.lock();
+        let connection = self.read_connection.lock();
         let mut stmt = connection.prepare_cached("SELECT unit_id from review_list;")?;
         let mut rows = stmt.query(params![])?;
 
@@ -124,14 +124,19 @@ impl ReviewList for LocalReviewList {
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod test {
+    use std::sync::atomic::{AtomicU64, Ordering};
+
     use anyhow::Result;
-    use rusqlite::Connection;
     use ustr::Ustr;
 
     use crate::review_list::{LocalReviewList, ReviewList};
 
     fn new_test_review_list() -> Result<Box<dyn ReviewList>> {
-        let review_list = LocalReviewList::new(Connection::open_in_memory()?)?;
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let review_list = LocalReviewList::new(&format!(
+            "file:review_list_test_{id}?mode=memory&cache=shared"
+        ))?;
         Ok(Box::new(review_list))
     }
 

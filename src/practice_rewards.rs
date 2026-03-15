@@ -94,8 +94,11 @@ impl RewardCache {
 
 /// An implementation of [`PracticeRewards`] backed by `SQLite`.
 pub struct LocalPracticeRewards {
-    /// A connection to the database.
-    connection: Mutex<Connection>,
+    /// A connection used for read-only queries.
+    read_connection: Mutex<Connection>,
+
+    /// A connection used for write operations.
+    write_connection: Mutex<Connection>,
 
     /// A cache of previous rewards to avoid storing the same reward multiple times.
     cache: RewardCache,
@@ -132,16 +135,18 @@ impl LocalPracticeRewards {
     /// already, they will have no effect on the database.
     fn init(&mut self) -> Result<()> {
         let migrations = Self::migrations();
-        let mut connection = self.connection.lock();
+        let mut connection = self.write_connection.lock();
         migrations
             .to_latest(&mut connection)
             .context("failed to initialize practice rewards DB")
     }
 
-    /// Creates a new instance with the given connection and initializes the database.
-    fn new(connection: Connection) -> Result<LocalPracticeRewards> {
+    /// Opens two connections to the given database path and initializes the schema. One connection
+    /// is used for reads and one for writes to avoid prepared statement invalidation.
+    pub fn new(db_path: &str) -> Result<LocalPracticeRewards> {
         let mut rewards = LocalPracticeRewards {
-            connection: Mutex::new(connection),
+            read_connection: Mutex::new(utils::new_connection(db_path)?),
+            write_connection: Mutex::new(utils::new_connection(db_path)?),
             cache: RewardCache {
                 cache: UstrMap::default(),
             },
@@ -150,15 +155,10 @@ impl LocalPracticeRewards {
         Ok(rewards)
     }
 
-    /// A constructor taking the path to a database file.
-    pub fn new_from_disk(db_path: &str) -> Result<LocalPracticeRewards> {
-        Self::new(utils::new_connection(db_path)?)
-    }
-
     /// Helper function to retrieve rewards from the database.
     fn get_rewards_helper(&self, unit_id: Ustr, num_rewards: usize) -> Result<Vec<UnitReward>> {
         // Retrieve the rewards from the database.
-        let connection = self.connection.lock();
+        let connection = self.read_connection.lock();
         let mut stmt = connection.prepare_cached(
             "SELECT reward, weight, timestamp from practice_rewards WHERE unit_uid = (
                 SELECT unit_uid FROM uids WHERE unit_id = $1)
@@ -187,7 +187,7 @@ impl LocalPracticeRewards {
     /// Helper function to record multiple rewards in a single transaction.
     fn record_unit_rewards_helper(&mut self, rewards: &[UnitReward]) -> Result<Vec<Ustr>> {
         let mut updated = Vec::new();
-        let mut connection = self.connection.lock();
+        let mut connection = self.write_connection.lock();
         let tx = connection.transaction()?;
         {
             for reward in rewards {
@@ -230,7 +230,7 @@ impl LocalPracticeRewards {
     /// Helper function to trim the number of rewards for each unit to the given number. If the
     /// number of rewards is less than the given number, the method deletes no rewards.
     fn trim_rewards_helper(&mut self, num_rewards: usize) -> Result<()> {
-        let connection = self.connection.lock();
+        let connection = self.write_connection.lock();
         for row in connection
             .prepare("SELECT unit_uid FROM uids")?
             .query_map([], |row| row.get(0))?
@@ -250,7 +250,7 @@ impl LocalPracticeRewards {
     /// Helper function to remove all the rewards from units that match the given prefix.
     fn remove_rewards_with_prefix_helper(&mut self, prefix: &str) -> Result<()> {
         // Get all the UIDs for the units that match the prefix.
-        let connection = self.connection.lock();
+        let connection = self.write_connection.lock();
         for row in connection
             .prepare("SELECT unit_uid FROM uids WHERE unit_id LIKE ?1")?
             .query_map(params![format!("{}%", prefix)], |row| row.get(0))?
@@ -300,8 +300,9 @@ impl PracticeRewards for LocalPracticeRewards {
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod test {
+    use std::sync::atomic::{AtomicU64, Ordering};
+
     use anyhow::{Ok, Result};
-    use rusqlite::Connection;
     use ustr::Ustr;
 
     use crate::{
@@ -310,7 +311,11 @@ mod test {
     };
 
     fn new_tests_rewards() -> Result<Box<dyn PracticeRewards>> {
-        let practice_rewards = LocalPracticeRewards::new(Connection::open_in_memory()?)?;
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let practice_rewards = LocalPracticeRewards::new(&format!(
+            "file:practice_rewards_test_{id}?mode=memory&cache=shared"
+        ))?;
         Ok(Box::new(practice_rewards))
     }
 
