@@ -267,14 +267,7 @@ mod tests {
                         course_index, lesson_index
                     )),
                     course_id: Ustr::from(&format!("course_{}", course_index)),
-                    course_score: 0.0,
-                    depth: 0.0,
-                    frequency: 0,
-                    dead_end: false,
-                    lesson_score: 0.0,
-                    num_trials: 0,
-                    last_seen: 0.0,
-                    score_velocity: None,
+                    ..Default::default()
                 })
             })
             .collect::<Vec<Candidate>>();
@@ -341,14 +334,7 @@ mod tests {
                         course_index, lesson_index
                     )),
                     course_id: Ustr::from(&format!("course_{}", course_index)),
-                    course_score: 0.0,
-                    depth: 0.0,
-                    frequency: 0,
-                    dead_end: false,
-                    lesson_score: 0.0,
-                    num_trials: 0,
-                    last_seen: 0.0,
-                    score_velocity: None,
+                    ..Default::default()
                 })
             })
             .collect::<Vec<Candidate>>();
@@ -380,42 +366,21 @@ mod tests {
                 exercise_score: 4.5,
                 lesson_id: Ustr::from("lesson1"),
                 course_id: Ustr::from("course1"),
-                course_score: 0.0,
-                depth: 0.0,
-                frequency: 0,
-                dead_end: false,
-                lesson_score: 0.0,
-                num_trials: 0,
-                last_seen: 0.0,
-                score_velocity: None,
+                ..Default::default()
             },
             Candidate {
                 exercise_id: Ustr::from("ex2"),
                 exercise_score: 3.5,
                 lesson_id: Ustr::from("lesson2"),
                 course_id: Ustr::from("course1"),
-                course_score: 0.0,
-                depth: 0.0,
-                frequency: 0,
-                dead_end: false,
-                lesson_score: 0.0,
-                num_trials: 0,
-                last_seen: 0.0,
-                score_velocity: None,
+                ..Default::default()
             },
             Candidate {
                 exercise_id: Ustr::from("ex3"),
                 exercise_score: 2.0,
                 lesson_id: Ustr::from("lesson3"),
                 course_id: Ustr::from("course2"),
-                course_score: 0.0,
-                depth: 0.0,
-                frequency: 0,
-                dead_end: false,
-                lesson_score: 0.0,
-                num_trials: 0,
-                last_seen: 0.0,
-                score_velocity: None,
+                ..Default::default()
             },
         ];
 
@@ -441,70 +406,35 @@ mod tests {
                 exercise_score: 4.5,
                 lesson_id: Ustr::from("lesson1"),
                 course_id: Ustr::from("course1"),
-                course_score: 0.0,
-                depth: 0.0,
-                frequency: 0,
-                dead_end: false,
-                lesson_score: 0.0,
-                num_trials: 0,
-                last_seen: 0.0,
-                score_velocity: None,
+                ..Default::default()
             },
             Candidate {
                 exercise_id: Ustr::from("ex2"),
                 exercise_score: 3.9,
                 lesson_id: Ustr::from("lesson2"),
                 course_id: Ustr::from("course1"),
-                course_score: 0.0,
-                depth: 0.0,
-                frequency: 0,
-                dead_end: false,
-                lesson_score: 0.0,
-                num_trials: 0,
-                last_seen: 0.0,
-                score_velocity: None,
+                ..Default::default()
             },
             Candidate {
                 exercise_id: Ustr::from("ex3"),
                 exercise_score: 2.0,
                 lesson_id: Ustr::from("lesson3"),
                 course_id: Ustr::from("course2"),
-                course_score: 0.0,
-                depth: 0.0,
-                frequency: 0,
-                dead_end: false,
-                lesson_score: 0.0,
-                num_trials: 0,
-                last_seen: 0.0,
-                score_velocity: None,
+                ..Default::default()
             },
             Candidate {
                 exercise_id: Ustr::from("ex4"),
                 exercise_score: 3.8,
                 lesson_id: Ustr::from("lesson2"),
                 course_id: Ustr::from("course1"),
-                course_score: 0.0,
-                depth: 0.0,
-                frequency: 0,
-                dead_end: false,
-                lesson_score: 0.0,
-                num_trials: 0,
-                last_seen: 0.0,
-                score_velocity: None,
+                ..Default::default()
             },
             Candidate {
                 exercise_id: Ustr::from("ex5"),
                 exercise_score: 4.0,
                 lesson_id: Ustr::from("lesson4"),
                 course_id: Ustr::from("course2"),
-                course_score: 0.0,
-                depth: 0.0,
-                frequency: 0,
-                dead_end: false,
-                lesson_score: 0.0,
-                num_trials: 0,
-                last_seen: 0.0,
-                score_velocity: None,
+                ..Default::default()
             },
         ];
 

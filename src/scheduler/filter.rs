@@ -519,57 +519,24 @@ mod test {
                 exercise_id: Ustr::from("exercise1"),
                 lesson_id: Ustr::from("lesson1"),
                 course_id: Ustr::from("course1"),
-                depth: 0.0,
-                exercise_score: 0.0,
-                lesson_score: 0.0,
-                course_score: 0.0,
-                num_trials: 0,
-                last_seen: 0.0,
-                score_velocity: None,
-                frequency: 0,
-                dead_end: false,
+                ..Default::default()
             },
             Candidate {
                 exercise_id: Ustr::from("exercise2"),
                 lesson_id: Ustr::from("lesson1"),
                 course_id: Ustr::from("course1"),
-                depth: 0.0,
-                exercise_score: 0.0,
-                lesson_score: 0.0,
-                course_score: 0.0,
-                num_trials: 0,
-                last_seen: 0.0,
-                score_velocity: None,
-                frequency: 0,
-                dead_end: false,
+                ..Default::default()
             },
             Candidate {
                 exercise_id: Ustr::from("exercise3"),
                 lesson_id: Ustr::from("lesson2"),
                 course_id: Ustr::from("course1"),
-                depth: 0.0,
-                exercise_score: 0.0,
-                lesson_score: 0.0,
-                course_score: 0.0,
-                num_trials: 0,
-                last_seen: 0.0,
-                score_velocity: None,
-                frequency: 0,
-                dead_end: false,
+                ..Default::default()
             },
             Candidate {
                 exercise_id: Ustr::from("exercise4"),
-                lesson_id: Ustr::from(""),
                 course_id: Ustr::from("course1"),
-                depth: 0.0,
-                exercise_score: 0.0,
-                lesson_score: 0.0,
-                course_score: 0.0,
-                num_trials: 0,
-                last_seen: 0.0,
-                score_velocity: None,
-                frequency: 0,
-                dead_end: false,
+                ..Default::default()
             },
         ];
 
@@ -589,71 +556,34 @@ mod test {
                 exercise_id: Ustr::from("exercise1"),
                 lesson_id: Ustr::from("lesson1"),
                 course_id: Ustr::from("course1"),
-                depth: 0.0,
                 exercise_score: 2.1,
-                lesson_score: 0.0,
-                course_score: 0.0,
-                num_trials: 0,
-                last_seen: 0.0,
-                score_velocity: None,
-                frequency: 0,
-                dead_end: false,
+                ..Default::default()
             },
             Candidate {
                 exercise_id: Ustr::from("exercise2"),
                 lesson_id: Ustr::from("lesson1"),
                 course_id: Ustr::from("course1"),
-                depth: 0.0,
                 exercise_score: 3.0,
-                lesson_score: 0.0,
-                course_score: 0.0,
-                num_trials: 0,
-                last_seen: 0.0,
-                score_velocity: None,
-                frequency: 0,
-                dead_end: false,
+                ..Default::default()
             },
             Candidate {
                 exercise_id: Ustr::from("exercise3"),
                 lesson_id: Ustr::from("lesson2"),
                 course_id: Ustr::from("course1"),
-                depth: 0.0,
                 exercise_score: 3.7,
-                lesson_score: 0.0,
-                course_score: 0.0,
-                num_trials: 0,
-                last_seen: 0.0,
-                score_velocity: None,
-                frequency: 0,
-                dead_end: false,
+                ..Default::default()
             },
             Candidate {
                 exercise_id: Ustr::from("exercise4"),
-                lesson_id: Ustr::from(""),
                 course_id: Ustr::from("course1"),
-                depth: 0.0,
                 exercise_score: 1.0,
-                lesson_score: 0.0,
-                course_score: 0.0,
-                num_trials: 0,
-                last_seen: 0.0,
-                score_velocity: None,
-                frequency: 0,
-                dead_end: false,
+                ..Default::default()
             },
             Candidate {
                 exercise_id: Ustr::from("exercise5"),
-                lesson_id: Ustr::from(""),
                 course_id: Ustr::from("course1"),
-                depth: 0.0,
                 exercise_score: 3.5,
-                lesson_score: 0.0,
-                course_score: 0.0,
-                num_trials: 0,
-                last_seen: 0.0,
-                score_velocity: None,
-                frequency: 0,
-                dead_end: false,
+                ..Default::default()
             },
         ];
         let window_opts = MasteryWindow {
@@ -687,58 +617,26 @@ mod test {
             exercise_id: Ustr::from("exercise1"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
-            exercise_score: 0.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         }];
         let remainder = vec![
             Candidate {
                 exercise_id: Ustr::from("exercise2"),
                 lesson_id: Ustr::from("lesson2"),
                 course_id: Ustr::from("course2"),
-                depth: 0.0,
-                exercise_score: 0.0,
-                lesson_score: 0.0,
-                course_score: 0.0,
-                num_trials: 0,
-                last_seen: 0.0,
-                score_velocity: None,
-                frequency: 0,
-                dead_end: false,
+                ..Default::default()
             },
             Candidate {
                 exercise_id: Ustr::from("exercise3"),
                 lesson_id: Ustr::from("lesson3"),
                 course_id: Ustr::from("course3"),
-                depth: 0.0,
-                exercise_score: 0.0,
-                lesson_score: 0.0,
-                course_score: 0.0,
-                num_trials: 0,
-                last_seen: 0.0,
-                score_velocity: None,
-                frequency: 0,
-                dead_end: false,
+                ..Default::default()
             },
             Candidate {
                 exercise_id: Ustr::from("exercise4"),
                 lesson_id: Ustr::from("lesson4"),
                 course_id: Ustr::from("course4"),
-                depth: 0.0,
-                exercise_score: 0.0,
-                lesson_score: 0.0,
-                course_score: 0.0,
-                num_trials: 0,
-                last_seen: 0.0,
-                score_velocity: None,
-                frequency: 0,
-                dead_end: false,
+                ..Default::default()
             },
         ];
         let frequency_map = UstrMap::default();
@@ -761,15 +659,7 @@ mod test {
                 exercise_id: Ustr::from(&format!("exercise{}", i)),
                 lesson_id: Ustr::from(&format!("lesson{}", i)),
                 course_id: Ustr::from(&format!("course{}", i)),
-                depth: 0.0,
-                exercise_score: 0.0,
-                lesson_score: 0.0,
-                course_score: 0.0,
-                num_trials: 0,
-                last_seen: 0.0,
-                score_velocity: None,
-                frequency: 0,
-                dead_end: false,
+                ..Default::default()
             })
             .collect::<Vec<_>>();
         let initial_len_full = final_candidates_full.len();
@@ -787,15 +677,7 @@ mod test {
             exercise_id: Ustr::from("exercise1"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
-            exercise_score: 0.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         }];
         let max_added = 1;
         CandidateFilter::add_remainder(
@@ -815,29 +697,14 @@ mod test {
             exercise_id: Ustr::from("exercise1"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
-            exercise_score: 0.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         let c2 = Candidate {
             exercise_id: Ustr::from("exercise2"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
             depth: 10.0,
-            exercise_score: 0.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         assert!(
             CandidateFilter::candidate_weight(&c1, 0, 1, 1)
@@ -852,29 +719,19 @@ mod test {
             exercise_id: Ustr::from("exercise1"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
             exercise_score: 5.0,
             lesson_score: 5.0,
             course_score: 5.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         let c2 = Candidate {
             exercise_id: Ustr::from("exercise2"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
             exercise_score: 1.0,
             lesson_score: 1.0,
             course_score: 1.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         assert!(
             CandidateFilter::candidate_weight(&c1, 0, 1, 1)
@@ -889,29 +746,15 @@ mod test {
             exercise_id: Ustr::from("exercise1"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
-            exercise_score: 0.0,
             lesson_score: 5.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         let c2 = Candidate {
             exercise_id: Ustr::from("exercise2"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
-            exercise_score: 0.0,
             lesson_score: 1.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         assert!(
             CandidateFilter::candidate_weight(&c1, 0, 1, 1)
@@ -926,29 +769,15 @@ mod test {
             exercise_id: Ustr::from("exercise1"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
-            exercise_score: 0.0,
-            lesson_score: 0.0,
             course_score: 5.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         let c2 = Candidate {
             exercise_id: Ustr::from("exercise2"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
-            exercise_score: 0.0,
-            lesson_score: 0.0,
             course_score: 1.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         assert!(
             CandidateFilter::candidate_weight(&c1, 0, 1, 1)
@@ -963,29 +792,15 @@ mod test {
             exercise_id: Ustr::from("exercise1"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
-            exercise_score: 0.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
             frequency: 5,
-            dead_end: false,
+            ..Default::default()
         };
         let c2 = Candidate {
             exercise_id: Ustr::from("exercise2"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
-            exercise_score: 0.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
             frequency: 1,
-            dead_end: false,
+            ..Default::default()
         };
         assert!(
             CandidateFilter::candidate_weight(&c1, 0, 1, 1)
@@ -1000,29 +815,15 @@ mod test {
             exercise_id: Ustr::from("exercise1"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
-            exercise_score: 0.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
             num_trials: 5,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         let c2 = Candidate {
             exercise_id: Ustr::from("exercise2"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
-            exercise_score: 0.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
             num_trials: 1,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         assert!(
             CandidateFilter::candidate_weight(&c1, 0, 1, 1)
@@ -1037,29 +838,15 @@ mod test {
             exercise_id: Ustr::from("exercise1"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
-            exercise_score: 0.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
             last_seen: 1.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         let c2 = Candidate {
             exercise_id: Ustr::from("exercise2"),
             lesson_id: Ustr::from("lesson2"),
             course_id: Ustr::from("course2"),
-            depth: 0.0,
-            exercise_score: 0.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
             last_seen: 20.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         assert!(
             CandidateFilter::candidate_weight(&c1, 0, 1, 1)
@@ -1074,29 +861,13 @@ mod test {
             exercise_id: Ustr::from("exercise1"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
-            exercise_score: 0.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         let c2 = Candidate {
             exercise_id: Ustr::from("exercise2"),
             lesson_id: Ustr::from("lesson2"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
-            exercise_score: 0.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         assert!(
             CandidateFilter::candidate_weight(&c1, 0, 10, 1)
@@ -1196,29 +967,13 @@ mod test {
             exercise_id: Ustr::from("exercise1"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
-            exercise_score: 0.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         let c2 = Candidate {
             exercise_id: Ustr::from("exercise2"),
             lesson_id: Ustr::from("lesson2"),
             course_id: Ustr::from("course2"),
-            depth: 0.0,
-            exercise_score: 0.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         assert!(
             CandidateFilter::candidate_weight(&c1, 0, 1, 10)
@@ -1234,29 +989,13 @@ mod test {
             exercise_id: Ustr::from("exercise1"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
-            exercise_score: 0.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         let c2 = Candidate {
             exercise_id: Ustr::from("exercise2"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
-            exercise_score: 0.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         assert!(
             CandidateFilter::candidate_weight(&c1, 10, 1, 1)
@@ -1271,15 +1010,7 @@ mod test {
             exercise_id: Ustr::from("exercise1"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
-            exercise_score: 0.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         let dead_end = Candidate {
             dead_end: true,
@@ -1299,15 +1030,12 @@ mod test {
             exercise_id: Ustr::from("exercise1"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
             exercise_score: 5.0,
             lesson_score: 5.0,
             course_score: 5.0,
             num_trials: 1000,
-            last_seen: 0.0,
-            score_velocity: None,
             frequency: 1000,
-            dead_end: false,
+            ..Default::default()
         };
         assert_eq!(
             CandidateFilter::candidate_weight(&c, 100, 1000, 1000),
@@ -1322,15 +1050,9 @@ mod test {
             exercise_id: Ustr::from("exercise1"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
             exercise_score: 2.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
             score_velocity: Some(1.0),
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         let low_velocity = Candidate {
             score_velocity: Some(0.5),
@@ -1349,15 +1071,8 @@ mod test {
             exercise_id: Ustr::from("exercise1"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
             exercise_score: 2.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         let negative = Candidate {
             score_velocity: Some(-1.0),
@@ -1376,15 +1091,8 @@ mod test {
             exercise_id: Ustr::from("exercise1"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
             exercise_score: 2.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         let stagnant = Candidate {
             score_velocity: Some(0.05),
@@ -1402,15 +1110,8 @@ mod test {
             exercise_id: Ustr::from("exercise1"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
             exercise_score: 4.5,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         let stagnant = Candidate {
             score_velocity: Some(0.05),
@@ -1430,15 +1131,8 @@ mod test {
             exercise_id: Ustr::from("exercise1"),
             lesson_id: Ustr::from("lesson1"),
             course_id: Ustr::from("course1"),
-            depth: 0.0,
             exercise_score: 2.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         };
         let active = Candidate {
             score_velocity: Some(0.5),
