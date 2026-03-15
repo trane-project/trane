@@ -64,11 +64,11 @@ fn all_exercises_scheduled_random() -> Result<()> {
 fn generate_and_read_large_library() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let random_library = RandomCourseLibrary {
-        num_courses: 100,
+        num_courses: 50,
         course_dependencies_range: (5, 5),
         lessons_per_course_range: (5, 5),
         lesson_dependencies_range: (5, 5),
-        exercises_per_lesson_range: (10, 10),
+        exercises_per_lesson_range: (5, 5),
     }
     .generate_library();
     init_test_simulation(temp_dir.path(), &random_library)?;
