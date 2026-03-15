@@ -89,15 +89,8 @@ mod tests {
             exercise_id: Ustr::from(exercise_id),
             lesson_id: Ustr::from("lesson_1"),
             course_id: Ustr::from(course_id),
-            depth: 0.0,
             exercise_score,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         }
     }
 

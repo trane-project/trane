@@ -113,7 +113,7 @@ struct StackItem {
 /// An exercise selected during the initial phase of the search and which will be grouped with all
 /// the other candidates which fall in the same mastery window and filtered and randomly selected
 /// to form the final batch.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 struct Candidate {
     /// The ID of the exercise.
     exercise_id: Ustr,
@@ -1207,12 +1207,7 @@ mod test {
             depth,
             exercise_score,
             lesson_score,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         }
     }
 
@@ -1235,14 +1230,7 @@ mod test {
             lesson_id: Ustr::from(lesson_id),
             course_id: Ustr::from("course"),
             depth: 1.0,
-            exercise_score: 0.0,
-            lesson_score: 0.0,
-            course_score: 0.0,
-            num_trials: 0,
-            last_seen: 0.0,
-            score_velocity: None,
-            frequency: 0,
-            dead_end: false,
+            ..Default::default()
         }
     }
 

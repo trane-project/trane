@@ -53,17 +53,7 @@ impl RelearnPile {
             .into_iter()
             .map(|exercise_id| Candidate {
                 exercise_id: *exercise_id,
-                depth: 0.0,
-                lesson_id: Ustr::default(),
-                course_id: Ustr::default(),
-                exercise_score: 0.0,
-                lesson_score: 0.0,
-                course_score: 0.0,
-                num_trials: 0,
-                last_seen: 0.0,
-                score_velocity: None,
-                frequency: 0,
-                dead_end: false,
+                ..Default::default()
             })
             .collect()
     }
