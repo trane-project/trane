@@ -274,6 +274,7 @@ mod tests {
                     lesson_score: 0.0,
                     num_trials: 0,
                     last_seen: 0.0,
+                    score_velocity: None,
                 })
             })
             .collect::<Vec<Candidate>>();
@@ -347,6 +348,7 @@ mod tests {
                     lesson_score: 0.0,
                     num_trials: 0,
                     last_seen: 0.0,
+                    score_velocity: None,
                 })
             })
             .collect::<Vec<Candidate>>();
@@ -385,6 +387,7 @@ mod tests {
                 lesson_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
+                score_velocity: None,
             },
             Candidate {
                 exercise_id: Ustr::from("ex2"),
@@ -398,6 +401,7 @@ mod tests {
                 lesson_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
+                score_velocity: None,
             },
             Candidate {
                 exercise_id: Ustr::from("ex3"),
@@ -411,6 +415,7 @@ mod tests {
                 lesson_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
+                score_velocity: None,
             },
         ];
 
@@ -443,6 +448,7 @@ mod tests {
                 lesson_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
+                score_velocity: None,
             },
             Candidate {
                 exercise_id: Ustr::from("ex2"),
@@ -456,6 +462,7 @@ mod tests {
                 lesson_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
+                score_velocity: None,
             },
             Candidate {
                 exercise_id: Ustr::from("ex3"),
@@ -469,6 +476,7 @@ mod tests {
                 lesson_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
+                score_velocity: None,
             },
             Candidate {
                 exercise_id: Ustr::from("ex4"),
@@ -482,6 +490,7 @@ mod tests {
                 lesson_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
+                score_velocity: None,
             },
             Candidate {
                 exercise_id: Ustr::from("ex5"),
@@ -495,6 +504,7 @@ mod tests {
                 lesson_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
+                score_velocity: None,
             },
         ];
 

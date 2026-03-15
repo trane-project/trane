@@ -61,6 +61,7 @@ impl RelearnPile {
                 course_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
+                score_velocity: None,
                 frequency: 0,
                 dead_end: false,
             })

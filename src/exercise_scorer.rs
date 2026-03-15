@@ -17,6 +17,11 @@ pub trait ExerciseScorer {
     /// Returns a score (between 0.0 and 5.0) for the exercise based on the results and timestamps
     /// of previous trials. The trials are assumed to be sorted in descending order by timestamp.
     fn score(&self, exercise_type: ExerciseType, previous_trials: &[ExerciseTrial]) -> Result<f32>;
+
+    /// Returns the velocity of learning for exercise with the given trials. The velocity is a
+    /// measure of how quickly the score is improving or worsening over trials. A value of None
+    /// indicates that there are too few trials to compute a reliable velocity.
+    fn velocity(&self, previous_trials: &[ExerciseTrial]) -> Option<f32>;
 }
 
 /// The target retrievability at `t = stability` used to calibrate the forgetting-curve factor.
@@ -523,6 +528,35 @@ impl ExerciseScorer for PowerLawScorer {
         let confidence_penalty = CONFIDENCE_PENALTY_COEFFICIENT * weighted_variance
             / (previous_trials.len() as f32).sqrt();
         Ok((raw_score - confidence_penalty).clamp(0.0, 5.0))
+    }
+
+    fn velocity(&self, previous_trials: &[ExerciseTrial]) -> Option<f32> {
+        // Need at least 2 trials for a meaningful slope.
+        if previous_trials.len() < 2 {
+            return None;
+        }
+
+        // Compute the velocity using the ordinary least squares regression method. The oldest trial
+        // is used as the reference point and other trials are converted to days from it.
+        let oldest_timestamp = previous_trials.last().unwrap().timestamp;
+        let n = previous_trials.len() as f32;
+        let mut sum_t = 0.0_f32;
+        let mut sum_scores = 0.0_f32;
+        let mut sum_t_scores = 0.0_f32;
+        let mut sum_t_sq = 0.0_f32;
+        for trial in previous_trials.iter() {
+            let t = (trial.timestamp.saturating_sub(oldest_timestamp)) as f32 / SECONDS_PER_DAY;
+            sum_t += t;
+            sum_scores += trial.score;
+            sum_t_scores += t * trial.score;
+            sum_t_sq += t * t;
+        }
+        let denominator = n * sum_t_sq - sum_t * sum_t;
+        if denominator.abs() < f32::EPSILON {
+            return Some(0.0);
+        }
+        let slope = (n * sum_t_scores - sum_t * sum_scores) / denominator;
+        Some(slope)
     }
 }
 
@@ -1597,5 +1631,98 @@ mod test {
         let (mean, var) = PowerLawScorer::compute_weighted_avg_and_variance(&trials);
         assert!((mean - 3.0).abs() < 1e-6);
         assert!((var - 1.0).abs() < 1e-6);
+    }
+
+    /// Verifies that velocity returns None for 0 or 1 trials.
+    #[test]
+    fn velocity_empty_trials() {
+        assert_eq!(SCORER.velocity(&[]), None);
+
+        let trials = vec![ExerciseTrial {
+            score: 3.0,
+            timestamp: generate_timestamp(0),
+        }];
+        assert_eq!(SCORER.velocity(&trials), None);
+    }
+
+    /// Verifies that improving scores (most recent is highest) produce positive velocity.
+    #[test]
+    fn velocity_improving_scores() {
+        // Most-recent-first: [5.0, 4.0, 3.0, 2.0, 1.0] — scores are getting better over time.
+        let trials = vec![
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(0),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 3.0,
+                timestamp: generate_timestamp(2),
+            },
+            ExerciseTrial {
+                score: 2.0,
+                timestamp: generate_timestamp(3),
+            },
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(4),
+            },
+        ];
+        let velocity = SCORER.velocity(&trials).unwrap();
+        assert!(velocity > 0.0);
+    }
+
+    /// Verifies that worsening scores (most recent is lowest) produce negative velocity.
+    #[test]
+    fn velocity_worsening_scores() {
+        // Most-recent-first: [1.0, 2.0, 3.0, 4.0, 5.0] — scores are getting worse over time.
+        let trials = vec![
+            ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(0),
+            },
+            ExerciseTrial {
+                score: 2.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 3.0,
+                timestamp: generate_timestamp(2),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(3),
+            },
+            ExerciseTrial {
+                score: 5.0,
+                timestamp: generate_timestamp(4),
+            },
+        ];
+        let velocity = SCORER.velocity(&trials).unwrap();
+        assert!(velocity < 0.0);
+    }
+
+    /// Verifies that constant scores produce near-zero velocity.
+    #[test]
+    fn velocity_constant_scores() {
+        let trials = vec![
+            ExerciseTrial {
+                score: 3.0,
+                timestamp: generate_timestamp(0),
+            },
+            ExerciseTrial {
+                score: 3.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 3.0,
+                timestamp: generate_timestamp(2),
+            },
+        ];
+        let velocity = SCORER.velocity(&trials).unwrap();
+        assert!(velocity.abs() < 1e-6);
     }
 }

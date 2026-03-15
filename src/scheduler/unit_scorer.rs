@@ -23,6 +23,10 @@ pub(super) struct CachedScore {
     /// The computed score.
     score: f32,
 
+    /// The velocity of learning, a measure of how quickly the score is improving or worsening over
+    /// trials.
+    velocity: Option<f32>,
+
     /// The number of trials used to compute the score.
     num_trials: usize,
 
@@ -212,11 +216,59 @@ impl UnitScorer {
             exercise_id,
             CachedScore {
                 score: final_score,
+                velocity: self.exercise_scorer.velocity(&scores),
                 num_trials: scores.len(),
                 last_seen,
             },
         );
         Ok(final_score)
+    }
+
+    /// Returns the velocity of learning for the given exercise.
+    pub(super) fn get_exercise_velocity(&self, exercise_id: Ustr) -> Result<Option<f32>> {
+        // Return the cached value if it exists.
+        let cached_velocity = self
+            .exercise_cache
+            .borrow()
+            .get(&exercise_id)
+            .and_then(|c| c.velocity);
+        if let Some(velocity) = cached_velocity {
+            return Ok(Some(velocity));
+        }
+
+        // Compute the exercise's score, which populates the cache. Then, retrieve the velocity of
+        // learning from the cache.
+        self.get_exercise_score(exercise_id)?;
+        let cached_velocity = self
+            .exercise_cache
+            .borrow()
+            .get(&exercise_id)
+            .and_then(|s| s.velocity);
+        Ok(cached_velocity)
+    }
+
+    /// Returns the number of trials that were considered when computing the score for the given
+    /// exercise.
+    pub(super) fn get_exercise_num_trials(&self, exercise_id: Ustr) -> Result<Option<usize>> {
+        // Return the cached value if it exists.
+        let cached_num_trials = self
+            .exercise_cache
+            .borrow()
+            .get(&exercise_id)
+            .map(|c| c.num_trials);
+        if let Some(num_trials) = cached_num_trials {
+            return Ok(Some(num_trials));
+        }
+
+        // Compute the exercise's score, which populates the cache. Then, retrieve the number of
+        // trials from the cache.
+        self.get_exercise_score(exercise_id)?;
+        let cached_num_trials = self
+            .exercise_cache
+            .borrow()
+            .get(&exercise_id)
+            .map(|s| s.num_trials);
+        Ok(cached_num_trials)
     }
 
     /// Returns the number of days since the last trial for the given exercise.
@@ -462,30 +514,6 @@ impl UnitScorer {
             UnitType::Lesson => self.get_lesson_score(unit_id),
             UnitType::Exercise => self.get_exercise_score(unit_id).map(Some),
         }
-    }
-
-    /// Returns the number of trials that were considered when computing the score for the given
-    /// exercise.
-    pub(super) fn get_exercise_num_trials(&self, exercise_id: Ustr) -> Result<Option<usize>> {
-        // Return the cached value if it exists.
-        let cached_num_trials = self
-            .exercise_cache
-            .borrow()
-            .get(&exercise_id)
-            .map(|c| c.num_trials);
-        if let Some(num_trials) = cached_num_trials {
-            return Ok(Some(num_trials));
-        }
-
-        // Compute the exercise's score, which populates the cache. Then, retrieve the number of
-        // trials from the cache.
-        self.get_exercise_score(exercise_id)?;
-        let cached_num_trials = self
-            .exercise_cache
-            .borrow()
-            .get(&exercise_id)
-            .map(|s| s.num_trials);
-        Ok(cached_num_trials)
     }
 
     /// Returns the average number of trials across all the exercises in the given lesson.
@@ -739,6 +767,7 @@ mod test {
             Ustr::from("a"),
             CachedScore {
                 score: 5.0,
+                velocity: None,
                 num_trials: 1,
                 last_seen: 0.0,
             },
@@ -747,6 +776,7 @@ mod test {
             Ustr::from("b::a"),
             CachedScore {
                 score: 5.0,
+                velocity: None,
                 num_trials: 1,
                 last_seen: 0.0,
             },

@@ -85,6 +85,23 @@ const MAX_COURSE_FREQUENCY_WEIGHT: f32 = 1000.0;
 /// minimum value for such an adjustment.
 const MIN_DYNAMIC_BATCH_SIZE: usize = 10;
 
+/// The factor used to multiply the absolute value of the velocity to compute its contribution to
+/// the weight.
+const VELOCITY_WEIGHT_FACTOR: f32 = 250.0;
+
+/// The part of the weight added to non-mastered candidates with a stagnant velocity.
+const STAGNANT_VELOCITY_WEIGHT: f32 = 2000.0;
+
+/// The part of the weight substracted to mastered candidates with a stagnant velocity.
+const STAGNANT_VELOCITY_PENALTY: f32 = -2000.0;
+
+/// The velocity threshold under which a candidate is considered to be stagnant.
+const STAGNANT_VELOCITY_THRESHOLD: f32 = 0.2;
+
+/// The exercise score threshold above which a candidate is considered mastered for the purpose of
+/// applying the stagnant velocity bonus or penalty.
+const MASTERED_SCORE_THRESHOLD: f32 = 4.0;
+
 /// The filter used to reduce the candidates found during the search to a final batch of exercises.
 pub(super) struct CandidateFilter {
     /// The data needed to run the candidate filter.
@@ -158,6 +175,11 @@ impl CandidateFilter {
     ///     frequency.
     /// 11. Whether the candidate comes from a dead-end in the traversal. Dead-end candidates get a
     ///     fixed bonus to prioritize the learner's frontier.
+    /// 12. The candidate's score velocity. The absolute value of the velocity is multiplied by a
+    ///     factor.
+    /// 13. Whether the candidate has a stagnant velocity. Non-mastered candidates with a stagnant
+    ///    velocity get a weight bonus, while mastered candidates with a stagnant velocity get a
+    ///    penalty.
     fn candidate_weight(
         c: &Candidate,
         encompassed_freq: u32,
@@ -200,6 +222,20 @@ impl CandidateFilter {
         // A fixed part of the score depends on whether the candidate is at a dead-end.
         if c.dead_end {
             weight += DEAD_WEIGHT_FACTOR;
+        }
+
+        // A part of the weight is based on the candidate's score velocity. All exercises get a
+        // boost based on the absolute value of the velocity. Stagnant exercises get a boost or a
+        // penalty depending on whether they are mastered.
+        if let Some(velocity) = c.score_velocity {
+            weight += VELOCITY_WEIGHT_FACTOR * velocity.abs();
+            if velocity.abs() < STAGNANT_VELOCITY_THRESHOLD {
+                if c.exercise_score >= MASTERED_SCORE_THRESHOLD {
+                    weight += STAGNANT_VELOCITY_PENALTY;
+                } else {
+                    weight += STAGNANT_VELOCITY_WEIGHT;
+                }
+            }
         }
 
         // Give each candidates a minimum weight.
@@ -489,6 +525,7 @@ mod test {
                 course_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
+                score_velocity: None,
                 frequency: 0,
                 dead_end: false,
             },
@@ -502,6 +539,7 @@ mod test {
                 course_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
+                score_velocity: None,
                 frequency: 0,
                 dead_end: false,
             },
@@ -515,6 +553,7 @@ mod test {
                 course_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
+                score_velocity: None,
                 frequency: 0,
                 dead_end: false,
             },
@@ -528,6 +567,7 @@ mod test {
                 course_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
+                score_velocity: None,
                 frequency: 0,
                 dead_end: false,
             },
@@ -555,6 +595,7 @@ mod test {
                 course_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
+                score_velocity: None,
                 frequency: 0,
                 dead_end: false,
             },
@@ -568,6 +609,7 @@ mod test {
                 course_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
+                score_velocity: None,
                 frequency: 0,
                 dead_end: false,
             },
@@ -581,6 +623,7 @@ mod test {
                 course_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
+                score_velocity: None,
                 frequency: 0,
                 dead_end: false,
             },
@@ -594,6 +637,7 @@ mod test {
                 course_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
+                score_velocity: None,
                 frequency: 0,
                 dead_end: false,
             },
@@ -607,6 +651,7 @@ mod test {
                 course_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
+                score_velocity: None,
                 frequency: 0,
                 dead_end: false,
             },
@@ -648,6 +693,7 @@ mod test {
             course_score: 0.0,
             num_trials: 0,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         }];
@@ -662,6 +708,7 @@ mod test {
                 course_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
+                score_velocity: None,
                 frequency: 0,
                 dead_end: false,
             },
@@ -675,6 +722,7 @@ mod test {
                 course_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
+                score_velocity: None,
                 frequency: 0,
                 dead_end: false,
             },
@@ -688,6 +736,7 @@ mod test {
                 course_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
+                score_velocity: None,
                 frequency: 0,
                 dead_end: false,
             },
@@ -718,6 +767,7 @@ mod test {
                 course_score: 0.0,
                 num_trials: 0,
                 last_seen: 0.0,
+                score_velocity: None,
                 frequency: 0,
                 dead_end: false,
             })
@@ -743,6 +793,7 @@ mod test {
             course_score: 0.0,
             num_trials: 0,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         }];
@@ -770,6 +821,7 @@ mod test {
             course_score: 0.0,
             num_trials: 0,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         };
@@ -783,6 +835,7 @@ mod test {
             course_score: 0.0,
             num_trials: 0,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         };
@@ -805,6 +858,7 @@ mod test {
             course_score: 5.0,
             num_trials: 0,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         };
@@ -818,6 +872,7 @@ mod test {
             course_score: 1.0,
             num_trials: 0,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         };
@@ -840,6 +895,7 @@ mod test {
             course_score: 0.0,
             num_trials: 0,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         };
@@ -853,6 +909,7 @@ mod test {
             course_score: 0.0,
             num_trials: 0,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         };
@@ -875,6 +932,7 @@ mod test {
             course_score: 5.0,
             num_trials: 0,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         };
@@ -888,6 +946,7 @@ mod test {
             course_score: 1.0,
             num_trials: 0,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         };
@@ -910,6 +969,7 @@ mod test {
             course_score: 0.0,
             num_trials: 0,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 5,
             dead_end: false,
         };
@@ -923,6 +983,7 @@ mod test {
             course_score: 0.0,
             num_trials: 0,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 1,
             dead_end: false,
         };
@@ -945,6 +1006,7 @@ mod test {
             course_score: 0.0,
             num_trials: 5,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         };
@@ -958,6 +1020,7 @@ mod test {
             course_score: 0.0,
             num_trials: 1,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         };
@@ -980,6 +1043,7 @@ mod test {
             course_score: 0.0,
             num_trials: 0,
             last_seen: 1.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         };
@@ -993,6 +1057,7 @@ mod test {
             course_score: 0.0,
             num_trials: 0,
             last_seen: 20.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         };
@@ -1015,6 +1080,7 @@ mod test {
             course_score: 0.0,
             num_trials: 0,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         };
@@ -1028,6 +1094,7 @@ mod test {
             course_score: 0.0,
             num_trials: 0,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         };
@@ -1135,6 +1202,7 @@ mod test {
             course_score: 0.0,
             num_trials: 0,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         };
@@ -1148,6 +1216,7 @@ mod test {
             course_score: 0.0,
             num_trials: 0,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         };
@@ -1171,6 +1240,7 @@ mod test {
             course_score: 0.0,
             num_trials: 0,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         };
@@ -1184,6 +1254,7 @@ mod test {
             course_score: 0.0,
             num_trials: 0,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         };
@@ -1206,6 +1277,7 @@ mod test {
             course_score: 0.0,
             num_trials: 0,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         };
@@ -1233,6 +1305,7 @@ mod test {
             course_score: 5.0,
             num_trials: 1000,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 1000,
             dead_end: false,
         };
@@ -1240,5 +1313,142 @@ mod test {
             CandidateFilter::candidate_weight(&c, 100, 1000, 1000),
             MIN_WEIGHT
         );
+    }
+
+    /// Verifies that candidates with higher absolute velocity get more weight.
+    #[test]
+    fn higher_velocity_more_weight() {
+        let base = Candidate {
+            exercise_id: Ustr::from("exercise1"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            exercise_score: 2.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
+            num_trials: 0,
+            last_seen: 0.0,
+            score_velocity: Some(1.0),
+            frequency: 0,
+            dead_end: false,
+        };
+        let low_velocity = Candidate {
+            score_velocity: Some(0.5),
+            ..base.clone()
+        };
+        assert!(
+            CandidateFilter::candidate_weight(&base, 0, 1, 1)
+                > CandidateFilter::candidate_weight(&low_velocity, 0, 1, 1)
+        );
+    }
+
+    /// Verifies that negative velocity also boosts weight via the absolute value.
+    #[test]
+    fn negative_velocity_boosts_weight() {
+        let base = Candidate {
+            exercise_id: Ustr::from("exercise1"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            exercise_score: 2.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
+            num_trials: 0,
+            last_seen: 0.0,
+            score_velocity: None,
+            frequency: 0,
+            dead_end: false,
+        };
+        let negative = Candidate {
+            score_velocity: Some(-1.0),
+            ..base.clone()
+        };
+        assert!(
+            CandidateFilter::candidate_weight(&negative, 0, 1, 1)
+                > CandidateFilter::candidate_weight(&base, 0, 1, 1)
+        );
+    }
+
+    /// Verifies that stagnant non-mastered exercises get a weight bonus.
+    #[test]
+    fn stagnant_low_score_gets_bonus() {
+        let base = Candidate {
+            exercise_id: Ustr::from("exercise1"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            exercise_score: 2.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
+            num_trials: 0,
+            last_seen: 0.0,
+            score_velocity: None,
+            frequency: 0,
+            dead_end: false,
+        };
+        let stagnant = Candidate {
+            score_velocity: Some(0.05),
+            ..base.clone()
+        };
+        let base_weight = CandidateFilter::candidate_weight(&base, 0, 1, 1);
+        let stagnant_weight = CandidateFilter::candidate_weight(&stagnant, 0, 1, 1);
+        assert!(stagnant_weight > base_weight + STAGNANT_VELOCITY_WEIGHT - 100.0);
+    }
+
+    /// Verifies that stagnant mastered exercises get a weight penalty.
+    #[test]
+    fn stagnant_high_score_gets_penalty() {
+        let base = Candidate {
+            exercise_id: Ustr::from("exercise1"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            exercise_score: 4.5,
+            lesson_score: 0.0,
+            course_score: 0.0,
+            num_trials: 0,
+            last_seen: 0.0,
+            score_velocity: None,
+            frequency: 0,
+            dead_end: false,
+        };
+        let stagnant = Candidate {
+            score_velocity: Some(0.05),
+            ..base.clone()
+        };
+        assert!(
+            CandidateFilter::candidate_weight(&stagnant, 0, 1, 1)
+                < CandidateFilter::candidate_weight(&base, 0, 1, 1)
+        );
+    }
+
+    /// Verifies that velocity above the stagnation threshold does not trigger the stagnation
+    /// bonus or penalty.
+    #[test]
+    fn non_stagnant_velocity_no_bonus_or_penalty() {
+        let base = Candidate {
+            exercise_id: Ustr::from("exercise1"),
+            lesson_id: Ustr::from("lesson1"),
+            course_id: Ustr::from("course1"),
+            depth: 0.0,
+            exercise_score: 2.0,
+            lesson_score: 0.0,
+            course_score: 0.0,
+            num_trials: 0,
+            last_seen: 0.0,
+            score_velocity: None,
+            frequency: 0,
+            dead_end: false,
+        };
+        let active = Candidate {
+            score_velocity: Some(0.5),
+            ..base.clone()
+        };
+        let base_weight = CandidateFilter::candidate_weight(&base, 0, 1, 1);
+        let active_weight = CandidateFilter::candidate_weight(&active, 0, 1, 1);
+        // The difference should be only the velocity absolute value component, not the stagnation
+        // bonus.
+        let expected_diff = VELOCITY_WEIGHT_FACTOR * 0.5;
+        assert!((active_weight - base_weight - expected_diff).abs() < 1.0);
     }
 }
