@@ -147,6 +147,10 @@ struct Candidate {
     /// value will be used to assign more weight to exercises that have been scheduled less often.
     frequency: usize,
 
+    /// The velocity of learning for this exercise, measuring how quickly the score is improving or
+    /// worsening over trials.
+    score_velocity: Option<f32>,
+
     /// Whether this candidate comes from a lesson where the search stopped because the lesson's
     /// average score is still below the passing score.
     dead_end: bool,
@@ -380,6 +384,7 @@ impl DepthFirstScheduler {
                         .unit_scorer
                         .get_last_seen_days(exercise_id)?
                         .unwrap_or_default(),
+                    score_velocity: self.unit_scorer.get_exercise_velocity(exercise_id)?,
                     frequency: self.data.get_exercise_frequency(exercise_id),
                     dead_end: false,
                 })
@@ -967,6 +972,7 @@ impl DepthFirstScheduler {
                             .unit_scorer
                             .get_last_seen_days(unit_id)?
                             .unwrap_or_default(),
+                        score_velocity: self.unit_scorer.get_exercise_velocity(unit_id)?,
                         frequency: *frequency_map.get(&unit_id).unwrap_or(&0),
                         dead_end: false,
                     });
@@ -1204,6 +1210,7 @@ mod test {
             course_score: 0.0,
             num_trials: 0,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         }
@@ -1233,6 +1240,7 @@ mod test {
             course_score: 0.0,
             num_trials: 0,
             last_seen: 0.0,
+            score_velocity: None,
             frequency: 0,
             dead_end: false,
         }
