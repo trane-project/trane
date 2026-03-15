@@ -92,16 +92,14 @@ impl LocalBlacklist {
     /// Returns whether there's an entry for the given unit in the blacklist.
     #[inline]
     fn has_entry(&self, unit_id: Ustr) -> bool {
-        let mut cache = self.cache.write();
-        if let Some(has_entry) = cache.get(&unit_id) {
-            *has_entry
-        } else {
-            // Because the cache was initialized with all the entries in the blacklist, and it's
-            // kept updated, it's safe to assume that the entry is not in the blacklist and update
-            // the cache accordingly.
-            cache.insert(unit_id, false);
-            false
+        if let Some(has_entry) = self.cache.read().get(&unit_id) {
+            return *has_entry;
         }
+        // Because the cache was initialized with all the entries in the blacklist, and it's
+        // kept updated, it's safe to assume that the entry is not in the blacklist and update
+        // the cache accordingly.
+        self.cache.write().insert(unit_id, false);
+        false
     }
 
     /// Helper function to add a unit to the blacklist.
@@ -144,12 +142,13 @@ impl LocalBlacklist {
 
         // Remove all the entries with the given prefix.
         let mut stmt = connection.prepare_cached("DELETE FROM blacklist WHERE unit_id = $1")?;
+        let mut cache = self.cache.write();
         while let Some(row) = rows.next()? {
             let unit_id: String = row.get(0)?;
             stmt.execute(params![unit_id])?;
 
             // Update the cache.
-            self.cache.write().insert(unit_id.into(), false);
+            cache.insert(unit_id.into(), false);
         }
 
         // Call the `VACUUM` command to reclaim the space freed by the deleted entries.

@@ -268,8 +268,7 @@ impl Trane {
             review_list: review_list.clone(),
             filter_manager: filter_manager.clone(),
             frequency_map: Arc::new(RwLock::new(UstrMap::default())),
-            successful_exercises: Arc::new(RwLock::new(0)),
-            failed_exercises: Arc::new(RwLock::new(0)),
+            trial_counts: Arc::new(RwLock::new((0, 0))),
         };
 
         Ok(Trane {

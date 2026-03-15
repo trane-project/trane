@@ -52,11 +52,8 @@ pub struct SchedulerData {
     /// been scheduled less often.
     pub frequency_map: Arc<RwLock<UstrMap<usize>>>,
 
-    /// The number of successful exercises during the session.
-    pub successful_exercises: Arc<RwLock<usize>>,
-
-    /// The number of failed exercises during the session.
-    pub failed_exercises: Arc<RwLock<usize>>,
+    /// The number of (successful, failed) exercises during the session.
+    pub trial_counts: Arc<RwLock<(usize, usize)>>,
 }
 
 impl SchedulerData {
@@ -135,16 +132,17 @@ impl SchedulerData {
     /// Returns whether the exercise with the given ID is blacklisted or inside a blacklisted unit.
     pub fn inside_blacklisted(&self, exercise_id: Ustr) -> Result<bool> {
         // Check if the exercise itself is blacklisted.
-        let blacklisted = self.blacklist.read().blacklisted(exercise_id)?;
+        let blacklist = self.blacklist.read();
+        let blacklisted = blacklist.blacklisted(exercise_id)?;
         if blacklisted {
             return Ok(true);
         }
 
         // Check whether the lesson and course to which the exercise belongs are blacklisted.
         let lesson_id = self.get_lesson_id(exercise_id).unwrap_or_default();
-        let lesson_blacklisted = self.blacklist.read().blacklisted(lesson_id)?;
+        let lesson_blacklisted = blacklist.blacklisted(lesson_id)?;
         let course_id = self.get_course_id(lesson_id).unwrap_or_default();
-        let course_blacklisted = self.blacklist.read().blacklisted(course_id)?;
+        let course_blacklisted = blacklist.blacklisted(course_id)?;
         Ok(lesson_blacklisted || course_blacklisted)
     }
 
@@ -407,28 +405,22 @@ impl SchedulerData {
 
     /// Update the count of successful and failed exercises based on the given score.
     pub fn update_success_rate(&self, score: &MasteryScore) {
+        let mut counts = self.trial_counts.write();
         match score {
-            MasteryScore::One | MasteryScore::Two => {
-                let mut failed_exercises = self.failed_exercises.write();
-                *failed_exercises += 1;
-            }
-            MasteryScore::Three | MasteryScore::Four | MasteryScore::Five => {
-                let mut successful_exercises = self.successful_exercises.write();
-                *successful_exercises += 1;
-            }
+            MasteryScore::One | MasteryScore::Two => counts.1 += 1,
+            MasteryScore::Three | MasteryScore::Four | MasteryScore::Five => counts.0 += 1,
         }
     }
 
     /// Returns the success rate of the current session.
     #[must_use]
     pub fn get_success_rate(&self) -> f32 {
-        let successful_exercises = self.successful_exercises.read();
-        let failed_exercises = self.failed_exercises.read();
-        let total_exercises = *successful_exercises + *failed_exercises;
-        if total_exercises == 0 {
+        let counts = self.trial_counts.read();
+        let total = counts.0 + counts.1;
+        if total == 0 {
             1.0
         } else {
-            *successful_exercises as f32 / total_exercises as f32
+            counts.0 as f32 / total as f32
         }
     }
 }
