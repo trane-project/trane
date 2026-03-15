@@ -32,7 +32,7 @@ use ustr::{Ustr, UstrMap, UstrSet};
 use crate::{
     data::{
         ExerciseManifest, FULL_CANDIDATES_SCORE, MasteryScore, PassingScoreOptions,
-        SchedulerOptions, UnitReward, UnitType,
+        SchedulerOptions, UnitType,
         filter::{ExerciseFilter, KeyValueFilter, UnitFilter},
     },
     error::ExerciseSchedulerError,
@@ -1135,21 +1135,11 @@ impl ExerciseScheduler for DepthFirstScheduler {
         let rewards = self
             .reward_propagator
             .propagate_rewards(exercise_id, &score, timestamp);
-        let valid_rewards: Vec<UnitReward> = rewards
-            .into_iter()
-            .filter(|r| {
-                self.unit_scorer
-                    .get_unit_score(r.unit_id)
-                    .unwrap_or_default()
-                    .unwrap_or_default()
-                    != 0.0
-            })
-            .collect();
         let updated_ids = self
             .data
             .practice_rewards
             .write()
-            .record_unit_rewards(&valid_rewards)
+            .record_unit_rewards(&rewards)
             .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?;
 
         // Invalidate caches for units were updated.
