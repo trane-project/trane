@@ -47,36 +47,3 @@ regimes:
 
 **Expected impact:** ~10-15% faster progression through material based on the ZPDES and deliberate
 practice results.
-
----
-
-## 2. Forward-Testing Effect Scheduling
-
-**Literature:** The forward testing effect (Pastotter & Bauml, 2014) shows that retrieval practice
-of previously studied material enhances learning of *subsequently presented new material* — even
-when the materials are unrelated. The effect is reliable and generalizes across domains. In motor
-learning, retrieval is identified as a fundamental process alongside reasoning and refinement
-(Krakauer et al., eLife 2024). Rawson & Dunlosky's research suggests "practice recalling to an
-initial criterion of 3 correct recalls, then relearn at widely spaced intervals."
-
-**What Trane does now:** The shuffler groups exercises into course-blocked chunks (low-scoring) or
-individual groups (high-scoring), then shuffles the groups uniformly at random. New/unseen exercises
-have no positional bias — they can appear anywhere in the batch.
-
-**What's different:** By biasing new exercises toward the end of the batch, the learner naturally
-does retrieval practice on familiar material first. This produces the forward testing effect without
-needing explicit dependency graph lookups during shuffling.
-
-**Implementation sketch:**
-- Replace the uniform group shuffle in `Shuffler::shuffle_candidates` with a keyed sort.
-- Assign each group a random `f64` sort key:
-  - **Existing exercises** (`num_trials > 0`): key drawn uniformly from [0.0, 1.0].
-  - **New exercises** (`num_trials == 0`): key drawn uniformly from [0.5, 1.0].
-- Sort all groups by their key, then flatten into the final batch order.
-- This biases new exercises toward the back half of the batch while preserving randomness. New
-  exercises can still appear in the middle, just not as often at the very beginning.
-- The existing course-blocking for low-scoring exercises and individual grouping for high-scoring
-  exercises remain unchanged — this only affects the final ordering of groups.
-
-**Expected impact:** Moderate but well-supported. The forward testing effect is one of the most
-robust findings in memory research.
