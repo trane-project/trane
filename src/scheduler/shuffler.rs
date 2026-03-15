@@ -1,15 +1,36 @@
 //! Defines the logic for shuffling the final batch of candidates before they are returned.
 
-use rand::seq::SliceRandom;
+use rand::{Rng, seq::SliceRandom};
+use std::cmp::Ordering;
 
 use crate::{data::SchedulerOptions, scheduler::Candidate};
 
 /// The maximum number of low-scoring candidates from the same course in a single group.
 const MAX_GROUP_SIZE: usize = 5;
 
+/// The threshold score for determining whether a group is considered new and biased towards the end
+/// of the list.
+const NEW_GROUP_THRESHOLD: f32 = 1.0;
+
 pub(crate) struct Shuffler;
 
 impl Shuffler {
+    /// Generates a random key for sorting the groups that has a bias towards keeping very
+    /// low-scoring groups towards the end. Research shows that seeing new exercises after reviewing
+    /// known material leads to better retention.
+    fn group_sort_key(group: &[Candidate]) -> f32 {
+        if group.is_empty() {
+            return 0.0;
+        }
+        let sum: f32 = group.iter().map(|c| c.exercise_score).sum();
+        let avg_score = sum / group.len() as f32;
+        if avg_score <= NEW_GROUP_THRESHOLD {
+            rand::rng().random_range(0.7..1.0)
+        } else {
+            rand::rng().random_range(0.0..1.0)
+        }
+    }
+
     /// Shuffles the final batch of candidates before they are returned, making sure to group new
     /// and low-scoring exercises from the same course together. Blocking works better than
     /// interleaving for these exercises.
@@ -42,11 +63,15 @@ impl Shuffler {
             .map(|candidate| vec![candidate])
             .collect();
 
-        // Chain, shuffle, and flatten the groups.
+        // Chain, compute stable sort keys, sort by them, and flatten the groups.
         let mut all_groups = grouped_low_candidates;
         all_groups.extend(grouped_high_candidates);
-        all_groups.shuffle(rng);
-        all_groups.into_iter().flatten().collect()
+        let mut keyed_groups: Vec<(f32, Vec<Candidate>)> = all_groups
+            .into_iter()
+            .map(|g| (Self::group_sort_key(&g), g))
+            .collect();
+        keyed_groups.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
+        keyed_groups.into_iter().flat_map(|(_, g)| g).collect()
     }
 }
 
@@ -216,5 +241,32 @@ mod tests {
             }
         }
         assert!(saw_split);
+    }
+
+    /// Verifies the sort key is generated correctly.
+    #[test]
+    fn group_sort_key() {
+        // Empty groups should get a key of 0.0.
+        assert_eq!(Shuffler::group_sort_key(&[]), 0.0);
+
+        // New groups get keys in the 0.7..1.0 range.
+        let group = vec![candidate("c1", "e1", 0.5), candidate("c1", "e2", 0.1)];
+        for _ in 0..50 {
+            let key = Shuffler::group_sort_key(&group);
+            assert!(
+                (0.7..1.0).contains(&key),
+                "expected key in 0.7..1.0, got {key}"
+            );
+        }
+
+        // All other groups get keys in the 0.0..1.0 range.
+        let group = vec![candidate("c1", "e1", 1.0), candidate("c1", "e2", 2.0)];
+        for _ in 0..50 {
+            let key = Shuffler::group_sort_key(&group);
+            assert!(
+                (0.0..1.0).contains(&key),
+                "expected key in 0.0..1.0, got {key}"
+            );
+        }
     }
 }
