@@ -5,8 +5,7 @@
 //! exercises from the units in the review list.
 
 use anyhow::{Context, Result};
-use r2d2::Pool;
-use r2d2_sqlite::SqliteConnectionManager;
+use parking_lot::Mutex;
 use rusqlite::{Connection, params};
 use rusqlite_migration::{M, Migrations};
 use ustr::Ustr;
@@ -28,8 +27,8 @@ pub trait ReviewList {
 
 /// An implementation of [`ReviewList`] backed by `SQLite`.
 pub struct LocalReviewList {
-    /// A pool of connections to the database.
-    pool: Pool<SqliteConnectionManager>,
+    /// A connection to the database.
+    connection: Mutex<Connection>,
 }
 
 impl LocalReviewList {
@@ -48,39 +47,31 @@ impl LocalReviewList {
     /// Initializes the database by running the migrations. If the migrations have been applied
     /// already, they will have no effect on the database.
     fn init(&mut self) -> Result<()> {
-        let mut connection = self.pool.get()?;
         let migrations = Self::migrations();
+        let mut connection = self.connection.lock();
         migrations
             .to_latest(&mut connection)
             .context("failed to initialize review list DB")
     }
 
-    /// Initializes the pool and the review list database.
-    fn new(connection_manager: SqliteConnectionManager) -> Result<LocalReviewList> {
-        let pool = utils::new_connection_pool(connection_manager)?;
-        let mut review_list = LocalReviewList { pool };
+    /// Creates a new instance with the given connection and initializes the database.
+    fn new(connection: Connection) -> Result<LocalReviewList> {
+        let mut review_list = LocalReviewList {
+            connection: Mutex::new(connection),
+        };
         review_list.init()?;
         Ok(review_list)
     }
 
     /// A constructor taking the path to the database file.
     pub fn new_from_disk(db_path: &str) -> Result<LocalReviewList> {
-        let connection_manager = SqliteConnectionManager::file(db_path).with_init(
-            |connection: &mut Connection| -> Result<(), rusqlite::Error> {
-                // The following pragma statements are set to improve the read and write performance
-                // of SQLite. See the SQLite [docs](https://www.sqlite.org/pragma.html) for more
-                // information.
-                connection.pragma_update(None, "journal_mode", "WAL")?;
-                connection.pragma_update(None, "synchronous", "OFF")
-            },
-        );
-        Self::new(connection_manager)
+        Self::new(utils::new_connection(db_path)?)
     }
 
     /// Helper to add a unit to the review list.
     fn add_to_review_list_helper(&mut self, unit_id: Ustr) -> Result<()> {
         // Add the unit to the database.
-        let connection = self.pool.get()?;
+        let connection = self.connection.lock();
         let mut stmt =
             connection.prepare_cached("INSERT OR IGNORE INTO review_list (unit_id) VALUES (?1)")?;
         stmt.execute(params![unit_id.as_str()])?;
@@ -90,7 +81,7 @@ impl LocalReviewList {
     /// Helper to remove a unit from the review list.
     fn remove_from_review_list_helper(&mut self, unit_id: Ustr) -> Result<()> {
         // Remove the unit from the database.
-        let connection = self.pool.get()?;
+        let connection = self.connection.lock();
         let mut stmt = connection.prepare_cached("DELETE FROM review_list WHERE unit_id = $1")?;
         stmt.execute(params![unit_id.as_str()])?;
         Ok(())
@@ -99,7 +90,7 @@ impl LocalReviewList {
     /// Helper to get all the entries in the review list.
     fn get_review_list_entries_helper(&self) -> Result<Vec<Ustr>> {
         // Retrieve all the units from the database.
-        let connection = self.pool.get()?;
+        let connection = self.connection.lock();
         let mut stmt = connection.prepare_cached("SELECT unit_id from review_list;")?;
         let mut rows = stmt.query(params![])?;
 
@@ -134,14 +125,13 @@ impl ReviewList for LocalReviewList {
 #[cfg_attr(coverage, coverage(off))]
 mod test {
     use anyhow::Result;
-    use r2d2_sqlite::SqliteConnectionManager;
+    use rusqlite::Connection;
     use ustr::Ustr;
 
     use crate::review_list::{LocalReviewList, ReviewList};
 
     fn new_test_review_list() -> Result<Box<dyn ReviewList>> {
-        let connection_manager = SqliteConnectionManager::memory();
-        let review_list = LocalReviewList::new(connection_manager)?;
+        let review_list = LocalReviewList::new(Connection::open_in_memory()?)?;
         Ok(Box::new(review_list))
     }
 
