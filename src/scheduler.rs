@@ -384,9 +384,7 @@ impl DepthFirstScheduler {
                         .unit_scorer
                         .get_last_seen_days(exercise_id)?
                         .unwrap_or_default(),
-                    score_velocity: self
-                        .unit_scorer
-                        .get_exercise_velocity(exercise_id)?,
+                    score_velocity: self.unit_scorer.get_exercise_velocity(exercise_id)?,
                     frequency: self.data.get_exercise_frequency(exercise_id),
                     dead_end: false,
                 })
@@ -974,9 +972,7 @@ impl DepthFirstScheduler {
                             .unit_scorer
                             .get_last_seen_days(unit_id)?
                             .unwrap_or_default(),
-                        score_velocity: self
-                            .unit_scorer
-                            .get_exercise_velocity(unit_id)?,
+                        score_velocity: self.unit_scorer.get_exercise_velocity(unit_id)?,
                         frequency: *frequency_map.get(&unit_id).unwrap_or(&0),
                         dead_end: false,
                     });

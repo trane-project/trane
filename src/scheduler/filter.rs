@@ -178,8 +178,8 @@ impl CandidateFilter {
     /// 12. The candidate's score velocity. The absolute value of the velocity is multiplied by a
     ///     factor.
     /// 13. Whether the candidate has a stagnant velocity. Non-mastered candidates with a stagnant
-    ///    velocity get a weight bonus, while mastered candidates with a stagnant velocity get a
-    ///    penalty.
+    ///     velocity get a weight bonus, while mastered candidates with a stagnant velocity get a
+    ///     penalty.
     fn candidate_weight(
         c: &Candidate,
         encompassed_freq: u32,
@@ -1446,8 +1446,6 @@ mod test {
         };
         let base_weight = CandidateFilter::candidate_weight(&base, 0, 1, 1);
         let active_weight = CandidateFilter::candidate_weight(&active, 0, 1, 1);
-        // The difference should be only the velocity absolute value component, not the stagnation
-        // bonus.
         let expected_diff = VELOCITY_WEIGHT_FACTOR * 0.5;
         assert!((active_weight - base_weight - expected_diff).abs() < 1.0);
     }

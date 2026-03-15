@@ -544,7 +544,7 @@ impl ExerciseScorer for PowerLawScorer {
         let mut sum_scores = 0.0_f32;
         let mut sum_t_scores = 0.0_f32;
         let mut sum_t_sq = 0.0_f32;
-        for trial in previous_trials.iter() {
+        for trial in previous_trials {
             let t = (trial.timestamp.saturating_sub(oldest_timestamp)) as f32 / SECONDS_PER_DAY;
             sum_t += t;
             sum_scores += trial.score;
