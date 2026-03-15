@@ -238,16 +238,16 @@ impl Trane {
         let config_path = library_root.join(Path::new(TRANE_CONFIG_DIR_PATH));
         let user_preferences = preferences_manager.read().get_user_preferences()?;
         let unit_graph = course_library.write().get_unit_graph();
-        let practice_stats = Arc::new(RwLock::new(LocalPracticeStats::new(
+        let practice_stats = Arc::new(RwLock::new(LocalPracticeStats::new_from_disk(
             config_path.join(PRACTICE_STATS_PATH).to_str().unwrap(),
         )?));
-        let practice_rewards = Arc::new(RwLock::new(LocalPracticeRewards::new(
+        let practice_rewards = Arc::new(RwLock::new(LocalPracticeRewards::new_from_disk(
             config_path.join(PRACTICE_REWARDS_PATH).to_str().unwrap(),
         )?));
-        let blacklist = Arc::new(RwLock::new(LocalBlacklist::new(
+        let blacklist = Arc::new(RwLock::new(LocalBlacklist::new_from_disk(
             config_path.join(BLACKLIST_PATH).to_str().unwrap(),
         )?));
-        let review_list = Arc::new(RwLock::new(LocalReviewList::new(
+        let review_list = Arc::new(RwLock::new(LocalReviewList::new_from_disk(
             config_path.join(REVIEW_LIST_PATH).to_str().unwrap(),
         )?));
         let filter_manager = Arc::new(RwLock::new(LocalFilterManager::new(

@@ -47,11 +47,8 @@ pub trait PracticeStats {
 
 /// An implementation of [`PracticeStats`] backed by `SQLite`.
 pub struct LocalPracticeStats {
-    /// A connection used for read-only queries.
-    read_connection: Mutex<Connection>,
-
-    /// A connection used for write operations.
-    write_connection: Mutex<Connection>,
+    /// A connection to the database.
+    connection: Mutex<Connection>,
 }
 
 impl LocalPracticeStats {
@@ -93,21 +90,24 @@ impl LocalPracticeStats {
     /// already, they will have no effect on the database.
     fn init(&mut self) -> Result<()> {
         let migrations = Self::migrations();
-        let mut connection = self.write_connection.lock();
+        let mut connection = self.connection.lock();
         migrations
             .to_latest(&mut connection)
             .context("failed to initialize practice stats DB")
     }
 
-    /// Opens two connections to the given database path and initializes the schema. One connection
-    /// is used for reads and one for writes to avoid prepared statement invalidation.
-    pub fn new(db_path: &str) -> Result<LocalPracticeStats> {
+    /// Creates a new instance with the given connection and initializes the database.
+    fn new(connection: Connection) -> Result<LocalPracticeStats> {
         let mut stats = LocalPracticeStats {
-            read_connection: Mutex::new(utils::new_connection(db_path)?),
-            write_connection: Mutex::new(utils::new_connection(db_path)?),
+            connection: Mutex::new(connection),
         };
         stats.init()?;
         Ok(stats)
+    }
+
+    /// A constructor taking the path to a database file.
+    pub fn new_from_disk(db_path: &str) -> Result<LocalPracticeStats> {
+        Self::new(utils::new_connection(db_path)?)
     }
 
     /// Helper function to retrieve scores from the database.
@@ -117,7 +117,7 @@ impl LocalPracticeStats {
         num_scores: usize,
     ) -> Result<Vec<ExerciseTrial>> {
         // Retrieve the exercise trials from the database.
-        let connection = self.read_connection.lock();
+        let connection = self.connection.lock();
         let mut stmt = connection.prepare_cached(
             "SELECT score, timestamp from practice_stats WHERE unit_uid = (
                 SELECT unit_uid FROM uids WHERE unit_id = $1)
@@ -146,7 +146,7 @@ impl LocalPracticeStats {
     ) -> Result<()> {
         // Update the mapping of unit ID to unique integer ID and add the trial in a single
         // transaction.
-        let mut connection = self.write_connection.lock();
+        let mut connection = self.connection.lock();
         let tx = connection.transaction()?;
         {
             let mut uid_stmt =
@@ -170,7 +170,7 @@ impl LocalPracticeStats {
     /// Helper function to trim the number of scores for each exercise.
     fn trim_scores_helper(&mut self, num_scores: usize) -> Result<()> {
         // Get all the UIDs from the database.
-        let connection = self.write_connection.lock();
+        let connection = self.connection.lock();
         let mut uid_stmt = connection.prepare_cached("SELECT unit_uid from uids")?;
         let uids = uid_stmt
             .query_map([], |row| row.get(0))?
@@ -195,7 +195,7 @@ impl LocalPracticeStats {
     /// Helper function to remove all the scores from units that match the given prefix.
     fn remove_scores_with_prefix_helper(&mut self, prefix: &str) -> Result<()> {
         // Get all the UIDs for the units that match the prefix.
-        let connection = self.write_connection.lock();
+        let connection = self.connection.lock();
         let mut uid_stmt =
             connection.prepare_cached("SELECT unit_uid FROM uids WHERE unit_id LIKE $1;")?;
         let uids = uid_stmt
@@ -250,9 +250,8 @@ impl PracticeStats for LocalPracticeStats {
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod test {
-    use std::sync::atomic::{AtomicU64, Ordering};
-
     use anyhow::{Ok, Result};
+    use rusqlite::Connection;
     use ustr::Ustr;
 
     use crate::{
@@ -261,11 +260,7 @@ mod test {
     };
 
     fn new_tests_stats() -> Result<Box<dyn PracticeStats>> {
-        static COUNTER: AtomicU64 = AtomicU64::new(0);
-        let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-        let practice_stats = LocalPracticeStats::new(&format!(
-            "file:practice_stats_test_{id}?mode=memory&cache=shared"
-        ))?;
+        let practice_stats = LocalPracticeStats::new(Connection::open_in_memory()?)?;
         Ok(Box::new(practice_stats))
     }
 
