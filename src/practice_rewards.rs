@@ -14,9 +14,8 @@
 //! material and more practice of material whose dependencies are not fully mastered.
 
 use anyhow::{Context, Ok, Result};
-use r2d2::Pool;
-use r2d2_sqlite::SqliteConnectionManager;
-use rusqlite::params;
+use parking_lot::Mutex;
+use rusqlite::{Connection, params};
 use rusqlite_migration::{M, Migrations};
 use std::collections::VecDeque;
 use ustr::{Ustr, UstrMap};
@@ -95,8 +94,8 @@ impl RewardCache {
 
 /// An implementation of [`PracticeRewards`] backed by `SQLite`.
 pub struct LocalPracticeRewards {
-    /// A pool of connections to the database.
-    pool: Pool<SqliteConnectionManager>,
+    /// A connection to the database.
+    connection: Mutex<Connection>,
 
     /// A cache of previous rewards to avoid storing the same reward multiple times.
     cache: RewardCache,
@@ -132,18 +131,17 @@ impl LocalPracticeRewards {
     /// Initializes the database by running the migrations. If the migrations have been applied
     /// already, they will have no effect on the database.
     fn init(&mut self) -> Result<()> {
-        let mut connection = self.pool.get()?;
         let migrations = Self::migrations();
+        let mut connection = self.connection.lock();
         migrations
             .to_latest(&mut connection)
             .context("failed to initialize practice rewards DB")
     }
 
-    /// Creates a connection pool and initializes the database.
-    fn new(connection_manager: SqliteConnectionManager) -> Result<LocalPracticeRewards> {
-        let pool = utils::new_connection_pool(connection_manager)?;
+    /// Creates a new instance with the given connection and initializes the database.
+    fn new(connection: Connection) -> Result<LocalPracticeRewards> {
         let mut rewards = LocalPracticeRewards {
-            pool,
+            connection: Mutex::new(connection),
             cache: RewardCache {
                 cache: UstrMap::default(),
             },
@@ -154,13 +152,13 @@ impl LocalPracticeRewards {
 
     /// A constructor taking the path to a database file.
     pub fn new_from_disk(db_path: &str) -> Result<LocalPracticeRewards> {
-        Self::new(utils::new_connection_manager(db_path))
+        Self::new(utils::new_connection(db_path)?)
     }
 
     /// Helper function to retrieve rewards from the database.
     fn get_rewards_helper(&self, unit_id: Ustr, num_rewards: usize) -> Result<Vec<UnitReward>> {
         // Retrieve the rewards from the database.
-        let connection = self.pool.get()?;
+        let connection = self.connection.lock();
         let mut stmt = connection.prepare_cached(
             "SELECT reward, weight, timestamp from practice_rewards WHERE unit_uid = (
                 SELECT unit_uid FROM uids WHERE unit_id = $1)
@@ -189,7 +187,7 @@ impl LocalPracticeRewards {
     /// Helper function to record multiple rewards in a single transaction.
     fn record_unit_rewards_helper(&mut self, rewards: &[UnitReward]) -> Result<Vec<Ustr>> {
         let mut updated = Vec::new();
-        let mut connection = self.pool.get()?;
+        let mut connection = self.connection.lock();
         let tx = connection.transaction()?;
         {
             for reward in rewards {
@@ -232,7 +230,7 @@ impl LocalPracticeRewards {
     /// Helper function to trim the number of rewards for each unit to the given number. If the
     /// number of rewards is less than the given number, the method deletes no rewards.
     fn trim_rewards_helper(&mut self, num_rewards: usize) -> Result<()> {
-        let connection = self.pool.get()?;
+        let connection = self.connection.lock();
         for row in connection
             .prepare("SELECT unit_uid FROM uids")?
             .query_map([], |row| row.get(0))?
@@ -252,7 +250,7 @@ impl LocalPracticeRewards {
     /// Helper function to remove all the rewards from units that match the given prefix.
     fn remove_rewards_with_prefix_helper(&mut self, prefix: &str) -> Result<()> {
         // Get all the UIDs for the units that match the prefix.
-        let connection = self.pool.get()?;
+        let connection = self.connection.lock();
         for row in connection
             .prepare("SELECT unit_uid FROM uids WHERE unit_id LIKE ?1")?
             .query_map(params![format!("{}%", prefix)], |row| row.get(0))?
@@ -303,7 +301,7 @@ impl PracticeRewards for LocalPracticeRewards {
 #[cfg_attr(coverage, coverage(off))]
 mod test {
     use anyhow::{Ok, Result};
-    use r2d2_sqlite::SqliteConnectionManager;
+    use rusqlite::Connection;
     use ustr::Ustr;
 
     use crate::{
@@ -312,8 +310,7 @@ mod test {
     };
 
     fn new_tests_rewards() -> Result<Box<dyn PracticeRewards>> {
-        let connection_manager = SqliteConnectionManager::memory();
-        let practice_rewards = LocalPracticeRewards::new(connection_manager)?;
+        let practice_rewards = LocalPracticeRewards::new(Connection::open_in_memory()?)?;
         Ok(Box::new(practice_rewards))
     }
 

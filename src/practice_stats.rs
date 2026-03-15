@@ -5,9 +5,8 @@
 //! documentation in [exercise_scorer](crate::exercise_scorer) for more details.
 
 use anyhow::{Context, Ok, Result};
-use r2d2::Pool;
-use r2d2_sqlite::SqliteConnectionManager;
-use rusqlite::params;
+use parking_lot::Mutex;
+use rusqlite::{Connection, params};
 use rusqlite_migration::{M, Migrations};
 use ustr::Ustr;
 
@@ -48,8 +47,8 @@ pub trait PracticeStats {
 
 /// An implementation of [`PracticeStats`] backed by `SQLite`.
 pub struct LocalPracticeStats {
-    /// A pool of connections to the database.
-    pool: Pool<SqliteConnectionManager>,
+    /// A connection to the database.
+    connection: Mutex<Connection>,
 }
 
 impl LocalPracticeStats {
@@ -90,24 +89,25 @@ impl LocalPracticeStats {
     /// Initializes the database by running the migrations. If the migrations have been applied
     /// already, they will have no effect on the database.
     fn init(&mut self) -> Result<()> {
-        let mut connection = self.pool.get()?;
         let migrations = Self::migrations();
+        let mut connection = self.connection.lock();
         migrations
             .to_latest(&mut connection)
             .context("failed to initialize practice stats DB")
     }
 
-    /// Creates a connection pool and initializes the database.
-    fn new(connection_manager: SqliteConnectionManager) -> Result<LocalPracticeStats> {
-        let pool = utils::new_connection_pool(connection_manager)?;
-        let mut stats = LocalPracticeStats { pool };
+    /// Creates a new instance with the given connection and initializes the database.
+    fn new(connection: Connection) -> Result<LocalPracticeStats> {
+        let mut stats = LocalPracticeStats {
+            connection: Mutex::new(connection),
+        };
         stats.init()?;
         Ok(stats)
     }
 
     /// A constructor taking the path to a database file.
     pub fn new_from_disk(db_path: &str) -> Result<LocalPracticeStats> {
-        Self::new(utils::new_connection_manager(db_path))
+        Self::new(utils::new_connection(db_path)?)
     }
 
     /// Helper function to retrieve scores from the database.
@@ -117,7 +117,7 @@ impl LocalPracticeStats {
         num_scores: usize,
     ) -> Result<Vec<ExerciseTrial>> {
         // Retrieve the exercise trials from the database.
-        let connection = self.pool.get()?;
+        let connection = self.connection.lock();
         let mut stmt = connection.prepare_cached(
             "SELECT score, timestamp from practice_stats WHERE unit_uid = (
                 SELECT unit_uid FROM uids WHERE unit_id = $1)
@@ -146,7 +146,7 @@ impl LocalPracticeStats {
     ) -> Result<()> {
         // Update the mapping of unit ID to unique integer ID and add the trial in a single
         // transaction.
-        let mut connection = self.pool.get()?;
+        let mut connection = self.connection.lock();
         let tx = connection.transaction()?;
         {
             let mut uid_stmt =
@@ -170,7 +170,7 @@ impl LocalPracticeStats {
     /// Helper function to trim the number of scores for each exercise.
     fn trim_scores_helper(&mut self, num_scores: usize) -> Result<()> {
         // Get all the UIDs from the database.
-        let connection = self.pool.get()?;
+        let connection = self.connection.lock();
         let mut uid_stmt = connection.prepare_cached("SELECT unit_uid from uids")?;
         let uids = uid_stmt
             .query_map([], |row| row.get(0))?
@@ -195,7 +195,7 @@ impl LocalPracticeStats {
     /// Helper function to remove all the scores from units that match the given prefix.
     fn remove_scores_with_prefix_helper(&mut self, prefix: &str) -> Result<()> {
         // Get all the UIDs for the units that match the prefix.
-        let connection = self.pool.get()?;
+        let connection = self.connection.lock();
         let mut uid_stmt =
             connection.prepare_cached("SELECT unit_uid FROM uids WHERE unit_id LIKE $1;")?;
         let uids = uid_stmt
@@ -251,7 +251,7 @@ impl PracticeStats for LocalPracticeStats {
 #[cfg_attr(coverage, coverage(off))]
 mod test {
     use anyhow::{Ok, Result};
-    use r2d2_sqlite::SqliteConnectionManager;
+    use rusqlite::Connection;
     use ustr::Ustr;
 
     use crate::{
@@ -260,8 +260,7 @@ mod test {
     };
 
     fn new_tests_stats() -> Result<Box<dyn PracticeStats>> {
-        let connection_manager = SqliteConnectionManager::memory();
-        let practice_stats = LocalPracticeStats::new(connection_manager)?;
+        let practice_stats = LocalPracticeStats::new(Connection::open_in_memory()?)?;
         Ok(Box::new(practice_stats))
     }
 

@@ -8,10 +8,8 @@
 //! mastered. Courses, lessons, and exercises can be added to the blacklist.
 
 use anyhow::Result;
-use parking_lot::RwLock;
-use r2d2::Pool;
-use r2d2_sqlite::SqliteConnectionManager;
-use rusqlite::params;
+use parking_lot::{Mutex, RwLock};
+use rusqlite::{Connection, params};
 use rusqlite_migration::{M, Migrations};
 use ustr::{Ustr, UstrMap};
 
@@ -41,8 +39,8 @@ pub struct LocalBlacklist {
     /// A cache of the blacklist entries used to avoid unnecessary queries to the database.
     cache: RwLock<UstrMap<bool>>,
 
-    /// A pool of connections to the database.
-    pool: Pool<SqliteConnectionManager>,
+    /// A connection to the database.
+    connection: Mutex<Connection>,
 }
 
 impl LocalBlacklist {
@@ -61,18 +59,17 @@ impl LocalBlacklist {
     /// Initializes the database by running the migrations. If the migrations have been applied
     /// already, they will have no effect on the database.
     fn init(&mut self) -> Result<()> {
-        let mut connection = self.pool.get()?;
         let migrations = Self::migrations();
+        let mut connection = self.connection.lock();
         migrations.to_latest(&mut connection)?;
         Ok(())
     }
 
     /// Creates a connection pool and initializes the database and in-memory cache.
-    fn new(connection_manager: SqliteConnectionManager) -> Result<LocalBlacklist> {
-        let pool = utils::new_connection_pool(connection_manager)?;
+    fn new(connection: Connection) -> Result<LocalBlacklist> {
         let mut blacklist = LocalBlacklist {
             cache: RwLock::new(UstrMap::default()),
-            pool,
+            connection: Mutex::new(connection),
         };
         blacklist.init()?;
 
@@ -86,7 +83,8 @@ impl LocalBlacklist {
 
     /// A constructor taking the path to the database file.
     pub fn new_from_disk(db_path: &str) -> Result<LocalBlacklist> {
-        Self::new(utils::new_connection_manager(db_path))
+        let connection = utils::new_connection(db_path)?;
+        Self::new(connection)
     }
 
     /// Returns whether there's an entry for the given unit in the blacklist.
@@ -111,7 +109,7 @@ impl LocalBlacklist {
         }
 
         // Add the entry to the database.
-        let connection = self.pool.get()?;
+        let connection = self.connection.lock();
         let mut stmt = connection.prepare_cached("INSERT INTO blacklist (unit_id) VALUES (?1)")?;
         stmt.execute(params![unit_id.as_str()])?;
 
@@ -123,7 +121,7 @@ impl LocalBlacklist {
     /// Helper function to remove a unit from the blacklist.
     fn remove_from_blacklist_helper(&mut self, unit_id: Ustr) -> Result<()> {
         // Remove the entry from the database.
-        let connection = self.pool.get()?;
+        let connection = self.connection.lock();
         let mut stmt = connection.prepare_cached("DELETE FROM blacklist WHERE unit_id = $1")?;
         stmt.execute(params![unit_id.as_str()])?;
 
@@ -135,7 +133,7 @@ impl LocalBlacklist {
     /// Helper function to remove all the entries with the given prefix from the blacklist.
     fn remove_prefix_from_blacklist_helper(&mut self, prefix: &str) -> Result<()> {
         // Search for all the entries with the given prefix.
-        let connection = self.pool.get()?;
+        let connection = self.connection.lock();
         let mut stmt =
             connection.prepare_cached("SELECT unit_id from blacklist WHERE unit_id LIKE $1;")?;
         let mut rows = stmt.query(params![format!("{}%", prefix)])?;
@@ -159,7 +157,7 @@ impl LocalBlacklist {
     /// Helper function to retrieve all the entries in the blacklist.
     fn all_blacklist_entries_helper(&self) -> Result<Vec<Ustr>> {
         // Get all the entries from the database.
-        let connection = self.pool.get()?;
+        let connection = self.connection.lock();
         let mut stmt = connection.prepare_cached("SELECT unit_id from blacklist;")?;
         let mut rows = stmt.query(params![])?;
 
@@ -204,15 +202,15 @@ impl Blacklist for LocalBlacklist {
 #[cfg_attr(coverage, coverage(off))]
 mod test {
     use anyhow::Result;
-    use r2d2_sqlite::SqliteConnectionManager;
+    use rusqlite::Connection;
     use tempfile::tempdir;
     use ustr::Ustr;
 
     use crate::blacklist::{Blacklist, LocalBlacklist};
 
     fn new_test_blacklist() -> Result<Box<dyn Blacklist>> {
-        let connection_manager = SqliteConnectionManager::memory();
-        let blacklist = LocalBlacklist::new(connection_manager)?;
+        let connection = Connection::open_in_memory()?;
+        let blacklist = LocalBlacklist::new(connection)?;
         Ok(Box::new(blacklist))
     }
 
