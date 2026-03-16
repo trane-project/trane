@@ -424,7 +424,7 @@ impl InMemoryUnitGraph {
             // Initialize a path of stacks and pop from it until it's empty.
             let mut stack: Vec<Vec<Ustr>> = vec![vec![*unit_id]];
             while let Some(path) = stack.pop() {
-                // Check if the path forms a cycle.
+                // Update the visited nodes and skip visited nodes.
                 let current_id = *path.last().unwrap_or(&Ustr::default());
                 if visited.contains(&current_id) {
                     continue;
