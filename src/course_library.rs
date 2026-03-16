@@ -406,9 +406,8 @@ impl LocalCourseLibrary {
                 self.lesson_map
                     .insert(lesson_manifest.id, Arc::new(lesson_manifest));
 
-                // Process the exercises.
+                // Add the exercises to the unit graph and exercise map.
                 for exercise_manifest in exercises {
-                    // Add the exercise to the unit graph and exercise map.
                     graph.add_exercise(exercise_manifest.id, exercise_manifest.lesson_id)?;
                     self.exercise_map
                         .insert(exercise_manifest.id, Arc::new(exercise_manifest));
@@ -420,13 +419,11 @@ impl LocalCourseLibrary {
         // allows the scheduler to traverse the lessons in a course in the correct order.
         graph.update_starting_lessons();
 
-        // Perform a check to detect cyclic dependencies to prevent infinite loops during traversal.
-        graph.check_cycles()?;
-
-        // Delete the encompassing graph if possible to save memory.
+        // Delete the encompassing graph if possible to save memory and check for cycles.
         if encompassing_equals_dependency {
             graph.set_encompasing_equals_dependency();
         }
+        graph.check_cycles()?;
         Ok(())
     }
 

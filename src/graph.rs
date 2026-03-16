@@ -406,153 +406,116 @@ impl InMemoryUnitGraph {
         Ok(())
     }
 
-    /// Helper function to check for cycles in the dependency graph.
+    /// Checks for cycles a pair of graphs, taking a function to get the neighbors of a node and
+    /// another to check the consistency of the relationships in the two graphs.
+    fn check_graph_cycles(
+        graph_keys: &[Ustr],
+        get_neighbors: impl Fn(Ustr) -> Option<Vec<Ustr>>,
+        check_reverse: impl Fn(Ustr, Ustr) -> Result<()>,
+        cycle_msg: &str,
+    ) -> Result<()> {
+        // Perform DFS on the graph to find cycles from each node.
+        let mut visited = UstrSet::default();
+        for unit_id in graph_keys {
+            if visited.contains(unit_id) {
+                continue;
+            }
+
+            // Initialize a path of stacks and pop from it until it's empty.
+            let mut stack: Vec<Vec<Ustr>> = vec![vec![*unit_id]];
+            while let Some(path) = stack.pop() {
+                // Update the visited nodes and skip visited nodes.
+                let current_id = *path.last().unwrap_or(&Ustr::default());
+                if visited.contains(&current_id) {
+                    continue;
+                }
+                visited.insert(current_id);
+
+                // Push new paths to the stack after checking the consistency of the graph and its
+                // reverse.
+                if let Some(neighbors) = get_neighbors(current_id) {
+                    for neighbor_id in neighbors {
+                        check_reverse(current_id, neighbor_id)?;
+                        if path.contains(&neighbor_id) {
+                            let mut cycle_path = path.clone();
+                            cycle_path.push(neighbor_id);
+                            let path_str = cycle_path.iter().fold(String::new(), |mut s, id| {
+                                if !s.is_empty() {
+                                    s.push_str(" -> ");
+                                }
+                                let _ = write!(s, "{id}");
+                                s
+                            });
+                            bail!("{cycle_msg}: {path_str}");
+                        }
+                        let mut new_path = path.clone();
+                        new_path.push(neighbor_id);
+                        stack.push(new_path);
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    // Helper function to check for cycles and consistency in all the graphs.
     fn check_cycles_helper(&self) -> Result<()> {
-        // Perform a depth-first search of the dependency graph from each unit. Return an error if
-        // the same unit is encountered twice during the search.
-        let mut visited = UstrSet::default();
-        for unit_id in self.dependency_graph.keys() {
-            // The node has been visited, so it can be skipped.
-            if visited.contains(unit_id) {
-                continue;
-            }
+        // Check the dependency and dependent graphs for cycles and consistency.
+        let dep_keys: Vec<Ustr> = self.dependency_graph.keys().copied().collect();
+        Self::check_graph_cycles(
+            &dep_keys,
+            |id| {
+                self.get_dependencies(id)
+                    .map(|s| s.iter().copied().collect())
+            },
+            |current, dep| {
+                let dependents = self.get_dependents(dep).unwrap_or_default();
+                ensure!(
+                    dependents.contains(&current),
+                    "unit {current} lists unit {dep} as a dependency but the dependent \
+                    relationship does not exist",
+                );
+                Ok(())
+            },
+            "cycle in dependency graph detected",
+        )?;
 
-            // The stacks store a path of traversed units and is initialized with the current unit.
-            let mut stack: Vec<Vec<Ustr>> = Vec::new();
-            stack.push(vec![*unit_id]);
+        // Check the supersedes and superseded_by graphs for cycles and consistency.
+        let sup_keys: Vec<Ustr> = self.supersedes_graph.keys().copied().collect();
+        Self::check_graph_cycles(
+            &sup_keys,
+            |id| self.get_supersedes(id).map(|s| s.iter().copied().collect()),
+            |current, sup| {
+                let superseding = self.get_superseded_by(sup).unwrap_or_default();
+                ensure!(
+                    superseding.contains(&current),
+                    "unit {current} lists unit {sup} as a superseded unit but the superseding \
+                    relationship does not exist",
+                );
+                Ok(())
+            },
+            "cycle in superseded graph detected",
+        )?;
 
-            // Run a depth-first search and stop if a cycle is found or the graph is exhausted.
-            while let Some(path) = stack.pop() {
-                // Update the set of visited nodes.
-                let current_id = *path.last().unwrap_or(&Ustr::default());
-                if visited.contains(&current_id) {
-                    continue;
-                }
-                visited.insert(current_id);
-
-                // Get the dependencies of the current node, check that the dependency and dependent
-                // graph agree with each other, and generate new paths to add to the stack.
-                if let Some(dependencies) = self.get_dependencies(current_id) {
-                    for dependency_id in dependencies.iter().copied() {
-                        // Verify that the dependency and dependent graphs agree with each other by
-                        // checking that this dependency lists the current unit as a dependent.
-                        let dependents = self.get_dependents(dependency_id).unwrap_or_default();
-                        if !dependents.contains(&current_id) {
-                            bail!(
-                                "unit {current_id} lists unit {dependency_id} as a dependency but \
-                                the dependent relationship does not exist",
-                            );
-                        }
-
-                        // Check for repeated nodes in the path.
-                        if path.contains(&dependency_id) {
-                            bail!("cycle in dependency graph detected");
-                        }
-
-                        // Add a new path to the stack.
-                        let mut new_path = path.clone();
-                        new_path.push(dependency_id);
-                        stack.push(new_path);
-                    }
-                }
-            }
-        }
-
-        // Do the same with the graph of superseded units.
-        let mut visited = UstrSet::default();
-        for unit_id in self.supersedes_graph.keys() {
-            // The node has been visited, so it can be skipped.
-            if visited.contains(unit_id) {
-                continue;
-            }
-
-            // The stacks store a path of traversed units and is initialized with the current unit.
-            let mut stack: Vec<Vec<Ustr>> = Vec::new();
-            stack.push(vec![*unit_id]);
-
-            // Run a depth-first search and stop if a cycle is found or the graph is exhausted.
-            while let Some(path) = stack.pop() {
-                // Update the set of visited nodes.
-                let current_id = *path.last().unwrap_or(&Ustr::default());
-                if visited.contains(&current_id) {
-                    continue;
-                }
-                visited.insert(current_id);
-
-                // Get the  of the current node, check that the superseded and superseding graphs
-                // agree with each other, and generate new paths to add to the stack.
-                if let Some(superseded) = self.get_supersedes(current_id) {
-                    for superseded_id in superseded.iter().copied() {
-                        let superseding = self.get_superseded_by(superseded_id).unwrap_or_default();
-                        if !superseding.contains(&current_id) {
-                            bail!(
-                                "unit {current_id} lists unit {superseded_id} as a superseded \
-                                unit but the superseding relationship does not exist",
-                            );
-                        }
-
-                        // Check for repeated nodes in the path.
-                        if path.contains(&superseded_id) {
-                            bail!("cycle in superseded graph detected");
-                        }
-
-                        // Add a new path to the stack.
-                        let mut new_path = path.clone();
-                        new_path.push(superseded_id);
-                        stack.push(new_path);
-                    }
-                }
-            }
-        }
-
-        // Do the same with the graph of encompassed units.
-        let mut visited = UstrSet::default();
-        for unit_id in self.encompasses_graph.keys() {
-            // The node has been visited, so it can be skipped.
-            if visited.contains(unit_id) {
-                continue;
-            }
-
-            // The stacks store a path of traversed units and is initialized with the current unit.
-            let mut stack: Vec<Vec<Ustr>> = Vec::new();
-            stack.push(vec![*unit_id]);
-
-            // Run a depth-first search and stop if a cycle is found or the graph is exhausted.
-            while let Some(path) = stack.pop() {
-                // Update the set of visited nodes.
-                let current_id = *path.last().unwrap_or(&Ustr::default());
-                if visited.contains(&current_id) {
-                    continue;
-                }
-                visited.insert(current_id);
-
-                // Get the encompassed units of the current node, check that the encompassed and
-                // encompassed_by graphs agree with each other, and generate new paths to add to the
-                // stack. The encompassed graph stores (id, weight) pairs.
-                if let Some(encompassed) = self.get_encompasses(current_id) {
-                    for encompassed_id in encompassed.iter().map(|(id, _)| *id) {
-                        let encompassing =
-                            self.get_encompassed_by(encompassed_id).unwrap_or_default();
-                        if !encompassing.iter().any(|(u, _)| *u == current_id) {
-                            bail!(
-                                "unit {current_id} lists unit {encompassed_id} as an \
-                                encompassed unit but the encompassing relationship does not exist"
-                            );
-                        }
-
-                        // Check for repeated nodes in the path.
-                        if path.contains(&encompassed_id) {
-                            bail!("cycle in encompassed graph detected");
-                        }
-
-                        // Add a new path to the stack.
-                        let mut new_path = path.clone();
-                        new_path.push(encompassed_id);
-                        stack.push(new_path);
-                    }
-                }
-            }
-        }
+        // Check the encompasses and encompassed_by graphs for cycles and consistency.
+        let enc_keys: Vec<Ustr> = self.encompasses_graph.keys().copied().collect();
+        Self::check_graph_cycles(
+            &enc_keys,
+            |id| {
+                self.get_encompasses(id)
+                    .map(|v| v.iter().map(|(id, _)| *id).collect())
+            },
+            |current, enc| {
+                let encompassing = self.get_encompassed_by(enc).unwrap_or_default();
+                ensure!(
+                    encompassing.iter().any(|(u, _)| *u == current),
+                    "unit {current} lists unit {enc} as an encompassed unit but the encompassing \
+                    relationship does not exist",
+                );
+                Ok(())
+            },
+            "cycle in encompassed graph detected",
+        )?;
         Ok(())
     }
 }
