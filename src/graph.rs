@@ -437,7 +437,16 @@ impl InMemoryUnitGraph {
                     for neighbor_id in neighbors {
                         check_reverse(current_id, neighbor_id)?;
                         if path.contains(&neighbor_id) {
-                            bail!("{cycle_msg}");
+                            let mut cycle_path = path.clone();
+                            cycle_path.push(neighbor_id);
+                            let path_str = cycle_path.iter().fold(String::new(), |mut s, id| {
+                                if !s.is_empty() {
+                                    s.push_str(" -> ");
+                                }
+                                let _ = write!(s, "{id}");
+                                s
+                            });
+                            bail!("{cycle_msg}: {path_str}");
                         }
                         let mut new_path = path.clone();
                         new_path.push(neighbor_id);
