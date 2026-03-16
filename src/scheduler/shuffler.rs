@@ -6,18 +6,26 @@ use std::cmp::Ordering;
 use crate::{data::SchedulerOptions, scheduler::Candidate};
 
 /// The maximum number of low-scoring candidates from the same course in a single group.
-const MAX_GROUP_SIZE: usize = 5;
+const MAX_GROUP_SIZE: usize = 3;
 
 /// The threshold score for determining whether a group is considered new and biased towards the end
 /// of the list.
 const NEW_GROUP_THRESHOLD: f32 = 1.0;
 
+/// The sort key range for groups of new exercises.
+const NEW_GROUP_KEY_MIN: f32 = 0.2;
+const NEW_GROUP_KEY_MAX: f32 = 1.0;
+
+/// The sort key range for groups of non-new exercises.
+const OTHER_GROUP_KEY_MIN: f32 = 0.0;
+const OTHER_GROUP_KEY_MAX: f32 = 0.8;
+
 pub(crate) struct Shuffler;
 
 impl Shuffler {
-    /// Generates a random key for sorting the groups that has a bias towards keeping very
-    /// low-scoring groups towards the end. Research shows that seeing new exercises after reviewing
-    /// known material leads to better retention.
+    /// Generates a random key for sorting the groups that has a mild bias towards keeping groups of
+    /// new exercises towards the end. The bias is intentionally weak so that small batches still
+    /// produce varied orderings.
     fn group_sort_key(group: &[Candidate]) -> f32 {
         if group.is_empty() {
             return 0.0;
@@ -25,9 +33,9 @@ impl Shuffler {
         let sum: f32 = group.iter().map(|c| c.exercise_score).sum();
         let avg_score = sum / group.len() as f32;
         if avg_score <= NEW_GROUP_THRESHOLD {
-            rand::rng().random_range(0.7..1.0)
+            rand::rng().random_range(NEW_GROUP_KEY_MIN..NEW_GROUP_KEY_MAX)
         } else {
-            rand::rng().random_range(0.0..1.0)
+            rand::rng().random_range(OTHER_GROUP_KEY_MIN..OTHER_GROUP_KEY_MAX)
         }
     }
 
@@ -243,24 +251,18 @@ mod tests {
         // Empty groups should get a key of 0.0.
         assert_eq!(Shuffler::group_sort_key(&[]), 0.0);
 
-        // New groups get keys in the 0.7..1.0 range.
+        // New groups get keys in the NEW_GROUP_KEY_MIN..NEW_GROUP_KEY_MAX range.
         let group = vec![candidate("c1", "e1", 0.5), candidate("c1", "e2", 0.1)];
         for _ in 0..50 {
             let key = Shuffler::group_sort_key(&group);
-            assert!(
-                (0.7..1.0).contains(&key),
-                "expected key in 0.7..1.0, got {key}"
-            );
+            assert!((NEW_GROUP_KEY_MIN..NEW_GROUP_KEY_MAX).contains(&key));
         }
 
-        // All other groups get keys in the 0.0..1.0 range.
+        // All other groups get keys in the OTHER_GROUP_KEY_MIN..OTHER_GROUP_KEY_MAX range.
         let group = vec![candidate("c1", "e1", 1.0), candidate("c1", "e2", 2.0)];
         for _ in 0..50 {
             let key = Shuffler::group_sort_key(&group);
-            assert!(
-                (0.0..1.0).contains(&key),
-                "expected key in 0.0..1.0, got {key}"
-            );
+            assert!((OTHER_GROUP_KEY_MIN..OTHER_GROUP_KEY_MAX).contains(&key));
         }
     }
 }
