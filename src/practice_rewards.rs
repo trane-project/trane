@@ -168,7 +168,7 @@ impl LocalPracticeRewards {
         // Convert the results into a vector of `UnitRewards` objects.
         #[allow(clippy::let_and_return)]
         let rows = stmt
-            .query_map(params![unit_id.as_str(), num_rewards], |row| {
+            .query_map(params![unit_id.as_str(), num_rewards as i64], |row| {
                 let value = row.get(0)?;
                 let weight = row.get(1)?;
                 let timestamp = row.get(2)?;
@@ -205,7 +205,7 @@ impl LocalPracticeRewards {
                 )?;
                 stmt.execute(params![
                     reward.unit_id.as_str(),
-                    reward.value,
+                    reward.value as i64,
                     reward.weight,
                     reward.timestamp
                 ])?;
@@ -241,7 +241,7 @@ impl LocalPracticeRewards {
                     SELECT id FROM practice_rewards WHERE unit_uid = ?1
                     ORDER BY timestamp DESC LIMIT -1 OFFSET ?2
                 )",
-                params![unit_uid, num_rewards],
+                params![unit_uid, num_rewards as i64],
             )?;
         }
         Ok(())

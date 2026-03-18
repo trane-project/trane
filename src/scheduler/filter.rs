@@ -266,7 +266,7 @@ impl CandidateFilter {
         // size of `candidates`, but that is checked above.
         let mut rng = rng();
         let selected: Vec<Candidate> = candidates
-            .choose_multiple_weighted(&mut rng, num_to_select, |c| {
+            .sample_weighted(&mut rng, num_to_select, |c| {
                 let encompassed_frequency = frequency_map.get(&c.exercise_id).copied().unwrap_or(0);
                 Self::candidate_weight(
                     c,

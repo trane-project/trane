@@ -11,26 +11,26 @@ repository = "https://github.com/trane-project/trane"
 name = "trane"
 
 [dependencies]
-anyhow = "1.0.99"
-bincode = { version = "2.0.1", features = ["serde"] }
-chrono = { version = "0.4.41", features = ["serde"] }
+anyhow = "1.0.102"
+bincode = {version = "2.0.1", features = ["serde"] }
+chrono = { version = "0.4.44", features = ["serde"] }
 derive_builder = "0.20.2"
-indoc = "2.0.6"
-parking_lot = { version = "0.12.4", features = ["hardware-lock-elision"] }
-rand = "0.9.2"
+indoc = "2.0.7"
+parking_lot = { version = "0.12.5", features = ["hardware-lock-elision"] }
+rand = "0.10.0"
 rayon = "1.11.0"
-rusqlite = { version = "0.37.0", features = ["bundled"] }
-rusqlite_migration = "2.3.0"
-serde = { version = "1.0.219", features = ["derive", "rc"] }
-serde_json = "1.0.143"
-strum = { version = "0.27.2", features = ["derive"] }
-thiserror = "2.0.16"
+rusqlite = { version = "0.38.0", features = ["bundled"] }
+rusqlite_migration = "2.4.1"
+serde = { version = "1.0.228", features = ["derive", "rc"] }
+serde_json = "1.0.149"
+strum = { version = "0.28.0", features = ["derive"] }
+thiserror = "2.0.18"
 ustr = { version = "1.1.0", features = ["serde"] }
 walkdir = "2.5.0"
 
 [dev-dependencies]
 pretty_assertions = "1.4"
-tempfile = "3.21.0"
+tempfile = "3.27.0"
 
 [profile.bench]
 debug = true

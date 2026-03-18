@@ -15,7 +15,7 @@ use std::{
 
 use anyhow::{Result, bail, ensure};
 use chrono::Utc;
-use rand::Rng;
+use rand::{Rng, RngExt};
 use rayon::prelude::*;
 
 use ustr::{Ustr, UstrMap};

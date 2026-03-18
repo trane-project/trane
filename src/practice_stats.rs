@@ -127,7 +127,7 @@ impl LocalPracticeStats {
         // Convert the results into a vector of `ExerciseTrial` objects.
         #[allow(clippy::let_and_return)]
         let rows = stmt
-            .query_map(params![exercise_id.as_str(), num_scores], |row| {
+            .query_map(params![exercise_id.as_str(), num_scores as i64], |row| {
                 let score = row.get(0)?;
                 let timestamp = row.get(1)?;
                 rusqlite::Result::Ok(ExerciseTrial { score, timestamp })
@@ -184,7 +184,7 @@ impl LocalPracticeStats {
                     SELECT timestamp FROM practice_stats WHERE unit_uid = $1
                     ORDER BY timestamp DESC LIMIT ?2);",
             )?;
-            let _ = stmt.execute(params![uid, num_scores])?;
+            let _ = stmt.execute(params![uid, num_scores as i64])?;
         }
 
         // Call the `VACUUM` command to reclaim the space freed by the deleted trials.
