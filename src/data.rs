@@ -810,7 +810,7 @@ impl Default for PassingScoreOptions {
         PassingScoreOptions {
             min_score: 3.0,
             min_fraction: 0.5,
-            min_avg_trials: 2.0,
+            min_avg_trials: 1.8,
         }
     }
 }
