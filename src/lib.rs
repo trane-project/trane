@@ -479,7 +479,7 @@ impl PracticeRewards for Trane {
     fn get_rewards(
         &self,
         unit_id: Ustr,
-        num_rewards: usize,
+        num_rewards: u32,
     ) -> Result<Vec<data::UnitReward>, PracticeRewardsError> {
         self.practice_rewards
             .read()
@@ -493,7 +493,7 @@ impl PracticeRewards for Trane {
         self.practice_rewards.write().record_unit_rewards(rewards)
     }
 
-    fn trim_rewards(&mut self, num_rewards: usize) -> Result<(), PracticeRewardsError> {
+    fn trim_rewards(&mut self, num_rewards: u32) -> Result<(), PracticeRewardsError> {
         self.practice_rewards.write().trim_rewards(num_rewards)
     }
 
@@ -509,7 +509,7 @@ impl PracticeStats for Trane {
     fn get_scores(
         &self,
         exercise_id: Ustr,
-        num_scores: usize,
+        num_scores: u32,
     ) -> Result<Vec<ExerciseTrial>, PracticeStatsError> {
         self.practice_stats
             .read()
@@ -527,7 +527,7 @@ impl PracticeStats for Trane {
             .record_exercise_score(exercise_id, score, timestamp)
     }
 
-    fn trim_scores(&mut self, num_scores: usize) -> Result<(), PracticeStatsError> {
+    fn trim_scores(&mut self, num_scores: u32) -> Result<(), PracticeStatsError> {
         self.practice_stats.write().trim_scores(num_scores)
     }
 

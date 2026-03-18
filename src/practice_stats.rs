@@ -23,7 +23,7 @@ pub trait PracticeStats {
     fn get_scores(
         &self,
         exercise_id: Ustr,
-        num_scores: usize,
+        num_scores: u32,
     ) -> Result<Vec<ExerciseTrial>, PracticeStatsError>;
 
     /// Records the score assigned to the exercise in a particular trial. Therefore, the score is a
@@ -39,7 +39,7 @@ pub trait PracticeStats {
 
     /// Deletes all the exercise trials except for the last `num_scores` with the aim of keeping the
     /// storage size under check.
-    fn trim_scores(&mut self, num_scores: usize) -> Result<(), PracticeStatsError>;
+    fn trim_scores(&mut self, num_scores: u32) -> Result<(), PracticeStatsError>;
 
     /// Removes all the scores from the units that match the given prefix.
     fn remove_scores_with_prefix(&mut self, prefix: &str) -> Result<(), PracticeStatsError>;
@@ -111,11 +111,7 @@ impl LocalPracticeStats {
     }
 
     /// Helper function to retrieve scores from the database.
-    fn get_scores_helper(
-        &self,
-        exercise_id: Ustr,
-        num_scores: usize,
-    ) -> Result<Vec<ExerciseTrial>> {
+    fn get_scores_helper(&self, exercise_id: Ustr, num_scores: u32) -> Result<Vec<ExerciseTrial>> {
         // Retrieve the exercise trials from the database.
         let connection = self.connection.lock();
         let mut stmt = connection.prepare_cached(
@@ -127,7 +123,7 @@ impl LocalPracticeStats {
         // Convert the results into a vector of `ExerciseTrial` objects.
         #[allow(clippy::let_and_return)]
         let rows = stmt
-            .query_map(params![exercise_id.as_str(), num_scores as i64], |row| {
+            .query_map(params![exercise_id.as_str(), num_scores], |row| {
                 let score = row.get(0)?;
                 let timestamp = row.get(1)?;
                 rusqlite::Result::Ok(ExerciseTrial { score, timestamp })
@@ -168,7 +164,7 @@ impl LocalPracticeStats {
     }
 
     /// Helper function to trim the number of scores for each exercise.
-    fn trim_scores_helper(&mut self, num_scores: usize) -> Result<()> {
+    fn trim_scores_helper(&mut self, num_scores: u32) -> Result<()> {
         // Get all the UIDs from the database.
         let connection = self.connection.lock();
         let mut uid_stmt = connection.prepare_cached("SELECT unit_uid from uids")?;
@@ -184,7 +180,7 @@ impl LocalPracticeStats {
                     SELECT timestamp FROM practice_stats WHERE unit_uid = $1
                     ORDER BY timestamp DESC LIMIT ?2);",
             )?;
-            let _ = stmt.execute(params![uid, num_scores as i64])?;
+            let _ = stmt.execute(params![uid, num_scores])?;
         }
 
         // Call the `VACUUM` command to reclaim the space freed by the deleted trials.
@@ -220,7 +216,7 @@ impl PracticeStats for LocalPracticeStats {
     fn get_scores(
         &self,
         exercise_id: Ustr,
-        num_scores: usize,
+        num_scores: u32,
     ) -> Result<Vec<ExerciseTrial>, PracticeStatsError> {
         self.get_scores_helper(exercise_id, num_scores)
             .map_err(|e| PracticeStatsError::GetScores(exercise_id, e))
@@ -236,7 +232,7 @@ impl PracticeStats for LocalPracticeStats {
             .map_err(|e| PracticeStatsError::RecordScore(exercise_id, e))
     }
 
-    fn trim_scores(&mut self, num_scores: usize) -> Result<(), PracticeStatsError> {
+    fn trim_scores(&mut self, num_scores: u32) -> Result<(), PracticeStatsError> {
         self.trim_scores_helper(num_scores)
             .map_err(PracticeStatsError::TrimScores)
     }

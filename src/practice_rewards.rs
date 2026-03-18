@@ -29,7 +29,7 @@ pub trait PracticeRewards {
     fn get_rewards(
         &self,
         unit_id: Ustr,
-        num_rewards: usize,
+        num_rewards: u32,
     ) -> Result<Vec<UnitReward>, PracticeRewardsError>;
 
     /// Records multiple rewards in a single transaction. Returns the list of unit IDs whose
@@ -41,7 +41,7 @@ pub trait PracticeRewards {
 
     /// Deletes all rewards of the given unit except for the last given number with the aim of
     /// keeping the storage size under check.
-    fn trim_rewards(&mut self, num_rewards: usize) -> Result<(), PracticeRewardsError>;
+    fn trim_rewards(&mut self, num_rewards: u32) -> Result<(), PracticeRewardsError>;
 
     /// Removes all the rewards from the units that match the given prefix.
     fn remove_rewards_with_prefix(&mut self, prefix: &str) -> Result<(), PracticeRewardsError>;
@@ -156,7 +156,7 @@ impl LocalPracticeRewards {
     }
 
     /// Helper function to retrieve rewards from the database.
-    fn get_rewards_helper(&self, unit_id: Ustr, num_rewards: usize) -> Result<Vec<UnitReward>> {
+    fn get_rewards_helper(&self, unit_id: Ustr, num_rewards: u32) -> Result<Vec<UnitReward>> {
         // Retrieve the rewards from the database.
         let connection = self.connection.lock();
         let mut stmt = connection.prepare_cached(
@@ -168,7 +168,7 @@ impl LocalPracticeRewards {
         // Convert the results into a vector of `UnitRewards` objects.
         #[allow(clippy::let_and_return)]
         let rows = stmt
-            .query_map(params![unit_id.as_str(), num_rewards as i64], |row| {
+            .query_map(params![unit_id.as_str(), num_rewards], |row| {
                 let value = row.get(0)?;
                 let weight = row.get(1)?;
                 let timestamp = row.get(2)?;
@@ -205,7 +205,7 @@ impl LocalPracticeRewards {
                 )?;
                 stmt.execute(params![
                     reward.unit_id.as_str(),
-                    reward.value as i64,
+                    reward.value,
                     reward.weight,
                     reward.timestamp
                 ])?;
@@ -229,7 +229,7 @@ impl LocalPracticeRewards {
 
     /// Helper function to trim the number of rewards for each unit to the given number. If the
     /// number of rewards is less than the given number, the method deletes no rewards.
-    fn trim_rewards_helper(&mut self, num_rewards: usize) -> Result<()> {
+    fn trim_rewards_helper(&mut self, num_rewards: u32) -> Result<()> {
         let connection = self.connection.lock();
         for row in connection
             .prepare("SELECT unit_uid FROM uids")?
@@ -241,7 +241,7 @@ impl LocalPracticeRewards {
                     SELECT id FROM practice_rewards WHERE unit_uid = ?1
                     ORDER BY timestamp DESC LIMIT -1 OFFSET ?2
                 )",
-                params![unit_uid, num_rewards as i64],
+                params![unit_uid, num_rewards],
             )?;
         }
         Ok(())
@@ -272,7 +272,7 @@ impl PracticeRewards for LocalPracticeRewards {
     fn get_rewards(
         &self,
         unit_id: Ustr,
-        num_rewards: usize,
+        num_rewards: u32,
     ) -> Result<Vec<UnitReward>, PracticeRewardsError> {
         self.get_rewards_helper(unit_id, num_rewards)
             .map_err(|e| PracticeRewardsError::GetRewards(unit_id, e))
@@ -286,7 +286,7 @@ impl PracticeRewards for LocalPracticeRewards {
             .map_err(PracticeRewardsError::RecordRewards)
     }
 
-    fn trim_rewards(&mut self, num_rewards: usize) -> Result<(), PracticeRewardsError> {
+    fn trim_rewards(&mut self, num_rewards: u32) -> Result<(), PracticeRewardsError> {
         self.trim_rewards_helper(num_rewards)
             .map_err(PracticeRewardsError::TrimReward)
     }

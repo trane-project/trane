@@ -1,6 +1,6 @@
 //! Defines the logic for shuffling the final batch of candidates before they are returned.
 
-use rand::{seq::SliceRandom, RngExt};
+use rand::{RngExt, seq::SliceRandom};
 use std::cmp::Ordering;
 
 use crate::{data::SchedulerOptions, scheduler::Candidate};

@@ -5,10 +5,10 @@
 //! defined by their manifest files (see [data](crate::data)).
 
 use anyhow::{Context, Result, anyhow, ensure};
-use serde::{Deserialize, Serialize};
 use parking_lot::RwLock;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
     io::BufReader,

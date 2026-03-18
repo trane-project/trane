@@ -908,10 +908,10 @@ pub struct SchedulerOptions {
     pub superseding_score: f32,
 
     /// The number of trials to retrieve from the practice stats to compute an exercise's score.
-    pub num_trials: usize,
+    pub num_trials: u32,
 
     /// The number of rewards to retrieve from the practice rewards to compute a unit's reward.
-    pub num_rewards: usize,
+    pub num_rewards: u32,
 
     /// The maximum number of lessons in progress to include in a batch. A lesson is in progress if
     /// it's not been seen before or its score is below the target window's range. The limit
