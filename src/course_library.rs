@@ -5,10 +5,10 @@
 //! defined by their manifest files (see [data](crate::data)).
 
 use anyhow::{Context, Result, anyhow, ensure};
-use bincode::{Decode, Encode};
 use parking_lot::RwLock;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
     io::BufReader,
@@ -72,22 +72,18 @@ pub(crate) trait GetUnitGraph {
 }
 
 /// A version of a course library that can be serialized and deserialized. Useful to embed course
-/// libraries in binaries. It uses bincode for fast serialization and deserialization.
-#[derive(Clone, Debug, Decode, Encode, PartialEq)]
+/// libraries in binaries. It uses postcard for fast serialization and deserialization.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct SerializedCourseLibrary {
     /// The graph of units and dependencies.
-    #[bincode(with_serde)]
     unit_graph: InMemoryUnitGraph,
 
-    #[bincode(with_serde)]
     /// A mapping of course ID to its corresponding course manifest.
     course_map: UstrMap<CourseManifest>,
 
-    #[bincode(with_serde)]
     /// A mapping of lesson ID to its corresponding lesson manifest.
     lesson_map: UstrMap<LessonManifest>,
 
-    #[bincode(with_serde)]
     /// A mapping of exercise ID to its corresponding exercise manifest.
     exercise_map: UstrMap<ExerciseManifest>,
 }

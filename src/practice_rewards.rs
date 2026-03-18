@@ -29,7 +29,7 @@ pub trait PracticeRewards {
     fn get_rewards(
         &self,
         unit_id: Ustr,
-        num_rewards: usize,
+        num_rewards: u32,
     ) -> Result<Vec<UnitReward>, PracticeRewardsError>;
 
     /// Records multiple rewards in a single transaction. Returns the list of unit IDs whose
@@ -41,7 +41,7 @@ pub trait PracticeRewards {
 
     /// Deletes all rewards of the given unit except for the last given number with the aim of
     /// keeping the storage size under check.
-    fn trim_rewards(&mut self, num_rewards: usize) -> Result<(), PracticeRewardsError>;
+    fn trim_rewards(&mut self, num_rewards: u32) -> Result<(), PracticeRewardsError>;
 
     /// Removes all the rewards from the units that match the given prefix.
     fn remove_rewards_with_prefix(&mut self, prefix: &str) -> Result<(), PracticeRewardsError>;
@@ -156,7 +156,7 @@ impl LocalPracticeRewards {
     }
 
     /// Helper function to retrieve rewards from the database.
-    fn get_rewards_helper(&self, unit_id: Ustr, num_rewards: usize) -> Result<Vec<UnitReward>> {
+    fn get_rewards_helper(&self, unit_id: Ustr, num_rewards: u32) -> Result<Vec<UnitReward>> {
         // Retrieve the rewards from the database.
         let connection = self.connection.lock();
         let mut stmt = connection.prepare_cached(
@@ -229,7 +229,7 @@ impl LocalPracticeRewards {
 
     /// Helper function to trim the number of rewards for each unit to the given number. If the
     /// number of rewards is less than the given number, the method deletes no rewards.
-    fn trim_rewards_helper(&mut self, num_rewards: usize) -> Result<()> {
+    fn trim_rewards_helper(&mut self, num_rewards: u32) -> Result<()> {
         let connection = self.connection.lock();
         for row in connection
             .prepare("SELECT unit_uid FROM uids")?
@@ -272,7 +272,7 @@ impl PracticeRewards for LocalPracticeRewards {
     fn get_rewards(
         &self,
         unit_id: Ustr,
-        num_rewards: usize,
+        num_rewards: u32,
     ) -> Result<Vec<UnitReward>, PracticeRewardsError> {
         self.get_rewards_helper(unit_id, num_rewards)
             .map_err(|e| PracticeRewardsError::GetRewards(unit_id, e))
@@ -286,7 +286,7 @@ impl PracticeRewards for LocalPracticeRewards {
             .map_err(PracticeRewardsError::RecordRewards)
     }
 
-    fn trim_rewards(&mut self, num_rewards: usize) -> Result<(), PracticeRewardsError> {
+    fn trim_rewards(&mut self, num_rewards: u32) -> Result<(), PracticeRewardsError> {
         self.trim_rewards_helper(num_rewards)
             .map_err(PracticeRewardsError::TrimReward)
     }

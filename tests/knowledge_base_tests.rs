@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use anyhow::Result;
-use rand::Rng;
+use rand::{Rng, RngExt};
 use tempfile::TempDir;
 use trane::{
     Trane,

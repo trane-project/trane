@@ -1136,10 +1136,8 @@ fn serialized_course_library() -> Result<()> {
     let serialized_data = SerializedCourseLibrary::from(&course_library);
 
     // Decode and encode the data.
-    let encoded_data =
-        bincode::encode_to_vec(serialized_data.clone(), bincode::config::standard())?;
-    let decoded_data: SerializedCourseLibrary =
-        bincode::decode_from_slice(&encoded_data, bincode::config::standard())?.0;
+    let encoded_data = postcard::to_stdvec(&serialized_data)?;
+    let decoded_data: SerializedCourseLibrary = postcard::from_bytes(&encoded_data)?;
     assert_eq!(serialized_data, decoded_data);
 
     // Open a new library using the serialized data and verify it matches the original.

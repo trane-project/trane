@@ -45,7 +45,7 @@ impl RelearnPile {
         // Select a random subset of exercises from the relearn pile.
         let num_to_add = (self.options.batch_size as f32 * self.options.relearn_fraction) as usize;
         let pile = self.pile.read();
-        let relearn_exercises: Vec<_> = pile.iter().choose_multiple(&mut rand::rng(), num_to_add);
+        let relearn_exercises: Vec<_> = pile.iter().sample(&mut rand::rng(), num_to_add);
 
         // Convert them to candidates and add them to the batch. Fill the other fields with default
         // values as they are only needed for the filtering and sorting steps.
