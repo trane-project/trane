@@ -1,0 +1,646 @@
+{
+    "manifest": {
+        "id": "trane::music::improvise_for_real::sing_the_numbers::3",
+        "name": "Sing The Numbers 3",
+        "dependencies": [
+            "trane::music::improvise_for_real::sing_the_numbers::2"
+        ],
+        "description": "Master the exercises in the Sing The Numbers 3 course.",
+        "authors": [
+            "The Trane Project"
+        ],
+        "metadata": {
+            "course_series": [
+                "improvise_for_real",
+                "sing_the_numbers"
+            ],
+            "skill": [
+                "music"
+            ]
+        },
+        "course_instructions": {
+            "MarkdownAsset": {
+                "path": "course_instructions.md"
+            }
+        },
+        "generator_config": {
+            "KnowledgeBase": {}
+        }
+    },
+    "lessons": [
+        {
+            "short_id": "1",
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 1."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "1_transposed",
+            "dependencies": [
+                "1"
+            ],
+            "superseded": [
+                "1"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 1, transposing it to a different random key."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "2",
+            "dependencies": [
+                "1"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 2."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "2_transposed",
+            "dependencies": [
+                "2"
+            ],
+            "superseded": [
+                "2"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 2, transposing it to a different random key."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "3",
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 3."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "3_transposed",
+            "dependencies": [
+                "3"
+            ],
+            "superseded": [
+                "3"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 3, transposing it to a different random key."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "4",
+            "dependencies": [
+                "3"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 4."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "4_transposed",
+            "dependencies": [
+                "4"
+            ],
+            "superseded": [
+                "4"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 4, transposing it to a different random key."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "5",
+            "dependencies": [
+                "2",
+                "4"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 5."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "5_transposed",
+            "dependencies": [
+                "5"
+            ],
+            "superseded": [
+                "5"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 5, transposing it to a different random key."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "6",
+            "dependencies": [
+                "5"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 6."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "6_transposed",
+            "dependencies": [
+                "6"
+            ],
+            "superseded": [
+                "6"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 6, transposing it to a different random key."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "7",
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 7."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "7_transposed",
+            "dependencies": [
+                "7"
+            ],
+            "superseded": [
+                "7"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 7, transposing it to a different random key."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "8",
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 8."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "8_transposed",
+            "dependencies": [
+                "8"
+            ],
+            "superseded": [
+                "8"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 8, transposing it to a different random key."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "9",
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 9."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "9_transposed",
+            "dependencies": [
+                "9"
+            ],
+            "superseded": [
+                "9"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 9, transposing it to a different random key."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "10",
+            "dependencies": [
+                "7",
+                "8",
+                "9"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 10."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "10_transposed",
+            "dependencies": [
+                "10"
+            ],
+            "superseded": [
+                "10"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 10, transposing it to a different random key."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "11",
+            "dependencies": [
+                "6",
+                "10"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 11."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "11_transposed",
+            "dependencies": [
+                "11"
+            ],
+            "superseded": [
+                "11"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 11, transposing it to a different random key."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "12",
+            "dependencies": [
+                "11"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 12."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "12_transposed",
+            "dependencies": [
+                "12"
+            ],
+            "superseded": [
+                "12"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 12, transposing it to a different random key."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "13",
+            "dependencies": [
+                "6",
+                "10"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 13."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "13_transposed",
+            "dependencies": [
+                "13"
+            ],
+            "superseded": [
+                "13"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 13, transposing it to a different random key."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "14",
+            "dependencies": [
+                "12",
+                "13"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 14."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "14_transposed",
+            "dependencies": [
+                "14"
+            ],
+            "superseded": [
+                "14"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 14, transposing it to a different random key."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "15",
+            "dependencies": [
+                "6",
+                "10"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 15."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "15_transposed",
+            "dependencies": [
+                "15"
+            ],
+            "superseded": [
+                "15"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 15, transposing it to a different random key."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "16",
+            "dependencies": [
+                "15"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 16."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "16_transposed",
+            "dependencies": [
+                "16"
+            ],
+            "superseded": [
+                "16"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 16, transposing it to a different random key."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "17",
+            "dependencies": [
+                "6",
+                "10"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 17."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "17_transposed",
+            "dependencies": [
+                "17"
+            ],
+            "superseded": [
+                "17"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 17, transposing it to a different random key."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "18",
+            "dependencies": [
+                "17"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 18."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "18_transposed",
+            "dependencies": [
+                "18"
+            ],
+            "superseded": [
+                "18"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 18, transposing it to a different random key."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "19",
+            "dependencies": [
+                "17"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 19."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "19_transposed",
+            "dependencies": [
+                "19"
+            ],
+            "superseded": [
+                "19"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 19, transposing it to a different random key."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "20",
+            "dependencies": [
+                "6",
+                "10"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 20."
+                    ]
+                }
+            ]
+        },
+        {
+            "short_id": "20_transposed",
+            "dependencies": [
+                "20"
+            ],
+            "superseded": [
+                "20"
+            ],
+            "exercises": [
+                {
+                    "short_id": "1",
+                    "front": [
+                        "Practice SING3, Lesson 20, transposing it to a different random key."
+                    ]
+                }
+            ]
+        }
+    ]
+}

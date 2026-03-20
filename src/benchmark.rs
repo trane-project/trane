@@ -4,7 +4,7 @@
 
 use anyhow::{Result, anyhow};
 use rand::distr::{Distribution, weighted::WeightedIndex};
-use std::{fs, path::PathBuf};
+use std::path::PathBuf;
 use ustr::{Ustr, UstrMap};
 use walkdir::WalkDir;
 
@@ -90,10 +90,10 @@ pub struct BenchmarkResult {
 }
 
 /// Runs several simulations of different student profiles to benchmark the performance of the
-/// scheduler given the provided courses and options.
+/// scheduler given the provided library and options.
 pub struct Benchmark {
-    /// The directory where the courses used in the benchmark are located.
-    pub courses_dir: PathBuf,
+    /// The directory where the trane library used in the benchmark are located.
+    pub library_dir: PathBuf,
 
     /// The scheduler options to benchmark.
     pub scheduler_opts: SchedulerOptions,
@@ -127,11 +127,11 @@ pub struct Benchmark {
 }
 
 impl Default for Benchmark {
-    // Creates defaults for the benchmark. The course directory and advanced course ID are
+    // Creates defaults for the benchmark. The library directory and advanced course ID are
     // placeholders and should be replaced.
     fn default() -> Self {
         Benchmark {
-            courses_dir: PathBuf::from("placeholder_course_dir"),
+            library_dir: PathBuf::from("placeholder_library_dir"),
             scheduler_opts: SchedulerOptions::default(),
             remedial_profile: StudentProfile {
                 session_frequency: 5,
@@ -246,9 +246,8 @@ impl Benchmark {
         session_start + i64::from(exercise_index)
     }
 
-    /// Copies the courses from the source directory to a temporary directory.
-    fn copy_courses_dir(src: &PathBuf, dst: &PathBuf) -> std::io::Result<()> {
-        // Recursively copy the directory.
+    /// Copies the library from the source directory to a temporary directory.
+    fn copy_library_dir(src: &PathBuf, dst: &PathBuf) -> std::io::Result<()> {
         std::fs::create_dir_all(dst)?;
         for entry in WalkDir::new(src).into_iter().filter_map(Result::ok) {
             let path = entry.path();
@@ -260,12 +259,6 @@ impl Benchmark {
             } else {
                 std::fs::copy(path, &dst_path)?;
             }
-        }
-
-        // Remove the .trane directory from the destination if it exists.
-        let trane_dir = dst.join(".trane");
-        if trane_dir.exists() {
-            fs::remove_dir_all(trane_dir)?;
         }
         Ok(())
     }
@@ -332,10 +325,10 @@ impl Benchmark {
 
     /// Runs a simulation for the given profile.
     fn simulate_student(&self, profile: &StudentProfile) -> Result<StudentResult> {
-        // Create a temporary directory and copy the courses there.
+        // Create a temporary directory and copy the library there.
         let temp_dir = tempfile::TempDir::new()?;
         let temp_path = temp_dir.path().to_path_buf();
-        Self::copy_courses_dir(&self.courses_dir, &temp_path)?;
+        Self::copy_library_dir(&self.library_dir, &temp_path)?;
 
         // Create trane instance and set the scheduler options.
         let mut trane = Trane::new_local(&temp_path, &temp_path)?;
@@ -369,6 +362,7 @@ impl Benchmark {
                     break;
                 }
                 let exercise = batch.remove(0);
+                println!("Session {}, Exercise {}", session, exercise.id);
                 let trial_count = trial_counts.entry(exercise.id).or_insert(0);
                 let score = Self::get_score(profile, *trial_count);
                 let timestamp = Self::exercise_timestamp(session_start, exercise_index as u32);
@@ -626,5 +620,26 @@ mod tests {
     fn verify_default_benchmark() {
         let benchmark = Benchmark::default();
         assert!(benchmark.verify().is_ok());
+    }
+
+    /// Verifies that the benchmark completes with a valid configuration.
+    #[test]
+    fn run_benchmark() {
+        let benchmark = Benchmark {
+            library_dir: PathBuf::from("tests/test_library"),
+            advanced_course: Ustr::from("trane::music::improvise_for_real::jam_tracks::4::g_flat"),
+            max_sessions: 100,
+            ..Benchmark::default()
+        };
+        let result = benchmark.run_benchmark();
+        assert!(result.is_ok());
+
+        let benchmark_result = result.unwrap();
+        assert!(benchmark_result.remedial_result.exercises_practiced > 0);
+        assert!(benchmark_result.below_median_result.exercises_practiced > 0);
+        assert!(benchmark_result.median_result.exercises_practiced > 0);
+        assert!(benchmark_result.above_median_result.exercises_practiced > 0);
+        assert!(benchmark_result.excellent_result.exercises_practiced > 0);
+        assert!(false);
     }
 }
