@@ -8,7 +8,6 @@
 //! exercises rather than a direct review schedule.
 
 use anyhow::{Result, anyhow};
-use chrono::Utc;
 
 use crate::data::{ExerciseTrial, ExerciseType};
 
@@ -16,7 +15,12 @@ use crate::data::{ExerciseTrial, ExerciseType};
 pub trait ExerciseScorer {
     /// Returns a score (between 0.0 and 5.0) for the exercise based on the results and timestamps
     /// of previous trials. The trials are assumed to be sorted in descending order by timestamp.
-    fn score(&self, exercise_type: ExerciseType, previous_trials: &[ExerciseTrial]) -> Result<f32>;
+    fn score(
+        &self,
+        exercise_type: ExerciseType,
+        previous_trials: &[ExerciseTrial],
+        now: i64,
+    ) -> Result<f32>;
 
     /// Returns the velocity of learning for exercise with the given trials. The velocity is a
     /// measure of how quickly the score is improving or worsening over trials. A value of None
@@ -474,7 +478,12 @@ impl PowerLawScorer {
 }
 
 impl ExerciseScorer for PowerLawScorer {
-    fn score(&self, exercise_type: ExerciseType, previous_trials: &[ExerciseTrial]) -> Result<f32> {
+    fn score(
+        &self,
+        exercise_type: ExerciseType,
+        previous_trials: &[ExerciseTrial],
+        now: i64,
+    ) -> Result<f32> {
         // Guard input ordering and missing-history edge cases.
         if previous_trials.is_empty() {
             return Ok(0.0);
@@ -497,11 +506,8 @@ impl ExerciseScorer for PowerLawScorer {
         );
 
         // Project recall probability from the most recent review to now.
-        let days_since_last = ((Utc::now()
-            .timestamp()
-            .saturating_sub(previous_trials[0].timestamp)) as f32
-            / SECONDS_PER_DAY)
-            .max(0.0);
+        let days_since_last =
+            ((now.saturating_sub(previous_trials[0].timestamp)) as f32 / SECONDS_PER_DAY).max(0.0);
         let retrievability =
             Self::compute_retrievability(&exercise_type, days_since_last, stability);
 
@@ -665,7 +671,12 @@ mod test {
     /// Verifies the score for an exercise with no previous trials is 0.0.
     #[test]
     fn no_previous_trials() {
-        assert_eq!(0.0, SCORER.score(ExerciseType::Declarative, &[]).unwrap());
+        assert_eq!(
+            0.0,
+            SCORER
+                .score(ExerciseType::Declarative, &[], Utc::now().timestamp())
+                .unwrap()
+        );
     }
 
     /// Verifies running the full scoring algorithm on a set of trials produces a reasonable score.
@@ -686,7 +697,9 @@ mod test {
             },
         ];
 
-        let score = SCORER.score(ExerciseType::Declarative, &trials).unwrap();
+        let score = SCORER
+            .score(ExerciseType::Declarative, &trials, Utc::now().timestamp())
+            .unwrap();
         assert!(score > 0.0 && score <= 5.0);
         assert!(score > 2.0); // Decent due to good recent performance
     }
@@ -700,6 +713,7 @@ mod test {
                 score: 5.0,
                 timestamp: generate_timestamp(1e10 as i64),
             }],
+            Utc::now().timestamp(),
         )?;
         assert!(score >= 0.0 && score <= 5.0);
         assert!(score < 1.0); // Low due to long time elapsed
@@ -721,6 +735,7 @@ mod test {
                     timestamp: i64::MIN,
                 },
             ],
+            Utc::now().timestamp(),
         )?;
         assert!(score >= 0.0 && score <= 5.0);
         Ok(())
@@ -1255,7 +1270,7 @@ mod test {
                 timestamp: generate_timestamp(13),
             },
         ];
-        let score = SCORER.score(ExerciseType::Declarative, &trials)?;
+        let score = SCORER.score(ExerciseType::Declarative, &trials, Utc::now().timestamp())?;
         assert!(score < 2.0);
         Ok(())
     }
@@ -1305,7 +1320,7 @@ mod test {
                 timestamp: generate_timestamp(25),
             },
         ];
-        let score = SCORER.score(ExerciseType::Declarative, &trials)?;
+        let score = SCORER.score(ExerciseType::Declarative, &trials, Utc::now().timestamp())?;
         assert!(score > 1.0 && score < 4.0);
         Ok(())
     }
@@ -1325,6 +1340,7 @@ mod test {
                     timestamp: generate_timestamp(1),
                 },
             ],
+            Utc::now().timestamp(),
         );
         assert!(result.is_err());
     }
@@ -1338,6 +1354,7 @@ mod test {
                 score: 5.0,
                 timestamp: generate_timestamp(100),
             }],
+            Utc::now().timestamp(),
         )?;
         assert!(score < 3.0);
         Ok(())
@@ -1380,7 +1397,7 @@ mod test {
                 timestamp: generate_timestamp(7),
             },
         ];
-        let score = SCORER.score(ExerciseType::Declarative, &trials)?;
+        let score = SCORER.score(ExerciseType::Declarative, &trials, Utc::now().timestamp())?;
         assert!(score > 4.0);
         Ok(())
     }
@@ -1422,7 +1439,7 @@ mod test {
                 timestamp: generate_timestamp(27),
             },
         ];
-        let score = SCORER.score(ExerciseType::Declarative, &trials)?;
+        let score = SCORER.score(ExerciseType::Declarative, &trials, Utc::now().timestamp())?;
         assert!(score < 2.0);
         Ok(())
     }
@@ -1457,9 +1474,9 @@ mod test {
                 timestamp: generate_timestamp(270),
             },
         ];
-        let score = SCORER.score(ExerciseType::Procedural, &trials)?;
+        let score = SCORER.score(ExerciseType::Procedural, &trials, Utc::now().timestamp())?;
         assert!(score >= 3.5);
-        let score = SCORER.score(ExerciseType::Declarative, &trials)?;
+        let score = SCORER.score(ExerciseType::Declarative, &trials, Utc::now().timestamp())?;
         assert!(score >= 3.5);
         Ok(())
     }
@@ -1494,9 +1511,9 @@ mod test {
                 timestamp: generate_timestamp(431),
             },
         ];
-        let score = SCORER.score(ExerciseType::Procedural, &trials)?;
+        let score = SCORER.score(ExerciseType::Procedural, &trials, Utc::now().timestamp())?;
         assert!(score >= 3.5);
-        let score = SCORER.score(ExerciseType::Declarative, &trials)?;
+        let score = SCORER.score(ExerciseType::Declarative, &trials, Utc::now().timestamp())?;
         assert!(score >= 3.5);
         Ok(())
     }
@@ -1526,8 +1543,10 @@ mod test {
                 timestamp: generate_timestamp(1),
             },
         ];
-        let high_var_score = SCORER.score(ExerciseType::Declarative, &high_var)?;
-        let low_var_score = SCORER.score(ExerciseType::Declarative, &low_var)?;
+        let high_var_score =
+            SCORER.score(ExerciseType::Declarative, &high_var, Utc::now().timestamp())?;
+        let low_var_score =
+            SCORER.score(ExerciseType::Declarative, &low_var, Utc::now().timestamp())?;
         assert!(low_var_score > high_var_score);
         Ok(())
     }
@@ -1573,8 +1592,8 @@ mod test {
                 timestamp: generate_timestamp(5),
             },
         ];
-        let few_score = SCORER.score(ExerciseType::Declarative, &few)?;
-        let many_score = SCORER.score(ExerciseType::Declarative, &many)?;
+        let few_score = SCORER.score(ExerciseType::Declarative, &few, Utc::now().timestamp())?;
+        let many_score = SCORER.score(ExerciseType::Declarative, &many, Utc::now().timestamp())?;
         assert!(many_score > few_score,);
         Ok(())
     }

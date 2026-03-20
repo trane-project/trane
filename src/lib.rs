@@ -461,6 +461,10 @@ impl ExerciseScheduler for Trane {
     fn reset_scheduler_options(&mut self) {
         self.scheduler.reset_scheduler_options();
     }
+
+    fn override_current_timestamp(&mut self, timestamp: i64) {
+        self.scheduler.override_current_timestamp(timestamp);
+    }
 }
 
 #[cfg_attr(coverage, coverage(off))]

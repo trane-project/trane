@@ -349,8 +349,9 @@ impl Benchmark {
             let session_start = Self::session_timestamp(anchor, session, profile.session_frequency);
             let mut exercises_in_session = 0u32;
             while exercises_in_session < profile.exercises_per_session {
-                // Get a new batch, setting the current simualted timestamp beforehand.
-                let _batch_ts = Self::exercise_timestamp(session_start, exercises_in_session);
+                // Get a new batch, setting the simulated timestamp beforehand.
+                let batch_ts = Self::exercise_timestamp(session_start, exercises_in_session);
+                trane.override_current_timestamp(batch_ts);
                 let batch = trane.get_exercise_batch(None)?;
 
                 // Submit each exercise in the batch.
@@ -369,7 +370,10 @@ impl Benchmark {
             }
             sessions_run = session + 1;
 
-            // Check if all courses have reached mastery and stop if they have.
+            // Check if all courses have reached mastery and stop if they have. Set the correct
+            // timestamp beforehand.
+            let end_of_session_ts = Self::exercise_timestamp(session_start, exercises_in_session);
+            trane.override_current_timestamp(end_of_session_ts);
             if Self::check_mastery(
                 &trane,
                 self.advanced_course,
@@ -633,7 +637,8 @@ mod tests {
     fn run_benchmark() {
         let benchmark = Benchmark {
             library_dir: PathBuf::from("tests/small_test_library"),
-            advanced_course: Ustr::from("trane::music::improvise_for_real::sing_the_numbers::1"),
+            advanced_course: Ustr::from("trane::music::improvise_for_real::sing_the_numbers::3"),
+            max_sessions: 100,
             ..Benchmark::default()
         };
         let result = benchmark.run_benchmark();
@@ -652,7 +657,14 @@ mod tests {
         assert!(benchmark_result.excellent_result.exercises_practiced > 0);
         assert!(benchmark_result.excellent_result.sessions_run > 0);
 
-        // Verify that at least the excellent student reached mastery.
+        // Verify that at least the median and above students reached mastery.
+        assert!(benchmark_result.median_result.days_to_mastery.is_some());
+        assert!(
+            benchmark_result
+                .above_median_result
+                .days_to_mastery
+                .is_some()
+        );
         assert!(benchmark_result.excellent_result.days_to_mastery.is_some());
     }
 }
