@@ -1,0 +1,14 @@
+{
+    "transcription": {
+        "instruments": [
+            {
+                "id": "tenor_saxophone",
+                "name": "Tenor Saxophone"
+            },
+            {
+                "id": "piano",
+                "name": "Piano"
+            }
+        ]
+    }
+}

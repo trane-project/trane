@@ -334,18 +334,14 @@ impl Benchmark {
         let mut trane = Trane::new_local(&temp_path, &temp_path)?;
         trane.set_scheduler_options(self.scheduler_opts.clone());
 
-        // Run the simulation.
+        // Run sessions until mastery is reached or the maximum number of sessions is reached.
         let all_courses = trane.get_course_ids();
         let mut trial_counts: UstrMap<u32> = UstrMap::default();
         let mut days_to_mastery = None;
         let mut sessions_run = 0;
         let mut exercises_practiced = 0;
 
-        // Run sessions until mastery is reached or the maximum number of sessions is reached.
         for session in 0..self.max_sessions {
-            let session_start = Self::session_timestamp(session, profile.session_frequency);
-            let mut batch = trane.get_exercise_batch(None)?;
-
             // Check if all courses have reached mastery.
             if Self::check_mastery(
                 &trane,
@@ -356,19 +352,23 @@ impl Benchmark {
                 days_to_mastery = Some(session * profile.session_frequency);
             }
 
-            // Score exercises in the session.
-            for exercise_index in 0..batch.len() {
-                if exercise_index as u32 >= profile.exercises_per_session {
-                    break;
+            // Score exercises in the session, fetching new batches as needed.
+            let session_start = Self::session_timestamp(session, profile.session_frequency);
+            let mut exercises_in_session = 0u32;
+            while exercises_in_session < profile.exercises_per_session {
+                let batch = trane.get_exercise_batch(None)?;
+                for exercise in batch {
+                    if exercises_in_session >= profile.exercises_per_session {
+                        break;
+                    }
+                    let trial_count = trial_counts.entry(exercise.id).or_insert(0);
+                    let score = Self::get_score(profile, *trial_count);
+                    let timestamp = Self::exercise_timestamp(session_start, exercises_in_session);
+                    trane.score_exercise(exercise.id, score, timestamp)?;
+                    *trial_count += 1;
+                    exercises_practiced += 1;
+                    exercises_in_session += 1;
                 }
-                let exercise = batch.remove(0);
-                println!("Session {}, Exercise {}", session, exercise.id);
-                let trial_count = trial_counts.entry(exercise.id).or_insert(0);
-                let score = Self::get_score(profile, *trial_count);
-                let timestamp = Self::exercise_timestamp(session_start, exercise_index as u32);
-                trane.score_exercise(exercise.id, score, timestamp)?;
-                *trial_count += 1;
-                exercises_practiced += 1;
             }
             sessions_run = session + 1;
 
@@ -628,7 +628,7 @@ mod tests {
         let benchmark = Benchmark {
             library_dir: PathBuf::from("tests/test_library"),
             advanced_course: Ustr::from("trane::music::improvise_for_real::jam_tracks::4::g_flat"),
-            max_sessions: 100,
+            max_sessions: 5,
             ..Benchmark::default()
         };
         let result = benchmark.run_benchmark();
@@ -636,10 +636,14 @@ mod tests {
 
         let benchmark_result = result.unwrap();
         assert!(benchmark_result.remedial_result.exercises_practiced > 0);
+        assert!(benchmark_result.remedial_result.sessions_run > 0);
         assert!(benchmark_result.below_median_result.exercises_practiced > 0);
+        assert!(benchmark_result.below_median_result.sessions_run > 0);
         assert!(benchmark_result.median_result.exercises_practiced > 0);
+        assert!(benchmark_result.median_result.sessions_run > 0);
         assert!(benchmark_result.above_median_result.exercises_practiced > 0);
+        assert!(benchmark_result.above_median_result.sessions_run > 0);
         assert!(benchmark_result.excellent_result.exercises_practiced > 0);
-        assert!(false);
+        assert!(benchmark_result.excellent_result.sessions_run > 0);
     }
 }
