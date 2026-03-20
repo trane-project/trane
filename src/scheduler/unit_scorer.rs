@@ -86,8 +86,8 @@ impl UnitScorer {
     }
 
     /// Sets the timestamp override used to compute scores.
-    pub(super) fn set_override_timestamp(&mut self, timestamp: i64) {
-        self.override_timestamp = Some(timestamp);
+    pub(super) fn set_override_timestamp(&mut self, timestamp: Option<i64>) {
+        self.override_timestamp = timestamp;
     }
 
     /// Returns the current timestamp, using the override if set.

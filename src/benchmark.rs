@@ -5,7 +5,7 @@
 use anyhow::{Result, anyhow};
 use chrono::Utc;
 use rand::distr::{Distribution, weighted::WeightedIndex};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use ustr::{Ustr, UstrMap};
 use walkdir::WalkDir;
 
@@ -32,7 +32,7 @@ impl PerformanceProbs {
     /// Validates that the probabilities sum up to 1.0.
     pub fn verify(&self) -> Result<()> {
         let sum = self.one + self.two + self.three + self.four + self.five;
-        if (sum - 1.0).abs() < f32::EPSILON {
+        if (sum - 1.0).abs() < 1e-4 {
             Ok(())
         } else {
             Err(anyhow!("Probabilities must sum up to 1.0 instead of {sum}"))
@@ -128,8 +128,8 @@ pub struct Benchmark {
 }
 
 impl Default for Benchmark {
-    // Creates defaults for the benchmark. The library directory and advanced course ID are
-    // placeholders and should be replaced.
+    /// Creates defaults for the benchmark. The library directory and advanced course ID are
+    /// placeholders and should be replaced.
     fn default() -> Self {
         Benchmark {
             library_dir: PathBuf::from("placeholder_library_dir"),
@@ -249,7 +249,7 @@ impl Benchmark {
     }
 
     /// Copies the library from the source directory to a temporary directory.
-    fn copy_library_dir(src: &PathBuf, dst: &PathBuf) -> std::io::Result<()> {
+    fn copy_library_dir(src: &Path, dst: &Path) -> std::io::Result<()> {
         std::fs::create_dir_all(dst)?;
         for entry in WalkDir::new(src).into_iter().filter_map(Result::ok) {
             let path = entry.path();
@@ -344,15 +344,18 @@ impl Benchmark {
         let mut sessions_run = 0;
         let mut exercises_practiced = 0;
 
-        for session in 0..self.max_sessions {
+        'session_loop: for session in 0..self.max_sessions {
             // Score exercises in the session, fetching new batches as needed.
             let session_start = Self::session_timestamp(anchor, session, profile.session_frequency);
             let mut exercises_in_session = 0u32;
             while exercises_in_session < profile.exercises_per_session {
                 // Get a new batch, setting the simulated timestamp beforehand.
                 let batch_ts = Self::exercise_timestamp(session_start, exercises_in_session);
-                trane.override_current_timestamp(batch_ts);
+                trane.override_current_timestamp(Some(batch_ts));
                 let batch = trane.get_exercise_batch(None)?;
+                if batch.is_empty() {
+                    break 'session_loop; // grcov-excl-line
+                }
 
                 // Submit each exercise in the batch.
                 for exercise in batch {
@@ -373,7 +376,7 @@ impl Benchmark {
             // Check if all courses have reached mastery and stop if they have. Set the correct
             // timestamp beforehand.
             let end_of_session_ts = Self::exercise_timestamp(session_start, exercises_in_session);
-            trane.override_current_timestamp(end_of_session_ts);
+            trane.override_current_timestamp(Some(end_of_session_ts));
             if Self::check_mastery(
                 &trane,
                 self.advanced_course,

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::Parser;
-use trane::benchmark::Benchmark;
+use trane::benchmark::{Benchmark, StudentResult};
 use ustr::Ustr;
 
 #[derive(Parser)]
@@ -20,7 +20,8 @@ struct Args {
     advanced_course: String,
 }
 
-fn print_result(label: &str, result: &trane::benchmark::StudentResult, max_days: u32) {
+/// Prints the result of a benchmark run for a given student profile.
+fn print_result(label: &str, result: &StudentResult, max_days: u32) {
     match result.days_to_mastery {
         Some(days) => println!(
             "  {label}: mastery in {days} days, {sessions} sessions, {exercises} exercises",

@@ -462,7 +462,7 @@ impl ExerciseScheduler for Trane {
         self.scheduler.reset_scheduler_options();
     }
 
-    fn override_current_timestamp(&mut self, timestamp: i64) {
+    fn override_current_timestamp(&mut self, timestamp: Option<i64>) {
         self.scheduler.override_current_timestamp(timestamp);
     }
 }
