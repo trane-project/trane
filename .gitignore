@@ -15,3 +15,5 @@ Cargo.lock
 
 /*.svg
 /perf.data*
+
+.DS_Store

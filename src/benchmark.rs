@@ -3,6 +3,7 @@
 //! in terms of the time to mastery for different student profiles.
 
 use anyhow::{Result, anyhow};
+use chrono::Utc;
 use rand::distr::{Distribution, weighted::WeightedIndex};
 use std::path::PathBuf;
 use ustr::{Ustr, UstrMap};
@@ -236,9 +237,10 @@ impl Default for Benchmark {
 }
 
 impl Benchmark {
-    /// Returns the timestamp for the start of a session.
-    fn session_timestamp(session: u32, session_frequency: u32) -> i64 {
-        i64::from(session) * i64::from(session_frequency) * 86400
+    /// Returns the timestamp for the start of a session. The anchor is `Utc::now()` at the
+    /// start of the simulation (session 0). Sessions advance forward from the anchor.
+    fn session_timestamp(anchor: i64, session: u32, session_frequency: u32) -> i64 {
+        anchor + i64::from(session) * i64::from(session_frequency) * 86400
     }
 
     /// Returns the timestamp for an exercise within a session.
@@ -335,6 +337,7 @@ impl Benchmark {
         trane.set_scheduler_options(self.scheduler_opts.clone());
 
         // Run sessions until mastery is reached or the maximum number of sessions is reached.
+        let anchor = Utc::now().timestamp();
         let all_courses = trane.get_course_ids();
         let mut trial_counts: UstrMap<u32> = UstrMap::default();
         let mut days_to_mastery = None;
@@ -342,21 +345,15 @@ impl Benchmark {
         let mut exercises_practiced = 0;
 
         for session in 0..self.max_sessions {
-            // Check if all courses have reached mastery.
-            if Self::check_mastery(
-                &trane,
-                self.advanced_course,
-                self.mastery_threshold,
-                &all_courses,
-            ) {
-                days_to_mastery = Some(session * profile.session_frequency);
-            }
-
             // Score exercises in the session, fetching new batches as needed.
-            let session_start = Self::session_timestamp(session, profile.session_frequency);
+            let session_start = Self::session_timestamp(anchor, session, profile.session_frequency);
             let mut exercises_in_session = 0u32;
             while exercises_in_session < profile.exercises_per_session {
+                // Get a new batch, setting the current simualted timestamp beforehand.
+                let _batch_ts = Self::exercise_timestamp(session_start, exercises_in_session);
                 let batch = trane.get_exercise_batch(None)?;
+
+                // Submit each exercise in the batch.
                 for exercise in batch {
                     if exercises_in_session >= profile.exercises_per_session {
                         break;
@@ -372,7 +369,15 @@ impl Benchmark {
             }
             sessions_run = session + 1;
 
-            // Stop if mastery is reached.
+            // Check if all courses have reached mastery and stop if they have.
+            if Self::check_mastery(
+                &trane,
+                self.advanced_course,
+                self.mastery_threshold,
+                &all_courses,
+            ) {
+                days_to_mastery = Some(session * profile.session_frequency);
+            }
             if days_to_mastery.is_some() {
                 break;
             }
@@ -562,14 +567,15 @@ mod tests {
         assert!((perf.five - 0.225).abs() < f32::EPSILON);
     }
 
-    /// Verifies that session timestamps are calculated correctly based on session number and
-    /// frequency.
+    /// Verifies that session timestamps are calculated correctly based on anchor, session number,
+    /// and frequency.
     #[test]
     fn session_timestamp() {
-        assert_eq!(Benchmark::session_timestamp(0, 1), 0);
-        assert_eq!(Benchmark::session_timestamp(1, 1), 86400);
-        assert_eq!(Benchmark::session_timestamp(1, 2), 172800);
-        assert_eq!(Benchmark::session_timestamp(7, 1), 604800);
+        let anchor = 1_000_000;
+        assert_eq!(Benchmark::session_timestamp(anchor, 0, 1), anchor);
+        assert_eq!(Benchmark::session_timestamp(anchor, 1, 1), anchor + 86400);
+        assert_eq!(Benchmark::session_timestamp(anchor, 1, 2), anchor + 172800);
+        assert_eq!(Benchmark::session_timestamp(anchor, 7, 1), anchor + 604800);
     }
 
     /// Verifies that exercise timestamps are calculated correctly within a session.
@@ -626,14 +632,14 @@ mod tests {
     #[test]
     fn run_benchmark() {
         let benchmark = Benchmark {
-            library_dir: PathBuf::from("tests/test_library"),
-            advanced_course: Ustr::from("trane::music::improvise_for_real::jam_tracks::4::g_flat"),
-            max_sessions: 5,
+            library_dir: PathBuf::from("tests/small_test_library"),
+            advanced_course: Ustr::from("trane::music::improvise_for_real::sing_the_numbers::1"),
             ..Benchmark::default()
         };
         let result = benchmark.run_benchmark();
         assert!(result.is_ok());
 
+        // Verify that sessions and exercises were practiced for all student profiles.
         let benchmark_result = result.unwrap();
         assert!(benchmark_result.remedial_result.exercises_practiced > 0);
         assert!(benchmark_result.remedial_result.sessions_run > 0);
@@ -645,5 +651,8 @@ mod tests {
         assert!(benchmark_result.above_median_result.sessions_run > 0);
         assert!(benchmark_result.excellent_result.exercises_practiced > 0);
         assert!(benchmark_result.excellent_result.sessions_run > 0);
+
+        // Verify that at least the excellent student reached mastery.
+        assert!(benchmark_result.excellent_result.days_to_mastery.is_some());
     }
 }
