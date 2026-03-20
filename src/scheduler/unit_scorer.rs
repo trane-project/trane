@@ -63,6 +63,9 @@ pub(super) struct UnitScorer {
 
     /// The object used to compute the reward of a unit based on its previous rewards.
     reward_scorer: Box<dyn RewardScorer + Send + Sync>,
+
+    /// The timestamp override used to compute scores. If None, use the current clock timestamp.
+    override_timestamp: Option<i64>,
 }
 
 impl UnitScorer {
@@ -78,7 +81,19 @@ impl UnitScorer {
             options,
             exercise_scorer: Box::new(PowerLawScorer {}),
             reward_scorer: Box::new(WeightedRewardScorer {}),
+            override_timestamp: None,
         }
+    }
+
+    /// Sets the timestamp override used to compute scores.
+    pub(super) fn set_override_timestamp(&mut self, timestamp: Option<i64>) {
+        self.override_timestamp = timestamp;
+    }
+
+    /// Returns the current timestamp, using the override if set.
+    fn now(&self) -> i64 {
+        self.override_timestamp
+            .unwrap_or_else(|| Utc::now().timestamp())
     }
 
     /// Removes the cached score for the given unit and all units affected by an update to its
@@ -184,7 +199,9 @@ impl UnitScorer {
             .read()
             .get_scores(exercise_id, self.options.num_trials)
             .unwrap_or_default();
-        let score = self.exercise_scorer.score(exercise_type, &scores)?;
+        let score = self
+            .exercise_scorer
+            .score(exercise_type, &scores, self.now())?;
 
         // Retrieve the rewards for this exercise's lesson and course and compute the reward.
         let graph = self.data.unit_graph.read();
@@ -201,7 +218,7 @@ impl UnitScorer {
             .reward_scorer
             .score_rewards(&course_rewards, &lesson_rewards)
             .unwrap_or_default();
-        let now = Utc::now().timestamp();
+        let now = self.now();
         let last_seen = scores.first().map_or(0.0, |trial| {
             ((now - trial.timestamp) as f32 / 86_400.0).max(0.0)
         });

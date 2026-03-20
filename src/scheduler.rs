@@ -97,6 +97,10 @@ pub trait ExerciseScheduler {
 
     /// Resets the options used to control the behavior of the scheduler to their default values.
     fn reset_scheduler_options(&mut self);
+
+    /// Overrides the timestamp used by the scheduler to compute the scores of exercises. This
+    /// function should only be called by benchmarks or tests.
+    fn override_current_timestamp(&mut self, timestamp: Option<i64>);
 }
 
 /// An item in the stack of units that are scheduled for traversal during the process of scheduling
@@ -1177,6 +1181,10 @@ impl ExerciseScheduler for DepthFirstScheduler {
 
     fn reset_scheduler_options(&mut self) {
         self.data.options = SchedulerOptions::default();
+    }
+
+    fn override_current_timestamp(&mut self, timestamp: Option<i64>) {
+        self.unit_scorer.set_override_timestamp(timestamp);
     }
 }
 

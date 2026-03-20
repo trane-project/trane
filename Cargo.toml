@@ -14,6 +14,7 @@ name = "trane"
 anyhow = "1.0.102"
 postcard = { version = "1.1.3", features = ["use-std"] }
 chrono = { version = "0.4.44", features = ["serde"] }
+clap = { version = "4", features = ["derive"] }
 derive_builder = "0.20.2"
 indoc = "2.0.7"
 parking_lot = { version = "0.12.5", features = ["hardware-lock-elision"] }
@@ -24,13 +25,13 @@ rusqlite_migration = "2.4.1"
 serde = { version = "1.0.228", features = ["derive", "rc"] }
 serde_json = "1.0.149"
 strum = { version = "0.28.0", features = ["derive"] }
+tempfile = "3.27.0"
 thiserror = "2.0.18"
 ustr = { version = "1.1.0", features = ["serde"] }
 walkdir = "2.5.0"
 
 [dev-dependencies]
 pretty_assertions = "1.4"
-tempfile = "3.27.0"
 
 [profile.bench]
 debug = true

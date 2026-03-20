@@ -1,0 +1,261 @@
+{
+    "id": "trane::music::improvise_for_real::jam_tracks::2::g_flat",
+    "name": "IFR Jam Tracks Level 2 - key of Gb",
+    "description": "Master the tracks in the IFR Jam Tracks Level 2 course in the key of Gb.",
+    "dependencies": [],
+    "authors": [
+        "The Trane Project"
+    ],
+    "metadata": {
+        "course_series": [
+            "improvise_for_real",
+            "jam_tracks"
+        ],
+        "skill": [
+            "music"
+        ],
+        "key": [
+            "g_flat"
+        ],
+        "ifr_level": [
+            "2"
+        ]
+    },
+    "generator_config": {
+        "Transcription": {
+            "transcription_dependencies": [
+                "trane::music::improvise_for_real::jam_tracks::1::g_flat",
+                "trane::music::improvise_for_real::jam_tracks::2::d_flat"
+            ],
+            "skip_singing_lessons": true,
+            "skip_advanced_lessons": true,
+            "inlined_passages": [
+                {
+                    "asset": {
+                        "Track": {
+                            "short_id": "1",
+                            "track_name": "Track 1, key of Gb",
+                            "album_name": "IFR Jam Tracks Level 2"
+                        }
+                    },
+                    "intervals": {
+                        "1": [
+                            "Beginning of song",
+                            "End of song"
+                        ]
+                    }
+                },
+                {
+                    "asset": {
+                        "Track": {
+                            "short_id": "2",
+                            "track_name": "Track 2, key of Gb",
+                            "album_name": "IFR Jam Tracks Level 2"
+                        }
+                    },
+                    "intervals": {
+                        "1": [
+                            "Beginning of song",
+                            "End of song"
+                        ]
+                    }
+                },
+                {
+                    "asset": {
+                        "Track": {
+                            "short_id": "3",
+                            "track_name": "Track 3, key of Gb",
+                            "album_name": "IFR Jam Tracks Level 2"
+                        }
+                    },
+                    "intervals": {
+                        "1": [
+                            "Beginning of song",
+                            "End of song"
+                        ]
+                    }
+                },
+                {
+                    "asset": {
+                        "Track": {
+                            "short_id": "4",
+                            "track_name": "Track 4, key of Gb",
+                            "album_name": "IFR Jam Tracks Level 2"
+                        }
+                    },
+                    "intervals": {
+                        "1": [
+                            "Beginning of song",
+                            "End of song"
+                        ]
+                    }
+                },
+                {
+                    "asset": {
+                        "Track": {
+                            "short_id": "5",
+                            "track_name": "Track 5, key of Gb",
+                            "album_name": "IFR Jam Tracks Level 2"
+                        }
+                    },
+                    "intervals": {
+                        "1": [
+                            "Beginning of song",
+                            "End of song"
+                        ]
+                    }
+                },
+                {
+                    "asset": {
+                        "Track": {
+                            "short_id": "6",
+                            "track_name": "Track 6, key of Gb",
+                            "album_name": "IFR Jam Tracks Level 2"
+                        }
+                    },
+                    "intervals": {
+                        "1": [
+                            "Beginning of song",
+                            "End of song"
+                        ]
+                    }
+                },
+                {
+                    "asset": {
+                        "Track": {
+                            "short_id": "7",
+                            "track_name": "Track 7, key of Gb",
+                            "album_name": "IFR Jam Tracks Level 2"
+                        }
+                    },
+                    "intervals": {
+                        "1": [
+                            "Beginning of song",
+                            "End of song"
+                        ]
+                    }
+                },
+                {
+                    "asset": {
+                        "Track": {
+                            "short_id": "8",
+                            "track_name": "Track 8, key of Gb",
+                            "album_name": "IFR Jam Tracks Level 2"
+                        }
+                    },
+                    "intervals": {
+                        "1": [
+                            "Beginning of song",
+                            "End of song"
+                        ]
+                    }
+                },
+                {
+                    "asset": {
+                        "Track": {
+                            "short_id": "9",
+                            "track_name": "Track 9, key of Gb",
+                            "album_name": "IFR Jam Tracks Level 2"
+                        }
+                    },
+                    "intervals": {
+                        "1": [
+                            "Beginning of song",
+                            "End of song"
+                        ]
+                    }
+                },
+                {
+                    "asset": {
+                        "Track": {
+                            "short_id": "10",
+                            "track_name": "Track 10, key of Gb",
+                            "album_name": "IFR Jam Tracks Level 2"
+                        }
+                    },
+                    "intervals": {
+                        "1": [
+                            "Beginning of song",
+                            "End of song"
+                        ]
+                    }
+                },
+                {
+                    "asset": {
+                        "Track": {
+                            "short_id": "11",
+                            "track_name": "Track 11, key of Gb",
+                            "album_name": "IFR Jam Tracks Level 2"
+                        }
+                    },
+                    "intervals": {
+                        "1": [
+                            "Beginning of song",
+                            "End of song"
+                        ]
+                    }
+                },
+                {
+                    "asset": {
+                        "Track": {
+                            "short_id": "12",
+                            "track_name": "Track 12, key of Gb",
+                            "album_name": "IFR Jam Tracks Level 2"
+                        }
+                    },
+                    "intervals": {
+                        "1": [
+                            "Beginning of song",
+                            "End of song"
+                        ]
+                    }
+                },
+                {
+                    "asset": {
+                        "Track": {
+                            "short_id": "13",
+                            "track_name": "Track 13, key of Gb",
+                            "album_name": "IFR Jam Tracks Level 2"
+                        }
+                    },
+                    "intervals": {
+                        "1": [
+                            "Beginning of song",
+                            "End of song"
+                        ]
+                    }
+                },
+                {
+                    "asset": {
+                        "Track": {
+                            "short_id": "14",
+                            "track_name": "Track 14, key of Gb",
+                            "album_name": "IFR Jam Tracks Level 2"
+                        }
+                    },
+                    "intervals": {
+                        "1": [
+                            "Beginning of song",
+                            "End of song"
+                        ]
+                    }
+                },
+                {
+                    "asset": {
+                        "Track": {
+                            "short_id": "15",
+                            "track_name": "Track 15, key of Gb",
+                            "album_name": "IFR Jam Tracks Level 2"
+                        }
+                    },
+                    "intervals": {
+                        "1": [
+                            "Beginning of song",
+                            "End of song"
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+}

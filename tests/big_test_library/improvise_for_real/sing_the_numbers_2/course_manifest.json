@@ -1,0 +1,30 @@
+{
+  "id": "trane::music::improvise_for_real::sing_the_numbers::2",
+  "name": "Sing The Numbers 2",
+  "dependencies": [
+    "trane::music::improvise_for_real::sing_the_numbers::1"
+  ],
+  "superseded": [],
+  "description": "Master the exercises in the Sing The Numbers 2 course.",
+  "authors": [
+    "The Trane Project"
+  ],
+  "metadata": {
+    "course_series": [
+      "improvise_for_real",
+      "sing_the_numbers"
+    ],
+    "skill": [
+      "music"
+    ]
+  },
+  "course_material": null,
+  "course_instructions": {
+    "MarkdownAsset": {
+      "path": "course_instructions.md"
+    }
+  },
+  "generator_config": {
+    "KnowledgeBase": {}
+  }
+}

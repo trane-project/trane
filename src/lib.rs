@@ -50,6 +50,7 @@
 #![allow(clippy::cast_precision_loss)]
 #![allow(clippy::too_many_lines)]
 
+pub mod benchmark;
 pub mod blacklist;
 pub mod course_builder;
 pub mod course_library;
@@ -58,7 +59,6 @@ pub mod error;
 pub mod exercise_scorer;
 pub mod filter_manager;
 pub mod graph;
-
 pub mod practice_rewards;
 pub mod practice_stats;
 pub mod preferences_manager;
@@ -460,6 +460,10 @@ impl ExerciseScheduler for Trane {
 
     fn reset_scheduler_options(&mut self) {
         self.scheduler.reset_scheduler_options();
+    }
+
+    fn override_current_timestamp(&mut self, timestamp: Option<i64>) {
+        self.scheduler.override_current_timestamp(timestamp);
     }
 }
 
