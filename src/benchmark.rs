@@ -1,7 +1,6 @@
-use std::path::PathBuf;
-
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use rand::distr::{Distribution, weighted::WeightedIndex};
+use std::{fs, path::PathBuf};
 use ustr::{Ustr, UstrMap};
 use walkdir::WalkDir;
 
@@ -12,8 +11,8 @@ use crate::{
     scheduler::ExerciseScheduler,
 };
 
-/// Contains the probabilities for the answer given by a student at a given time. Probabilities must
-/// sum up to 1.0.
+/// Contains the probabilities for the mastery score given by a student for an individual exercise.
+/// Probabilities must sum up to 1.0.
 #[allow(missing_docs)]
 #[derive(Clone, Debug)]
 pub struct PerformanceProbs {
@@ -26,9 +25,13 @@ pub struct PerformanceProbs {
 
 impl PerformanceProbs {
     /// Validates that the probabilities sum up to 1.0.
-    pub fn validate(&self) -> bool {
+    pub fn verify(&self) -> Result<()> {
         let sum = self.one + self.two + self.three + self.four + self.five;
-        (sum - 1.0).abs() < f32::EPSILON
+        if (sum - 1.0).abs() < f32::EPSILON {
+            Ok(())
+        } else {
+            Err(anyhow!("Probabilities must sum up to 1.0"))
+        }
     }
 }
 
@@ -109,6 +112,9 @@ pub struct Benchmark {
     /// advanced. It is used to avoid having to prematurely check.
     pub advanced_course: Ustr,
 
+    /// The score threshold at which a course is considered mastered.
+    pub mastery_threshold: f32,
+
     /// The maximum number of sessions to simulate for each student to avoid the simulation from
     /// running indefinitely.
     pub max_sessions: u32,
@@ -122,102 +128,103 @@ impl Default for Benchmark {
             courses_dir: PathBuf::from("placeholder_course_dir"),
             scheduler_opts: SchedulerOptions::default(),
             remedial_profile: StudentProfile {
-                session_frequency: 3,
-                exercises_per_session: 5,
+                session_frequency: 5,
+                exercises_per_session: 15,
                 initial_performance: PerformanceProbs {
-                    one: 0.4,
-                    two: 0.3,
-                    three: 0.2,
-                    four: 0.05,
-                    five: 0.05,
+                    one: 0.3,
+                    two: 0.2,
+                    three: 0.25,
+                    four: 0.15,
+                    five: 0.1,
                 },
                 trials_before_stable: 20,
                 stable_performance: PerformanceProbs {
-                    one: 0.1,
-                    two: 0.2,
-                    three: 0.4,
-                    four: 0.2,
-                    five: 0.1,
+                    one: 0.05,
+                    two: 0.1,
+                    three: 0.15,
+                    four: 0.4,
+                    five: 0.3,
                 },
             },
             below_median_profile: StudentProfile {
-                session_frequency: 2,
-                exercises_per_session: 5,
+                session_frequency: 3,
+                exercises_per_session: 25,
                 initial_performance: PerformanceProbs {
                     one: 0.2,
-                    two: 0.3,
+                    two: 0.25,
                     three: 0.3,
-                    four: 0.1,
+                    four: 0.15,
                     five: 0.1,
                 },
                 trials_before_stable: 15,
                 stable_performance: PerformanceProbs {
-                    one: 0.05,
-                    two: 0.15,
-                    three: 0.4,
-                    four: 0.3,
-                    five: 0.1,
+                    one: 0.02,
+                    two: 0.08,
+                    three: 0.15,
+                    four: 0.4,
+                    five: 0.35,
                 },
             },
             median_profile: StudentProfile {
-                session_frequency: 1,
-                exercises_per_session: 5,
+                session_frequency: 2,
+                exercises_per_session: 40,
                 initial_performance: PerformanceProbs {
-                    one: 0.1,
-                    two: 0.2,
-                    three: 0.4,
-                    four: 0.2,
-                    five: 0.1,
+                    one: 0.15,
+                    two: 0.25,
+                    three: 0.3,
+                    four: 0.18,
+                    five: 0.12,
                 },
-                trials_before_stable: 10,
+                trials_before_stable: 12,
                 stable_performance: PerformanceProbs {
-                    one: 0.05,
-                    two: 0.15,
-                    three: 0.4,
-                    four: 0.3,
-                    five: 0.1,
+                    one: 0.02,
+                    two: 0.05,
+                    three: 0.13,
+                    four: 0.4,
+                    five: 0.4,
                 },
             },
             above_median_profile: StudentProfile {
                 session_frequency: 1,
-                exercises_per_session: 5,
+                exercises_per_session: 50,
                 initial_performance: PerformanceProbs {
-                    one: 0.05,
+                    one: 0.1,
                     two: 0.15,
                     three: 0.4,
-                    four: 0.3,
-                    five: 0.1,
-                },
-                trials_before_stable: 5,
-                stable_performance: PerformanceProbs {
-                    one: 0.05,
-                    two: 0.1,
-                    three: 0.3,
-                    four: 0.4,
+                    four: 0.2,
                     five: 0.15,
+                },
+                trials_before_stable: 8,
+                stable_performance: PerformanceProbs {
+                    one: 0.01,
+                    two: 0.04,
+                    three: 0.1,
+                    four: 0.4,
+                    five: 0.45,
                 },
             },
             excellent_profile: StudentProfile {
                 session_frequency: 1,
-                exercises_per_session: 5,
+                exercises_per_session: 75,
                 initial_performance: PerformanceProbs {
-                    one: 0.05,
-                    two: 0.1,
-                    three: 0.3,
-                    four: 0.4,
-                    five: 0.15,
+                    one: 0.08,
+                    two: 0.12,
+                    three: 0.4,
+                    four: 0.2,
+                    five: 0.2,
                 },
-                trials_before_stable: 3,
+                trials_before_stable: 5,
                 stable_performance: PerformanceProbs {
-                    one: 0.05,
-                    two: 0.1,
-                    three: 0.3,
-                    four: 0.4,
-                    five: 0.15,
+                    one: 0.01,
+                    two: 0.04,
+                    three: 0.1,
+                    four: 0.3,
+                    five: 0.55,
                 },
             },
             advanced_course: Ustr::from("placeholder_advanced_course"),
-            max_sessions: 100,
+            mastery_threshold: 4.0,
+            max_sessions: 2000,
         }
     }
 }
@@ -225,18 +232,19 @@ impl Default for Benchmark {
 impl Benchmark {
     /// Returns the timestamp for the start of a session.
     fn session_timestamp(session: u32, session_frequency: u32) -> i64 {
-        (session as i64) * (session_frequency as i64) * 86400
+        i64::from(session) * i64::from(session_frequency) * 86400
     }
 
     /// Returns the timestamp for an exercise within a session.
     fn exercise_timestamp(session_start: i64, exercise_index: u32) -> i64 {
-        session_start + (exercise_index as i64)
+        session_start + i64::from(exercise_index)
     }
 
-    /// Copies a directory recursively to a destination.
-    fn copy_dir_recursive(src: &PathBuf, dst: &PathBuf) -> std::io::Result<()> {
+    /// Copies the courses from the source directory to a temporary directory.
+    fn copy_courses_dir(src: &PathBuf, dst: &PathBuf) -> std::io::Result<()> {
+        // Recursively copy the directory.
         std::fs::create_dir_all(dst)?;
-        for entry in WalkDir::new(src).into_iter().filter_map(|e| e.ok()) {
+        for entry in WalkDir::new(src).into_iter().filter_map(Result::ok) {
             let path = entry.path();
             let relative = path.strip_prefix(src).unwrap();
             let dst_path = dst.join(relative);
@@ -246,6 +254,12 @@ impl Benchmark {
             } else {
                 std::fs::copy(path, &dst_path)?;
             }
+        }
+
+        // Remove the .trane directory from the destination if it exists.
+        let trane_dir = dst.join(".trane");
+        if trane_dir.exists() {
+            fs::remove_dir_all(trane_dir)?;
         }
         Ok(())
     }
@@ -268,7 +282,7 @@ impl Benchmark {
     }
 
     /// Gets the score for an exercise given the number of trials and the student profile.
-    fn get_score(&self, profile: &StudentProfile, trial_num: u32) -> MasteryScore {
+    fn get_score(profile: &StudentProfile, trial_num: u32) -> MasteryScore {
         let performance = Self::interpolate_performance(profile, trial_num);
         let weights = [
             performance.one,
@@ -277,7 +291,7 @@ impl Benchmark {
             performance.four,
             performance.five,
         ];
-        let choice = WeightedIndex::new(&weights).unwrap();
+        let choice = WeightedIndex::new(weights).unwrap();
         match choice.sample(&mut rand::rng()) {
             0 => MasteryScore::One,
             1 => MasteryScore::Two,
@@ -296,17 +310,16 @@ impl Benchmark {
         mastery_threshold: f32,
         all_courses: &[Ustr],
     ) -> bool {
-        if let Ok(Some(adv_score)) = trane.get_unit_score(advanced_course) {
-            if adv_score >= mastery_threshold {
-                return all_courses.iter().all(|course_id| {
-                    trane
-                        .get_unit_score(*course_id)
-                        .ok()
-                        .flatten()
-                        .map(|s| s >= mastery_threshold)
-                        .unwrap_or(false)
-                });
-            }
+        if let Ok(Some(adv_score)) = trane.get_unit_score(advanced_course)
+            && adv_score >= mastery_threshold
+        {
+            return all_courses.iter().all(|course_id| {
+                trane
+                    .get_unit_score(*course_id)
+                    .ok()
+                    .flatten()
+                    .is_some_and(|s| s >= mastery_threshold)
+            });
         }
         false
     }
@@ -316,7 +329,7 @@ impl Benchmark {
         // Create a temporary directory and copy the courses there.
         let temp_dir = tempfile::TempDir::new()?;
         let temp_path = temp_dir.path().to_path_buf();
-        Self::copy_dir_recursive(&self.courses_dir, &temp_path)?;
+        Self::copy_courses_dir(&self.courses_dir, &temp_path)?;
 
         // Create trane instance and set the scheduler options.
         let mut trane = Trane::new_local(&temp_path, &temp_path)?;
@@ -335,16 +348,13 @@ impl Benchmark {
             let mut batch = trane.get_exercise_batch(None)?;
 
             // Check if all courses have reached mastery.
-            if days_to_mastery.is_none() {
-                let mastery_threshold = self.scheduler_opts.mastered_window_opts.range.0;
-                if Self::check_mastery(
-                    &trane,
-                    self.advanced_course,
-                    mastery_threshold,
-                    &all_courses,
-                ) {
-                    days_to_mastery = Some(session * profile.session_frequency);
-                }
+            if Self::check_mastery(
+                &trane,
+                self.advanced_course,
+                self.mastery_threshold,
+                &all_courses,
+            ) {
+                days_to_mastery = Some(session * profile.session_frequency);
             }
 
             // Score exercises in the session.
@@ -354,7 +364,7 @@ impl Benchmark {
                 }
                 let exercise = batch.remove(0);
                 let trial_count = trial_counts.entry(exercise.id).or_insert(0);
-                let score = self.get_score(profile, *trial_count);
+                let score = Self::get_score(profile, *trial_count);
                 let timestamp = Self::exercise_timestamp(session_start, exercise_index as u32);
                 trane.score_exercise(exercise.id, score, timestamp)?;
                 *trial_count += 1;
@@ -375,15 +385,31 @@ impl Benchmark {
         })
     }
 
-    /// Runs the benchmark across all student profiles using scoped threads.
+    /// Verifies that the benchmark configuration is valid.
+    pub fn verify(&self) -> Result<()> {
+        self.scheduler_opts.verify()?;
+        self.remedial_profile.initial_performance.verify()?;
+        self.remedial_profile.stable_performance.verify()?;
+        self.below_median_profile.initial_performance.verify()?;
+        self.below_median_profile.stable_performance.verify()?;
+        self.median_profile.initial_performance.verify()?;
+        self.median_profile.stable_performance.verify()?;
+        self.above_median_profile.initial_performance.verify()?;
+        self.above_median_profile.stable_performance.verify()?;
+        self.excellent_profile.initial_performance.verify()?;
+        self.excellent_profile.stable_performance.verify()?;
+        Ok(())
+    }
+
+    /// Runs the benchmark across all student profiles.
     pub fn run_benchmark(&self) -> Result<BenchmarkResult> {
+        // Run each student profile in a separate thread and collect the results.
         let results = std::thread::scope(|s| {
             let h1 = s.spawn(|| self.simulate_student(&self.remedial_profile));
             let h2 = s.spawn(|| self.simulate_student(&self.below_median_profile));
             let h3 = s.spawn(|| self.simulate_student(&self.median_profile));
             let h4 = s.spawn(|| self.simulate_student(&self.above_median_profile));
             let h5 = s.spawn(|| self.simulate_student(&self.excellent_profile));
-
             (
                 h1.join()
                     .map_err(|_| anyhow::anyhow!("remedial thread panicked"))
@@ -402,7 +428,6 @@ impl Benchmark {
                     .and_then(|r| r),
             )
         });
-
         Ok(BenchmarkResult {
             remedial_result: results.0?,
             below_median_result: results.1?,
@@ -414,6 +439,7 @@ impl Benchmark {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod tests {
     use super::*;
 
@@ -427,7 +453,7 @@ mod tests {
             four: 0.2,
             five: 0.2,
         };
-        assert!(probs.validate());
+        assert!(probs.verify().is_ok());
     }
 
     /// Verifies that invalid probabilities that don't sum to 1.0 are rejected.
@@ -440,7 +466,7 @@ mod tests {
             four: 0.0,
             five: 0.0,
         };
-        assert!(!probs.validate());
+        assert!(probs.verify().is_err());
     }
 
     /// Verifies that performance interpolation returns initial performance at trial 0.
@@ -584,8 +610,15 @@ mod tests {
 
         let profile = &benchmark.remedial_profile;
         for _ in 0..10 {
-            let score = benchmark.get_score(profile, 0);
+            let score = Benchmark::get_score(profile, 0);
             assert_eq!(score, MasteryScore::Five);
         }
+    }
+
+    /// Verifies that the default benchmark is valid.
+    #[test]
+    fn verify_default_benchmark() {
+        let benchmark = Benchmark::default();
+        assert!(benchmark.verify().is_ok());
     }
 }
