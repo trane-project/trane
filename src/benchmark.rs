@@ -16,27 +16,17 @@ use crate::{
     scheduler::ExerciseScheduler,
 };
 
-/// Contains the probabilities for the mastery score given by a student for an individual exercise.
-/// Probabilities must sum up to 1.0.
-#[allow(missing_docs)]
-#[derive(Clone, Debug)]
-pub struct PerformanceProbs {
-    pub one: f32,
-    pub two: f32,
-    pub three: f32,
-    pub four: f32,
-    pub five: f32,
-}
+/// Probabilities for each mastery score (1 through 5) given by a student for an individual
+/// exercise. Indices 0..4 correspond to scores 1..5. Probabilities must sum up to 1.0.
+pub type PerformanceProbs = [f32; 5];
 
-impl PerformanceProbs {
-    /// Validates that the probabilities sum up to 1.0.
-    pub fn verify(&self) -> Result<()> {
-        let sum = self.one + self.two + self.three + self.four + self.five;
-        if (sum - 1.0).abs() < 1e-4 {
-            Ok(())
-        } else {
-            Err(anyhow!("Probabilities must sum up to 1.0 instead of {sum}"))
-        }
+/// Validates that the probabilities sum up to 1.0.
+pub fn verify_probs(probs: &PerformanceProbs) -> Result<()> {
+    let sum: f32 = probs.iter().sum();
+    if (sum - 1.0).abs() < 1e-4 {
+        Ok(())
+    } else {
+        Err(anyhow!("Probabilities must sum up to 1.0 instead of {sum}"))
     }
 }
 
@@ -137,97 +127,37 @@ impl Default for Benchmark {
             remedial_profile: StudentProfile {
                 session_frequency: 4,
                 exercises_per_session: 20,
-                initial_performance: PerformanceProbs {
-                    one: 0.3,
-                    two: 0.2,
-                    three: 0.25,
-                    four: 0.15,
-                    five: 0.1,
-                },
+                initial_performance: [0.3, 0.2, 0.25, 0.15, 0.1],
                 trials_before_stable: 10,
-                stable_performance: PerformanceProbs {
-                    one: 0.05,
-                    two: 0.1,
-                    three: 0.15,
-                    four: 0.3,
-                    five: 0.4,
-                },
+                stable_performance: [0.05, 0.1, 0.15, 0.3, 0.4],
             },
             below_median_profile: StudentProfile {
                 session_frequency: 3,
                 exercises_per_session: 25,
-                initial_performance: PerformanceProbs {
-                    one: 0.2,
-                    two: 0.25,
-                    three: 0.3,
-                    four: 0.15,
-                    five: 0.1,
-                },
+                initial_performance: [0.2, 0.25, 0.3, 0.15, 0.1],
                 trials_before_stable: 10,
-                stable_performance: PerformanceProbs {
-                    one: 0.02,
-                    two: 0.08,
-                    three: 0.15,
-                    four: 0.3,
-                    five: 0.45,
-                },
+                stable_performance: [0.02, 0.08, 0.15, 0.3, 0.45],
             },
             median_profile: StudentProfile {
                 session_frequency: 2,
                 exercises_per_session: 35,
-                initial_performance: PerformanceProbs {
-                    one: 0.15,
-                    two: 0.25,
-                    three: 0.3,
-                    four: 0.18,
-                    five: 0.12,
-                },
+                initial_performance: [0.15, 0.25, 0.3, 0.18, 0.12],
                 trials_before_stable: 7,
-                stable_performance: PerformanceProbs {
-                    one: 0.02,
-                    two: 0.05,
-                    three: 0.13,
-                    four: 0.3,
-                    five: 0.5,
-                },
+                stable_performance: [0.02, 0.05, 0.13, 0.3, 0.5],
             },
             above_median_profile: StudentProfile {
                 session_frequency: 1,
                 exercises_per_session: 40,
-                initial_performance: PerformanceProbs {
-                    one: 0.1,
-                    two: 0.15,
-                    three: 0.4,
-                    four: 0.2,
-                    five: 0.15,
-                },
+                initial_performance: [0.1, 0.15, 0.4, 0.2, 0.15],
                 trials_before_stable: 5,
-                stable_performance: PerformanceProbs {
-                    one: 0.01,
-                    two: 0.04,
-                    three: 0.1,
-                    four: 0.3,
-                    five: 0.55,
-                },
+                stable_performance: [0.01, 0.04, 0.1, 0.3, 0.55],
             },
             excellent_profile: StudentProfile {
                 session_frequency: 1,
                 exercises_per_session: 60,
-                initial_performance: PerformanceProbs {
-                    one: 0.08,
-                    two: 0.12,
-                    three: 0.4,
-                    four: 0.2,
-                    five: 0.2,
-                },
+                initial_performance: [0.08, 0.12, 0.4, 0.2, 0.2],
                 trials_before_stable: 3,
-                stable_performance: PerformanceProbs {
-                    one: 0.01,
-                    two: 0.04,
-                    three: 0.1,
-                    four: 0.25,
-                    five: 0.6,
-                },
+                stable_performance: [0.01, 0.04, 0.1, 0.25, 0.6],
             },
             advanced_course: Ustr::from("placeholder_advanced_course"),
             mastery_threshold: 4.0,
@@ -268,31 +198,15 @@ impl Benchmark {
     /// Interpolates the performance probabilities of a student at a given trial number.
     fn interpolate_performance(profile: &StudentProfile, trial_num: u32) -> PerformanceProbs {
         let weight = (trial_num as f32 / profile.trials_before_stable as f32).min(1.0);
-        PerformanceProbs {
-            one: profile.initial_performance.one * (1.0 - weight)
-                + profile.stable_performance.one * weight,
-            two: profile.initial_performance.two * (1.0 - weight)
-                + profile.stable_performance.two * weight,
-            three: profile.initial_performance.three * (1.0 - weight)
-                + profile.stable_performance.three * weight,
-            four: profile.initial_performance.four * (1.0 - weight)
-                + profile.stable_performance.four * weight,
-            five: profile.initial_performance.five * (1.0 - weight)
-                + profile.stable_performance.five * weight,
-        }
+        std::array::from_fn(|i| {
+            profile.initial_performance[i] * (1.0 - weight) + profile.stable_performance[i] * weight
+        })
     }
 
     /// Gets the score for an exercise given the number of trials and the student profile.
     fn get_score(profile: &StudentProfile, trial_num: u32) -> MasteryScore {
         let performance = Self::interpolate_performance(profile, trial_num);
-        let weights = [
-            performance.one,
-            performance.two,
-            performance.three,
-            performance.four,
-            performance.five,
-        ];
-        let choice = WeightedIndex::new(weights).unwrap();
+        let choice = WeightedIndex::new(performance).unwrap();
         match choice.sample(&mut rand::rng()) {
             0 => MasteryScore::One,
             1 => MasteryScore::Two,
@@ -400,16 +314,16 @@ impl Benchmark {
     /// Verifies that the benchmark configuration is valid.
     pub fn verify(&self) -> Result<()> {
         self.scheduler_opts.verify()?;
-        self.remedial_profile.initial_performance.verify()?;
-        self.remedial_profile.stable_performance.verify()?;
-        self.below_median_profile.initial_performance.verify()?;
-        self.below_median_profile.stable_performance.verify()?;
-        self.median_profile.initial_performance.verify()?;
-        self.median_profile.stable_performance.verify()?;
-        self.above_median_profile.initial_performance.verify()?;
-        self.above_median_profile.stable_performance.verify()?;
-        self.excellent_profile.initial_performance.verify()?;
-        self.excellent_profile.stable_performance.verify()?;
+        for profile in [
+            &self.remedial_profile,
+            &self.below_median_profile,
+            &self.median_profile,
+            &self.above_median_profile,
+            &self.excellent_profile,
+        ] {
+            verify_probs(&profile.initial_performance)?;
+            verify_probs(&profile.stable_performance)?;
+        }
         Ok(())
     }
 
@@ -458,120 +372,53 @@ mod tests {
     /// Verifies that the probabilities are validated to sum up to 1.0.
     #[test]
     fn performance_probs_validate_valid() {
-        let probs = PerformanceProbs {
-            one: 0.2,
-            two: 0.2,
-            three: 0.2,
-            four: 0.2,
-            five: 0.2,
-        };
-        assert!(probs.verify().is_ok());
+        assert!(verify_probs(&[0.2, 0.2, 0.2, 0.2, 0.2]).is_ok());
     }
 
     /// Verifies that invalid probabilities that don't sum to 1.0 are rejected.
     #[test]
     fn performance_probs_validate_invalid() {
-        let probs = PerformanceProbs {
-            one: 0.5,
-            two: 0.4,
-            three: 0.0,
-            four: 0.0,
-            five: 0.0,
-        };
-        assert!(probs.verify().is_err());
+        assert!(verify_probs(&[0.5, 0.4, 0.0, 0.0, 0.0]).is_err());
+    }
+
+    fn test_profile() -> StudentProfile {
+        StudentProfile {
+            session_frequency: 1,
+            exercises_per_session: 5,
+            initial_performance: [0.5, 0.3, 0.1, 0.05, 0.05],
+            trials_before_stable: 10,
+            stable_performance: [0.0, 0.1, 0.2, 0.3, 0.4],
+        }
     }
 
     /// Verifies that performance interpolation returns initial performance at trial 0.
     #[test]
     fn interpolate_performance_initial() {
-        let profile = StudentProfile {
-            session_frequency: 1,
-            exercises_per_session: 5,
-            initial_performance: PerformanceProbs {
-                one: 0.5,
-                two: 0.3,
-                three: 0.1,
-                four: 0.05,
-                five: 0.05,
-            },
-            trials_before_stable: 10,
-            stable_performance: PerformanceProbs {
-                one: 0.0,
-                two: 0.1,
-                three: 0.2,
-                four: 0.3,
-                five: 0.4,
-            },
-        };
-
-        let perf = Benchmark::interpolate_performance(&profile, 0);
-        assert!((perf.one - 0.5).abs() < f32::EPSILON);
-        assert!((perf.two - 0.3).abs() < f32::EPSILON);
-        assert!((perf.three - 0.1).abs() < f32::EPSILON);
-        assert!((perf.four - 0.05).abs() < f32::EPSILON);
-        assert!((perf.five - 0.05).abs() < f32::EPSILON);
+        let perf = Benchmark::interpolate_performance(&test_profile(), 0);
+        let expected = [0.5, 0.3, 0.1, 0.05, 0.05];
+        for (a, b) in perf.iter().zip(expected.iter()) {
+            assert!((a - b).abs() < f32::EPSILON);
+        }
     }
 
     /// Verifies that performance interpolation reaches stable performance at the threshold.
     #[test]
     fn interpolate_performance_stable() {
-        let profile = StudentProfile {
-            session_frequency: 1,
-            exercises_per_session: 5,
-            initial_performance: PerformanceProbs {
-                one: 0.5,
-                two: 0.3,
-                three: 0.1,
-                four: 0.05,
-                five: 0.05,
-            },
-            trials_before_stable: 10,
-            stable_performance: PerformanceProbs {
-                one: 0.0,
-                two: 0.1,
-                three: 0.2,
-                four: 0.3,
-                five: 0.4,
-            },
-        };
-
-        let perf = Benchmark::interpolate_performance(&profile, 10);
-        assert!((perf.one - 0.0).abs() < f32::EPSILON);
-        assert!((perf.two - 0.1).abs() < f32::EPSILON);
-        assert!((perf.three - 0.2).abs() < f32::EPSILON);
-        assert!((perf.four - 0.3).abs() < f32::EPSILON);
-        assert!((perf.five - 0.4).abs() < f32::EPSILON);
+        let perf = Benchmark::interpolate_performance(&test_profile(), 10);
+        let expected = [0.0, 0.1, 0.2, 0.3, 0.4];
+        for (a, b) in perf.iter().zip(expected.iter()) {
+            assert!((a - b).abs() < f32::EPSILON);
+        }
     }
 
     /// Verifies that performance interpolation blends initial and stable performance correctly.
     #[test]
     fn interpolate_performance_blend() {
-        let profile = StudentProfile {
-            session_frequency: 1,
-            exercises_per_session: 5,
-            initial_performance: PerformanceProbs {
-                one: 0.5,
-                two: 0.3,
-                three: 0.1,
-                four: 0.05,
-                five: 0.05,
-            },
-            trials_before_stable: 10,
-            stable_performance: PerformanceProbs {
-                one: 0.0,
-                two: 0.1,
-                three: 0.2,
-                four: 0.3,
-                five: 0.4,
-            },
-        };
-
-        let perf = Benchmark::interpolate_performance(&profile, 5);
-        assert!((perf.one - 0.25).abs() < f32::EPSILON);
-        assert!((perf.two - 0.2).abs() < f32::EPSILON);
-        assert!((perf.three - 0.15).abs() < f32::EPSILON);
-        assert!((perf.four - 0.175).abs() < f32::EPSILON);
-        assert!((perf.five - 0.225).abs() < f32::EPSILON);
+        let perf = Benchmark::interpolate_performance(&test_profile(), 5);
+        let expected = [0.25, 0.2, 0.15, 0.175, 0.225];
+        for (a, b) in perf.iter().zip(expected.iter()) {
+            assert!((a - b).abs() < f32::EPSILON);
+        }
     }
 
     /// Verifies that session timestamps are calculated correctly based on anchor, session number,
@@ -602,21 +449,9 @@ mod tests {
             remedial_profile: StudentProfile {
                 session_frequency: 1,
                 exercises_per_session: 5,
-                initial_performance: PerformanceProbs {
-                    one: 0.0,
-                    two: 0.0,
-                    three: 0.0,
-                    four: 0.0,
-                    five: 1.0,
-                },
+                initial_performance: [0.0, 0.0, 0.0, 0.0, 1.0],
                 trials_before_stable: 1,
-                stable_performance: PerformanceProbs {
-                    one: 0.0,
-                    two: 0.0,
-                    three: 0.0,
-                    four: 0.0,
-                    five: 1.0,
-                },
+                stable_performance: [0.0, 0.0, 0.0, 0.0, 1.0],
             },
             ..Default::default()
         };
