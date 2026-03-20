@@ -35,7 +35,7 @@ impl PerformanceProbs {
         if (sum - 1.0).abs() < f32::EPSILON {
             Ok(())
         } else {
-            Err(anyhow!("Probabilities must sum up to 1.0"))
+            Err(anyhow!("Probabilities must sum up to 1.0 instead of {sum}"))
         }
     }
 }
@@ -135,8 +135,8 @@ impl Default for Benchmark {
             library_dir: PathBuf::from("placeholder_library_dir"),
             scheduler_opts: SchedulerOptions::default(),
             remedial_profile: StudentProfile {
-                session_frequency: 5,
-                exercises_per_session: 15,
+                session_frequency: 4,
+                exercises_per_session: 20,
                 initial_performance: PerformanceProbs {
                     one: 0.3,
                     two: 0.2,
@@ -144,13 +144,13 @@ impl Default for Benchmark {
                     four: 0.15,
                     five: 0.1,
                 },
-                trials_before_stable: 20,
+                trials_before_stable: 10,
                 stable_performance: PerformanceProbs {
                     one: 0.05,
                     two: 0.1,
                     three: 0.15,
-                    four: 0.4,
-                    five: 0.3,
+                    four: 0.3,
+                    five: 0.4,
                 },
             },
             below_median_profile: StudentProfile {
@@ -163,18 +163,18 @@ impl Default for Benchmark {
                     four: 0.15,
                     five: 0.1,
                 },
-                trials_before_stable: 15,
+                trials_before_stable: 10,
                 stable_performance: PerformanceProbs {
                     one: 0.02,
                     two: 0.08,
                     three: 0.15,
-                    four: 0.4,
-                    five: 0.35,
+                    four: 0.3,
+                    five: 0.45,
                 },
             },
             median_profile: StudentProfile {
                 session_frequency: 2,
-                exercises_per_session: 40,
+                exercises_per_session: 35,
                 initial_performance: PerformanceProbs {
                     one: 0.15,
                     two: 0.25,
@@ -182,43 +182,24 @@ impl Default for Benchmark {
                     four: 0.18,
                     five: 0.12,
                 },
-                trials_before_stable: 12,
+                trials_before_stable: 7,
                 stable_performance: PerformanceProbs {
                     one: 0.02,
                     two: 0.05,
                     three: 0.13,
-                    four: 0.4,
-                    five: 0.4,
+                    four: 0.3,
+                    five: 0.5,
                 },
             },
             above_median_profile: StudentProfile {
                 session_frequency: 1,
-                exercises_per_session: 50,
+                exercises_per_session: 40,
                 initial_performance: PerformanceProbs {
                     one: 0.1,
                     two: 0.15,
                     three: 0.4,
                     four: 0.2,
                     five: 0.15,
-                },
-                trials_before_stable: 8,
-                stable_performance: PerformanceProbs {
-                    one: 0.01,
-                    two: 0.04,
-                    three: 0.1,
-                    four: 0.4,
-                    five: 0.45,
-                },
-            },
-            excellent_profile: StudentProfile {
-                session_frequency: 1,
-                exercises_per_session: 75,
-                initial_performance: PerformanceProbs {
-                    one: 0.08,
-                    two: 0.12,
-                    three: 0.4,
-                    four: 0.2,
-                    five: 0.2,
                 },
                 trials_before_stable: 5,
                 stable_performance: PerformanceProbs {
@@ -227,6 +208,25 @@ impl Default for Benchmark {
                     three: 0.1,
                     four: 0.3,
                     five: 0.55,
+                },
+            },
+            excellent_profile: StudentProfile {
+                session_frequency: 1,
+                exercises_per_session: 60,
+                initial_performance: PerformanceProbs {
+                    one: 0.08,
+                    two: 0.12,
+                    three: 0.4,
+                    four: 0.2,
+                    five: 0.2,
+                },
+                trials_before_stable: 3,
+                stable_performance: PerformanceProbs {
+                    one: 0.01,
+                    two: 0.04,
+                    three: 0.1,
+                    four: 0.25,
+                    five: 0.6,
                 },
             },
             advanced_course: Ustr::from("placeholder_advanced_course"),
