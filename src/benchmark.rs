@@ -299,7 +299,7 @@ impl Benchmark {
             2 => MasteryScore::Three,
             3 => MasteryScore::Four,
             4 => MasteryScore::Five,
-            _ => unreachable!(),
+            _ => unreachable!(), // grcov-excl-line
         }
     }
 
