@@ -1,3 +1,7 @@
+//! Contains a benchmark that simulates the performance of different types of students using a given
+//! set of courses and scheduler options. The goal is to evaluate the performance of the scheduler
+//! in terms of the time to mastery for different student profiles.
+
 use anyhow::{Result, anyhow};
 use rand::distr::{Distribution, weighted::WeightedIndex};
 use std::{fs, path::PathBuf};
@@ -85,6 +89,8 @@ pub struct BenchmarkResult {
     pub excellent_result: StudentResult,
 }
 
+/// Runs several simulations of different student profiles to benchmark the performance of the
+/// scheduler given the provided courses and options.
 pub struct Benchmark {
     /// The directory where the courses used in the benchmark are located.
     pub courses_dir: PathBuf,
