@@ -229,6 +229,7 @@ impl PowerLawScorer {
         let decay_abs = Self::get_curve_decay(exercise_type).abs().max(f32::EPSILON);
         TARGET_RETRIEVABILITY_AT_STABILITY.powf(-1.0 / decay_abs) - 1.0
     }
+
     /// Computes retrievability using power-law forgetting: `R = (1 + factor × t/S)^decay`. Returns
     /// a 0-1 probability of recall.
     ///
