@@ -28,10 +28,8 @@ pub trait ExerciseScorer {
     fn velocity(&self, previous_trials: &[ExerciseTrial]) -> Option<f32>;
 }
 
-/// The target retrievability at `t = stability` used to calibrate the forgetting-curve factor.
-///
-/// For each decay exponent `d`, the factor is derived so that:
-/// `R(t = S, S) = TARGET_RETRIEVABILITY_AT_STABILITY`.
+/// The target retrievability at `t = stability` used to calibrate the forgetting-curve factor for
+/// procedural and declarative exercises.
 const TARGET_RETRIEVABILITY_AT_STABILITY: f32 = 0.9;
 
 /// The decay exponent used in the power-law forgetting curve for declarative exercises (e.g. memory
@@ -268,13 +266,11 @@ impl PowerLawScorer {
         }
     }
 
-    /// Returns the forgetting-curve factor derived from the decay exponent for this exercise type.
+    /// Returns the forgetting-curve factor for this exercise type.
     ///
-    /// Using `R(t, S) = (1 + factor * t / S)^(-decay_abs)`, this computes:
-    /// `factor = TARGET_RETRIEVABILITY_AT_STABILITY^(-1 / decay_abs) - 1`.
-    ///
-    /// This calibration ensures `R(t = S, S) = TARGET_RETRIEVABILITY_AT_STABILITY` for each
-    /// exercise type while still preserving shape differences through type-specific decay exponents.
+    /// The factor is chosen so that retrievability always drops to the target retrievability when
+    /// the elapsed time since the last review equals the exercise's stability, regardless of
+    /// exercise type.
     fn get_curve_factor(exercise_type: &ExerciseType) -> f32 {
         let decay_abs = Self::get_curve_decay(exercise_type).abs().max(f32::EPSILON);
         TARGET_RETRIEVABILITY_AT_STABILITY.powf(-1.0 / decay_abs) - 1.0
