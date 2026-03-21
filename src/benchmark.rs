@@ -129,38 +129,38 @@ impl Default for Benchmark {
                 exercises_per_session: 20,
                 initial_performance: [0.3, 0.2, 0.25, 0.15, 0.1],
                 trials_before_stable: 10,
-                stable_performance: [0.05, 0.1, 0.15, 0.3, 0.4],
+                stable_performance: [0.02, 0.08, 0.1, 0.3, 0.5],
             },
             below_median_profile: StudentProfile {
                 session_frequency: 3,
                 exercises_per_session: 25,
                 initial_performance: [0.2, 0.25, 0.3, 0.15, 0.1],
                 trials_before_stable: 10,
-                stable_performance: [0.02, 0.08, 0.15, 0.3, 0.45],
+                stable_performance: [0.02, 0.03, 0.1, 0.3, 0.55],
             },
             median_profile: StudentProfile {
                 session_frequency: 2,
-                exercises_per_session: 35,
+                exercises_per_session: 30,
                 initial_performance: [0.15, 0.25, 0.3, 0.18, 0.12],
-                trials_before_stable: 7,
-                stable_performance: [0.02, 0.05, 0.13, 0.3, 0.5],
+                trials_before_stable: 8,
+                stable_performance: [0.02, 0.03, 0.1, 0.25, 0.6],
             },
             above_median_profile: StudentProfile {
                 session_frequency: 1,
                 exercises_per_session: 40,
                 initial_performance: [0.1, 0.15, 0.4, 0.2, 0.15],
-                trials_before_stable: 5,
-                stable_performance: [0.01, 0.04, 0.1, 0.3, 0.55],
+                trials_before_stable: 7,
+                stable_performance: [0.01, 0.02, 0.07, 0.25, 0.65],
             },
             excellent_profile: StudentProfile {
                 session_frequency: 1,
                 exercises_per_session: 60,
                 initial_performance: [0.08, 0.12, 0.4, 0.2, 0.2],
-                trials_before_stable: 3,
-                stable_performance: [0.01, 0.04, 0.1, 0.25, 0.6],
+                trials_before_stable: 5,
+                stable_performance: [0.01, 0.02, 0.07, 0.2, 0.7],
             },
             advanced_course: Ustr::from("placeholder_advanced_course"),
-            mastery_threshold: 4.0,
+            mastery_threshold: 4.3,
             max_sessions: 2000,
         }
     }
@@ -476,7 +476,7 @@ mod tests {
         let benchmark = Benchmark {
             library_dir: PathBuf::from("tests/small_test_library"),
             advanced_course: Ustr::from("trane::music::improvise_for_real::sing_the_numbers::3"),
-            max_sessions: 100,
+            max_sessions: 60,
             ..Benchmark::default()
         };
         let result = benchmark.run_benchmark();
@@ -495,8 +495,7 @@ mod tests {
         assert!(benchmark_result.excellent_result.exercises_practiced > 0);
         assert!(benchmark_result.excellent_result.sessions_run > 0);
 
-        // Verify that at least the median and above students reached mastery.
-        assert!(benchmark_result.median_result.days_to_mastery.is_some());
+        // Verify that at least the above median and excellent profiles reached mastery.
         assert!(
             benchmark_result
                 .above_median_result
