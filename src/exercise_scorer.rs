@@ -115,9 +115,6 @@ const EASE_DENOMINATOR: f32 = 5.0;
 /// increase stability growth when pre-review retrievability is low.
 const SPACING_EFFECT_WEIGHT: f32 = 0.7;
 
-/// The fraction of stability retained after a lapse.
-const LAPSE_FACTOR: f32 = 0.8;
-
 /// The minimum weighted score required to apply the old-good retrievability floor. This floor is
 /// applied to exercises with strong historical performance to prevent them from dropping too low
 /// after long gaps in practice. In such cases, it is better to allow students to see old exercises
@@ -151,15 +148,10 @@ const OLD_GOOD_FLOOR: f32 = 0.75;
 /// Algorithm:
 ///
 /// 1. Estimate a base difficulty from review failure rates.
-/// 2. Chain stability through reviews chronologically (oldest to newest), updating difficulty after
-///    each review based on outcome.
-/// 3. Apply interval-aware spacing during stability updates (successful recalls after longer
-///    intervals boost stability more).
-/// 4. Apply a lapse penalty for recalls below the baseline threshold.
-/// 5. Compute retrievability from last review to now using power-law decay.
-/// 6. Apply performance factor from an exponentially weighted average of all reviews (recent
-///    performance matters most).
-/// 7. Scale to final 0-5 score.
+/// 2. Compute the stability of the exercise by replaying the review history.
+/// 3. Compute retrievability from last review to now using power-law decay.
+/// 4. Apply a retrievability floor for old exercises with strong historical performance.
+/// 5. Multiply retrievability by the recency-weighted average score and clamp to 0-5.
 ///
 /// A simplified implementation without additional stored parameters is preferred for Trane because:
 ///
@@ -256,8 +248,8 @@ impl PowerLawScorer {
     }
 
     /// Computes the spacing gain multiplier for a review. Successful recalls (`performance_factor >
-    /// 0`) receive additional growth after longer intervals. Non-successful reviews return a
-    /// neutral multiplier so lapse handling is handled separately.
+    /// 0`) receive additional growth after longer intervals. Non-successful reviews receive no
+    /// spacing bonus; the negative growth term from the performance factor reduces stability.
     fn compute_spacing_gain(
         exercise_type: &ExerciseType,
         days_since_previous_review: f32,
@@ -277,11 +269,6 @@ impl PowerLawScorer {
             .clamp(1.0, 1.0 + SPACING_EFFECT_WEIGHT)
     }
 
-    /// Returns whether this trial is considered a lapse for state updates.
-    fn is_lapse(trial_score: f32) -> bool {
-        trial_score < PERFORMANCE_BASELINE_SCORE
-    }
-
     /// Updates difficulty after a review using dynamic trend and mean reversion.
     ///
     /// Good grades reduce difficulty, poor grades increase it. The result is then pulled back
@@ -296,8 +283,7 @@ impl PowerLawScorer {
             .clamp(MIN_DIFFICULTY, MAX_DIFFICULTY)
     }
 
-    /// Applies a single review result to the current stability estimate. Penalties for lapses are
-    /// not applied for the first trial.
+    /// Applies a single review result to the current stability estimate.
     fn apply_stability_transition(
         exercise_type: &ExerciseType,
         stability: f32,
@@ -306,35 +292,22 @@ impl PowerLawScorer {
         days_since_previous_review: f32,
         is_first_review: bool,
     ) -> f32 {
-        // Convert score to performance and ease.
+        // Keep the first review unchanged as there are not enough signals.
+        if is_first_review {
+            return stability;
+        }
+
+        // Otherwise, update the stability using the performance, ease and spacing gain.
         let p = (score - GRADE_MIN) / GRADE_RANGE - 0.5;
         let e = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR;
-
-        // Adjust stability based on review outcome.
-        if Self::is_lapse(score) && !is_first_review {
-            (stability * LAPSE_FACTOR).clamp(MIN_STABILITY, MAX_STABILITY)
-        } else {
-            // Boost stability on successful recall with spacing-aware gain.
-            let spacing_gain =
-                Self::compute_spacing_gain(exercise_type, days_since_previous_review, stability, p);
-            let growth_term = STABILITY_COEFFICIENT * p * e * spacing_gain;
-            (stability * (1.0 + growth_term)).clamp(MIN_STABILITY, MAX_STABILITY)
-        }
+        let spacing_gain =
+            Self::compute_spacing_gain(exercise_type, days_since_previous_review, stability, p);
+        let growth_term = STABILITY_COEFFICIENT * p * e * spacing_gain;
+        (stability * (1.0 + growth_term)).clamp(MIN_STABILITY, MAX_STABILITY)
     }
 
-    /// Starts with DEFAULT_STABILITY and evolves through reviews from oldest to newest, while
-    /// updating dynamic difficulty after each trial with mean reversion.
-    ///
-    /// For each review:
-    /// - Compute elapsed days since the previous review in the chain.
-    /// - Estimate pre-review retrievability from elapsed time and current stability.
-    /// - Use the same type-specific forgetting curve decay as the final retrievability.
-    /// - Apply an interval-aware spacing gain to successful reviews.
-    /// - Apply a separate lapse reduction for recalls below the baseline threshold.
-    /// - Update difficulty to the new post-review state and continue to the next trial.
-    ///
-    /// Here P = (grade - GRADE_MIN) / GRADE_RANGE - 0.5 (performance, from -0.5 for fail to 0.5 for
-    /// perfect), and E = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR (ease).
+    /// Replays the full review history chronologically to compute the current stability. Difficulty
+    /// is updated after each review with mean reversion toward the base estimate.
     fn compute_stability(
         exercise_type: &ExerciseType,
         previous_trials: &[ExerciseTrial],
@@ -388,7 +361,7 @@ impl PowerLawScorer {
     /// preferable to show old exercises and have the student fail than to have students stuck with
     /// review of very old exercises after long gaps in their practice.
     fn apply_old_good_retrievability_floor(
-        adjusted_retrievability: f32,
+        retrievability: f32,
         weighted_score: f32,
         days_since_last: f32,
         num_scores: usize,
@@ -397,9 +370,9 @@ impl PowerLawScorer {
             && weighted_score >= OLD_GOOD_MIN_SCORE
             && days_since_last >= OLD_GOOD_MIN_AGE
         {
-            adjusted_retrievability.max(OLD_GOOD_FLOOR)
+            retrievability.max(OLD_GOOD_FLOOR)
         } else {
-            adjusted_retrievability
+            retrievability
         }
     }
 }
@@ -719,30 +692,36 @@ mod test {
         assert!(long_spacing_stability > short_spacing_stability);
     }
 
-    /// Verifies lapses reduce stability more than a baseline success.
+    /// Verifies bad scores reduce stability more than neutral scores.
     #[test]
-    fn stability_lapse_reduces_more_than_hard_success() {
-        // Two-trial sequences: the first trial seeds stability identically, the second exercises
-        // the lapse penalty path vs. the success path.
+    fn bad_score_reduces_stability() {
         let difficulty = BASE_DIFFICULTY;
         let success_trials = vec![
             ExerciseTrial {
                 score: 3.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 3.0,
                 timestamp: generate_timestamp(2),
             },
             ExerciseTrial {
                 score: 3.0,
-                timestamp: generate_timestamp(1),
+                timestamp: generate_timestamp(3),
             },
         ];
         let lapse_trials = vec![
             ExerciseTrial {
+                score: 1.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(2),
             },
             ExerciseTrial {
-                score: 1.0,
-                timestamp: generate_timestamp(1),
+                score: 3.0,
+                timestamp: generate_timestamp(3),
             },
         ];
 
@@ -756,7 +735,6 @@ mod test {
             &lapse_trials,
             difficulty,
         );
-
         assert!(success_stability > MIN_STABILITY);
         assert!(lapse_stability < success_stability);
         assert!(lapse_stability >= MIN_STABILITY);
