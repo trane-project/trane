@@ -74,8 +74,8 @@ const DIFFICULTY_REVERSION_WEIGHT: f32 = 0.1;
 const PERFORMANCE_BASELINE_SCORE: f32 = 3.0;
 
 /// A scaling coefficient applied to the stability update term for each review. The per-review
-/// multiplicative change is `1 + STABILITY_COEFFICIENT * P * E * spacing_gain * S^(-k)`. The
-/// resulting stability is clamped to `MIN_STABILITY..MAX_STABILITY`.
+/// multiplicative change is `1 + STABILITY_COEFFICIENT * P * E * spacing_gain`. The resulting
+/// stability is clamped to `MIN_STABILITY..MAX_STABILITY`.
 const STABILITY_COEFFICIENT: f32 = 2.1;
 
 /// The minimum grade value used in performance calculations. Corresponds to complete failure. This
@@ -115,21 +115,8 @@ const EASE_DENOMINATOR: f32 = 5.0;
 /// increase stability growth when pre-review retrievability is low.
 const SPACING_EFFECT_WEIGHT: f32 = 0.7;
 
-/// The minimum stability-loss fraction for a lapse.
-const MIN_LAPSE_DROP: f32 = 0.0;
-
-/// The maximum stability-loss fraction for a lapse.
-const MAX_LAPSE_DROP: f32 = 0.85;
-
-/// The baseline stability-loss fraction for a lapse.
-const LAPSE_BASE_DROP: f32 = 0.30;
-
-/// The influence of difficulty on lapse penalties.
-const LAPSE_DIFFICULTY_WEIGHT: f32 = 0.25;
-
-/// The influence of how surprising the lapse was (higher pre-review retrievability means larger
-/// penalties).
-const LAPSE_RETRIEVABILITY_WEIGHT: f32 = 0.30;
+/// The fraction of stability retained after a lapse.
+const LAPSE_FACTOR: f32 = 0.8;
 
 /// The minimum weighted score required to apply the old-good retrievability floor. This floor is
 /// applied to exercises with strong historical performance to prevent them from dropping too low
@@ -155,11 +142,11 @@ const OLD_GOOD_FLOOR: f32 = 0.75;
 /// chains stability updates through the review history chronologically (oldest to newest).
 /// Stability evolves with each review using:
 ///
-/// S' = S × (1 + STABILITY_COEFFICIENT × P × E × spacing_gain × S^(-k)),
+/// S' = S × (1 + STABILITY_COEFFICIENT × P × E × spacing_gain),
 ///
 /// where P is performance factor, E is ease factor, and spacing_gain increases successful growth
-/// after longer review intervals. Final score multiplies difficulty-adjusted retrievability by the
-/// recency-weighted performance score, then clamps the result to 0-5.
+/// after longer review intervals. Final score multiplies retrievability by the recency-weighted
+/// performance score, then clamps the result to 0-5.
 ///
 /// Algorithm:
 ///
@@ -168,12 +155,11 @@ const OLD_GOOD_FLOOR: f32 = 0.75;
 ///    each review based on outcome.
 /// 3. Apply interval-aware spacing during stability updates (successful recalls after longer
 ///    intervals boost stability more).
-/// 4. Damp stability gains for already-stable memories to model explicit saturation.
+/// 4. Apply a lapse penalty for recalls below the baseline threshold.
 /// 5. Compute retrievability from last review to now using power-law decay.
-/// 6. Adjust retrievability by difficulty for harder exercises.
-/// 7. Apply performance factor from an exponentially weighted average of all reviews (recent
+/// 6. Apply performance factor from an exponentially weighted average of all reviews (recent
 ///    performance matters most).
-/// 8. Scale to final 0-5 score.
+/// 7. Scale to final 0-5 score.
 ///
 /// A simplified implementation without additional stored parameters is preferred for Trane because:
 ///
@@ -310,20 +296,6 @@ impl PowerLawScorer {
             .clamp(MIN_DIFFICULTY, MAX_DIFFICULTY)
     }
 
-    /// Computes how much stability should be reduced on a lapse.
-    ///
-    /// Returns a fractional reduction in current stability. Higher difficulty and more surprising
-    /// lapses produce larger reductions.
-    fn compute_lapse_drop(difficulty: f32, pre_review_retrievability: f32) -> f32 {
-        let difficulty_adjust =
-            ((difficulty - MIN_DIFFICULTY) / (MAX_DIFFICULTY - MIN_DIFFICULTY)).clamp(0.0, 1.0);
-        let pre_review_retrievability = pre_review_retrievability.clamp(0.0, 1.0);
-        (LAPSE_BASE_DROP
-            + LAPSE_DIFFICULTY_WEIGHT * difficulty_adjust
-            + LAPSE_RETRIEVABILITY_WEIGHT * pre_review_retrievability)
-            .clamp(MIN_LAPSE_DROP, MAX_LAPSE_DROP)
-    }
-
     /// Applies a single review result to the current stability estimate. Penalties for lapses are
     /// not applied for the first trial.
     fn apply_stability_transition(
@@ -334,22 +306,15 @@ impl PowerLawScorer {
         days_since_previous_review: f32,
         is_first_review: bool,
     ) -> f32 {
-        // Convert score to performance and ease, and estimate pre-review retention.
+        // Convert score to performance and ease.
         let p = (score - GRADE_MIN) / GRADE_RANGE - 0.5;
         let e = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR;
-        let pre_review_retrievability = Self::compute_spacing_retrievability(
-            exercise_type,
-            days_since_previous_review,
-            stability,
-        );
 
         // Adjust stability based on review outcome.
         if Self::is_lapse(score) && !is_first_review {
-            // Penalize hard misses proportionally to difficulty and surprise.
-            let lapse_drop = Self::compute_lapse_drop(difficulty, pre_review_retrievability);
-            (stability * (1.0 - lapse_drop)).clamp(MIN_STABILITY, MAX_STABILITY)
+            (stability * LAPSE_FACTOR).clamp(MIN_STABILITY, MAX_STABILITY)
         } else {
-            // Boost stability on successful recall with spacing- and saturation-aware gain.
+            // Boost stability on successful recall with spacing-aware gain.
             let spacing_gain =
                 Self::compute_spacing_gain(exercise_type, days_since_previous_review, stability, p);
             let growth_term = STABILITY_COEFFICIENT * p * e * spacing_gain;
@@ -366,10 +331,6 @@ impl PowerLawScorer {
     /// - Use the same type-specific forgetting curve decay as the final retrievability.
     /// - Apply an interval-aware spacing gain to successful reviews.
     /// - Apply a separate lapse reduction for recalls below the baseline threshold.
-    /// - Update stability via the success branch: `S' = S × (1 + STABILITY_COEFFICIENT × P × E ×
-    ///   spacing_gain × S^(-k))`.
-    /// - Or the lapse branch: `S' = S * (1 - lapse_drop)`, where `lapse_drop` grows with difficulty
-    ///   and surprise.
     /// - Update difficulty to the new post-review state and continue to the next trial.
     ///
     /// Here P = (grade - GRADE_MIN) / GRADE_RANGE - 0.5 (performance, from -0.5 for fail to 0.5 for
