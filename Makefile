@@ -10,5 +10,5 @@ benchmark-small:
 		--advanced-course "trane::music::improvise_for_real::sing_the_numbers::3"
 
 benchmark-large:
-	cargo run --release --bin trane-benchmark -- --library-dir tests/big_test_library \
+	cargo run --release --bin trane-benchmark -- --library-dir tests/large_test_library \
 		--advanced-course "trane::music::improvise_for_real::jam_tracks::4::g_flat"

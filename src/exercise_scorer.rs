@@ -124,10 +124,6 @@ const EASE_DENOMINATOR: f32 = 5.0;
 /// increase stability growth when pre-review retrievability is low.
 const SPACING_EFFECT_WEIGHT: f32 = 0.7;
 
-/// The exponent applied to stability when computing diminishing returns for repeated successful
-/// reviews. Larger values increase saturation strength at high stability.
-const STABILITY_DAMPING_EXP: f32 = 0.1;
-
 /// The minimum stability-loss fraction for a lapse.
 const MIN_LAPSE_DROP: f32 = 0.0;
 
@@ -373,8 +369,7 @@ impl PowerLawScorer {
             // Boost stability on successful recall with spacing- and saturation-aware gain.
             let spacing_gain =
                 Self::compute_spacing_gain(exercise_type, days_since_previous_review, stability, p);
-            let stability_damping = Self::compute_stability_damping(stability);
-            let growth_term = STABILITY_COEFFICIENT * p * e * spacing_gain * stability_damping;
+            let growth_term = STABILITY_COEFFICIENT * p * e * spacing_gain;
             (stability * (1.0 + growth_term)).clamp(MIN_STABILITY, MAX_STABILITY)
         }
     }
@@ -427,14 +422,6 @@ impl PowerLawScorer {
             previous_timestamp = Some(trial.timestamp);
         }
         (stability, difficulty)
-    }
-
-    /// Returns a growth modifier that controls how quickly stability increases after successes.
-    ///
-    /// Lower stability gets a stronger boost so weak memories can recover faster, while higher
-    /// stability gets a smaller boost so already-strong memories do not keep accelerating.
-    fn compute_stability_damping(stability: f32) -> f32 {
-        stability.max(MIN_STABILITY).powf(-STABILITY_DAMPING_EXP)
     }
 
     /// Computes retrievability using power-law forgetting: `R = (1 + factor × t/S)^decay`.
@@ -857,28 +844,6 @@ mod test {
         assert!(lapse_stability >= MIN_STABILITY);
     }
 
-    /// Verifies that stronger damping reduces growth at high stability for the same review quality.
-    #[test]
-    fn stability_growth_saturates_at_high_s() {
-        // Compare the same successful-review profile at low and high starting stability.
-        let difficulty = BASE_DIFFICULTY;
-        let exercise_type = ExerciseType::Declarative;
-        let p = (5.0 - GRADE_MIN) / GRADE_RANGE - 0.5;
-        let e = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR;
-        let spacing_gain =
-            PowerLawScorer::compute_spacing_gain(&exercise_type, 0.0, MIN_STABILITY, p);
-        let base_growth_term = STABILITY_COEFFICIENT * p * e * spacing_gain;
-
-        let low_stability = MIN_STABILITY;
-        let high_stability = 50.0;
-        let low_stability_damping = PowerLawScorer::compute_stability_damping(low_stability);
-        let high_stability_damping = PowerLawScorer::compute_stability_damping(high_stability);
-
-        let low_effective_growth = base_growth_term * low_stability_damping;
-        let high_effective_growth = base_growth_term * high_stability_damping;
-        assert!(low_effective_growth > high_effective_growth);
-    }
-
     /// Verifies repeated lapses remain bounded by minimum stability.
     #[test]
     fn multiple_lapses_bounded() {
@@ -908,7 +873,7 @@ mod test {
         assert!(stability < DEFAULT_STABILITY);
     }
 
-    /// Verifies long-run saturated success updates do not explode beyond expected bounds.
+    /// Verifies long-run success updates do not explode beyond MAX_STABILITY.
     #[test]
     fn high_stability_does_not_explode() {
         // Use a fixed successful-review profile for all iterations.
@@ -918,21 +883,17 @@ mod test {
         let e = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR;
         let spacing_gain =
             PowerLawScorer::compute_spacing_gain(&exercise_type, 0.0, MIN_STABILITY, p);
-        let base_growth_term = STABILITY_COEFFICIENT * p * e * spacing_gain;
-        let max_damping = PowerLawScorer::compute_stability_damping(MIN_STABILITY);
+        let growth_term = STABILITY_COEFFICIENT * p * e * spacing_gain;
 
-        // Repeatedly apply success updates and ensure gains remain bounded.
+        // Repeatedly apply success updates and ensure the clamp keeps stability bounded.
         let mut stability = MIN_STABILITY;
         for _ in 0..25 {
-            let stability_damping = PowerLawScorer::compute_stability_damping(stability);
-            let effective_growth = base_growth_term * stability_damping;
             let next_stability =
-                (stability * (1.0 + effective_growth)).clamp(MIN_STABILITY, MAX_STABILITY);
+                (stability * (1.0 + growth_term)).clamp(MIN_STABILITY, MAX_STABILITY);
             let relative_gain = (next_stability - stability) / stability;
 
-            // Relative gain stays bounded and non-negative.
             assert!(relative_gain >= 0.0);
-            assert!(relative_gain <= base_growth_term * max_damping + f32::EPSILON);
+            assert!(relative_gain <= growth_term + f32::EPSILON);
             stability = next_stability;
         }
 
