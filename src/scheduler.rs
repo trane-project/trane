@@ -147,8 +147,7 @@ struct Candidate {
     /// The number of days since the last trial for this exercise.
     last_seen: f32,
 
-    /// The number of times this exercise has been scheduled during the run of this scheduler. This
-    /// value will be used to assign more weight to exercises that have been scheduled less often.
+    /// The number of times this exercise has been scheduled during the run of this scheduler.
     frequency: usize,
 
     /// The velocity of learning for this exercise, measuring how quickly the score is improving or
@@ -158,6 +157,9 @@ struct Candidate {
     /// Whether this candidate comes from a lesson where the search stopped because the lesson's
     /// average score is still below the passing score.
     dead_end: bool,
+
+    /// The sum of the number of dependents of the lesson and course of this exercise.
+    num_dependents: usize,
 }
 
 /// An implementation of [`ExerciseScheduler`] based on depth-first search.
@@ -371,7 +373,7 @@ impl DepthFirstScheduler {
             .map(|exercise_id| {
                 Ok(Candidate {
                     exercise_id,
-                    lesson_id: item.unit_id, // It's assumed that the item is a lesson.
+                    lesson_id: item.unit_id,
                     course_id,
                     depth: (item.depth + 1) as f32,
                     exercise_score: self
@@ -391,6 +393,7 @@ impl DepthFirstScheduler {
                     score_velocity: self.unit_scorer.get_exercise_velocity(exercise_id)?,
                     frequency: self.data.get_exercise_frequency(exercise_id),
                     dead_end: false,
+                    num_dependents: self.data.get_num_dependents(item.unit_id, course_id),
                 })
             })
             .collect::<Result<Vec<Candidate>>>()?;
@@ -979,6 +982,7 @@ impl DepthFirstScheduler {
                         score_velocity: self.unit_scorer.get_exercise_velocity(unit_id)?,
                         frequency: *frequency_map.get(&unit_id).unwrap_or(&0),
                         dead_end: false,
+                        num_dependents: self.data.get_num_dependents(lesson_id, course_id),
                     });
                 }
             }
