@@ -160,6 +160,16 @@ impl SchedulerData {
             .collect();
     }
 
+    /// Returns the number of units that are dependents of an exercise in the given lesson and
+    /// course.
+    #[inline]
+    #[must_use]
+    pub fn get_num_dependents(&self, lesson_id: Ustr, course_id: Ustr) -> usize {
+        let graph = self.unit_graph.read();
+        graph.get_dependents(lesson_id).unwrap_or_default().len()
+            + graph.get_dependents(course_id).unwrap_or_default().len()
+    }
+
     /// Returns all the units that supersede the unit with the given ID.
     #[inline]
     #[must_use]

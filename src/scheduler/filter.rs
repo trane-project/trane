@@ -40,14 +40,15 @@ const MAX_ENCOMPASSED_WEIGHT: f32 = 1000.0;
 
 /// The part of the weight that depends on the depth of the candidate will be the product of the
 /// depth and this factor.
-const DEPTH_WEIGHT_FACTOR: f32 = 25.0;
+const DEPTH_WEIGHT_FACTOR: f32 = 500.0;
+
+/// The part of the weight that depends on the number of dependents of the lesson and course of the
+/// candidate will be the product of the number of dependents and this factor.
+const NUM_DEPENDENTS_WEIGHT_FACTOR: f32 = 250.0;
 
 /// The part of the weight that depends on whether the candidate was found at a dead-end in the
 /// graph.
 const DEAD_WEIGHT_FACTOR: f32 = 1000.0;
-
-/// The part of the weight that depends on the depth of the candidate will be capped at this value.
-const MAX_DEPTH_WEIGHT: f32 = 1000.0;
 
 /// The part of the weight that depends on the number of times this exercise is scheduled during the
 /// run of the program will be capped at this value. Each time an exercise is scheduled, this
@@ -162,23 +163,25 @@ impl CandidateFilter {
     /// 5. The number of hops taken by the graph search to find the candidate. A higher number of
     ///    hops is assigned more weight to give precedence to candidates from more advanced
     ///    material.
-    /// 6. The frequency with which the candidate has been scheduled during the run of the
+    /// 6. The number of dependents of the lesson and course of the candidate. Exercises from
+    ///    lessons and courses that unlock more units are given higher weight.
+    /// 7. The frequency with which the candidate has been scheduled during the run of the
     ///    scheduler. A higher frequency is assigned less weight to avoid selecting the same
     ///    exercises too often during the same session.
-    /// 7. The number of trials for that candidate. A higher number of trials is assigned less
+    /// 8. The number of trials for that candidate. A higher number of trials is assigned less
     ///    weight to favor exercises that have been practiced fewer times.
-    /// 8. The number of days since this candidate was last seen. More days since last seen gets
+    /// 9. The number of days since this candidate was last seen. More days since last seen gets
     ///    more weight.
-    /// 9. The number of candidates in the same lesson. The more candidates there are in the same
-    ///    lesson, the less weight each candidate is assigned to avoid selecting too many exercises
-    ///    from the same lesson.
-    /// 10. The number of candidates in the same course. The same logic applies as for the lesson
+    /// 10. The number of candidates in the same lesson. The more candidates there are in the same
+    ///     lesson, the less weight each candidate is assigned to avoid selecting too many exercises
+    ///     from the same lesson.
+    /// 11. The number of candidates in the same course. The same logic applies as for the lesson
     ///     frequency.
-    /// 11. Whether the candidate comes from a dead-end in the traversal. Dead-end candidates get a
+    /// 12. Whether the candidate comes from a dead-end in the traversal. Dead-end candidates get a
     ///     fixed bonus to prioritize the learner's frontier.
-    /// 12. The candidate's score velocity. The absolute value of the velocity is multiplied by a
+    /// 13. The candidate's score velocity. The absolute value of the velocity is multiplied by a
     ///     factor.
-    /// 13. Whether the candidate has a stagnant velocity. Non-mastered candidates with a stagnant
+    /// 14. Whether the candidate has a stagnant velocity. Non-mastered candidates with a stagnant
     ///     velocity get a weight bonus, while mastered candidates with a stagnant velocity get a
     ///     penalty.
     fn candidate_weight(
@@ -196,13 +199,17 @@ impl CandidateFilter {
         // A part of the score will depend on the score of the course.
         weight += COURSE_SCORE_WEIGHT_FACTOR * (5.0 - c.course_score).max(0.0);
 
-        // A part of the score will depend on the frequency with which the exercise is encompassed by other
-        // exercises in the initial batch.
+        // A part of the score will depend on the frequency with which the exercise is encompassed
+        // by other exercises in the initial batch.
         weight += MAX_ENCOMPASSED_WEIGHT / (encompassed_freq.max(1) as f32);
 
         // A part of the score will depend on the number of hops that were needed to reach
         // the candidate.
-        weight += (DEPTH_WEIGHT_FACTOR * c.depth).clamp(0.0, MAX_DEPTH_WEIGHT);
+        weight += DEPTH_WEIGHT_FACTOR * c.depth.ln_1p();
+
+        // A part of the weight is based on the number of dependents of the lesson and course of the
+        // candidate.
+        weight += NUM_DEPENDENTS_WEIGHT_FACTOR * (c.num_dependents as f32).ln_1p();
 
         // A part of the weight is based on the frequency with which the exercise has been
         // scheduled.
@@ -670,6 +677,20 @@ mod test {
         let c1 = Candidate::default();
         let c2 = Candidate {
             depth: 10.0,
+            ..Default::default()
+        };
+        assert!(
+            CandidateFilter::candidate_weight(&c1, 0, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 0, 1, 1)
+        );
+    }
+
+    /// Verifies that candidates with more dependents are given more weight.
+    #[test]
+    fn more_dependents_more_weight() {
+        let c1 = Candidate::default();
+        let c2 = Candidate {
+            num_dependents: 50,
             ..Default::default()
         };
         assert!(

@@ -1,55 +1,6 @@
 # Trane Improvement Plan
 
-## 1. Bottleneck-Aware Critical Path Scheduling
-
-**The problem.** Trane treats all frontier exercises equally. The `depth` factor gives a small linear
-bonus for being deeper in the graph, and `dead_end` adds a flat +1000 bonus. But neither accounts
-for the *downstream impact* of mastering a unit. If lesson A is a prerequisite for 50 other lessons
-and lesson B is a prerequisite for 2, the current system gives them roughly equal priority. A student
-could grind on leaf nodes while high-impact bottleneck prerequisites sit at the same weight.
-
-**What's different.** Compute the *unlock potential* of each lesson: the number of transitively
-blocked lessons that become reachable once this lesson passes the mastery threshold. This is a
-graph-level property that the current per-candidate weighting cannot capture.
-
-**Algorithm:**
-- At course library load time (or lazily on first batch), do a single reverse traversal of the
-  dependency graph. For each lesson, count how many lessons (transitively) depend on it. Store this
-  as `unlock_count: UstrMap<usize>` on `SchedulerData`.
-- For efficiency, this is a standard "number of reachable nodes" computation on a DAG. Process
-  lessons in reverse topological order:
-  `unlock_count[L] = sum(1 + unlock_count[D]) for D in dependents(L)`.
-- Add `unlock_potential: f32` to `Candidate`, populated during candidate generation from the
-  precomputed map.
-- In `candidate_weight`, add a weighting term: `UNLOCK_WEIGHT_FACTOR * unlock_potential.ln_1p()`.
-  Use `ln(1 + x)` to avoid letting a single mega-bottleneck dominate all other factors, while still
-  creating a strong signal. A lesson blocking 50 others gets ~6x the bonus of one blocking 2.
-
-**Why it's big.** This transforms the scheduler from locally greedy ("what's best to practice right
-now") to globally aware ("what unlocks the most future learning"). For students with large course
-libraries -- the primary use case for trane -- this could meaningfully accelerate total time to
-mastery across the graph.
-
-**Interaction with existing factors.** The `depth` factor currently favors deeper exercises. Depth
-and unlock potential are often inversely correlated (deeper nodes have fewer downstream dependents).
-Unlock potential would counterbalance depth, creating a push-pull between "practice advanced
-material" and "unblock the widest path forward." The existing `dead_end` bonus already helps
-frontier exercises, but it's binary -- unlock potential is proportional and continuous.
-
-**Files to modify:**
-- `src/graph.rs` -- add `fn get_unlock_counts(&self) -> UstrMap<usize>` computing transitive
-  dependent counts via reverse topological traversal.
-- `src/scheduler/data.rs` -- add `unlock_counts: Arc<UstrMap<usize>>` field, populated on
-  construction.
-- `src/scheduler.rs` -- populate `unlock_potential` on each `Candidate` during
-  `get_candidates_from_lesson_helper`.
-- `src/scheduler/filter.rs` -- add the `ln(1 + unlock_potential) * factor` term to
-  `candidate_weight`.
-- `src/data.rs` -- add `Candidate::unlock_potential` field.
-
----
-
-## 2. Graph-Informed Cold Start Estimation
+## 1. Graph-Informed Cold Start Estimation
 
 **The problem.** When an exercise has zero trials, its score is 0.0. It goes into the "new" mastery
 window (score range 0.0-0.1) alongside every other untried exercise, regardless of context. The
@@ -110,7 +61,7 @@ information for new exercises instead of waiting for trial data.
 
 ---
 
-## 3. Diagnostic Prerequisite Scheduling for Stagnation
+## 2. Diagnostic Prerequisite Scheduling for Stagnation
 
 **The problem.** Trane detects stagnation (velocity < 0.2 with score < 4.0) and boosts the stagnant
 exercise's selection weight by +2000. But boosting selection of an exercise the student is stuck on
