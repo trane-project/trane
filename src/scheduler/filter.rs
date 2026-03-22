@@ -66,8 +66,9 @@ const MAX_NUM_TRIALS_WEIGHT: f32 = 1000.0;
 /// The factor by which the weight is mulitiplied when the number of trials is increased.
 const NUM_TRIALS_FACTOR: f32 = 0.75;
 
-/// The part of the weight that depends on the number of days since the exercise was last seen.
-const LAST_SEEN_WEIGHT_PER_DAY: f32 = 10.0;
+/// The factor used to compute the part of the weight that depends on the number of days since this
+/// exercise was last seen.
+const LAST_SEEN_WEIGHT_PER_DAY: f32 = 5.0;
 
 /// The maximum amount of weight this component can add.
 const MAX_LAST_SEEN_WEIGHT: f32 = 1000.0;
@@ -211,7 +212,10 @@ impl CandidateFilter {
         weight += MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR.powf(c.num_trials as f32);
 
         // A part of the weight is based on the number of days since this exercise was last seen.
-        weight += (LAST_SEEN_WEIGHT_PER_DAY * c.last_seen).clamp(0.0, MAX_LAST_SEEN_WEIGHT);
+        // The computation includes a factor based on the score so that exercises with lower score
+        // are given higher weight.
+        weight += (LAST_SEEN_WEIGHT_PER_DAY * c.last_seen * (5.0 - c.exercise_score))
+            .clamp(0.0, MAX_LAST_SEEN_WEIGHT);
 
         // A part of the weight is based on the number of candidates in the same lesson.
         weight += MAX_LESSON_FREQUENCY_WEIGHT / lesson_freq.max(1) as f32;
@@ -516,28 +520,18 @@ mod test {
         // Create a list of candidates with different lessons.
         let candidates = vec![
             Candidate {
-                exercise_id: Ustr::from("exercise1"),
                 lesson_id: Ustr::from("lesson1"),
-                course_id: Ustr::from("course1"),
                 ..Default::default()
             },
             Candidate {
-                exercise_id: Ustr::from("exercise2"),
                 lesson_id: Ustr::from("lesson1"),
-                course_id: Ustr::from("course1"),
                 ..Default::default()
             },
             Candidate {
-                exercise_id: Ustr::from("exercise3"),
                 lesson_id: Ustr::from("lesson2"),
-                course_id: Ustr::from("course1"),
                 ..Default::default()
             },
-            Candidate {
-                exercise_id: Ustr::from("exercise4"),
-                course_id: Ustr::from("course1"),
-                ..Default::default()
-            },
+            Candidate::default(),
         ];
 
         // Count the number of candidates per lesson.
@@ -554,34 +548,26 @@ mod test {
         let candidates = vec![
             Candidate {
                 exercise_id: Ustr::from("exercise1"),
-                lesson_id: Ustr::from("lesson1"),
-                course_id: Ustr::from("course1"),
                 exercise_score: 2.1,
                 ..Default::default()
             },
             Candidate {
                 exercise_id: Ustr::from("exercise2"),
-                lesson_id: Ustr::from("lesson1"),
-                course_id: Ustr::from("course1"),
                 exercise_score: 3.0,
                 ..Default::default()
             },
             Candidate {
                 exercise_id: Ustr::from("exercise3"),
-                lesson_id: Ustr::from("lesson2"),
-                course_id: Ustr::from("course1"),
                 exercise_score: 3.7,
                 ..Default::default()
             },
             Candidate {
                 exercise_id: Ustr::from("exercise4"),
-                course_id: Ustr::from("course1"),
                 exercise_score: 1.0,
                 ..Default::default()
             },
             Candidate {
                 exercise_id: Ustr::from("exercise5"),
-                course_id: Ustr::from("course1"),
                 exercise_score: 3.5,
                 ..Default::default()
             },
@@ -615,27 +601,19 @@ mod test {
         let batch_size = 10;
         let mut final_candidates = vec![Candidate {
             exercise_id: Ustr::from("exercise1"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
             ..Default::default()
         }];
         let remainder = vec![
             Candidate {
                 exercise_id: Ustr::from("exercise2"),
-                lesson_id: Ustr::from("lesson2"),
-                course_id: Ustr::from("course2"),
                 ..Default::default()
             },
             Candidate {
                 exercise_id: Ustr::from("exercise3"),
-                lesson_id: Ustr::from("lesson3"),
-                course_id: Ustr::from("course3"),
                 ..Default::default()
             },
             Candidate {
                 exercise_id: Ustr::from("exercise4"),
-                lesson_id: Ustr::from("lesson4"),
-                course_id: Ustr::from("course4"),
                 ..Default::default()
             },
         ];
@@ -657,8 +635,6 @@ mod test {
         let mut final_candidates_full = (0..batch_size * 2 / 3 + 1)
             .map(|i| Candidate {
                 exercise_id: Ustr::from(&format!("exercise{}", i)),
-                lesson_id: Ustr::from(&format!("lesson{}", i)),
-                course_id: Ustr::from(&format!("course{}", i)),
                 ..Default::default()
             })
             .collect::<Vec<_>>();
@@ -675,8 +651,6 @@ mod test {
         // Verify that max_added limits the number of remainders added.
         let mut final_candidates_limited = vec![Candidate {
             exercise_id: Ustr::from("exercise1"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
             ..Default::default()
         }];
         let max_added = 1;
@@ -693,16 +667,8 @@ mod test {
     /// Verifies that candidates that took more hops to reach are given more weight.
     #[test]
     fn more_hops_more_weight() {
-        let c1 = Candidate {
-            exercise_id: Ustr::from("exercise1"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
-            ..Default::default()
-        };
+        let c1 = Candidate::default();
         let c2 = Candidate {
-            exercise_id: Ustr::from("exercise2"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
             depth: 10.0,
             ..Default::default()
         };
@@ -716,18 +682,12 @@ mod test {
     #[test]
     fn higher_exercise_score_less_weight() {
         let c1 = Candidate {
-            exercise_id: Ustr::from("exercise1"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
             exercise_score: 5.0,
             lesson_score: 5.0,
             course_score: 5.0,
             ..Default::default()
         };
         let c2 = Candidate {
-            exercise_id: Ustr::from("exercise2"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
             exercise_score: 1.0,
             lesson_score: 1.0,
             course_score: 1.0,
@@ -743,16 +703,10 @@ mod test {
     #[test]
     fn higher_lesson_score_less_weight() {
         let c1 = Candidate {
-            exercise_id: Ustr::from("exercise1"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
             lesson_score: 5.0,
             ..Default::default()
         };
         let c2 = Candidate {
-            exercise_id: Ustr::from("exercise2"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
             lesson_score: 1.0,
             ..Default::default()
         };
@@ -766,16 +720,10 @@ mod test {
     #[test]
     fn higher_course_score_less_weight() {
         let c1 = Candidate {
-            exercise_id: Ustr::from("exercise1"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
             course_score: 5.0,
             ..Default::default()
         };
         let c2 = Candidate {
-            exercise_id: Ustr::from("exercise2"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
             course_score: 1.0,
             ..Default::default()
         };
@@ -789,16 +737,10 @@ mod test {
     #[test]
     fn more_scheduled_frequency_less_weight() {
         let c1 = Candidate {
-            exercise_id: Ustr::from("exercise1"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
             frequency: 5,
             ..Default::default()
         };
         let c2 = Candidate {
-            exercise_id: Ustr::from("exercise2"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
             frequency: 1,
             ..Default::default()
         };
@@ -812,16 +754,10 @@ mod test {
     #[test]
     fn fewer_trials_more_weight() {
         let c1 = Candidate {
-            exercise_id: Ustr::from("exercise1"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
             num_trials: 5,
             ..Default::default()
         };
         let c2 = Candidate {
-            exercise_id: Ustr::from("exercise2"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
             num_trials: 1,
             ..Default::default()
         };
@@ -834,44 +770,46 @@ mod test {
     /// Verifies that candidates seen less recently are given more weight.
     #[test]
     fn more_days_since_last_seen_more_weight() {
+        // Candidates with the same exercise score but different last seen values.
         let c1 = Candidate {
-            exercise_id: Ustr::from("exercise1"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
             last_seen: 1.0,
+            exercise_score: 4.0,
             ..Default::default()
         };
         let c2 = Candidate {
-            exercise_id: Ustr::from("exercise2"),
-            lesson_id: Ustr::from("lesson2"),
-            course_id: Ustr::from("course2"),
             last_seen: 20.0,
+            exercise_score: 2.0,
             ..Default::default()
         };
         assert!(
             CandidateFilter::candidate_weight(&c1, 0, 1, 1)
                 < CandidateFilter::candidate_weight(&c2, 0, 1, 1)
         );
+
+        // Candidates with different exercise scores but the same last seen values.
+        let c3 = Candidate {
+            last_seen: 10.0,
+            exercise_score: 4.0,
+            ..Default::default()
+        };
+        let c4 = Candidate {
+            last_seen: 10.0,
+            exercise_score: 2.0,
+            ..Default::default()
+        };
+        assert!(
+            CandidateFilter::candidate_weight(&c3, 0, 1, 1)
+                < CandidateFilter::candidate_weight(&c4, 0, 1, 1)
+        );
     }
 
     /// Verifies that candidates from lessons with more candidates are given less weight.
     #[test]
     fn higher_lesson_frequency_less_weight() {
-        let c1 = Candidate {
-            exercise_id: Ustr::from("exercise1"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
-            ..Default::default()
-        };
-        let c2 = Candidate {
-            exercise_id: Ustr::from("exercise2"),
-            lesson_id: Ustr::from("lesson2"),
-            course_id: Ustr::from("course1"),
-            ..Default::default()
-        };
+        let c = Candidate::default();
         assert!(
-            CandidateFilter::candidate_weight(&c1, 0, 10, 1)
-                < CandidateFilter::candidate_weight(&c2, 0, 3, 1)
+            CandidateFilter::candidate_weight(&c, 0, 10, 1)
+                < CandidateFilter::candidate_weight(&c, 0, 3, 1)
         );
     }
 
@@ -963,21 +901,10 @@ mod test {
     /// Verifies that candidates from courses with more candidates are given less weight.
     #[test]
     fn higher_course_frequency_less_weight() {
-        let c1 = Candidate {
-            exercise_id: Ustr::from("exercise1"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
-            ..Default::default()
-        };
-        let c2 = Candidate {
-            exercise_id: Ustr::from("exercise2"),
-            lesson_id: Ustr::from("lesson2"),
-            course_id: Ustr::from("course2"),
-            ..Default::default()
-        };
+        let c = Candidate::default();
         assert!(
-            CandidateFilter::candidate_weight(&c1, 0, 1, 10)
-                < CandidateFilter::candidate_weight(&c2, 0, 1, 3)
+            CandidateFilter::candidate_weight(&c, 0, 1, 10)
+                < CandidateFilter::candidate_weight(&c, 0, 1, 3)
         );
     }
 
@@ -985,36 +912,20 @@ mod test {
     /// less weight.
     #[test]
     fn higher_encompassed_frequency_less_weight() {
-        let c1 = Candidate {
-            exercise_id: Ustr::from("exercise1"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
-            ..Default::default()
-        };
-        let c2 = Candidate {
-            exercise_id: Ustr::from("exercise2"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
-            ..Default::default()
-        };
+        let c = Candidate::default();
         assert!(
-            CandidateFilter::candidate_weight(&c1, 10, 1, 1)
-                < CandidateFilter::candidate_weight(&c2, 3, 1, 1)
+            CandidateFilter::candidate_weight(&c, 10, 1, 1)
+                < CandidateFilter::candidate_weight(&c, 3, 1, 1)
         );
     }
 
     /// Verifies that dead-end candidates get a fixed additional weight.
     #[test]
     fn dead_end_fixed_weight_bonus() {
-        let base = Candidate {
-            exercise_id: Ustr::from("exercise1"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
-            ..Default::default()
-        };
+        let base = Candidate::default();
         let dead_end = Candidate {
             dead_end: true,
-            ..base.clone()
+            ..Default::default()
         };
 
         let base_weight = CandidateFilter::candidate_weight(&base, 0, 1, 1);
@@ -1027,9 +938,6 @@ mod test {
     fn minimum_weight() {
         // Create a candidate that should have a very low weight.
         let c = Candidate {
-            exercise_id: Ustr::from("exercise1"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
             exercise_score: 5.0,
             lesson_score: 5.0,
             course_score: 5.0,
@@ -1047,9 +955,6 @@ mod test {
     #[test]
     fn higher_velocity_more_weight() {
         let base = Candidate {
-            exercise_id: Ustr::from("exercise1"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
             exercise_score: 2.0,
             score_velocity: Some(1.0),
             ..Default::default()
@@ -1068,9 +973,6 @@ mod test {
     #[test]
     fn negative_velocity_boosts_weight() {
         let base = Candidate {
-            exercise_id: Ustr::from("exercise1"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
             exercise_score: 2.0,
             ..Default::default()
         };
@@ -1088,9 +990,6 @@ mod test {
     #[test]
     fn stagnant_low_score_gets_bonus() {
         let base = Candidate {
-            exercise_id: Ustr::from("exercise1"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
             exercise_score: 2.0,
             ..Default::default()
         };
@@ -1107,9 +1006,6 @@ mod test {
     #[test]
     fn stagnant_high_score_gets_penalty() {
         let base = Candidate {
-            exercise_id: Ustr::from("exercise1"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
             exercise_score: 4.5,
             ..Default::default()
         };
@@ -1128,9 +1024,6 @@ mod test {
     #[test]
     fn non_stagnant_velocity_no_bonus_or_penalty() {
         let base = Candidate {
-            exercise_id: Ustr::from("exercise1"),
-            lesson_id: Ustr::from("lesson1"),
-            course_id: Ustr::from("course1"),
             exercise_score: 2.0,
             ..Default::default()
         };
