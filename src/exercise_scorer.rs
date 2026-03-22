@@ -39,9 +39,10 @@ const DECLARATIVE_CURVE_DECAY: f32 = -0.5;
 /// decay of procedural memory.
 const PROCEDURAL_CURVE_DECAY: f32 = -0.3;
 
-/// The maximum stability value in days. Trane is designed for the long-life learning of acquiring
-/// mastery, so a high stability ceiling of two years allows it to model this case.
-const MAX_STABILITY: f32 = 730.0;
+/// A scaling coefficient applied to the stability update term for each review. The per-review
+/// multiplicative change is `1 + STABILITY_COEFFICIENT * P * E * spacing_gain`. The resulting
+/// stability is clamped to `MIN_STABILITY..MAX_STABILITY`.
+const STABILITY_COEFFICIENT: f32 = 2.1;
 
 /// The per-trial difficulty adjustment scale. Good grades reduce difficulty, poor grades increase
 /// it.
@@ -49,11 +50,6 @@ const DIFFICULTY_GRADE_ADJUSTMENT_SCALE: f32 = 0.6;
 
 /// How much the dynamic difficulty is pulled back toward the base estimate after each review.
 const DIFFICULTY_REVERSION_WEIGHT: f32 = 0.1;
-
-/// A scaling coefficient applied to the stability update term for each review. The per-review
-/// multiplicative change is `1 + STABILITY_COEFFICIENT * P * E * spacing_gain`. The resulting
-/// stability is clamped to `MIN_STABILITY..MAX_STABILITY`.
-const STABILITY_COEFFICIENT: f32 = 2.1;
 
 /// The per-day decay factor for exponential weighting of performance. Latest score weight 1.0,
 /// scores one day old are multiplied by it, two days old by its square and so on.
@@ -88,6 +84,10 @@ const TARGET_RETRIEVABILITY_AT_STABILITY: f32 = 0.9;
 /// The minimum stability value in days. This prevents division by zero and ensures that exercises
 /// with very few trials still have a reasonable stability estimate.
 const MIN_STABILITY: f32 = 0.5;
+
+/// The maximum stability value in days. Trane is designed for the long-life learning of acquiring
+/// mastery, so a high stability ceiling of two years allows it to model this case.
+const MAX_STABILITY: f32 = 730.0;
 
 /// The default stability for exercises with no review history.
 const DEFAULT_STABILITY: f32 = 1.0;
