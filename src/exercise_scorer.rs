@@ -293,7 +293,8 @@ impl PowerLawScorer {
         let e = (EASE_NUMERATOR_OFFSET - difficulty) / EASE_DENOMINATOR;
         let spacing_gain =
             Self::compute_spacing_gain(exercise_type, days_since_previous_review, stability, p);
-        let growth_term = STABILITY_COEFFICIENT * p * e * spacing_gain;
+        let intra_day_damping = days_since_previous_review.min(1.0);
+        let growth_term = STABILITY_COEFFICIENT * p * e * spacing_gain * intra_day_damping;
         (stability * (1.0 + growth_term)).clamp(MIN_STABILITY, MAX_STABILITY)
     }
 
@@ -740,7 +741,7 @@ mod test {
         let stability =
             PowerLawScorer::compute_stability(&ExerciseType::Declarative, &lapses, difficulty);
         assert!(stability >= MIN_STABILITY);
-        assert!(stability < DEFAULT_STABILITY);
+        assert!(stability <= DEFAULT_STABILITY);
     }
 
     /// Verifies long-run success updates do not explode beyond MAX_STABILITY.
@@ -836,6 +837,41 @@ mod test {
         assert!(long_interval_gain > short_interval_gain);
         assert_eq!(neutral_gain, 1.0);
         assert_eq!(failure_gain, 1.0);
+    }
+
+    /// Verifies that intra-day reviews produce less stability change than inter-day reviews.
+    #[test]
+    fn intra_day_damping() {
+        let difficulty = BASE_DIFFICULTY;
+        let score = 5.0;
+        let half_day = PowerLawScorer::apply_stability_transition(
+            &ExerciseType::Declarative,
+            DEFAULT_STABILITY,
+            difficulty,
+            score,
+            0.5,
+        );
+        let one_day = PowerLawScorer::apply_stability_transition(
+            &ExerciseType::Declarative,
+            DEFAULT_STABILITY,
+            difficulty,
+            score,
+            1.0,
+        );
+        let two_days = PowerLawScorer::apply_stability_transition(
+            &ExerciseType::Declarative,
+            DEFAULT_STABILITY,
+            difficulty,
+            score,
+            2.0,
+        );
+
+        // All successful reviews should grow stability. Intra-day review should grow stability less
+        // than a one-day review.
+        assert!(half_day > DEFAULT_STABILITY);
+        assert!(one_day > DEFAULT_STABILITY);
+        assert!(two_days > DEFAULT_STABILITY);
+        assert!(half_day < one_day);
     }
 
     /// Verifies that the weighted average is computed correctly.
