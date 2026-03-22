@@ -33,15 +33,23 @@ A new table is cleaner since it avoids migrating existing data.
 
 ### Online Adaptation
 
-Use an exponentially-weighted mean residual per exercise to compute a difficulty bias:
+Use an exponentially-weighted mean residual per exercise to correct the final score:
 
 ```
-adjusted_difficulty = base_difficulty - residual_bias * RESIDUAL_SCALE
+corrected_score = (retrievability * weighted_avg + residual_bias * RESIDUAL_SCALE).clamp(0.0, 5.0)
 ```
 
-where `residual_bias` is the weighted mean of recent residuals for that exercise. This
-feeds into the existing stability computation: lower difficulty means higher ease factor,
-faster stability growth, and higher predicted scores next time.
+where `residual_bias` is the weighted mean of recent residuals for that exercise.
+
+The correction is applied to the final score rather than to difficulty because:
+
+- Difficulty already has its own update loop (mean reversion after each review). A second
+  correction path would create competing adjustments.
+- The relationship between difficulty and final score is indirect and nonlinear (difficulty
+  affects ease factor, which affects stability growth, which affects retrievability). A
+  correction on the final score is predictable and proportional.
+- The final score is what the scheduler consumes and what is compared against the student's
+  submission, so correcting it directly keeps the feedback loop tight.
 
 ### Offline Evaluation
 
@@ -58,7 +66,7 @@ The stored `(predicted, actual)` pairs enable computing:
 2. At exercise presentation time, compute and cache the predicted score.
 3. At score submission time, store the residual.
 4. Compute per-exercise weighted mean residual.
-5. Feed the residual bias into `estimate_difficulty` as a correction term.
+5. Apply the residual bias as a correction to the final score.
 6. Add evaluation metrics (MAE, RMSE, bias) that can be computed from the stored data.
 
 ## 2. Parameter Optimization
