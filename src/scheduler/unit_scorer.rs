@@ -199,9 +199,15 @@ impl UnitScorer {
             .read()
             .get_scores(exercise_id, self.options.num_trials)
             .unwrap_or_default();
+        let deltas = self
+            .data
+            .practice_deltas
+            .read()
+            .get_deltas(exercise_id, self.options.num_trials)
+            .unwrap_or_default();
         let score = self
             .exercise_scorer
-            .score(exercise_type, &scores, self.now())?;
+            .score(exercise_type, &scores, &deltas, self.now())?;
 
         // Retrieve the rewards for this exercise's lesson and course and compute the reward.
         let graph = self.data.unit_graph.read();

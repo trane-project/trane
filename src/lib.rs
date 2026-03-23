@@ -86,8 +86,9 @@ use crate::{
     blacklist::{Blacklist, LocalBlacklist},
     course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary, SerializedCourseLibrary},
     data::{
-        CourseManifest, ExerciseDelta, ExerciseManifest, ExerciseTrial, LessonManifest, MasteryScore,
-        SchedulerOptions, SchedulerPreferences, UnitReward, UnitType, UserPreferences,
+        CourseManifest, ExerciseDelta, ExerciseManifest, ExerciseTrial, LessonManifest,
+        MasteryScore, SchedulerOptions, SchedulerPreferences, UnitReward, UnitType,
+        UserPreferences,
         filter::{ExerciseFilter, SavedFilter},
     },
     filter_manager::{FilterManager, LocalFilterManager},

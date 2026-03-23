@@ -1128,6 +1128,27 @@ impl ExerciseScheduler for DepthFirstScheduler {
         score: MasteryScore,
         timestamp: i64,
     ) -> Result<(), ExerciseSchedulerError> {
+        // Retreive the existing score to compute the delta. Do not apply it to exercises with no
+        // trials as those have no previous data for comparison.
+        let existing_score = self
+            .unit_scorer
+            .get_unit_score(exercise_id)
+            .unwrap_or_default()
+            .unwrap_or_default();
+        let num_trials = self
+            .unit_scorer
+            .get_exercise_num_trials(exercise_id)
+            .unwrap_or_default()
+            .unwrap_or_default();
+        if num_trials > 0 && existing_score > 0.1 {
+            let delta = score.float_score() - existing_score;
+            self.data
+                .practice_deltas
+                .write()
+                .record_exercise_delta(exercise_id, delta, timestamp)
+                .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?;
+        }
+
         // Write the score to the practice stats database, invalidate the cache, and update the
         // relearning pile and the success rate.
         self.data

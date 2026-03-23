@@ -917,8 +917,11 @@ pub struct SchedulerOptions {
     /// this value.
     pub superseding_score: f32,
 
-    /// The number of trials to retrieve from the practice stats to compute an exercise's score.
+    /// The number of trials to retrieve to compute an exercise's score.
     pub num_trials: u32,
+
+    /// The number of deltas to retrieve to compute an exercise's score.
+    pub num_deltas: u32,
 
     /// The number of rewards to retrieve from the practice rewards to compute a unit's reward.
     pub num_rewards: u32,
@@ -1029,7 +1032,8 @@ impl Default for SchedulerOptions {
             },
             passing_score: PassingScoreOptions::default(),
             superseding_score: 4.0,
-            num_trials: 15,
+            num_trials: 20,
+            num_deltas: 10,
             num_rewards: 10,
             max_lessons_in_progress: 10,
         }

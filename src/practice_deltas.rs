@@ -58,7 +58,7 @@ impl LocalPracticeDeltas {
                 "CREATE TABLE practice_deltas(
                 id INTEGER PRIMARY KEY,
                 unit_uid INTEGER NOT NULL REFERENCES uids(unit_uid),
-                score REAL, timestamp INTEGER);",
+                delta REAL, timestamp INTEGER);",
             )
             .down("DROP TABLE practice_deltas"),
             // Create a combined index of `unit_uid` and `timestamp` for fast retrieval.
@@ -94,7 +94,7 @@ impl LocalPracticeDeltas {
     fn get_deltas_helper(&self, exercise_id: Ustr, num_deltas: u32) -> Result<Vec<ExerciseDelta>> {
         let connection = self.connection.lock();
         let mut stmt = connection.prepare_cached(
-            "SELECT score, timestamp from practice_deltas WHERE unit_uid = (
+            "SELECT delta, timestamp from practice_deltas WHERE unit_uid = (
                 SELECT unit_uid FROM uids WHERE unit_id = $1)
                 ORDER BY timestamp DESC LIMIT ?2;",
         )?;
@@ -126,7 +126,7 @@ impl LocalPracticeDeltas {
             uid_stmt.execute(params![exercise_id.as_str()])?;
 
             let mut stmt = tx.prepare_cached(
-                "INSERT INTO practice_deltas (unit_uid, score, timestamp) VALUES (
+                "INSERT INTO practice_deltas (unit_uid, delta, timestamp) VALUES (
                 (SELECT unit_uid FROM uids WHERE unit_id = $1), $2, $3);",
             )?;
             stmt.execute(params![exercise_id.as_str(), delta, timestamp])?;
