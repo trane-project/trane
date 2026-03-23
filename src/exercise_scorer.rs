@@ -9,16 +9,18 @@
 
 use anyhow::{Result, anyhow};
 
-use crate::data::{ExerciseTrial, ExerciseType};
+use crate::data::{ExerciseDelta, ExerciseTrial, ExerciseType};
 
 /// A trait exposing a function to score an exercise based on the results of previous trials.
 pub trait ExerciseScorer {
     /// Returns a score (between 0.0 and 5.0) for the exercise based on the results and timestamps
-    /// of previous trials. The trials are assumed to be sorted in descending order by timestamp.
+    /// of previous trials and deltas. The trials and deltas are assumed to be sorted in descending
+    /// order by timestamp.
     fn score(
         &self,
         exercise_type: ExerciseType,
         previous_trials: &[ExerciseTrial],
+        previous_deltas: &[ExerciseDelta],
         now: i64,
     ) -> Result<f32>;
 
@@ -130,6 +132,36 @@ const GRADE_RANGE: f32 = GRADE_MAX - GRADE_MIN;
 /// The number of seconds in a day, used for timestamp conversions.
 const SECONDS_PER_DAY: f32 = 86400.0;
 
+/// A trait for types that carry a floating-point value and a timestamp, allowing generic
+/// time-weighted averaging.
+trait TimestampedValue {
+    /// Returns the numeric value of this entry.
+    fn value(&self) -> f32;
+
+    /// Returns the timestamp of this entry.
+    fn timestamp(&self) -> i64;
+}
+
+impl TimestampedValue for ExerciseTrial {
+    fn value(&self) -> f32 {
+        self.score
+    }
+
+    fn timestamp(&self) -> i64 {
+        self.timestamp
+    }
+}
+
+impl TimestampedValue for ExerciseDelta {
+    fn value(&self) -> f32 {
+        self.delta
+    }
+
+    fn timestamp(&self) -> i64 {
+        self.timestamp
+    }
+}
+
 /// A scorer that uses a power-law forgetting curve to compute the score of an exercise, using
 /// review-history-based estimation of stability and difficulty. This models memory retention more
 /// accurately than exponential decay by accounting for the "fat tail" of long-term memory.
@@ -184,28 +216,28 @@ impl PowerLawScorer {
         difficulty.clamp(MIN_DIFFICULTY, MAX_DIFFICULTY)
     }
 
-    /// Computes the time-decayed weighted average performance from all trials.
+    /// Computes the time-decayed weighted average performance from all entries.
     ///
-    /// Weights decay by elapsed days from the most recent trial so irregular practice cadence is
+    /// Weights decay by elapsed days from the most recent entry so irregular practice cadence is
     /// modeled more accurately.
-    fn compute_weighted_avg(previous_trials: &[ExerciseTrial]) -> f32 {
-        if previous_trials.is_empty() {
+    fn compute_weighted_avg<T: TimestampedValue>(entries: &[T]) -> f32 {
+        if entries.is_empty() {
             return 0.0;
         }
 
         // Start from the latest timestamp and compute the weights based on the number of days
         // from it.
-        let newest_timestamp = previous_trials[0].timestamp;
+        let newest_timestamp = entries[0].timestamp();
         let mut sum_weighted = 0.0;
         let mut sum_weights = 0.0;
-        for trial in previous_trials {
-            let elapsed_days = ((newest_timestamp.saturating_sub(trial.timestamp)) as f32
+        for entry in entries {
+            let elapsed_days = ((newest_timestamp.saturating_sub(entry.timestamp())) as f32
                 / SECONDS_PER_DAY)
                 .max(0.0);
             let weight = PERFORMANCE_WEIGHT_DECAY
                 .powf(elapsed_days)
                 .max(PERFORMANCE_WEIGHT_MIN);
-            sum_weighted += weight * trial.score;
+            sum_weighted += weight * entry.value();
             sum_weights += weight;
         }
 
@@ -355,6 +387,19 @@ impl PowerLawScorer {
             retrievability
         }
     }
+
+    /// Aggregates the previous deltas into a single value used to adjust the score.
+    fn compute_delta(previous_deltas: &[ExerciseDelta], retrievability: f32) -> f32 {
+        // Do not apply any delta adjustment if there are only few values.
+        if previous_deltas.len() < 2 {
+            return 0.0;
+        }
+
+        // Compute the weighted average. Multiply the delta average by the retrievability of the
+        // exercise to account for time. Divide by 4 to avoid extreme adjustments.
+        let avg_delta = Self::compute_weighted_avg(previous_deltas);
+        avg_delta * retrievability / 4.0
+    }
 }
 
 impl ExerciseScorer for PowerLawScorer {
@@ -362,6 +407,7 @@ impl ExerciseScorer for PowerLawScorer {
         &self,
         exercise_type: ExerciseType,
         previous_trials: &[ExerciseTrial],
+        previous_deltas: &[ExerciseDelta],
         now: i64,
     ) -> Result<f32> {
         // Guard input ordering and missing-history edge cases.
@@ -386,7 +432,8 @@ impl ExerciseScorer for PowerLawScorer {
         let retrievability =
             Self::compute_retrievability(&exercise_type, days_since_last, stability);
 
-        // Compute the weighted score and apply the old-good retrievability floor.
+        // Compute the weighted score and apply the old-good retrievability floor to come up with
+        // a score adjusted for retrievability.
         let weighted_score = Self::compute_weighted_avg(previous_trials);
         let effective_retrievability = Self::apply_old_good_retrievability_floor(
             retrievability,
@@ -394,7 +441,12 @@ impl ExerciseScorer for PowerLawScorer {
             days_since_last,
             previous_trials.len(),
         );
-        Ok((effective_retrievability * weighted_score).clamp(0.0, 5.0))
+        let adjusted_score = effective_retrievability * weighted_score;
+
+        // Compute the effective delta and add it to the score to compensate for differences between
+        // predicted and actual performance.
+        let delta = Self::compute_delta(previous_deltas, effective_retrievability);
+        Ok((adjusted_score + delta).clamp(0.0, 5.0))
     }
 
     fn velocity(&self, previous_trials: &[ExerciseTrial]) -> Option<f32> {
@@ -535,7 +587,7 @@ mod test {
         assert_eq!(
             0.0,
             SCORER
-                .score(ExerciseType::Declarative, &[], Utc::now().timestamp())
+                .score(ExerciseType::Declarative, &[], &[], Utc::now().timestamp())
                 .unwrap()
         );
     }
@@ -559,7 +611,12 @@ mod test {
         ];
 
         let score = SCORER
-            .score(ExerciseType::Declarative, &trials, Utc::now().timestamp())
+            .score(
+                ExerciseType::Declarative,
+                &trials,
+                &[],
+                Utc::now().timestamp(),
+            )
             .unwrap();
         assert!(score > 0.0 && score <= 5.0);
         assert!(score > 2.0); // Decent due to good recent performance
@@ -574,6 +631,7 @@ mod test {
                 score: 5.0,
                 timestamp: generate_timestamp(1e10 as i64),
             }],
+            &[],
             Utc::now().timestamp(),
         )?;
         assert!(score >= 0.0 && score <= 5.0);
@@ -596,6 +654,7 @@ mod test {
                     timestamp: i64::MIN,
                 },
             ],
+            &[],
             Utc::now().timestamp(),
         )?;
         assert!(score >= 0.0 && score <= 5.0);
@@ -878,7 +937,10 @@ mod test {
     #[test]
     fn compute_weighted_avg() {
         // Empty trials should return 0.0.
-        assert_eq!(PowerLawScorer::compute_weighted_avg(&[]), 0.0);
+        assert_eq!(
+            PowerLawScorer::compute_weighted_avg::<ExerciseTrial>(&[]),
+            0.0
+        );
 
         // Single trial with score 5.0 returns mean 5.0.
         let single_trial = vec![ExerciseTrial {
@@ -1016,7 +1078,12 @@ mod test {
                 timestamp: generate_timestamp(13),
             },
         ];
-        let score = SCORER.score(ExerciseType::Declarative, &trials, Utc::now().timestamp())?;
+        let score = SCORER.score(
+            ExerciseType::Declarative,
+            &trials,
+            &[],
+            Utc::now().timestamp(),
+        )?;
         assert!(score < 2.0);
         Ok(())
     }
@@ -1066,7 +1133,12 @@ mod test {
                 timestamp: generate_timestamp(25),
             },
         ];
-        let score = SCORER.score(ExerciseType::Declarative, &trials, Utc::now().timestamp())?;
+        let score = SCORER.score(
+            ExerciseType::Declarative,
+            &trials,
+            &[],
+            Utc::now().timestamp(),
+        )?;
         assert!(score > 1.0 && score < 4.0);
         Ok(())
     }
@@ -1086,6 +1158,7 @@ mod test {
                     timestamp: generate_timestamp(1),
                 },
             ],
+            &[],
             Utc::now().timestamp(),
         );
         assert!(result.is_err());
@@ -1100,6 +1173,7 @@ mod test {
                 score: 5.0,
                 timestamp: generate_timestamp(100),
             }],
+            &[],
             Utc::now().timestamp(),
         )?;
         assert!(score < 3.0);
@@ -1143,7 +1217,12 @@ mod test {
                 timestamp: generate_timestamp(7),
             },
         ];
-        let score = SCORER.score(ExerciseType::Declarative, &trials, Utc::now().timestamp())?;
+        let score = SCORER.score(
+            ExerciseType::Declarative,
+            &trials,
+            &[],
+            Utc::now().timestamp(),
+        )?;
         assert!(score > 4.0);
         Ok(())
     }
@@ -1185,7 +1264,12 @@ mod test {
                 timestamp: generate_timestamp(27),
             },
         ];
-        let score = SCORER.score(ExerciseType::Declarative, &trials, Utc::now().timestamp())?;
+        let score = SCORER.score(
+            ExerciseType::Declarative,
+            &trials,
+            &[],
+            Utc::now().timestamp(),
+        )?;
         assert!(score < 2.0);
         Ok(())
     }
@@ -1220,9 +1304,19 @@ mod test {
                 timestamp: generate_timestamp(270),
             },
         ];
-        let score = SCORER.score(ExerciseType::Procedural, &trials, Utc::now().timestamp())?;
+        let score = SCORER.score(
+            ExerciseType::Procedural,
+            &trials,
+            &[],
+            Utc::now().timestamp(),
+        )?;
         assert!(score >= 3.5);
-        let score = SCORER.score(ExerciseType::Declarative, &trials, Utc::now().timestamp())?;
+        let score = SCORER.score(
+            ExerciseType::Declarative,
+            &trials,
+            &[],
+            Utc::now().timestamp(),
+        )?;
         assert!(score >= 3.5);
         Ok(())
     }
@@ -1257,9 +1351,19 @@ mod test {
                 timestamp: generate_timestamp(431),
             },
         ];
-        let score = SCORER.score(ExerciseType::Procedural, &trials, Utc::now().timestamp())?;
+        let score = SCORER.score(
+            ExerciseType::Procedural,
+            &trials,
+            &[],
+            Utc::now().timestamp(),
+        )?;
         assert!(score >= 3.5);
-        let score = SCORER.score(ExerciseType::Declarative, &trials, Utc::now().timestamp())?;
+        let score = SCORER.score(
+            ExerciseType::Declarative,
+            &trials,
+            &[],
+            Utc::now().timestamp(),
+        )?;
         assert!(score >= 3.5);
         Ok(())
     }
@@ -1355,5 +1459,93 @@ mod test {
         ];
         let velocity = SCORER.velocity(&trials).unwrap();
         assert!(velocity.abs() < 1e-6);
+    }
+
+    /// Verifies that positive deltas increase the score beyond the score with no deltas provided.
+    #[test]
+    fn score_with_positive_deltas() -> Result<()> {
+        let trials = vec![
+            ExerciseTrial {
+                score: 3.0,
+                timestamp: generate_timestamp(0),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(2),
+            },
+        ];
+        let deltas = vec![
+            ExerciseDelta {
+                delta: 0.5,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseDelta {
+                delta: 1.2,
+                timestamp: generate_timestamp(2),
+            },
+        ];
+
+        let base_score = SCORER.score(
+            ExerciseType::Declarative,
+            &trials,
+            &[],
+            Utc::now().timestamp(),
+        )?;
+        let delta_score = SCORER.score(
+            ExerciseType::Declarative,
+            &trials,
+            &deltas,
+            Utc::now().timestamp(),
+        )?;
+        assert!(delta_score > base_score);
+        Ok(())
+    }
+
+    /// Verifies that negative deltas decrease the score below the score with no deltas provided.
+    #[test]
+    fn score_with_negative_deltas() -> Result<()> {
+        let trials = vec![
+            ExerciseTrial {
+                score: 3.0,
+                timestamp: generate_timestamp(0),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseTrial {
+                score: 4.0,
+                timestamp: generate_timestamp(2),
+            },
+        ];
+        let deltas = vec![
+            ExerciseDelta {
+                delta: -0.5,
+                timestamp: generate_timestamp(1),
+            },
+            ExerciseDelta {
+                delta: -0.8,
+                timestamp: generate_timestamp(2),
+            },
+        ];
+
+        let base_score = SCORER.score(
+            ExerciseType::Declarative,
+            &trials,
+            &[],
+            Utc::now().timestamp(),
+        )?;
+        let delta_score = SCORER.score(
+            ExerciseType::Declarative,
+            &trials,
+            &deltas,
+            Utc::now().timestamp(),
+        )?;
+        assert!(delta_score < base_score);
+        Ok(())
     }
 }
