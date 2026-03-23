@@ -59,6 +59,7 @@ pub mod error;
 pub mod exercise_scorer;
 pub mod filter_manager;
 pub mod graph;
+pub mod practice_deltas;
 pub mod practice_rewards;
 pub mod practice_stats;
 pub mod preferences_manager;
@@ -85,12 +86,13 @@ use crate::{
     blacklist::{Blacklist, LocalBlacklist},
     course_library::{CourseLibrary, GetUnitGraph, LocalCourseLibrary, SerializedCourseLibrary},
     data::{
-        CourseManifest, ExerciseManifest, ExerciseTrial, LessonManifest, MasteryScore,
+        CourseManifest, ExerciseDelta, ExerciseManifest, ExerciseTrial, LessonManifest, MasteryScore,
         SchedulerOptions, SchedulerPreferences, UnitReward, UnitType, UserPreferences,
         filter::{ExerciseFilter, SavedFilter},
     },
     filter_manager::{FilterManager, LocalFilterManager},
     graph::UnitGraph,
+    practice_deltas::{LocalPracticeDeltas, PracticeDeltas},
     practice_rewards::{LocalPracticeRewards, PracticeRewards},
     practice_stats::{LocalPracticeStats, PracticeStats},
     preferences_manager::{LocalPreferencesManager, PreferencesManager},
@@ -107,6 +109,9 @@ pub const PRACTICE_STATS_PATH: &str = "practice_stats.db";
 
 /// The path to the `SQLite` database containing the rewards for lessons and courses.
 pub const PRACTICE_REWARDS_PATH: &str = "practice_rewards.db";
+
+/// The path to the `SQLite` database containing the deltas between predicted and actual scores.
+pub const PRACTICE_DELTAS_PATH: &str = "practice_deltas.db";
 
 /// The path to the `SQLite` database containing the list of units to ignore during scheduling.
 pub const BLACKLIST_PATH: &str = "blacklist.db";
@@ -140,6 +145,9 @@ pub struct Trane {
 
     /// The object managing unit filters saved by the user.
     filter_manager: Arc<RwLock<dyn FilterManager + Send + Sync>>,
+
+    /// The object managing the deltas between predicted and actual scores.
+    practice_deltas: Arc<RwLock<dyn PracticeDeltas + Send + Sync>>,
 
     /// The object managing the information on previous exercise trials.
     practice_stats: Arc<RwLock<dyn PracticeStats + Send + Sync>>,
@@ -241,6 +249,9 @@ impl Trane {
         let practice_stats = Arc::new(RwLock::new(LocalPracticeStats::new_from_disk(
             config_path.join(PRACTICE_STATS_PATH).to_str().unwrap(),
         )?));
+        let practice_deltas = Arc::new(RwLock::new(LocalPracticeDeltas::new_from_disk(
+            config_path.join(PRACTICE_DELTAS_PATH).to_str().unwrap(),
+        )?));
         let practice_rewards = Arc::new(RwLock::new(LocalPracticeRewards::new_from_disk(
             config_path.join(PRACTICE_REWARDS_PATH).to_str().unwrap(),
         )?));
@@ -262,6 +273,7 @@ impl Trane {
             options,
             course_library: course_library.clone(),
             unit_graph: unit_graph.clone(),
+            practice_deltas: practice_deltas.clone(),
             practice_stats: practice_stats.clone(),
             practice_rewards: practice_rewards.clone(),
             blacklist: blacklist.clone(),
@@ -276,6 +288,7 @@ impl Trane {
             course_library,
             filter_manager,
             library_root: library_root.to_str().unwrap().to_string(),
+            practice_deltas,
             practice_stats,
             practice_rewards,
             preferences_manager,
@@ -505,6 +518,40 @@ impl PracticeRewards for Trane {
         self.practice_rewards
             .write()
             .remove_rewards_with_prefix(prefix)
+    }
+}
+
+#[cfg_attr(coverage, coverage(off))]
+impl PracticeDeltas for Trane {
+    fn get_deltas(
+        &self,
+        exercise_id: Ustr,
+        num_deltas: u32,
+    ) -> Result<Vec<ExerciseDelta>, PracticeDeltasError> {
+        self.practice_deltas
+            .read()
+            .get_deltas(exercise_id, num_deltas)
+    }
+
+    fn record_exercise_delta(
+        &mut self,
+        exercise_id: Ustr,
+        delta: f32,
+        timestamp: i64,
+    ) -> Result<(), PracticeDeltasError> {
+        self.practice_deltas
+            .write()
+            .record_exercise_delta(exercise_id, delta, timestamp)
+    }
+
+    fn trim_deltas(&mut self, num_deltas: u32) -> Result<(), PracticeDeltasError> {
+        self.practice_deltas.write().trim_deltas(num_deltas)
+    }
+
+    fn remove_deltas_with_prefix(&mut self, prefix: &str) -> Result<(), PracticeDeltasError> {
+        self.practice_deltas
+            .write()
+            .remove_deltas_with_prefix(prefix)
     }
 }
 

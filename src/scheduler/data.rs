@@ -15,6 +15,7 @@ use crate::{
     },
     filter_manager::FilterManager,
     graph::UnitGraph,
+    practice_deltas::PracticeDeltas,
     practice_rewards::PracticeRewards,
     practice_stats::PracticeStats,
     review_list::ReviewList,
@@ -31,6 +32,9 @@ pub struct SchedulerData {
 
     /// The dependency graph of courses and lessons.
     pub unit_graph: Arc<RwLock<dyn UnitGraph>>,
+
+    /// The deltas between predicted and actual scores.
+    pub practice_deltas: Arc<RwLock<dyn PracticeDeltas>>,
 
     /// The list of previous exercise results.
     pub practice_stats: Arc<RwLock<dyn PracticeStats>>,

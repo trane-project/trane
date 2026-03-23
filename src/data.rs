@@ -109,6 +109,16 @@ pub struct ExerciseTrial {
 }
 //>@lp-example-4
 
+/// The delta between the predicted and actual score for a single exercise trial.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct ExerciseDelta {
+    /// The delta between the predicted and actual score.
+    pub delta: f32,
+
+    /// The timestamp at which the trial happened.
+    pub timestamp: i64,
+}
+
 /// The reward assigned to a single exercise. Rewards are used to adjust an exercise's score based
 /// on performance of related exercises.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]

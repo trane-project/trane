@@ -70,6 +70,23 @@ pub enum PracticeStatsError {
     RemovePrefix(String, #[source] anyhow::Error),
 }
 
+/// An error returned when dealing with the practice deltas.
+#[derive(Debug, Error)]
+#[allow(missing_docs)]
+pub enum PracticeDeltasError {
+    #[error("cannot get deltas for unit {0}: {1}")]
+    GetDeltas(Ustr, #[source] anyhow::Error),
+
+    #[error("cannot record delta for unit {0}: {1}")]
+    RecordDelta(Ustr, #[source] anyhow::Error),
+
+    #[error("cannot trim deltas: {0}")]
+    TrimDeltas(#[source] anyhow::Error),
+
+    #[error("cannot remove deltas from units matching prefix {0}: {1}")]
+    RemovePrefix(String, #[source] anyhow::Error),
+}
+
 /// An error returned when dealing with user preferences.
 #[derive(Debug, Error)]
 #[allow(missing_docs)]
