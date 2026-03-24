@@ -40,7 +40,7 @@ const MAX_ENCOMPASSED_WEIGHT: f32 = 1000.0;
 
 /// The factor used to compute the part of the weight that depends on how many units the exercise
 /// encompasses.
-const ENCOMPASSES_FACTOR: f32 = 1000.0;
+const ENCOMPASSES_FACTOR: f32 = 500.0;
 
 /// The part of the weight that depends on the depth of the candidate will be the product of the
 /// depth and this factor.

@@ -314,6 +314,25 @@ mod tests {
         ));
         let weight = weight_map.get(&last_exercise_id).copied().unwrap_or(0.0);
         assert_eq!(weight, 0.0);
+
+        // Compute the reverse map. Exercises in the last few courses should have high weight
+        // because they encompass many other exercises below them.
+        let reverse_map =
+            ReviewKnocker::compute_encompassing_map(&initial_batch, &unit_graph, true);
+        for course_id in (num_courses - 5)..num_courses {
+            for lesson_id in 0..num_lessons_per_course {
+                let exercise_id = Ustr::from(&format!("ex{}_{}", course_id, lesson_id));
+                let weight = reverse_map.get(&exercise_id).copied().unwrap_or(0.0);
+                assert!(weight >= VERY_HIGHLY_WEIGHT,);
+            }
+        }
+
+        // The first exercise in the first course should have weight 0 in the reverse map, since it
+        // encompasses nothing.
+        let first_exercise_id = Ustr::from("ex0_0");
+        let weight = reverse_map.get(&first_exercise_id).copied().unwrap_or(0.0);
+        assert_eq!(weight, 0.0);
+
         Ok(())
     }
 
@@ -363,6 +382,18 @@ mod tests {
                 assert_eq!(weight, 0.0);
             }
         }
+
+        // The reverse map should also be all zeros since there are no encompassing relationships.
+        let reverse_map =
+            ReviewKnocker::compute_encompassing_map(&initial_batch, &unit_graph, true);
+        for course_index in 0..num_courses {
+            for lesson_index in 0..num_lessons_per_course {
+                let exercise_id = Ustr::from(&format!("ex{}_{}", course_index, lesson_index));
+                let weight = reverse_map.get(&exercise_id).copied().unwrap_or(0.0);
+                assert_eq!(weight, 0.0);
+            }
+        }
+
         Ok(())
     }
 
