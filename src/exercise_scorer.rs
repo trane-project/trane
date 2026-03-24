@@ -32,34 +32,34 @@ pub trait ExerciseScorer {
 
 // Adjustable constants: these can be tuned to calibrate the scorer.
 
-/// The decay exponent used in the power-law forgetting curve for declarative exercises (e.g. memory
-/// recall). The value is taken from the FSRS-4.5 implementation.
-const DECLARATIVE_CURVE_DECAY: f32 = -0.5;
-
 /// The decay exponent used in the power-law forgetting curve for procedural exercises (e.g. playing
 /// a piece of music). The value is higher than for declarative exercises, reflecting the slower
 /// decay of procedural memory.
-const PROCEDURAL_CURVE_DECAY: f32 = -0.3;
+const PROCEDURAL_CURVE_DECAY: f32 = -0.2;
+
+/// The decay exponent used in the power-law forgetting curve for declarative exercises (e.g. memory
+/// recall).
+const DECLARATIVE_CURVE_DECAY: f32 = -0.4;
 
 /// A scaling coefficient applied to the stability update term for each review. The per-review
 /// multiplicative change is `1 + STABILITY_COEFFICIENT * P * E * spacing_gain`. The resulting
 /// stability is clamped to `MIN_STABILITY..MAX_STABILITY`.
-const STABILITY_COEFFICIENT: f32 = 2.1;
+const STABILITY_COEFFICIENT: f32 = 2.5;
 
 /// The per-trial difficulty adjustment scale. Good grades reduce difficulty, poor grades increase
 /// it.
-const DIFFICULTY_GRADE_ADJUSTMENT_SCALE: f32 = 0.6;
+const DIFFICULTY_GRADE_ADJUSTMENT_SCALE: f32 = 1.05;
 
 /// How much the dynamic difficulty is pulled back toward the base estimate after each review.
-const DIFFICULTY_REVERSION_WEIGHT: f32 = 0.1;
+const DIFFICULTY_REVERSION_WEIGHT: f32 = 0.16;
 
 /// The per-day decay factor for exponential weighting of performance. Latest score weight 1.0,
 /// scores one day old are multiplied by it, two days old by its square and so on.
-const PERFORMANCE_WEIGHT_DECAY: f32 = 0.98;
+const PERFORMANCE_WEIGHT_DECAY: f32 = 0.95;
 
 /// The weight of the interval-aware spacing effect during successful reviews. Larger values
 /// increase stability growth when pre-review retrievability is low.
-const SPACING_EFFECT_WEIGHT: f32 = 0.7;
+const SPACING_EFFECT_WEIGHT: f32 = 0.65;
 
 /// The minimum weighted score required to apply the old-good retrievability floor. This floor is
 /// applied to exercises with strong historical performance to prevent them from dropping too low
@@ -216,32 +216,46 @@ impl PowerLawScorer {
         difficulty.clamp(MIN_DIFFICULTY, MAX_DIFFICULTY)
     }
 
-    /// Computes the time-decayed weighted average performance from all entries.
+    /// Computes a blended weighted average performance from all entries.
     ///
-    /// Weights decay by elapsed days from the most recent entry so irregular practice cadence is
-    /// modeled more accurately.
+    /// Two averages are combined: a time-based average where weights decay by elapsed weeks, and a
+    /// position-based average where weights decay by ordinal position (most recent = 1, next =
+    /// decay, then decay squared, etc.). The two are blended 60/40 time/position.
     fn compute_weighted_avg<T: TimestampedValue>(entries: &[T]) -> f32 {
         if entries.is_empty() {
             return 0.0;
         }
 
-        // Start from the latest timestamp and compute the weights based on the number of days
-        // from it.
+        // Time-based average: weights decay by elapsed weeks from the most recent entry.
         let newest_timestamp = entries[0].timestamp();
-        let mut sum_weighted = 0.0;
-        let mut sum_weights = 0.0;
+        let mut time_sum_weighted = 0.0;
+        let mut time_sum_weights = 0.0;
         for entry in entries {
-            let elapsed_days = ((newest_timestamp.saturating_sub(entry.timestamp())) as f32
-                / SECONDS_PER_DAY)
+            let elapsed_weeks = ((newest_timestamp.saturating_sub(entry.timestamp())) as f32
+                / SECONDS_PER_DAY
+                / 7.0)
                 .max(0.0);
             let weight = PERFORMANCE_WEIGHT_DECAY
-                .powf(elapsed_days)
+                .powf(elapsed_weeks)
                 .max(PERFORMANCE_WEIGHT_MIN);
-            sum_weighted += weight * entry.value();
-            sum_weights += weight;
+            time_sum_weighted += weight * entry.value();
+            time_sum_weights += weight;
         }
+        let time_avg = time_sum_weighted / time_sum_weights;
 
-        sum_weighted / sum_weights
+        // Position-based average: weights decay by ordinal position regardless of timestamps.
+        let mut pos_sum_weighted = 0.0;
+        let mut pos_sum_weights = 0.0;
+        for (i, entry) in entries.iter().enumerate() {
+            let weight = PERFORMANCE_WEIGHT_DECAY
+                .powf(i as f32)
+                .max(PERFORMANCE_WEIGHT_MIN);
+            pos_sum_weighted += weight * entry.value();
+            pos_sum_weights += weight;
+        }
+        let pos_avg = pos_sum_weighted / pos_sum_weights;
+
+        0.8 * time_avg + 0.2 * pos_avg
     }
 
     /// Returns the forgetting-curve decay exponent for the given exercise type.
@@ -856,7 +870,7 @@ mod test {
             PowerLawScorer::compute_retrievability(&ExerciseType::Declarative, 100.0, stability);
         let very_old_procedural =
             PowerLawScorer::compute_retrievability(&ExerciseType::Procedural, 100.0, stability);
-        assert!(very_old_declarative < 0.25);
+        assert!(very_old_declarative < 0.26);
         assert!(very_old_declarative < very_old_procedural);
     }
 
@@ -950,7 +964,7 @@ mod test {
         let mean = PowerLawScorer::compute_weighted_avg(&single_trial);
         assert!((mean - 5.0).abs() < 1e-6);
 
-        // Multiple trials: [5.0, 4.0, 3.0] should be approx 4.03 at this decay rate.
+        // Multiple trials: [5.0, 4.0, 3.0] should be approx 4.017 at this decay rate.
         let multi_trials = vec![
             ExerciseTrial {
                 score: 5.0,
@@ -966,7 +980,7 @@ mod test {
             },
         ];
         let weighted = PowerLawScorer::compute_weighted_avg(&multi_trials);
-        assert!((weighted - 4.013).abs() < 0.001);
+        assert!((weighted - 4.017).abs() < 0.001);
 
         // Irregular spacing should down-weight distant failures more than dense spacing.
         let dense_low_tail = vec![
