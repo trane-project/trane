@@ -4,7 +4,10 @@
 
 use anyhow::{Result, anyhow};
 use chrono::Utc;
-use rand::distr::{Distribution, weighted::WeightedIndex};
+use rand::{
+    RngExt,
+    distr::{Distribution, weighted::WeightedIndex},
+};
 use std::path::{Path, PathBuf};
 use ustr::{Ustr, UstrMap};
 use walkdir::WalkDir;
@@ -52,6 +55,10 @@ pub struct StudentProfile {
     /// of trials. The probabilities of trials in between the initial and the stable trials are
     /// interpolated.
     pub stable_performance: PerformanceProbs,
+
+    /// The rate at which the student lapses on an exercise after the stable performance is reached.
+    /// Used to simulate forgetting, even after reaching stable performance.
+    pub lapse_rate: f32,
 }
 
 /// The result of running a benchmark for a student profile.
@@ -126,10 +133,11 @@ impl Default for Benchmark {
             scheduler_opts: SchedulerOptions::default(),
             remedial_profile: StudentProfile {
                 session_frequency: 4,
-                exercises_per_session: 20,
+                exercises_per_session: 25,
                 initial_performance: [0.3, 0.2, 0.25, 0.15, 0.1],
                 trials_before_stable: 5,
                 stable_performance: [0.02, 0.08, 0.1, 0.3, 0.5],
+                lapse_rate: 0.07,
             },
             below_median_profile: StudentProfile {
                 session_frequency: 3,
@@ -137,6 +145,7 @@ impl Default for Benchmark {
                 initial_performance: [0.2, 0.25, 0.3, 0.15, 0.1],
                 trials_before_stable: 5,
                 stable_performance: [0.02, 0.03, 0.1, 0.3, 0.55],
+                lapse_rate: 0.07,
             },
             median_profile: StudentProfile {
                 session_frequency: 2,
@@ -144,6 +153,7 @@ impl Default for Benchmark {
                 initial_performance: [0.15, 0.25, 0.3, 0.18, 0.12],
                 trials_before_stable: 4,
                 stable_performance: [0.02, 0.03, 0.1, 0.25, 0.6],
+                lapse_rate: 0.07,
             },
             above_median_profile: StudentProfile {
                 session_frequency: 1,
@@ -151,13 +161,15 @@ impl Default for Benchmark {
                 initial_performance: [0.1, 0.15, 0.4, 0.2, 0.15],
                 trials_before_stable: 4,
                 stable_performance: [0.01, 0.02, 0.07, 0.25, 0.65],
+                lapse_rate: 0.06,
             },
             excellent_profile: StudentProfile {
                 session_frequency: 1,
-                exercises_per_session: 60,
+                exercises_per_session: 50,
                 initial_performance: [0.08, 0.12, 0.4, 0.2, 0.2],
                 trials_before_stable: 3,
                 stable_performance: [0.01, 0.02, 0.07, 0.2, 0.7],
+                lapse_rate: 0.05,
             },
             advanced_course: Ustr::from("placeholder_advanced_course"),
             mastery_threshold: 4.3,
@@ -203,8 +215,13 @@ impl Benchmark {
         })
     }
 
-    /// Gets the score for an exercise given the number of trials and the student profile.
+    /// Gets the score for an exercise given the number of trials and the student profile. The score
+    /// can also lapse based on the rate defined in the profile.
     fn get_score(profile: &StudentProfile, trial_num: u32) -> MasteryScore {
+        let is_lapse = rand::rng().random_range(0.0..1.0) < profile.lapse_rate;
+        if is_lapse && trial_num > profile.trials_before_stable {
+            return MasteryScore::Two;
+        }
         let performance = Self::interpolate_performance(profile, trial_num);
         let choice = WeightedIndex::new(performance).unwrap();
         match choice.sample(&mut rand::rng()) {
@@ -276,6 +293,7 @@ impl Benchmark {
                     if exercises_in_session >= profile.exercises_per_session {
                         break;
                     }
+
                     let trial_count = trial_counts.entry(exercise.id).or_insert(0);
                     let score = Self::get_score(profile, *trial_count);
                     let timestamp = Self::exercise_timestamp(session_start, exercises_in_session);
@@ -388,6 +406,7 @@ mod tests {
             initial_performance: [0.5, 0.3, 0.1, 0.05, 0.05],
             trials_before_stable: 10,
             stable_performance: [0.0, 0.1, 0.2, 0.3, 0.4],
+            lapse_rate: 0.1,
         }
     }
 
@@ -442,7 +461,7 @@ mod tests {
     }
 
     /// Verifies that get_score returns a deterministic score when probabilities are 100% for one
-    /// rating.
+    /// rating and lapse is zero.
     #[test]
     fn get_score_deterministic() {
         let benchmark = Benchmark {
@@ -452,6 +471,7 @@ mod tests {
                 initial_performance: [0.0, 0.0, 0.0, 0.0, 1.0],
                 trials_before_stable: 1,
                 stable_performance: [0.0, 0.0, 0.0, 0.0, 1.0],
+                lapse_rate: 0.0,
             },
             ..Default::default()
         };
@@ -461,6 +481,33 @@ mod tests {
             let score = Benchmark::get_score(profile, 0);
             assert_eq!(score, MasteryScore::Five);
         }
+    }
+
+    /// Verifies that some lapses in the score happen when the lapse rate is set in the profile.
+    #[test]
+    fn get_score_with_lapses() {
+        let profile = StudentProfile {
+            session_frequency: 1,
+            exercises_per_session: 5,
+            initial_performance: [0.0, 0.0, 0.0, 0.0, 1.0],
+            trials_before_stable: 3,
+            stable_performance: [0.0, 0.0, 0.0, 0.0, 1.0],
+            lapse_rate: 0.5,
+        };
+
+        let mut saw_two = false;
+        let mut saw_five = false;
+        for _ in 0..10 {
+            let score = Benchmark::get_score(&profile, 5);
+            if score == MasteryScore::Two {
+                saw_two = true;
+            }
+            if score == MasteryScore::Five {
+                saw_five = true;
+            }
+        }
+        assert!(saw_two);
+        assert!(saw_five);
     }
 
     /// Verifies that the default benchmark is valid.
@@ -476,7 +523,7 @@ mod tests {
         let benchmark = Benchmark {
             library_dir: PathBuf::from("tests/small_test_library"),
             advanced_course: Ustr::from("trane::music::improvise_for_real::sing_the_numbers::3"),
-            max_sessions: 60,
+            max_sessions: 50,
             ..Benchmark::default()
         };
         let result = benchmark.run_benchmark();

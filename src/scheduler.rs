@@ -1140,7 +1140,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
             .get_exercise_num_trials(exercise_id)
             .unwrap_or_default()
             .unwrap_or_default();
-        if num_trials > 0 && existing_score > 0.1 {
+        if num_trials > 0 {
             let delta = score.float_score() - existing_score;
             self.data
                 .practice_deltas
