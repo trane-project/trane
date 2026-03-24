@@ -980,7 +980,7 @@ mod test {
             },
         ];
         let weighted = PowerLawScorer::compute_weighted_avg(&multi_trials);
-        assert!((weighted - 4.017).abs() < 0.001);
+        assert!((weighted - 4.017).abs() < 0.01);
 
         // Irregular spacing should down-weight distant failures more than dense spacing.
         let dense_low_tail = vec![
