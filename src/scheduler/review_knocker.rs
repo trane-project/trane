@@ -34,12 +34,6 @@ pub(super) struct KnockoutResult {
     /// encompassed category.
     pub candidates: Vec<Candidate>,
 
-    /// The mapping of exercise IDs to the number of courses and lessons that encompassed them in
-    /// the initial batch with the weight of the units considered in the calculation. Exercises in
-    /// the same lesson should only be counted once. The candidate filter will use them as a
-    /// component of the weight assigned to exercises inside mastery windows.
-    pub weight_map: UstrMap<f32>,
-
     /// The candidates in the highly encompassed category. These exercises are not removed from the
     /// initial batch, but they are used by the candidate filter to put them in a mastery window
     /// with a lower percentage of the final total than they would otherwise be in.
@@ -208,11 +202,14 @@ impl ReviewKnocker {
             Self::compute_encompassing_map(&initial_batch, &*unit_graph, false);
         let encompasses_map = Self::compute_encompassing_map(&initial_batch, &*unit_graph, true);
         for candidate in &mut initial_batch {
-            let encompasses_weight = encompasses_map
+            candidate.encompasses_weight = encompasses_map
                 .get(&candidate.exercise_id)
                 .copied()
                 .unwrap_or(0.0);
-            candidate.encompasses_weight = encompasses_weight;
+            candidate.encompassed_weight = encompassed_by_map
+                .get(&candidate.exercise_id)
+                .copied()
+                .unwrap_or(0.0);
         }
 
         // Remove the very highly encompassed exercises and identify the highly encompassed
@@ -223,7 +220,6 @@ impl ReviewKnocker {
             Self::get_highly_encompassed(&processed_batch, &encompassed_by_map);
         KnockoutResult {
             candidates: processed_batch,
-            weight_map: encompassed_by_map,
             highly_encompassed,
         }
     }

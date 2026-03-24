@@ -164,6 +164,10 @@ struct Candidate {
     /// The weight of the units that the lesson and course of this exercise encompass. Higher values
     /// mean that practicing this exercise provides more coverage of the graph.
     encompasses_weight: f32,
+
+    /// The weight with which this exercise is encompassed by other exercises in the initial batch.
+    /// Higher values mean that more exercises in the batch implicitly review this exercise.
+    encompassed_weight: f32,
 }
 
 /// An implementation of [`ExerciseScheduler`] based on depth-first search.
@@ -399,6 +403,7 @@ impl DepthFirstScheduler {
                     dead_end: false,
                     num_dependents: self.data.get_num_dependents(item.unit_id, course_id),
                     encompasses_weight: 0.0,
+                    encompassed_weight: 0.0,
                 })
             })
             .collect::<Result<Vec<Candidate>>>()?;
@@ -989,6 +994,7 @@ impl DepthFirstScheduler {
                         dead_end: false,
                         num_dependents: self.data.get_num_dependents(lesson_id, course_id),
                         encompasses_weight: 0.0,
+                        encompassed_weight: 0.0,
                     });
                 }
             }
