@@ -38,6 +38,10 @@ const COURSE_SCORE_WEIGHT_FACTOR: f32 = 50.0;
 /// other exercises in the initial batch will be this value divided by that frequency.
 const MAX_ENCOMPASSED_WEIGHT: f32 = 1000.0;
 
+/// The factor used to compute the part of the weight that depends on how many units the exercise
+/// encompasses.
+const ENCOMPASSES_FACTOR: f32 = 1000.0;
+
 /// The part of the weight that depends on the depth of the candidate will be the product of the
 /// depth and this factor.
 const DEPTH_WEIGHT_FACTOR: f32 = 500.0;
@@ -186,7 +190,7 @@ impl CandidateFilter {
     ///     penalty.
     fn candidate_weight(
         c: &Candidate,
-        encompassed_freq: u32,
+        encompassed_weight: f32,
         lesson_freq: u32,
         course_freq: u32,
     ) -> f32 {
@@ -199,9 +203,14 @@ impl CandidateFilter {
         // A part of the score will depend on the score of the course.
         weight += COURSE_SCORE_WEIGHT_FACTOR * (5.0 - c.course_score).max(0.0);
 
-        // A part of the score will depend on the frequency with which the exercise is encompassed
+        // A part of the score will depend on the weight with which the exercise is encompassed
         // by other exercises in the initial batch.
-        weight += MAX_ENCOMPASSED_WEIGHT / (encompassed_freq.max(1) as f32);
+        weight += MAX_ENCOMPASSED_WEIGHT / (encompassed_weight.max(1.0));
+
+        // A part of the score will depend on how many units this exercises encompasses. Exercises
+        // that encompass more units should be prioritized since they implicitly review more
+        // material.
+        weight += ENCOMPASSES_FACTOR * c.encompasses_weight;
 
         // A part of the score will depend on the number of hops that were needed to reach
         // the candidate.
@@ -260,7 +269,7 @@ impl CandidateFilter {
     /// left after the first round of filtering.
     fn select_candidates(
         candidates: &[Candidate],
-        frequency_map: &UstrMap<u32>,
+        encompassed_map: &UstrMap<f32>,
         num_to_select: usize,
     ) -> (Vec<Candidate>, Vec<Candidate>) {
         // Return the list if there are fewer candidates than the number to select.
@@ -278,10 +287,11 @@ impl CandidateFilter {
         let mut rng = rng();
         let selected: Vec<Candidate> = candidates
             .sample_weighted(&mut rng, num_to_select, |c| {
-                let encompassed_frequency = frequency_map.get(&c.exercise_id).copied().unwrap_or(0);
+                let encompassed_weight =
+                    encompassed_map.get(&c.exercise_id).copied().unwrap_or(0.0);
                 Self::candidate_weight(
                     c,
-                    encompassed_frequency,
+                    encompassed_weight,
                     lesson_freq.get(&c.lesson_id).copied().unwrap_or(0),
                     course_freq.get(&c.course_id).copied().unwrap_or(0),
                 )
@@ -307,7 +317,7 @@ impl CandidateFilter {
         batch_size: usize,
         final_candidates: &mut Vec<Candidate>,
         remainder: &[Candidate],
-        frequency_map: &UstrMap<u32>,
+        encompassed_map: &UstrMap<f32>,
         max_added: Option<usize>,
     ) {
         // Do not fill batches past 3/4 of the batch size to avoid creating unbalanced batches.
@@ -323,7 +333,7 @@ impl CandidateFilter {
             Some(max) => num_remainder.min(max),
         };
         let (remainder_candidates, _) =
-            Self::select_candidates(remainder, frequency_map, num_added);
+            Self::select_candidates(remainder, encompassed_map, num_added);
         final_candidates.extend(remainder_candidates);
     }
 
@@ -420,7 +430,7 @@ impl CandidateFilter {
         let mut final_candidates = Vec::with_capacity(batch_size);
         let num_mastered =
             (batch_size_float * options.mastered_window_opts.percentage).max(1.0) as usize;
-        let frequency_map = &result.frequency_map;
+        let frequency_map = &result.weight_map;
         let (mastered_selected, mastered_remainder) =
             Self::select_candidates(&mastered_candidates, frequency_map, num_mastered);
         final_candidates.extend(mastered_selected);
@@ -680,8 +690,8 @@ mod test {
             ..Default::default()
         };
         assert!(
-            CandidateFilter::candidate_weight(&c1, 0, 1, 1)
-                < CandidateFilter::candidate_weight(&c2, 0, 1, 1)
+            CandidateFilter::candidate_weight(&c1, 0.0, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 0.0, 1, 1)
         );
     }
 
@@ -694,8 +704,8 @@ mod test {
             ..Default::default()
         };
         assert!(
-            CandidateFilter::candidate_weight(&c1, 0, 1, 1)
-                < CandidateFilter::candidate_weight(&c2, 0, 1, 1)
+            CandidateFilter::candidate_weight(&c1, 0.0, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 0.0, 1, 1)
         );
     }
 
@@ -715,8 +725,8 @@ mod test {
             ..Default::default()
         };
         assert!(
-            CandidateFilter::candidate_weight(&c1, 0, 1, 1)
-                < CandidateFilter::candidate_weight(&c2, 0, 1, 1)
+            CandidateFilter::candidate_weight(&c1, 0.0, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 0.0, 1, 1)
         );
     }
 
@@ -732,8 +742,8 @@ mod test {
             ..Default::default()
         };
         assert!(
-            CandidateFilter::candidate_weight(&c1, 0, 1, 1)
-                < CandidateFilter::candidate_weight(&c2, 0, 1, 1)
+            CandidateFilter::candidate_weight(&c1, 0.0, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 0.0, 1, 1)
         );
     }
 
@@ -749,8 +759,8 @@ mod test {
             ..Default::default()
         };
         assert!(
-            CandidateFilter::candidate_weight(&c1, 0, 1, 1)
-                < CandidateFilter::candidate_weight(&c2, 0, 1, 1)
+            CandidateFilter::candidate_weight(&c1, 0.0, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 0.0, 1, 1)
         );
     }
 
@@ -766,8 +776,8 @@ mod test {
             ..Default::default()
         };
         assert!(
-            CandidateFilter::candidate_weight(&c1, 0, 1, 1)
-                < CandidateFilter::candidate_weight(&c2, 0, 1, 1)
+            CandidateFilter::candidate_weight(&c1, 0.0, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 0.0, 1, 1)
         );
     }
 
@@ -783,8 +793,8 @@ mod test {
             ..Default::default()
         };
         assert!(
-            CandidateFilter::candidate_weight(&c1, 0, 1, 1)
-                < CandidateFilter::candidate_weight(&c2, 0, 1, 1)
+            CandidateFilter::candidate_weight(&c1, 0.0, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 0.0, 1, 1)
         );
     }
 
@@ -803,8 +813,8 @@ mod test {
             ..Default::default()
         };
         assert!(
-            CandidateFilter::candidate_weight(&c1, 0, 1, 1)
-                < CandidateFilter::candidate_weight(&c2, 0, 1, 1)
+            CandidateFilter::candidate_weight(&c1, 0.0, 1, 1)
+                < CandidateFilter::candidate_weight(&c2, 0.0, 1, 1)
         );
 
         // Candidates with different exercise scores but the same last seen values.
@@ -819,8 +829,8 @@ mod test {
             ..Default::default()
         };
         assert!(
-            CandidateFilter::candidate_weight(&c3, 0, 1, 1)
-                < CandidateFilter::candidate_weight(&c4, 0, 1, 1)
+            CandidateFilter::candidate_weight(&c3, 0.0, 1, 1)
+                < CandidateFilter::candidate_weight(&c4, 0.0, 1, 1)
         );
     }
 
@@ -829,8 +839,8 @@ mod test {
     fn higher_lesson_frequency_less_weight() {
         let c = Candidate::default();
         assert!(
-            CandidateFilter::candidate_weight(&c, 0, 10, 1)
-                < CandidateFilter::candidate_weight(&c, 0, 3, 1)
+            CandidateFilter::candidate_weight(&c, 0.0, 10, 1)
+                < CandidateFilter::candidate_weight(&c, 0.0, 3, 1)
         );
     }
 
@@ -924,8 +934,8 @@ mod test {
     fn higher_course_frequency_less_weight() {
         let c = Candidate::default();
         assert!(
-            CandidateFilter::candidate_weight(&c, 0, 1, 10)
-                < CandidateFilter::candidate_weight(&c, 0, 1, 3)
+            CandidateFilter::candidate_weight(&c, 0.0, 1, 10)
+                < CandidateFilter::candidate_weight(&c, 0.0, 1, 3)
         );
     }
 
@@ -935,8 +945,8 @@ mod test {
     fn higher_encompassed_frequency_less_weight() {
         let c = Candidate::default();
         assert!(
-            CandidateFilter::candidate_weight(&c, 10, 1, 1)
-                < CandidateFilter::candidate_weight(&c, 3, 1, 1)
+            CandidateFilter::candidate_weight(&c, 10.0, 1, 1)
+                < CandidateFilter::candidate_weight(&c, 3.0, 1, 1)
         );
     }
 
@@ -949,8 +959,8 @@ mod test {
             ..Default::default()
         };
 
-        let base_weight = CandidateFilter::candidate_weight(&base, 0, 1, 1);
-        let dead_end_weight = CandidateFilter::candidate_weight(&dead_end, 0, 1, 1);
+        let base_weight = CandidateFilter::candidate_weight(&base, 0.0, 1, 1);
+        let dead_end_weight = CandidateFilter::candidate_weight(&dead_end, 0.0, 1, 1);
         assert_eq!(dead_end_weight - base_weight, DEAD_WEIGHT_FACTOR);
     }
 
@@ -967,7 +977,7 @@ mod test {
             ..Default::default()
         };
         assert_eq!(
-            CandidateFilter::candidate_weight(&c, 100, 1000, 1000),
+            CandidateFilter::candidate_weight(&c, 100.0, 1000, 1000),
             MIN_WEIGHT
         );
     }
@@ -985,8 +995,8 @@ mod test {
             ..base.clone()
         };
         assert!(
-            CandidateFilter::candidate_weight(&base, 0, 1, 1)
-                > CandidateFilter::candidate_weight(&low_velocity, 0, 1, 1)
+            CandidateFilter::candidate_weight(&base, 0.0, 1, 1)
+                > CandidateFilter::candidate_weight(&low_velocity, 0.0, 1, 1)
         );
     }
 
@@ -1002,8 +1012,8 @@ mod test {
             ..base.clone()
         };
         assert!(
-            CandidateFilter::candidate_weight(&negative, 0, 1, 1)
-                > CandidateFilter::candidate_weight(&base, 0, 1, 1)
+            CandidateFilter::candidate_weight(&negative, 0.0, 1, 1)
+                > CandidateFilter::candidate_weight(&base, 0.0, 1, 1)
         );
     }
 
@@ -1018,8 +1028,8 @@ mod test {
             score_velocity: Some(0.05),
             ..base.clone()
         };
-        let base_weight = CandidateFilter::candidate_weight(&base, 0, 1, 1);
-        let stagnant_weight = CandidateFilter::candidate_weight(&stagnant, 0, 1, 1);
+        let base_weight = CandidateFilter::candidate_weight(&base, 0.0, 1, 1);
+        let stagnant_weight = CandidateFilter::candidate_weight(&stagnant, 0.0, 1, 1);
         assert!(stagnant_weight > base_weight + STAGNANT_VELOCITY_WEIGHT - 100.0);
     }
 
@@ -1035,8 +1045,8 @@ mod test {
             ..base.clone()
         };
         assert!(
-            CandidateFilter::candidate_weight(&stagnant, 0, 1, 1)
-                < CandidateFilter::candidate_weight(&base, 0, 1, 1)
+            CandidateFilter::candidate_weight(&stagnant, 0.0, 1, 1)
+                < CandidateFilter::candidate_weight(&base, 0.0, 1, 1)
         );
     }
 
@@ -1052,8 +1062,8 @@ mod test {
             score_velocity: Some(0.5),
             ..base.clone()
         };
-        let base_weight = CandidateFilter::candidate_weight(&base, 0, 1, 1);
-        let active_weight = CandidateFilter::candidate_weight(&active, 0, 1, 1);
+        let base_weight = CandidateFilter::candidate_weight(&base, 0.0, 1, 1);
+        let active_weight = CandidateFilter::candidate_weight(&active, 0.0, 1, 1);
         let expected_diff = VELOCITY_WEIGHT_FACTOR * 0.5;
         assert!((active_weight - base_weight - expected_diff).abs() < 1.0);
     }
