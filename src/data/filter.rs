@@ -82,17 +82,9 @@ impl KeyValueFilter {
         value: &str,
         filter_type: &FilterType,
     ) -> bool {
-        // Check whether the key-value pair is present in the metadata.
-        let contains_metadata = if metadata.contains_key(key) {
-            metadata
-                .get(key)
-                .unwrap_or(&Vec::new())
-                .contains(&value.to_string())
-        } else {
-            false
-        };
-
-        // Decide whether the filter passes based on its type.
+        let contains_metadata = metadata
+            .get(key)
+            .is_some_and(|values| values.iter().any(|v| v == value));
         match filter_type {
             FilterType::Include => contains_metadata,
             FilterType::Exclude => !contains_metadata,

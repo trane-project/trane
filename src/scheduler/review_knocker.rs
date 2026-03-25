@@ -77,13 +77,13 @@ impl ReviewKnocker {
         let mut unit_weight_map = UstrMap::default();
         let unit_set = initial_batch
             .iter()
-            .flat_map(|candidate| vec![candidate.lesson_id, candidate.course_id])
+            .flat_map(|candidate| [candidate.lesson_id, candidate.course_id])
             .collect::<UstrSet>();
 
         // For each, find all their encompassed lessons and courses.
         for unit_id in unit_set {
             // Initialize the stack and set of visited units.
-            let mut stack: Vec<WeightQueueItem> = Vec::new();
+            let mut stack: Vec<WeightQueueItem> = Vec::with_capacity(16);
             stack.push(WeightQueueItem {
                 unit_id,
                 reward: 1.0,

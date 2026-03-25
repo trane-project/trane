@@ -136,7 +136,7 @@ impl Default for Benchmark {
                 exercises_per_session: 25,
                 initial_performance: [0.3, 0.2, 0.25, 0.15, 0.1],
                 trials_before_stable: 5,
-                stable_performance: [0.02, 0.03, 0.1, 0.2, 0.65],
+                stable_performance: [0.03, 0.02, 0.1, 0.2, 0.65],
                 lapse_rate: 0.1,
             },
             below_median_profile: StudentProfile {
