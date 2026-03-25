@@ -376,6 +376,7 @@ impl DepthFirstScheduler {
             .unit_scorer
             .get_unit_score(item.unit_id)?
             .unwrap_or_default();
+        let frequency_map = self.data.frequency_map.read();
         let candidates = exercises
             .into_iter()
             .map(|exercise_id| {
@@ -399,7 +400,7 @@ impl DepthFirstScheduler {
                         .get_last_seen_days(exercise_id)?
                         .unwrap_or_default(),
                     score_velocity: self.unit_scorer.get_exercise_velocity(exercise_id)?,
-                    frequency: self.data.get_exercise_frequency(exercise_id),
+                    frequency: frequency_map.get(&exercise_id).copied().unwrap_or(0),
                     dead_end: false,
                     num_dependents: self.data.get_num_dependents(item.unit_id, course_id),
                     encompasses_weight: 0.0,
@@ -756,7 +757,7 @@ impl DepthFirstScheduler {
     ) -> Result<Vec<Candidate>> {
         // Initialize the list of candidates.
         let max_candidates = self.data.options.batch_size * MAX_CANDIDATE_FACTOR;
-        let mut all_candidates: Vec<Candidate> = Vec::new();
+        let mut all_candidates: Vec<Candidate> = Vec::with_capacity(max_candidates);
         let mut lessons_in_progress = UstrSet::default();
 
         // The dependency relationships between a course and its lessons are not explicitly encoded

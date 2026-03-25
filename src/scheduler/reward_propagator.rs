@@ -109,7 +109,7 @@ impl RewardPropagator {
         let initial_reward = Self::initial_reward(score);
         let next_lessons = Self::get_next_units(unit_graph, lesson_id, initial_reward);
         let next_courses = Self::get_next_units(unit_graph, course_id, initial_reward);
-        let mut stack: Vec<UnitReward> = Vec::new();
+        let mut stack: Vec<UnitReward> = Vec::with_capacity(16);
         next_lessons
             .iter()
             .chain(next_courses.iter())
@@ -156,7 +156,7 @@ impl RewardPropagator {
                 });
             }
         }
-        results.values().cloned().collect()
+        results.into_values().collect()
     }
 
     /// Propagates the given score through the graph.

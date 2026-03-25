@@ -108,6 +108,7 @@ impl UnitScorer {
 
         // Invalidate the caches depending on the type of the unit.
         let graph = self.data.unit_graph.read();
+        let mut exercise_cache = self.exercise_cache.borrow_mut();
         match graph.get_unit_type(unit_id) {
             // If the unit is an exercise, invalidate the cached score of its lesson and course. If
             // the unit is a lesson, invalidate the cached score of its course.
@@ -129,19 +130,21 @@ impl UnitScorer {
                 }
                 if let Some(exercise_ids) = graph.get_lesson_exercises(unit_id) {
                     for exercise_id in exercise_ids.iter() {
-                        self.exercise_cache.borrow_mut().remove(exercise_id);
+                        exercise_cache.remove(exercise_id);
                     }
                 }
             }
             // For courses, invalidate the scores of all lessons and exercises in the course.
             Some(UnitType::Course) => {
                 if let Some(lesson_ids) = graph.get_course_lessons(unit_id) {
+                    let mut lesson_cache = self.lesson_cache.borrow_mut();
+                    let mut lesson_trials_cache = self.lesson_trials_cache.borrow_mut();
                     for lesson_id in lesson_ids.iter() {
-                        self.lesson_cache.borrow_mut().remove(lesson_id);
-                        self.lesson_trials_cache.borrow_mut().remove(lesson_id);
+                        lesson_cache.remove(lesson_id);
+                        lesson_trials_cache.remove(lesson_id);
                         if let Some(exercise_ids) = graph.get_lesson_exercises(*lesson_id) {
                             for exercise_id in exercise_ids.iter() {
-                                self.exercise_cache.borrow_mut().remove(exercise_id);
+                                exercise_cache.remove(exercise_id);
                             }
                         }
                     }

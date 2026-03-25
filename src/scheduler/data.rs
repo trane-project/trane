@@ -322,17 +322,6 @@ impl SchedulerData {
         *frequency += 1;
     }
 
-    /// Returns the frequency of the given exercise ID.
-    #[inline]
-    #[must_use]
-    pub fn get_exercise_frequency(&self, exercise_id: Ustr) -> usize {
-        self.frequency_map
-            .read()
-            .get(&exercise_id)
-            .copied()
-            .unwrap_or(0)
-    }
-
     /// Returns the unit filter for the saved filter with the given ID. Returns an error if no
     /// filter exists with that ID exists.
     pub fn get_saved_filter(&self, filter_id: &str) -> Result<Arc<SavedFilter>> {
@@ -362,13 +351,14 @@ impl SchedulerData {
     #[must_use]
     pub fn all_valid_exercises_in_lesson(&self, lesson_id: Ustr) -> Vec<Ustr> {
         // If the lesson is blacklisted, return no exercises.
-        if self.blacklisted(lesson_id).unwrap_or(false) {
+        let blacklist = self.blacklist.read();
+        if blacklist.blacklisted(lesson_id).unwrap_or(false) {
             return vec![];
         }
 
         // If the course to which the lesson belongs is blacklisted, return no exercises.
         let course_id = self.get_lesson_course(lesson_id).unwrap_or_default();
-        if self.blacklisted(course_id).unwrap_or(false) {
+        if blacklist.blacklisted(course_id).unwrap_or(false) {
             return vec![];
         }
 
@@ -376,7 +366,7 @@ impl SchedulerData {
         let exercises = self.get_lesson_exercises(lesson_id);
         exercises
             .into_iter()
-            .filter(|exercise_id| !self.blacklisted(*exercise_id).unwrap_or(false))
+            .filter(|exercise_id| !blacklist.blacklisted(*exercise_id).unwrap_or(false))
             .collect()
     }
 
@@ -385,11 +375,12 @@ impl SchedulerData {
     pub fn all_valid_exercises(&self, unit_id: Ustr) -> Vec<Ustr> {
         // First, get the type of the unit. Then get the exercises based on the unit type.
         let unit_type = self.get_unit_type(unit_id);
+        let blacklist = self.blacklist.read();
         match unit_type {
             None => vec![],
             Some(UnitType::Exercise) => {
                 // Return the exercise if it's not blacklisted.
-                if self.blacklisted(unit_id).unwrap_or(false) {
+                if blacklist.blacklisted(unit_id).unwrap_or(false) {
                     vec![]
                 } else {
                     vec![unit_id]
@@ -398,7 +389,7 @@ impl SchedulerData {
             Some(UnitType::Lesson) => self.all_valid_exercises_in_lesson(unit_id),
             Some(UnitType::Course) => {
                 // If the course is blacklisted, return no exercises.
-                if self.blacklisted(unit_id).unwrap_or(false) {
+                if blacklist.blacklisted(unit_id).unwrap_or(false) {
                     return vec![];
                 }
 
@@ -573,13 +564,23 @@ mod test {
         let library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
         let scheduler_data = library.get_scheduler_data();
 
+        let frequency_map = scheduler_data.frequency_map.read();
         assert_eq!(
-            scheduler_data.get_exercise_frequency(Ustr::from("0::0::0")),
+            frequency_map
+                .get(&Ustr::from("0::0::0"))
+                .copied()
+                .unwrap_or(0),
             0
         );
+        drop(frequency_map);
+
         scheduler_data.increment_exercise_frequency(Ustr::from("0::0::0"));
+        let frequency_map = scheduler_data.frequency_map.read();
         assert_eq!(
-            scheduler_data.get_exercise_frequency(Ustr::from("0::0::0")),
+            frequency_map
+                .get(&Ustr::from("0::0::0"))
+                .copied()
+                .unwrap_or(0),
             1
         );
         Ok(())
