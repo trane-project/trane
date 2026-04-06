@@ -33,9 +33,6 @@ pub(super) struct CachedScore {
 
     /// The number of trials used to compute the score.
     num_trials: usize,
-
-    /// The number of days since the last trial.
-    last_seen: f32,
 }
 
 /// Contains the logic to score units based on their previous scores and rewards, as well as the
@@ -231,10 +228,6 @@ impl UnitScorer {
             .reward_scorer
             .score_rewards(&course_rewards, &lesson_rewards)
             .unwrap_or_default();
-        let now = self.now();
-        let last_seen = scores.first().map_or(0.0, |trial| {
-            ((now - trial.timestamp) as f32 / 86_400.0).max(0.0)
-        });
 
         // Apply the reward if it meets the criteria and cache the final score.
         let final_score = if self.reward_scorer.apply_reward(reward, &scores) {
@@ -249,7 +242,6 @@ impl UnitScorer {
                 urgency: score.urgency,
                 velocity: score.velocity,
                 num_trials: scores.len(),
-                last_seen,
             },
         );
         Ok(final_score)
@@ -275,7 +267,7 @@ impl UnitScorer {
             .exercise_cache
             .borrow()
             .get(&exercise_id)
-            .and_then(|s| Some(s.urgency))
+            .map(|s| s.score)
             .unwrap_or_default();
         Ok(cached_urgency)
     }
@@ -325,29 +317,6 @@ impl UnitScorer {
             .get(&exercise_id)
             .map(|s| s.num_trials);
         Ok(cached_num_trials)
-    }
-
-    /// Returns the number of days since the last trial for the given exercise.
-    pub(super) fn get_last_seen_days(&self, exercise_id: Ustr) -> Result<Option<f32>> {
-        // Return the cached value if it exists.
-        let cached_last_seen = self
-            .exercise_cache
-            .borrow()
-            .get(&exercise_id)
-            .map(|c| c.last_seen);
-        if let Some(last_seen) = cached_last_seen {
-            return Ok(Some(last_seen));
-        }
-
-        // Compute the exercise's score, which populates the cache. Then, retrieve the days since last
-        // seen from the cache.
-        self.get_exercise_score(exercise_id)?;
-        let cached_last_seen = self
-            .exercise_cache
-            .borrow()
-            .get(&exercise_id)
-            .map(|s| s.last_seen);
-        Ok(cached_last_seen)
     }
 
     /// Returns whether all the exercises in the unit have valid scores.
@@ -826,7 +795,6 @@ mod test {
                 urgency: 0.0,
                 velocity: None,
                 num_trials: 1,
-                last_seen: 0.0,
             },
         );
         cache.exercise_cache.borrow_mut().insert(
@@ -836,7 +804,6 @@ mod test {
                 urgency: 0.0,
                 velocity: None,
                 num_trials: 1,
-                last_seen: 0.0,
             },
         );
         cache
@@ -890,27 +857,6 @@ mod test {
         library.score_exercise(exercise_id, MasteryScore::Four, 3)?;
         cache.invalidate_cached_score(exercise_id);
         assert_eq!(Some(3), cache.get_exercise_num_trials(exercise_id)?);
-        Ok(())
-    }
-
-    /// Verifies that the number of days since last seen is computed and cached along with the score.
-    #[test]
-    fn get_last_seen_days() -> Result<()> {
-        let temp_dir = tempfile::tempdir()?;
-        let library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
-        let scheduler_data = library.get_scheduler_data();
-        let cache = UnitScorer::new(scheduler_data, SchedulerOptions::default());
-        let exercise_id = Ustr::from("0::0::0");
-        let two_days_ago = Utc::now().timestamp() - (2 * 86_400);
-        library.score_exercise(exercise_id, MasteryScore::Three, two_days_ago)?;
-
-        let last_seen = cache.get_last_seen_days(exercise_id)?;
-        assert!((last_seen.unwrap_or_default() - 2.0).abs() < 0.5);
-
-        library.score_exercise(exercise_id, MasteryScore::Four, Utc::now().timestamp())?;
-        cache.invalidate_cached_score(exercise_id);
-        let last_seen = cache.get_last_seen_days(exercise_id)?;
-        assert!(last_seen.unwrap_or_default() < 1.0);
         Ok(())
     }
 }
