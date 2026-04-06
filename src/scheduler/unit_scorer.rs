@@ -18,10 +18,14 @@ use crate::{
 };
 
 /// Stores information about a cached score.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub(super) struct CachedScore {
     /// The computed score.
     score: f32,
+
+    /// The urgency of scheduling the unit, as a value between 0.0 and 1.0.
+    #[allow(dead_code)]
+    urgency: f32,
 
     /// The velocity of learning, a measure of how quickly the score is improving or worsening over
     /// trials.
@@ -234,20 +238,45 @@ impl UnitScorer {
 
         // Apply the reward if it meets the criteria and cache the final score.
         let final_score = if self.reward_scorer.apply_reward(reward, &scores) {
-            (score + reward).clamp(0.0, 5.0)
+            (score.value + reward).clamp(0.0, 5.0)
         } else {
-            score
+            score.value
         };
         self.exercise_cache.borrow_mut().insert(
             exercise_id,
             CachedScore {
                 score: final_score,
-                velocity: self.exercise_scorer.velocity(&scores),
+                urgency: score.urgency,
+                velocity: score.velocity,
                 num_trials: scores.len(),
                 last_seen,
             },
         );
         Ok(final_score)
+    }
+
+    /// Returns the urgency of scheduling the given exercise, as a value between 0.0 and 1.0.
+    #[allow(dead_code)]
+    pub(super) fn get_exercise_urgency(&self, exercise_id: Ustr) -> Result<Option<f32>> {
+        // Return the cached value if it exists.
+        let cached_urgency = self
+            .exercise_cache
+            .borrow()
+            .get(&exercise_id)
+            .map(|c| c.urgency);
+        if let Some(urgency) = cached_urgency {
+            return Ok(Some(urgency));
+        }
+
+        // Compute the exercise's score, which populates the cache. Then, retrieve the urgency from
+        // the cache.
+        self.get_exercise_score(exercise_id)?;
+        let cached_urgency = self
+            .exercise_cache
+            .borrow()
+            .get(&exercise_id)
+            .map(|s| s.urgency);
+        Ok(cached_urgency)
     }
 
     /// Returns the velocity of learning for the given exercise.
@@ -793,6 +822,7 @@ mod test {
             Ustr::from("a"),
             CachedScore {
                 score: 5.0,
+                urgency: 0.0,
                 velocity: None,
                 num_trials: 1,
                 last_seen: 0.0,
@@ -802,6 +832,7 @@ mod test {
             Ustr::from("b::a"),
             CachedScore {
                 score: 5.0,
+                urgency: 0.0,
                 velocity: None,
                 num_trials: 1,
                 last_seen: 0.0,
