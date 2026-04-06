@@ -19,7 +19,7 @@ use crate::{
 };
 
 /// The minimum candidate cost.
-const MIN_CANDIDATE_COST: f32 = 1.0;
+const MIN_CANDIDATE_COST: f32 = 0.25;
 
 /// The maximum candidate cost.
 const MAX_CANDIDATE_COST: f32 = 1000.0;
