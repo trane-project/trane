@@ -410,7 +410,7 @@ impl PowerLawScorer {
         avg_delta * retrievability / 4.0
     }
 
-    fn velocity(&self, previous_trials: &[ExerciseTrial]) -> Option<f32> {
+    fn velocity(previous_trials: &[ExerciseTrial]) -> Option<f32> {
         // Need at least 2 trials for a meaningful slope.
         if previous_trials.len() < 2 {
             return None;
@@ -488,7 +488,7 @@ impl ExerciseScorer for PowerLawScorer {
         Ok(ExerciseScore {
             value: final_score,
             urgency: 1.0 - effective_retrievability,
-            velocity: self.velocity(previous_trials),
+            velocity: Self::velocity(previous_trials),
         })
     }
 }
@@ -506,6 +506,18 @@ mod test {
     fn generate_timestamp(num_days: i64) -> i64 {
         let now = Utc::now().timestamp();
         now - num_days * SECONDS_PER_DAY as i64
+    }
+
+    /// Computes and unwraps an exercise score estimate for assertions.
+    fn score_helper(
+        exercise_type: ExerciseType,
+        previous_trials: &[ExerciseTrial],
+        previous_deltas: &[ExerciseDelta],
+        now: i64,
+    ) -> ExerciseScore {
+        SCORER
+            .score(exercise_type, previous_trials, previous_deltas, now)
+            .unwrap()
     }
 
     /// Verifies that difficulty is estimated correctly from failure rates.
@@ -598,12 +610,10 @@ mod test {
     /// Verifies the score for an exercise with no previous trials is 0.0.
     #[test]
     fn no_previous_trials() {
-        assert_eq!(
-            0.0,
-            SCORER
-                .score(ExerciseType::Declarative, &[], &[], Utc::now().timestamp())
-                .unwrap()
-        );
+        let score = score_helper(ExerciseType::Declarative, &[], &[], Utc::now().timestamp());
+        assert_eq!(score.value, 0.0);
+        assert_eq!(score.urgency, 0.0);
+        assert_eq!(score.velocity, None);
     }
 
     /// Verifies running the full scoring algorithm on a set of trials produces a reasonable score.
@@ -624,22 +634,22 @@ mod test {
             },
         ];
 
-        let score = SCORER
-            .score(
-                ExerciseType::Declarative,
-                &trials,
-                &[],
-                Utc::now().timestamp(),
-            )
-            .unwrap();
-        assert!(score > 0.0 && score <= 5.0);
-        assert!(score > 2.0); // Decent due to good recent performance
+        let score = score_helper(
+            ExerciseType::Declarative,
+            &trials,
+            &[],
+            Utc::now().timestamp(),
+        );
+        assert!(score.value > 0.0 && score.value <= 5.0);
+        assert!(score.value > 2.0); // Decent due to good recent performance
+        assert!((0.0..=1.0).contains(&score.urgency));
+        assert!(score.velocity.unwrap() < 0.0);
     }
 
     /// Verifies scoring an exercise with an invalid timestamp still returns a sane score.
     #[test]
     fn invalid_timestamp() -> Result<()> {
-        let score = SCORER.score(
+        let score = score_helper(
             ExerciseType::Declarative,
             &[ExerciseTrial {
                 score: 5.0,
@@ -647,16 +657,17 @@ mod test {
             }],
             &[],
             Utc::now().timestamp(),
-        )?;
-        assert!(score >= 0.0 && score <= 5.0);
-        assert!(score < 1.0); // Low due to long time elapsed
+        );
+        assert!(score.value >= 0.0 && score.value <= 5.0);
+        assert!(score.value < 1.0); // Low due to long time elapsed
+        assert!((0.0..=1.0).contains(&score.urgency));
         Ok(())
     }
 
     /// Verifies extreme timestamp gaps do not overflow elapsed-time calculations.
     #[test]
     fn extreme_timestamp_gap_does_not_overflow() -> Result<()> {
-        let score = SCORER.score(
+        let score = score_helper(
             ExerciseType::Declarative,
             &[
                 ExerciseTrial {
@@ -670,8 +681,9 @@ mod test {
             ],
             &[],
             Utc::now().timestamp(),
-        )?;
-        assert!(score >= 0.0 && score <= 5.0);
+        );
+        assert!(score.value >= 0.0 && score.value <= 5.0);
+        assert!((0.0..=1.0).contains(&score.urgency));
         Ok(())
     }
 
@@ -1092,13 +1104,13 @@ mod test {
                 timestamp: generate_timestamp(13),
             },
         ];
-        let score = SCORER.score(
+        let score = score_helper(
             ExerciseType::Declarative,
             &trials,
             &[],
             Utc::now().timestamp(),
-        )?;
-        assert!(score < 2.0);
+        );
+        assert!(score.value < 2.0);
         Ok(())
     }
 
@@ -1147,13 +1159,13 @@ mod test {
                 timestamp: generate_timestamp(25),
             },
         ];
-        let score = SCORER.score(
+        let score = score_helper(
             ExerciseType::Declarative,
             &trials,
             &[],
             Utc::now().timestamp(),
-        )?;
-        assert!(score > 1.0 && score < 4.0);
+        );
+        assert!(score.value > 1.0 && score.value < 4.0);
         Ok(())
     }
 
@@ -1181,7 +1193,7 @@ mod test {
     /// Verifies that trials with old timestamp result in a low score.
     #[test]
     fn score_old_timestamp() -> Result<()> {
-        let score = SCORER.score(
+        let score = score_helper(
             ExerciseType::Declarative,
             &[ExerciseTrial {
                 score: 5.0,
@@ -1189,8 +1201,8 @@ mod test {
             }],
             &[],
             Utc::now().timestamp(),
-        )?;
-        assert!(score < 3.0);
+        );
+        assert!(score.value < 3.0);
         Ok(())
     }
 
@@ -1231,13 +1243,13 @@ mod test {
                 timestamp: generate_timestamp(7),
             },
         ];
-        let score = SCORER.score(
+        let score = score_helper(
             ExerciseType::Declarative,
             &trials,
             &[],
             Utc::now().timestamp(),
-        )?;
-        assert!(score > 4.0);
+        );
+        assert!(score.value > 4.0);
         Ok(())
     }
 
@@ -1278,13 +1290,13 @@ mod test {
                 timestamp: generate_timestamp(27),
             },
         ];
-        let score = SCORER.score(
+        let score = score_helper(
             ExerciseType::Declarative,
             &trials,
             &[],
             Utc::now().timestamp(),
-        )?;
-        assert!(score < 2.0);
+        );
+        assert!(score.value < 2.0);
         Ok(())
     }
 
@@ -1318,20 +1330,20 @@ mod test {
                 timestamp: generate_timestamp(270),
             },
         ];
-        let score = SCORER.score(
+        let score = score_helper(
             ExerciseType::Procedural,
             &trials,
             &[],
             Utc::now().timestamp(),
-        )?;
-        assert!(score >= 3.5);
-        let score = SCORER.score(
+        );
+        assert!(score.value >= 3.5);
+        let score = score_helper(
             ExerciseType::Declarative,
             &trials,
             &[],
             Utc::now().timestamp(),
-        )?;
-        assert!(score >= 3.5);
+        );
+        assert!(score.value >= 3.5);
         Ok(())
     }
 
@@ -1365,33 +1377,61 @@ mod test {
                 timestamp: generate_timestamp(431),
             },
         ];
-        let score = SCORER.score(
+        let score = score_helper(
             ExerciseType::Procedural,
             &trials,
             &[],
             Utc::now().timestamp(),
-        )?;
-        assert!(score >= 3.5);
-        let score = SCORER.score(
+        );
+        assert!(score.value >= 3.5);
+        let score = score_helper(
             ExerciseType::Declarative,
             &trials,
             &[],
             Utc::now().timestamp(),
-        )?;
-        assert!(score >= 3.5);
+        );
+        assert!(score.value >= 3.5);
         Ok(())
+    }
+
+    /// Verifies that urgency increases as an otherwise identical review becomes older.
+    #[test]
+    fn urgency_increases_with_elapsed_time() {
+        let recent_trials = vec![ExerciseTrial {
+            score: 5.0,
+            timestamp: generate_timestamp(1),
+        }];
+        let old_trials = vec![ExerciseTrial {
+            score: 5.0,
+            timestamp: generate_timestamp(30),
+        }];
+
+        let recent = score_helper(
+            ExerciseType::Declarative,
+            &recent_trials,
+            &[],
+            Utc::now().timestamp(),
+        );
+        let old = score_helper(
+            ExerciseType::Declarative,
+            &old_trials,
+            &[],
+            Utc::now().timestamp(),
+        );
+
+        assert!(old.urgency > recent.urgency);
     }
 
     /// Verifies that velocity returns None for 0 or 1 trials.
     #[test]
     fn velocity_empty_trials() {
-        assert_eq!(SCORER.velocity(&[]), None);
+        assert_eq!(PowerLawScorer::velocity(&[]), None);
 
         let trials = vec![ExerciseTrial {
             score: 3.0,
             timestamp: generate_timestamp(0),
         }];
-        assert_eq!(SCORER.velocity(&trials), None);
+        assert_eq!(PowerLawScorer::velocity(&trials), None);
     }
 
     /// Verifies that improving scores (most recent is highest) produce positive velocity.
@@ -1420,7 +1460,7 @@ mod test {
                 timestamp: generate_timestamp(4),
             },
         ];
-        let velocity = SCORER.velocity(&trials).unwrap();
+        let velocity = PowerLawScorer::velocity(&trials).unwrap();
         assert!(velocity > 0.0);
     }
 
@@ -1450,7 +1490,7 @@ mod test {
                 timestamp: generate_timestamp(4),
             },
         ];
-        let velocity = SCORER.velocity(&trials).unwrap();
+        let velocity = PowerLawScorer::velocity(&trials).unwrap();
         assert!(velocity < 0.0);
     }
 
@@ -1471,7 +1511,7 @@ mod test {
                 timestamp: generate_timestamp(2),
             },
         ];
-        let velocity = SCORER.velocity(&trials).unwrap();
+        let velocity = PowerLawScorer::velocity(&trials).unwrap();
         assert!(velocity.abs() < 1e-6);
     }
 
@@ -1503,19 +1543,19 @@ mod test {
             },
         ];
 
-        let base_score = SCORER.score(
+        let base_score = score_helper(
             ExerciseType::Declarative,
             &trials,
             &[],
             Utc::now().timestamp(),
-        )?;
-        let delta_score = SCORER.score(
+        );
+        let delta_score = score_helper(
             ExerciseType::Declarative,
             &trials,
             &deltas,
             Utc::now().timestamp(),
-        )?;
-        assert!(delta_score > base_score);
+        );
+        assert!(delta_score.value > base_score.value);
         Ok(())
     }
 
@@ -1547,19 +1587,19 @@ mod test {
             },
         ];
 
-        let base_score = SCORER.score(
+        let base_score = score_helper(
             ExerciseType::Declarative,
             &trials,
             &[],
             Utc::now().timestamp(),
-        )?;
-        let delta_score = SCORER.score(
+        );
+        let delta_score = score_helper(
             ExerciseType::Declarative,
             &trials,
             &deltas,
             Utc::now().timestamp(),
-        )?;
-        assert!(delta_score < base_score);
+        );
+        assert!(delta_score.value < base_score.value);
         Ok(())
     }
 }

@@ -24,6 +24,7 @@ pub(super) struct CachedScore {
     score: f32,
 
     /// The urgency of scheduling the unit, as a value between 0.0 and 1.0.
+    #[allow(dead_code)]
     urgency: f32,
 
     /// The velocity of learning, a measure of how quickly the score is improving or worsening over
@@ -255,6 +256,7 @@ impl UnitScorer {
     }
 
     /// Returns the urgency of scheduling the given exercise, as a value between 0.0 and 1.0.
+    #[allow(dead_code)]
     pub(super) fn get_exercise_urgency(&self, exercise_id: Ustr) -> Result<Option<f32>> {
         // Return the cached value if it exists.
         let cached_urgency = self
