@@ -19,7 +19,7 @@ use crate::{
 };
 
 /// The minimum candidate weight.
-const MIN_CANDIDATE_WEIGHT: f32 = 0.01;
+const MIN_CANDIDATE_WEIGHT: f32 = 0.05;
 
 /// The minimum candidate cost.
 const MIN_CANDIDATE_COST: f32 = 0.25;
