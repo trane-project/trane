@@ -745,6 +745,24 @@ mod test {
         );
     }
 
+    /// Verifies that the weight of very good candidates is clamped to the minimum weight to ensure
+    /// they are still considered.
+    #[test]
+    fn candidate_weight_clamped() {
+        let c = Candidate {
+            depth: 500.0,
+            num_dependents: 500,
+            encompasses_weight: 500.0,
+            dead_end: true,
+            urgency: 0.0001,
+            ..weighted_candidate()
+        };
+        assert_eq!(
+            CandidateFilter::candidate_weight(&c, 1, 1),
+            MIN_CANDIDATE_WEIGHT
+        );
+    }
+
     /// Verifies that candidates with higher absolute velocity get slightly less weight.
     #[test]
     fn higher_velocity_less_weight() {
