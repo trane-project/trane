@@ -26,14 +26,6 @@ const MIN_WEIGHT: f32 = 100.0;
 /// factor.
 const EXERCISE_SCORE_WEIGHT_FACTOR: f32 = 200.0;
 
-/// The part of the weight that depends on the lesson's score will be (5.0 - score) times this
-/// factor.
-const LESSON_SCORE_WEIGHT_FACTOR: f32 = 100.0;
-
-/// The part of the weight that depends on the course's score will be (5.0 - score) times this
-/// factor.
-const COURSE_SCORE_WEIGHT_FACTOR: f32 = 50.0;
-
 /// The factor used to compute the part of the weight that depends on how many other units the
 /// exercise is encompassed by in the initial batch.
 const ENCOMPASSED_FACTOR: f32 = -250.0;
@@ -70,13 +62,6 @@ const MAX_NUM_TRIALS_WEIGHT: f32 = 1000.0;
 
 /// The factor by which the weight is mulitiplied when the number of trials is increased.
 const NUM_TRIALS_FACTOR: f32 = 0.75;
-
-/// The factor used to compute the part of the weight that depends on the number of days since this
-/// exercise was last seen.
-const LAST_SEEN_WEIGHT_PER_DAY: f32 = 5.0;
-
-/// The maximum amount of weight this component can add.
-const MAX_LAST_SEEN_WEIGHT: f32 = 1000.0;
 
 /// The maximum weight that depends on the frequency of exercises from the same lesson. The weight
 /// will be divided equally among all the exercises from the same lesson.
@@ -152,53 +137,41 @@ impl CandidateFilter {
         course_frequency
     }
 
-    /// Computes the weight assigned to a candidate that will be used to select it during the
+    /// Computes the cost assigned to a candidate that will be used to select it during the
     /// filtering phase. The weight is based on the following factors:
     ///
     /// 1. The candidate's exercise score. A higher score is assigned less weight to give them
     ///    precedence over candidates with lower scores.
-    /// 2. The candidate's lesson score. Exercises from lessons with a higher score will be shown
-    ///    less often.
-    /// 3. The candidate's course score. Exercises from courses with a higher score will be shown
-    ///    less often.
-    /// 4. The number of units the exercise is encompassed by in the initial batch. A higher
+    /// 2. The number of units the exercise is encompassed by in the initial batch. A higher
     ///    negative weight is assigned to exercises with a higher value to avoid selecting these
     ///    exercises.
-    /// 5. The number of units the exercise encompasses. Exercises that encompass more units are
+    /// 3. The number of units the exercise encompasses. Exercises that encompass more units are
     ///    given more weight since they implicitly review more material.
-    /// 6. The number of hops taken by the graph search to find the candidate. A higher number of
+    /// 4. The number of hops taken by the graph search to find the candidate. A higher number of
     ///    hops is assigned more weight to give precedence to candidates from more advanced
     ///    material.
-    /// 7. The number of dependents of the lesson and course of the candidate. Exercises from
+    /// 5. The number of dependents of the lesson and course of the candidate. Exercises from
     ///    lessons and courses that unlock more units are given higher weight.
-    /// 8. The frequency with which the candidate has been scheduled during the run of the
+    /// 6. The frequency with which the candidate has been scheduled during the run of the
     ///    scheduler. A higher frequency is assigned less weight to avoid selecting the same
     ///    exercises too often during the same session.
-    /// 9. The number of trials for that candidate. A higher number of trials is assigned less
+    /// 7. The number of trials for that candidate. A higher number of trials is assigned less
     ///    weight to favor exercises that have been practiced fewer times.
-    /// 10. The number of days since this candidate was last seen. More days since last seen gets
-    ///     more weight.
-    /// 11. The number of candidates in the same lesson. The more candidates there are in the same
+    /// 8. The number of candidates in the same lesson. The more candidates there are in the same
     ///     lesson, the less weight each candidate is assigned to avoid selecting too many exercises
     ///     from the same lesson.
-    /// 12. The number of candidates in the same course. The same logic applies as for the lesson
+    /// 9. The number of candidates in the same course. The same logic applies as for the lesson
     ///     frequency.
-    /// 13. Whether the candidate comes from a dead-end in the traversal. Dead-end candidates get a
+    /// 10. Whether the candidate comes from a dead-end in the traversal. Dead-end candidates get a
     ///     fixed bonus to prioritize the learner's frontier.
-    /// 14. The candidate's score velocity. The absolute value of the velocity is multiplied by a
+    /// 11. The candidate's score velocity. The absolute value of the velocity is multiplied by a
     ///     factor.
-    /// 15. Whether the candidate has a stagnant velocity. Non-mastered candidates with a stagnant
+    /// 12. Whether the candidate has a stagnant velocity. Non-mastered candidates with a stagnant
     ///     velocity get a weight bonus, while mastered candidates with a stagnant velocity get a
     ///     penalty.
-    fn candidate_weight(c: &Candidate, lesson_freq: u32, course_freq: u32) -> f32 {
+    fn candidate_cost(c: &Candidate, lesson_freq: u32, course_freq: u32) -> f32 {
         // A part of the score will depend on the score of the exercise.
         let mut weight = EXERCISE_SCORE_WEIGHT_FACTOR * (5.0 - c.exercise_score).max(0.0);
-
-        // A part of the score will depend on the score of the lesson.
-        weight += LESSON_SCORE_WEIGHT_FACTOR * (5.0 - c.lesson_score).max(0.0);
-
-        // A part of the score will depend on the score of the course.
-        weight += COURSE_SCORE_WEIGHT_FACTOR * (5.0 - c.course_score).max(0.0);
 
         // A part of the score will depend on the weight with which the exercise is encompassed
         // by other exercises in the initial batch.
@@ -224,12 +197,6 @@ impl CandidateFilter {
         // A part of the weight is based on the number of trials for that exercise.
         weight += MAX_NUM_TRIALS_WEIGHT * NUM_TRIALS_FACTOR.powf(c.num_trials as f32);
 
-        // A part of the weight is based on the number of days since this exercise was last seen.
-        // The computation includes a factor based on the score so that exercises with lower score
-        // are given higher weight.
-        weight += (LAST_SEEN_WEIGHT_PER_DAY * c.last_seen * (5.0 - c.exercise_score))
-            .clamp(0.0, MAX_LAST_SEEN_WEIGHT);
-
         // A part of the weight is based on the number of candidates in the same lesson.
         weight += MAX_LESSON_FREQUENCY_WEIGHT / lesson_freq.max(1) as f32;
 
@@ -244,7 +211,7 @@ impl CandidateFilter {
         // A part of the weight is based on the candidate's score velocity. All exercises get a
         // boost based on the absolute value of the velocity. Stagnant exercises get a boost or a
         // penalty depending on whether they are mastered.
-        if let Some(velocity) = c.score_velocity {
+        if let Some(velocity) = c.velocity {
             weight += VELOCITY_WEIGHT_FACTOR * velocity.abs();
             if velocity.abs() < STAGNANT_VELOCITY_THRESHOLD {
                 if c.exercise_score >= MASTERED_SCORE_THRESHOLD {
@@ -257,6 +224,15 @@ impl CandidateFilter {
 
         // Give each candidates a minimum weight.
         weight.max(MIN_WEIGHT)
+    }
+
+    /// Computes the weight assigned to a candidate that will be used to select it during the
+    /// filtering phase. The weight is derived from the formula `urgency / sqrt(cost)`, where the
+    /// urgency represents how important it is to schedule the exercise, and the cost represents how
+    /// "expensive" it is to schedule the exercise.
+    fn candidate_weight(c: &Candidate, lesson_freq: u32, course_freq: u32) -> f32 {
+        let cost = Self::candidate_cost(c, lesson_freq, course_freq);
+        c.urgency / cost.sqrt()
     }
 
     /// Takes a list of candidates and randomly selects `num_to_select` candidates among them. Each
@@ -673,48 +649,10 @@ mod test {
     fn higher_exercise_score_less_weight() {
         let c1 = Candidate {
             exercise_score: 5.0,
-            lesson_score: 5.0,
-            course_score: 5.0,
             ..Default::default()
         };
         let c2 = Candidate {
             exercise_score: 1.0,
-            lesson_score: 1.0,
-            course_score: 1.0,
-            ..Default::default()
-        };
-        assert!(
-            CandidateFilter::candidate_weight(&c1, 1, 1)
-                < CandidateFilter::candidate_weight(&c2, 1, 1)
-        );
-    }
-
-    /// Verifies that candidates with a higher lesson score are given less weight.
-    #[test]
-    fn higher_lesson_score_less_weight() {
-        let c1 = Candidate {
-            lesson_score: 5.0,
-            ..Default::default()
-        };
-        let c2 = Candidate {
-            lesson_score: 1.0,
-            ..Default::default()
-        };
-        assert!(
-            CandidateFilter::candidate_weight(&c1, 1, 1)
-                < CandidateFilter::candidate_weight(&c2, 1, 1)
-        );
-    }
-
-    /// Verifies that candidates with a higher course score are given less weight.
-    #[test]
-    fn higher_course_score_less_weight() {
-        let c1 = Candidate {
-            course_score: 5.0,
-            ..Default::default()
-        };
-        let c2 = Candidate {
-            course_score: 1.0,
             ..Default::default()
         };
         assert!(
@@ -754,42 +692,6 @@ mod test {
         assert!(
             CandidateFilter::candidate_weight(&c1, 1, 1)
                 < CandidateFilter::candidate_weight(&c2, 1, 1)
-        );
-    }
-
-    /// Verifies that candidates seen less recently are given more weight.
-    #[test]
-    fn more_days_since_last_seen_more_weight() {
-        // Candidates with the same exercise score but different last seen values.
-        let c1 = Candidate {
-            last_seen: 1.0,
-            exercise_score: 4.0,
-            ..Default::default()
-        };
-        let c2 = Candidate {
-            last_seen: 20.0,
-            exercise_score: 2.0,
-            ..Default::default()
-        };
-        assert!(
-            CandidateFilter::candidate_weight(&c1, 1, 1)
-                < CandidateFilter::candidate_weight(&c2, 1, 1)
-        );
-
-        // Candidates with different exercise scores but the same last seen values.
-        let c3 = Candidate {
-            last_seen: 10.0,
-            exercise_score: 4.0,
-            ..Default::default()
-        };
-        let c4 = Candidate {
-            last_seen: 10.0,
-            exercise_score: 2.0,
-            ..Default::default()
-        };
-        assert!(
-            CandidateFilter::candidate_weight(&c3, 1, 1)
-                < CandidateFilter::candidate_weight(&c4, 1, 1)
         );
     }
 
@@ -953,8 +855,6 @@ mod test {
         // Create a candidate that should have a very low weight.
         let c = Candidate {
             exercise_score: 5.0,
-            lesson_score: 5.0,
-            course_score: 5.0,
             num_trials: 1000,
             frequency: 1000,
             ..Default::default()
@@ -977,11 +877,11 @@ mod test {
     fn higher_velocity_more_weight() {
         let base = Candidate {
             exercise_score: 2.0,
-            score_velocity: Some(1.0),
+            velocity: Some(1.0),
             ..Default::default()
         };
         let low_velocity = Candidate {
-            score_velocity: Some(0.5),
+            velocity: Some(0.5),
             ..base.clone()
         };
         assert!(
@@ -998,7 +898,7 @@ mod test {
             ..Default::default()
         };
         let negative = Candidate {
-            score_velocity: Some(-1.0),
+            velocity: Some(-1.0),
             ..base.clone()
         };
         assert!(
@@ -1015,7 +915,7 @@ mod test {
             ..Default::default()
         };
         let stagnant = Candidate {
-            score_velocity: Some(0.05),
+            velocity: Some(0.05),
             ..base.clone()
         };
         let base_weight = CandidateFilter::candidate_weight(&base, 1, 1);
@@ -1031,7 +931,7 @@ mod test {
             ..Default::default()
         };
         let stagnant = Candidate {
-            score_velocity: Some(0.05),
+            velocity: Some(0.05),
             ..base.clone()
         };
         assert!(
@@ -1049,7 +949,7 @@ mod test {
             ..Default::default()
         };
         let active = Candidate {
-            score_velocity: Some(0.5),
+            velocity: Some(0.5),
             ..base.clone()
         };
         let base_weight = CandidateFilter::candidate_weight(&base, 1, 1);

@@ -135,24 +135,18 @@ struct Candidate {
     /// The score assigned to the exercise represented as a float number between 0.0 and 5.0.
     exercise_score: f32,
 
-    /// The score assigned to the lesson represented as a float number between 0.0 and 5.0.
-    lesson_score: f32,
-
-    /// The score assigned to the course represented as a float number between 0.0 and 5.0.
-    course_score: f32,
-
     /// The number of previous trials that have been recorded for this exercise.
     num_trials: usize,
-
-    /// The number of days since the last trial for this exercise.
-    last_seen: f32,
 
     /// The number of times this exercise has been scheduled during the run of this scheduler.
     frequency: usize,
 
+    /// The urgency of this exercise.
+    urgency: f32,
+
     /// The velocity of learning for this exercise, measuring how quickly the score is improving or
     /// worsening over trials.
-    score_velocity: Option<f32>,
+    velocity: Option<f32>,
 
     /// Whether this candidate comes from a lesson where the search stopped because the lesson's
     /// average score is still below the passing score.
@@ -368,14 +362,6 @@ impl DepthFirstScheduler {
 
         // Generate a list of candidates from the lesson's exercises.
         let course_id = self.data.get_course_id(item.unit_id).unwrap_or_default();
-        let course_score = self
-            .unit_scorer
-            .get_unit_score(course_id)?
-            .unwrap_or_default();
-        let lesson_score = self
-            .unit_scorer
-            .get_unit_score(item.unit_id)?
-            .unwrap_or_default();
         let frequency_map = self.data.frequency_map.read();
         let candidates = exercises
             .into_iter()
@@ -389,17 +375,12 @@ impl DepthFirstScheduler {
                         .unit_scorer
                         .get_unit_score(exercise_id)?
                         .unwrap_or_default(),
-                    course_score,
-                    lesson_score,
                     num_trials: self
                         .unit_scorer
                         .get_exercise_num_trials(exercise_id)?
                         .unwrap_or_default(),
-                    last_seen: self
-                        .unit_scorer
-                        .get_last_seen_days(exercise_id)?
-                        .unwrap_or_default(),
-                    score_velocity: self.unit_scorer.get_exercise_velocity(exercise_id)?,
+                    urgency: self.unit_scorer.get_exercise_urgency(exercise_id)?,
+                    velocity: self.unit_scorer.get_exercise_velocity(exercise_id)?,
                     frequency: frequency_map.get(&exercise_id).copied().unwrap_or(0),
                     dead_end: false,
                     num_dependents: self.data.get_num_dependents(item.unit_id, course_id),
@@ -974,23 +955,12 @@ impl DepthFirstScheduler {
                             .unit_scorer
                             .get_unit_score(unit_id)?
                             .unwrap_or_default(),
-                        lesson_score: self
-                            .unit_scorer
-                            .get_unit_score(lesson_id)?
-                            .unwrap_or_default(),
-                        course_score: self
-                            .unit_scorer
-                            .get_unit_score(course_id)?
-                            .unwrap_or_default(),
                         num_trials: self
                             .unit_scorer
                             .get_exercise_num_trials(unit_id)?
                             .unwrap_or_default(),
-                        last_seen: self
-                            .unit_scorer
-                            .get_last_seen_days(unit_id)?
-                            .unwrap_or_default(),
-                        score_velocity: self.unit_scorer.get_exercise_velocity(unit_id)?,
+                        urgency: self.unit_scorer.get_exercise_urgency(unit_id)?,
+                        velocity: self.unit_scorer.get_exercise_velocity(unit_id)?,
                         frequency: *frequency_map.get(&unit_id).unwrap_or(&0),
                         dead_end: false,
                         num_dependents: self.data.get_num_dependents(lesson_id, course_id),
@@ -1234,7 +1204,7 @@ mod test {
     use super::*;
 
     /// Returns a candidate with the given parameters.
-    fn candidate(id: u32, lesson_score: f32, exercise_score: f32, depth: f32) -> Candidate {
+    fn candidate(id: u32, exercise_score: f32, depth: f32) -> Candidate {
         let exercise_id = format!("exercise-{id}");
         Candidate {
             exercise_id: Ustr::from(exercise_id.as_str()),
@@ -1242,7 +1212,6 @@ mod test {
             course_id: Ustr::from("course"),
             depth,
             exercise_score,
-            lesson_score,
             ..Default::default()
         }
     }
@@ -1254,7 +1223,7 @@ mod test {
         options: PassingScoreOptions,
     ) -> Vec<Candidate> {
         let candidates = (0..num_candidates)
-            .map(|idx| candidate(idx as u32, lesson_score, 0.0, 1.0))
+            .map(|idx| candidate(idx as u32, 0.0, 1.0))
             .collect::<Vec<_>>();
         DepthFirstScheduler::select_candidates(candidates, lesson_score, &options)
     }

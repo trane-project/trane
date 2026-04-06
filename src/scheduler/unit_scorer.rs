@@ -257,7 +257,7 @@ impl UnitScorer {
 
     /// Returns the urgency of scheduling the given exercise, as a value between 0.0 and 1.0.
     #[allow(dead_code)]
-    pub(super) fn get_exercise_urgency(&self, exercise_id: Ustr) -> Result<Option<f32>> {
+    pub(super) fn get_exercise_urgency(&self, exercise_id: Ustr) -> Result<f32> {
         // Return the cached value if it exists.
         let cached_urgency = self
             .exercise_cache
@@ -265,7 +265,7 @@ impl UnitScorer {
             .get(&exercise_id)
             .map(|c| c.urgency);
         if let Some(urgency) = cached_urgency {
-            return Ok(Some(urgency));
+            return Ok(urgency);
         }
 
         // Compute the exercise's score, which populates the cache. Then, retrieve the urgency from
@@ -275,7 +275,8 @@ impl UnitScorer {
             .exercise_cache
             .borrow()
             .get(&exercise_id)
-            .map(|s| s.urgency);
+            .and_then(|s| Some(s.urgency))
+            .unwrap_or_default();
         Ok(cached_urgency)
     }
 
