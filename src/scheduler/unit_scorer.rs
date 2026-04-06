@@ -24,7 +24,6 @@ pub(super) struct CachedScore {
     score: f32,
 
     /// The urgency of scheduling the unit, as a value between 0.0 and 1.0.
-    #[allow(dead_code)]
     urgency: f32,
 
     /// The velocity of learning, a measure of how quickly the score is improving or worsening over
@@ -33,9 +32,6 @@ pub(super) struct CachedScore {
 
     /// The number of trials used to compute the score.
     num_trials: usize,
-
-    /// The number of days since the last trial.
-    last_seen: f32,
 }
 
 /// Contains the logic to score units based on their previous scores and rewards, as well as the
@@ -231,10 +227,6 @@ impl UnitScorer {
             .reward_scorer
             .score_rewards(&course_rewards, &lesson_rewards)
             .unwrap_or_default();
-        let now = self.now();
-        let last_seen = scores.first().map_or(0.0, |trial| {
-            ((now - trial.timestamp) as f32 / 86_400.0).max(0.0)
-        });
 
         // Apply the reward if it meets the criteria and cache the final score.
         let final_score = if self.reward_scorer.apply_reward(reward, &scores) {
@@ -249,15 +241,13 @@ impl UnitScorer {
                 urgency: score.urgency,
                 velocity: score.velocity,
                 num_trials: scores.len(),
-                last_seen,
             },
         );
         Ok(final_score)
     }
 
     /// Returns the urgency of scheduling the given exercise, as a value between 0.0 and 1.0.
-    #[allow(dead_code)]
-    pub(super) fn get_exercise_urgency(&self, exercise_id: Ustr) -> Result<Option<f32>> {
+    pub(super) fn get_exercise_urgency(&self, exercise_id: Ustr) -> Result<f32> {
         // Return the cached value if it exists.
         let cached_urgency = self
             .exercise_cache
@@ -265,7 +255,7 @@ impl UnitScorer {
             .get(&exercise_id)
             .map(|c| c.urgency);
         if let Some(urgency) = cached_urgency {
-            return Ok(Some(urgency));
+            return Ok(urgency);
         }
 
         // Compute the exercise's score, which populates the cache. Then, retrieve the urgency from
@@ -275,7 +265,8 @@ impl UnitScorer {
             .exercise_cache
             .borrow()
             .get(&exercise_id)
-            .map(|s| s.urgency);
+            .map(|s| s.urgency)
+            .unwrap_or_default();
         Ok(cached_urgency)
     }
 
@@ -324,29 +315,6 @@ impl UnitScorer {
             .get(&exercise_id)
             .map(|s| s.num_trials);
         Ok(cached_num_trials)
-    }
-
-    /// Returns the number of days since the last trial for the given exercise.
-    pub(super) fn get_last_seen_days(&self, exercise_id: Ustr) -> Result<Option<f32>> {
-        // Return the cached value if it exists.
-        let cached_last_seen = self
-            .exercise_cache
-            .borrow()
-            .get(&exercise_id)
-            .map(|c| c.last_seen);
-        if let Some(last_seen) = cached_last_seen {
-            return Ok(Some(last_seen));
-        }
-
-        // Compute the exercise's score, which populates the cache. Then, retrieve the days since last
-        // seen from the cache.
-        self.get_exercise_score(exercise_id)?;
-        let cached_last_seen = self
-            .exercise_cache
-            .borrow()
-            .get(&exercise_id)
-            .map(|s| s.last_seen);
-        Ok(cached_last_seen)
     }
 
     /// Returns whether all the exercises in the unit have valid scores.
@@ -825,7 +793,6 @@ mod test {
                 urgency: 0.0,
                 velocity: None,
                 num_trials: 1,
-                last_seen: 0.0,
             },
         );
         cache.exercise_cache.borrow_mut().insert(
@@ -835,7 +802,6 @@ mod test {
                 urgency: 0.0,
                 velocity: None,
                 num_trials: 1,
-                last_seen: 0.0,
             },
         );
         cache
@@ -892,24 +858,60 @@ mod test {
         Ok(())
     }
 
-    /// Verifies that the number of days since last seen is computed and cached along with the score.
+    /// Verifies that urgency is cached along the exercise scores.
     #[test]
-    fn get_last_seen_days() -> Result<()> {
+    fn get_urgency() -> Result<()> {
+        // Create a test library and send some scores.
+        let temp_dir = tempfile::tempdir()?;
+        let library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
+        let scheduler_data = library.get_scheduler_data();
+        let mut cache = UnitScorer::new(scheduler_data, SchedulerOptions::default());
+        let exercise_id = Ustr::from("0::0::0");
+        let day = 86_400;
+        cache.set_override_timestamp(Some(4 * day));
+        library.score_exercise(exercise_id, MasteryScore::Four, day)?;
+        library.score_exercise(exercise_id, MasteryScore::Five, 2 * day)?;
+
+        // Retrieve the urgency twice. The second time should hit the cache.
+        assert!(!cache.exercise_cache.borrow().contains_key(&exercise_id));
+        let initial_urgency = cache.get_exercise_urgency(exercise_id)?;
+        assert!(cache.exercise_cache.borrow().contains_key(&exercise_id));
+        assert_eq!(initial_urgency, cache.get_exercise_urgency(exercise_id)?);
+
+        // Add another score and invalidate the cache. The updated urgency should reflect the more
+        // recent successful review.
+        library.score_exercise(exercise_id, MasteryScore::Five, 3 * day)?;
+        cache.invalidate_cached_score(exercise_id);
+        let updated_urgency = cache.get_exercise_urgency(exercise_id)?;
+        assert!(updated_urgency < initial_urgency);
+        Ok(())
+    }
+
+    /// Verifies that velocity is cached along the exercise scores.
+    #[test]
+    fn get_velocity() -> Result<()> {
+        // Create a test library and send some scores.
         let temp_dir = tempfile::tempdir()?;
         let library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
         let scheduler_data = library.get_scheduler_data();
         let cache = UnitScorer::new(scheduler_data, SchedulerOptions::default());
         let exercise_id = Ustr::from("0::0::0");
-        let two_days_ago = Utc::now().timestamp() - (2 * 86_400);
-        library.score_exercise(exercise_id, MasteryScore::Three, two_days_ago)?;
+        let day = 86_400;
+        library.score_exercise(exercise_id, MasteryScore::Four, day)?;
+        library.score_exercise(exercise_id, MasteryScore::Five, 2 * day)?;
 
-        let last_seen = cache.get_last_seen_days(exercise_id)?;
-        assert!((last_seen.unwrap_or_default() - 2.0).abs() < 0.5);
+        // Retrieve the velocity twice. The second time should hit the cache.
+        assert!(!cache.exercise_cache.borrow().contains_key(&exercise_id));
+        let initial_velocity = cache.get_exercise_velocity(exercise_id)?;
+        assert!(cache.exercise_cache.borrow().contains_key(&exercise_id));
+        assert_eq!(initial_velocity, cache.get_exercise_velocity(exercise_id)?);
 
-        library.score_exercise(exercise_id, MasteryScore::Four, Utc::now().timestamp())?;
+        // Add another score and invalidate the cache. The updated velocity should reflect the
+        // newer lower score.
+        library.score_exercise(exercise_id, MasteryScore::Four, 3 * day)?;
         cache.invalidate_cached_score(exercise_id);
-        let last_seen = cache.get_last_seen_days(exercise_id)?;
-        assert!(last_seen.unwrap_or_default() < 1.0);
+        let updated_velocity = cache.get_exercise_velocity(exercise_id)?;
+        assert!(updated_velocity.unwrap() < initial_velocity.unwrap());
         Ok(())
     }
 }
