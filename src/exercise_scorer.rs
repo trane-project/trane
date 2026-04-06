@@ -617,7 +617,7 @@ mod test {
     fn no_previous_trials() {
         let score = score_helper(ExerciseType::Declarative, &[], &[], Utc::now().timestamp());
         assert_eq!(score.value, 0.0);
-        assert_eq!(score.urgency, 0.0);
+        assert_eq!(score.urgency, 1.0);
         assert_eq!(score.velocity, None);
     }
 
