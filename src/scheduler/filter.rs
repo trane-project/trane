@@ -18,47 +18,50 @@ use crate::{
     scheduler::{Candidate, SchedulerData, review_knocker::KnockoutResult},
 };
 
+/// The minimum candidate weight.
+const MIN_CANDIDATE_WEIGHT: f32 = 0.01;
+
 /// The minimum candidate cost.
 const MIN_CANDIDATE_COST: f32 = 0.25;
 
 /// The maximum candidate cost.
-const MAX_CANDIDATE_COST: f32 = 1000.0;
+const MAX_CANDIDATE_COST: f32 = 100.0;
 
 /// Coefficient applied to the depth term in the candidate cost.
-const DEPTH_COST_COEFFICIENT: f32 = 0.8;
+const DEPTH_COST_COEFFICIENT: f32 = 0.6;
 
 /// Coefficient applied to the number of dependents term in the candidate cost.
-const NUM_DEPENDENTS_COST_COEFFICIENT: f32 = 0.6;
+const NUM_DEPENDENTS_COST_COEFFICIENT: f32 = 0.45;
 
 /// Coefficient applied to the coverage term in the candidate cost.
-const ENCOMPASSES_COST_COEFFICIENT: f32 = 0.55;
+const ENCOMPASSES_COST_COEFFICIENT: f32 = 0.45;
 
 /// Coefficient applied to the redundancy term in the candidate cost.
-const ENCOMPASSED_COST_COEFFICIENT: f32 = 1.0;
+const ENCOMPASSED_COST_COEFFICIENT: f32 = 0.8;
 
 /// Coefficient applied to the scheduled frequency term in the candidate cost.
-const SCHEDULED_FREQUENCY_COST_COEFFICIENT: f32 = 0.9;
+const SCHEDULED_FREQUENCY_COST_COEFFICIENT: f32 = 0.7;
 
 /// Coefficient applied to the number of trials term in the candidate cost.
-const NUM_TRIALS_COST_COEFFICIENT: f32 = 0.6;
+const NUM_TRIALS_COST_COEFFICIENT: f32 = 0.45;
 
 /// Coefficient applied to the lesson candidate frequency term in the candidate cost.
-const LESSON_FREQUENCY_COST_COEFFICIENT: f32 = 0.45;
+const LESSON_FREQUENCY_COST_COEFFICIENT: f32 = 0.35;
 
 /// Coefficient applied to the course candidate frequency term in the candidate cost.
-const COURSE_FREQUENCY_COST_COEFFICIENT: f32 = 0.35;
+const COURSE_FREQUENCY_COST_COEFFICIENT: f32 = 0.25;
 
 /// Reduction applied to the log-cost of dead-end candidates.
-const DEAD_END_COST_BONUS: f32 = 0.8;
+const DEAD_END_COST_BONUS: f32 = 0.6;
 
 /// Coefficient applied to the absolute value of the velocity in the candidate cost.
-const VELOCITY_COST_COEFFICIENT: f32 = 0.2;
+const VELOCITY_COST_COEFFICIENT: f32 = 0.15;
 
 /// Reduction applied to the log-cost of non-mastered candidates with stagnant velocity.
-const STAGNANT_UNMASTERED_COST_BONUS: f32 = 1.0;
+const STAGNANT_UNMASTERED_COST_BONUS: f32 = 0.7;
 
 /// Penalty applied to the log-cost of mastered candidates with stagnant velocity.
-const STAGNANT_MASTERED_COST_PENALTY: f32 = 1.0;
+const STAGNANT_MASTERED_COST_PENALTY: f32 = 0.7;
 
 /// The velocity threshold under which a candidate is considered to be stagnant.
 const STAGNANT_VELOCITY_THRESHOLD: f32 = 0.2;
@@ -167,7 +170,7 @@ impl CandidateFilter {
     /// "expensive" it is to schedule the exercise.
     fn candidate_weight(c: &Candidate, lesson_freq: u32, course_freq: u32) -> f32 {
         let cost = Self::candidate_cost(c, lesson_freq, course_freq);
-        c.urgency / cost.sqrt()
+        (c.urgency / cost.sqrt()).max(MIN_CANDIDATE_WEIGHT)
     }
 
     /// Takes a list of candidates and randomly selects `num_to_select` candidates among them. Each
