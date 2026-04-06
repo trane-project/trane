@@ -19,7 +19,7 @@ use crate::{
 };
 
 /// The minimum candidate cost.
-const MIN_CANDIDATE_COST: f32 = 0.25;
+const MIN_CANDIDATE_COST: f32 = 1.0;
 
 /// The maximum candidate cost.
 const MAX_CANDIDATE_COST: f32 = 1000.0;
@@ -51,11 +51,6 @@ const COURSE_FREQUENCY_COST_COEFFICIENT: f32 = 0.35;
 /// Reduction applied to the log-cost of dead-end candidates.
 const DEAD_END_COST_BONUS: f32 = 0.8;
 
-/// The batch size will be adjusted if there are not enough candidates (at least three times the
-/// batch size) to create a batch of the size specified in the scheduler options. This value is the
-/// minimum value for such an adjustment.
-const MIN_DYNAMIC_BATCH_SIZE: usize = 10;
-
 /// Coefficient applied to the absolute value of the velocity in the candidate cost.
 const VELOCITY_COST_COEFFICIENT: f32 = 0.2;
 
@@ -71,6 +66,11 @@ const STAGNANT_VELOCITY_THRESHOLD: f32 = 0.2;
 /// The exercise score threshold above which a candidate is considered mastered for the purpose of
 /// applying the stagnant velocity bonus or penalty.
 const MASTERED_SCORE_THRESHOLD: f32 = 4.0;
+
+/// The batch size will be adjusted if there are not enough candidates (at least three times the
+/// batch size) to create a batch of the size specified in the scheduler options. This value is the
+/// minimum value for such an adjustment.
+const MIN_DYNAMIC_BATCH_SIZE: usize = 10;
 
 /// The filter used to reduce the candidates found during the search to a final batch of exercises.
 pub(super) struct CandidateFilter {
