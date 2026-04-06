@@ -9,7 +9,7 @@
 
 use anyhow::{Result, anyhow};
 
-use crate::data::{ExerciseDelta, ExerciseTrial, ExerciseType};
+use crate::data::{ExerciseDelta, ExerciseScore, ExerciseTrial, ExerciseType};
 
 /// A trait exposing a function to score an exercise based on the results of previous trials.
 pub trait ExerciseScorer {
@@ -22,12 +22,7 @@ pub trait ExerciseScorer {
         previous_trials: &[ExerciseTrial],
         previous_deltas: &[ExerciseDelta],
         now: i64,
-    ) -> Result<f32>;
-
-    /// Returns the velocity of learning for exercise with the given trials. The velocity is a
-    /// measure of how quickly the score is improving or worsening over trials. A value of None
-    /// indicates that there are too few trials to compute a reliable velocity.
-    fn velocity(&self, previous_trials: &[ExerciseTrial]) -> Option<f32>;
+    ) -> Result<ExerciseScore>;
 }
 
 // Adjustable constants: these can be tuned to calibrate the scorer.
@@ -414,6 +409,35 @@ impl PowerLawScorer {
         let avg_delta = Self::compute_weighted_avg(previous_deltas);
         avg_delta * retrievability / 4.0
     }
+
+    fn velocity(&self, previous_trials: &[ExerciseTrial]) -> Option<f32> {
+        // Need at least 2 trials for a meaningful slope.
+        if previous_trials.len() < 2 {
+            return None;
+        }
+
+        // Compute the velocity using the ordinary least squares regression method. The oldest trial
+        // is used as the reference point and other trials are converted to days from it.
+        let oldest_timestamp = previous_trials.last().unwrap().timestamp;
+        let n = previous_trials.len() as f32;
+        let mut sum_t = 0.0_f32;
+        let mut sum_scores = 0.0_f32;
+        let mut sum_t_scores = 0.0_f32;
+        let mut sum_t_sq = 0.0_f32;
+        for trial in previous_trials {
+            let t = (trial.timestamp.saturating_sub(oldest_timestamp)) as f32 / SECONDS_PER_DAY;
+            sum_t += t;
+            sum_scores += trial.score;
+            sum_t_scores += t * trial.score;
+            sum_t_sq += t * t;
+        }
+        let denominator = n * sum_t_sq - sum_t * sum_t;
+        if denominator.abs() < f32::EPSILON {
+            return Some(0.0);
+        }
+        let slope = (n * sum_t_scores - sum_t * sum_scores) / denominator;
+        Some(slope)
+    }
 }
 
 impl ExerciseScorer for PowerLawScorer {
@@ -423,10 +447,10 @@ impl ExerciseScorer for PowerLawScorer {
         previous_trials: &[ExerciseTrial],
         previous_deltas: &[ExerciseDelta],
         now: i64,
-    ) -> Result<f32> {
+    ) -> Result<ExerciseScore> {
         // Guard input ordering and missing-history edge cases.
         if previous_trials.is_empty() {
-            return Ok(0.0);
+            return Ok(ExerciseScore::default());
         }
         if previous_trials
             .windows(2)
@@ -460,36 +484,12 @@ impl ExerciseScorer for PowerLawScorer {
         // Compute the effective delta and add it to the score to compensate for differences between
         // predicted and actual performance.
         let delta = Self::compute_delta(previous_deltas, effective_retrievability);
-        Ok((adjusted_score + delta).clamp(0.0, 5.0))
-    }
-
-    fn velocity(&self, previous_trials: &[ExerciseTrial]) -> Option<f32> {
-        // Need at least 2 trials for a meaningful slope.
-        if previous_trials.len() < 2 {
-            return None;
-        }
-
-        // Compute the velocity using the ordinary least squares regression method. The oldest trial
-        // is used as the reference point and other trials are converted to days from it.
-        let oldest_timestamp = previous_trials.last().unwrap().timestamp;
-        let n = previous_trials.len() as f32;
-        let mut sum_t = 0.0_f32;
-        let mut sum_scores = 0.0_f32;
-        let mut sum_t_scores = 0.0_f32;
-        let mut sum_t_sq = 0.0_f32;
-        for trial in previous_trials {
-            let t = (trial.timestamp.saturating_sub(oldest_timestamp)) as f32 / SECONDS_PER_DAY;
-            sum_t += t;
-            sum_scores += trial.score;
-            sum_t_scores += t * trial.score;
-            sum_t_sq += t * t;
-        }
-        let denominator = n * sum_t_sq - sum_t * sum_t;
-        if denominator.abs() < f32::EPSILON {
-            return Some(0.0);
-        }
-        let slope = (n * sum_t_scores - sum_t * sum_scores) / denominator;
-        Some(slope)
+        let final_score = (adjusted_score + delta).clamp(0.0, 5.0);
+        Ok(ExerciseScore {
+            value: final_score,
+            urgency: 1.0 - effective_retrievability,
+            velocity: self.velocity(previous_trials),
+        })
     }
 }
 

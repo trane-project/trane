@@ -791,6 +791,26 @@ impl GetUnitType for ExerciseManifest {
     }
 }
 
+/// An exercise score along with additional heuristics for filtering exercises into the final batch.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub struct ExerciseScore {
+    /// The value of the mastery score of the exercise computed from all previous trials, as a value
+    /// between 0.0 and 5.0.
+    #[serde(default)]
+    pub value: f32,
+
+    /// A value between 0 and 1 representing the urgency to review the exercise.
+    #[serde(default)]
+    pub urgency: f32,
+
+    /// A value representing the trend at which the exercise's score is changing. A positive value
+    /// means the score is increasing, a negative value means the score is decreasing, and a value
+    /// close to zero means the score is stable. A value of None means there is not enough data to
+    /// compute a reliable velocity.
+    #[serde(default)]
+    pub velocity: Option<f32>,
+}
+
 /// The score at which fractional selection reaches 100% of lesson candidates.
 pub const FULL_CANDIDATES_SCORE: f32 = 4.0;
 
