@@ -857,4 +857,61 @@ mod test {
         assert_eq!(Some(3), cache.get_exercise_num_trials(exercise_id)?);
         Ok(())
     }
+
+    /// Verifies that urgency is cached along the exercise scores.
+    #[test]
+    fn get_urgency() -> Result<()> {
+        // Create a test library and send some scores.
+        let temp_dir = tempfile::tempdir()?;
+        let library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
+        let scheduler_data = library.get_scheduler_data();
+        let mut cache = UnitScorer::new(scheduler_data, SchedulerOptions::default());
+        let exercise_id = Ustr::from("0::0::0");
+        let day = 86_400;
+        cache.set_override_timestamp(Some(4 * day));
+        library.score_exercise(exercise_id, MasteryScore::Four, day)?;
+        library.score_exercise(exercise_id, MasteryScore::Five, 2 * day)?;
+
+        // Retrieve the urgency twice. The second time should hit the cache.
+        assert!(!cache.exercise_cache.borrow().contains_key(&exercise_id));
+        let initial_urgency = cache.get_exercise_urgency(exercise_id)?;
+        assert!(cache.exercise_cache.borrow().contains_key(&exercise_id));
+        assert_eq!(initial_urgency, cache.get_exercise_urgency(exercise_id)?);
+
+        // Add another score and invalidate the cache. The updated urgency should reflect the more
+        // recent successful review.
+        library.score_exercise(exercise_id, MasteryScore::Five, 3 * day)?;
+        cache.invalidate_cached_score(exercise_id);
+        let updated_urgency = cache.get_exercise_urgency(exercise_id)?;
+        assert!(updated_urgency < initial_urgency);
+        Ok(())
+    }
+
+    /// Verifies that velocity is cached along the exercise scores.
+    #[test]
+    fn get_velocity() -> Result<()> {
+        // Create a test library and send some scores.
+        let temp_dir = tempfile::tempdir()?;
+        let library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
+        let scheduler_data = library.get_scheduler_data();
+        let cache = UnitScorer::new(scheduler_data, SchedulerOptions::default());
+        let exercise_id = Ustr::from("0::0::0");
+        let day = 86_400;
+        library.score_exercise(exercise_id, MasteryScore::Four, day)?;
+        library.score_exercise(exercise_id, MasteryScore::Five, 2 * day)?;
+
+        // Retrieve the velocity twice. The second time should hit the cache.
+        assert!(!cache.exercise_cache.borrow().contains_key(&exercise_id));
+        let initial_velocity = cache.get_exercise_velocity(exercise_id)?;
+        assert!(cache.exercise_cache.borrow().contains_key(&exercise_id));
+        assert_eq!(initial_velocity, cache.get_exercise_velocity(exercise_id)?);
+
+        // Add another score and invalidate the cache. The updated velocity should reflect the
+        // newer lower score.
+        library.score_exercise(exercise_id, MasteryScore::Four, 3 * day)?;
+        cache.invalidate_cached_score(exercise_id);
+        let updated_velocity = cache.get_exercise_velocity(exercise_id)?;
+        assert!(updated_velocity.unwrap() < initial_velocity.unwrap());
+        Ok(())
+    }
 }
