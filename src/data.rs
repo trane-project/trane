@@ -792,7 +792,7 @@ impl GetUnitType for ExerciseManifest {
 }
 
 /// An exercise score along with additional heuristics for filtering exercises into the final batch.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ExerciseScore {
     /// The value of the mastery score of the exercise computed from all previous trials, as a value
     /// between 0.0 and 5.0.

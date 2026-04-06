@@ -450,7 +450,12 @@ impl ExerciseScorer for PowerLawScorer {
     ) -> Result<ExerciseScore> {
         // Guard input ordering and missing-history edge cases.
         if previous_trials.is_empty() {
-            return Ok(ExerciseScore::default());
+            // Set urgency to 1.0 for exercises with no history to prioritize them for review.
+            return Ok(ExerciseScore {
+                value: 0.0,
+                urgency: 1.0,
+                velocity: None,
+            });
         }
         if previous_trials
             .windows(2)
@@ -487,7 +492,7 @@ impl ExerciseScorer for PowerLawScorer {
         let final_score = (adjusted_score + delta).clamp(0.0, 5.0);
         Ok(ExerciseScore {
             value: final_score,
-            urgency: 1.0 - effective_retrievability,
+            urgency: 1.0 - retrievability,
             velocity: Self::velocity(previous_trials),
         })
     }
