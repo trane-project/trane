@@ -135,9 +135,6 @@ struct Candidate {
     /// The score assigned to the exercise represented as a float number between 0.0 and 5.0.
     exercise_score: f32,
 
-    /// The number of previous trials that have been recorded for this exercise.
-    num_trials: usize,
-
     /// The number of times this exercise has been scheduled during the run of this scheduler.
     frequency: usize,
 
@@ -151,9 +148,6 @@ struct Candidate {
     /// Whether this candidate comes from a lesson where the search stopped because the lesson's
     /// average score is still below the passing score.
     dead_end: bool,
-
-    /// The sum of the number of dependents of the lesson and course of this exercise.
-    num_dependents: usize,
 
     /// The weight of the units that the lesson and course of this exercise encompass. Higher values
     /// mean that practicing this exercise provides more coverage of the graph.
@@ -375,15 +369,10 @@ impl DepthFirstScheduler {
                         .unit_scorer
                         .get_unit_score(exercise_id)?
                         .unwrap_or_default(),
-                    num_trials: self
-                        .unit_scorer
-                        .get_exercise_num_trials(exercise_id)?
-                        .unwrap_or_default(),
                     urgency: self.unit_scorer.get_exercise_urgency(exercise_id)?,
                     velocity: self.unit_scorer.get_exercise_velocity(exercise_id)?,
                     frequency: frequency_map.get(&exercise_id).copied().unwrap_or(0),
                     dead_end: false,
-                    num_dependents: self.data.get_num_dependents(item.unit_id, course_id),
                     encompasses_weight: 0.0,
                     encompassed_weight: 0.0,
                 })
@@ -955,15 +944,10 @@ impl DepthFirstScheduler {
                             .unit_scorer
                             .get_unit_score(unit_id)?
                             .unwrap_or_default(),
-                        num_trials: self
-                            .unit_scorer
-                            .get_exercise_num_trials(unit_id)?
-                            .unwrap_or_default(),
                         urgency: self.unit_scorer.get_exercise_urgency(unit_id)?,
                         velocity: self.unit_scorer.get_exercise_velocity(unit_id)?,
                         frequency: *frequency_map.get(&unit_id).unwrap_or(&0),
                         dead_end: false,
-                        num_dependents: self.data.get_num_dependents(lesson_id, course_id),
                         encompasses_weight: 0.0,
                         encompassed_weight: 0.0,
                     });
