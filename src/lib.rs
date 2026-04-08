@@ -534,15 +534,11 @@ impl PracticeDeltas for Trane {
             .get_deltas(exercise_id, num_deltas)
     }
 
-    fn record_exercise_delta(
+    fn record_exercise_deltas(
         &mut self,
-        exercise_id: Ustr,
-        delta: f32,
-        timestamp: i64,
+        deltas: &[ExerciseDelta],
     ) -> Result<(), PracticeDeltasError> {
-        self.practice_deltas
-            .write()
-            .record_exercise_delta(exercise_id, delta, timestamp)
+        self.practice_deltas.write().record_exercise_deltas(deltas)
     }
 
     fn trim_deltas(&mut self, num_deltas: u32) -> Result<(), PracticeDeltasError> {
@@ -568,15 +564,11 @@ impl PracticeStats for Trane {
             .get_scores(exercise_id, num_scores)
     }
 
-    fn record_exercise_score(
+    fn record_exercise_scores(
         &mut self,
-        exercise_id: Ustr,
-        score: MasteryScore,
-        timestamp: i64,
+        trials: &[ExerciseTrial],
     ) -> Result<(), PracticeStatsError> {
-        self.practice_stats
-            .write()
-            .record_exercise_score(exercise_id, score, timestamp)
+        self.practice_stats.write().record_exercise_scores(trials)
     }
 
     fn trim_scores(&mut self, num_scores: u32) -> Result<(), PracticeStatsError> {

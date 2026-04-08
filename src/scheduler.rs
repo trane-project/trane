@@ -31,8 +31,8 @@ use ustr::{Ustr, UstrMap, UstrSet};
 
 use crate::{
     data::{
-        ExerciseManifest, FULL_CANDIDATES_SCORE, MasteryScore, PassingScoreOptions,
-        SchedulerOptions, UnitType,
+        ExerciseDelta, ExerciseManifest, ExerciseTrial, FULL_CANDIDATES_SCORE, MasteryScore,
+        PassingScoreOptions, SchedulerOptions, UnitType,
         filter::{ExerciseFilter, KeyValueFilter, UnitFilter},
     },
     error::ExerciseSchedulerError,
@@ -1112,7 +1112,11 @@ impl ExerciseScheduler for DepthFirstScheduler {
             self.data
                 .practice_deltas
                 .write()
-                .record_exercise_delta(exercise_id, delta, timestamp)
+                .record_exercise_deltas(&[ExerciseDelta {
+                    exercise_id,
+                    delta,
+                    timestamp,
+                }])
                 .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?;
         }
 
@@ -1121,7 +1125,11 @@ impl ExerciseScheduler for DepthFirstScheduler {
         self.data
             .practice_stats
             .write()
-            .record_exercise_score(exercise_id, score.clone(), timestamp)
+            .record_exercise_scores(&[ExerciseTrial {
+                exercise_id,
+                score: score.float_score(),
+                timestamp,
+            }])
             .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?;
         self.unit_scorer.invalidate_cached_score(exercise_id);
         self.relearn_pile.update(exercise_id, &score);

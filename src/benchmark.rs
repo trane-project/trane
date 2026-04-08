@@ -447,8 +447,8 @@ mod tests {
         let anchor = 1_000_000;
         assert_eq!(Benchmark::session_timestamp(anchor, 0, 1), anchor);
         assert_eq!(Benchmark::session_timestamp(anchor, 1, 1), anchor + 86400);
-        assert_eq!(Benchmark::session_timestamp(anchor, 1, 2), anchor + 172800);
-        assert_eq!(Benchmark::session_timestamp(anchor, 7, 1), anchor + 604800);
+        assert_eq!(Benchmark::session_timestamp(anchor, 1, 2), anchor + 172_800);
+        assert_eq!(Benchmark::session_timestamp(anchor, 7, 1), anchor + 604_800);
     }
 
     /// Verifies that exercise timestamps are calculated correctly within a session.

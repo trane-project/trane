@@ -23,13 +23,11 @@ pub trait PracticeDeltas {
         num_deltas: u32,
     ) -> Result<Vec<ExerciseDelta>, PracticeDeltasError>;
 
-    /// Records the delta between the student's actual score and the predicted score for a
-    /// particular exercise.
-    fn record_exercise_delta(
+    /// Records the deltas between the student's actual scores and the predicted scores for one or
+    /// more exercises.
+    fn record_exercise_deltas(
         &mut self,
-        exercise_id: Ustr,
-        delta: f32,
-        timestamp: i64,
+        deltas: &[ExerciseDelta],
     ) -> Result<(), PracticeDeltasError>;
 
     /// Deletes all the exercise trials except for the last `num_deltas` with the aim of keeping the
@@ -104,32 +102,36 @@ impl LocalPracticeDeltas {
             .query_map(params![exercise_id.as_str(), num_deltas], |row| {
                 let delta = row.get(0)?;
                 let timestamp = row.get(1)?;
-                rusqlite::Result::Ok(ExerciseDelta { delta, timestamp })
+                rusqlite::Result::Ok(ExerciseDelta {
+                    exercise_id,
+                    delta,
+                    timestamp,
+                })
             })?
             .map(|r| r.context("failed to retrieve deltas from practice deltas DB"))
             .collect::<Result<Vec<ExerciseDelta>, _>>()?;
         Ok(rows)
     }
 
-    /// Helper function to record a delta to the database.
-    fn record_exercise_delta_helper(
-        &mut self,
-        exercise_id: Ustr,
-        delta: f32,
-        timestamp: i64,
-    ) -> Result<()> {
+    /// Helper function to record deltas to the database.
+    fn record_exercise_deltas_helper(&mut self, deltas: &[ExerciseDelta]) -> Result<()> {
         let mut connection = self.connection.lock();
         let tx = connection.transaction()?;
         {
             let mut uid_stmt =
                 tx.prepare_cached("INSERT OR IGNORE INTO uids(unit_id) VALUES ($1);")?;
-            uid_stmt.execute(params![exercise_id.as_str()])?;
-
             let mut stmt = tx.prepare_cached(
                 "INSERT INTO practice_deltas (unit_uid, delta, timestamp) VALUES (
                 (SELECT unit_uid FROM uids WHERE unit_id = $1), $2, $3);",
             )?;
-            stmt.execute(params![exercise_id.as_str(), delta, timestamp])?;
+            for delta in deltas {
+                uid_stmt.execute(params![delta.exercise_id.as_str()])?;
+                stmt.execute(params![
+                    delta.exercise_id.as_str(),
+                    delta.delta,
+                    delta.timestamp
+                ])?;
+            }
         }
         tx.commit()?;
         Ok(())
@@ -188,14 +190,12 @@ impl PracticeDeltas for LocalPracticeDeltas {
             .map_err(|e| PracticeDeltasError::GetDeltas(exercise_id, e))
     }
 
-    fn record_exercise_delta(
+    fn record_exercise_deltas(
         &mut self,
-        exercise_id: Ustr,
-        delta: f32,
-        timestamp: i64,
+        deltas: &[ExerciseDelta],
     ) -> Result<(), PracticeDeltasError> {
-        self.record_exercise_delta_helper(exercise_id, delta, timestamp)
-            .map_err(|e| PracticeDeltasError::RecordDelta(exercise_id, e))
+        self.record_exercise_deltas_helper(deltas)
+            .map_err(PracticeDeltasError::RecordDelta)
     }
 
     fn trim_deltas(&mut self, num_deltas: u32) -> Result<(), PracticeDeltasError> {
@@ -220,6 +220,14 @@ mod test {
         data::ExerciseDelta,
         practice_deltas::{LocalPracticeDeltas, PracticeDeltas},
     };
+
+    fn delta(exercise_id: Ustr, value: f32, timestamp: i64) -> ExerciseDelta {
+        ExerciseDelta {
+            exercise_id,
+            delta: value,
+            timestamp,
+        }
+    }
 
     fn new_test_deltas() -> Result<Box<dyn PracticeDeltas>> {
         let practice_deltas = LocalPracticeDeltas::new(Connection::open_in_memory()?)?;
@@ -247,7 +255,7 @@ mod test {
     fn basic() -> Result<()> {
         let mut deltas = new_test_deltas()?;
         let exercise_id = Ustr::from("ex_123");
-        deltas.record_exercise_delta(exercise_id, 0.5, 1)?;
+        deltas.record_exercise_deltas(&[delta(exercise_id, 0.5, 1)])?;
         let results = deltas.get_deltas(exercise_id, 1)?;
         assert_deltas(&[0.5], &results);
         Ok(())
@@ -258,9 +266,11 @@ mod test {
     fn multiple_records() -> Result<()> {
         let mut deltas = new_test_deltas()?;
         let exercise_id = Ustr::from("ex_123");
-        deltas.record_exercise_delta(exercise_id, 0.1, 1)?;
-        deltas.record_exercise_delta(exercise_id, 0.3, 2)?;
-        deltas.record_exercise_delta(exercise_id, 0.5, 3)?;
+        deltas.record_exercise_deltas(&[
+            delta(exercise_id, 0.1, 1),
+            delta(exercise_id, 0.3, 2),
+            delta(exercise_id, 0.5, 3),
+        ])?;
 
         let one_delta = deltas.get_deltas(exercise_id, 1)?;
         assert_deltas(&[0.5], &one_delta);
@@ -287,14 +297,18 @@ mod test {
     fn trim_deltas_some_removed() -> Result<()> {
         let mut deltas = new_test_deltas()?;
         let exercise1_id = Ustr::from("exercise1");
-        deltas.record_exercise_delta(exercise1_id, 0.1, 1)?;
-        deltas.record_exercise_delta(exercise1_id, 0.2, 2)?;
-        deltas.record_exercise_delta(exercise1_id, 0.3, 3)?;
+        deltas.record_exercise_deltas(&[
+            delta(exercise1_id, 0.1, 1),
+            delta(exercise1_id, 0.2, 2),
+            delta(exercise1_id, 0.3, 3),
+        ])?;
 
         let exercise2_id = Ustr::from("exercise2");
-        deltas.record_exercise_delta(exercise2_id, -0.1, 1)?;
-        deltas.record_exercise_delta(exercise2_id, -0.2, 2)?;
-        deltas.record_exercise_delta(exercise2_id, -0.3, 3)?;
+        deltas.record_exercise_deltas(&[
+            delta(exercise2_id, -0.1, 1),
+            delta(exercise2_id, -0.2, 2),
+            delta(exercise2_id, -0.3, 3),
+        ])?;
 
         deltas.trim_deltas(2)?;
 
@@ -310,14 +324,18 @@ mod test {
     fn trim_deltas_none_removed() -> Result<()> {
         let mut deltas = new_test_deltas()?;
         let exercise1_id = Ustr::from("exercise1");
-        deltas.record_exercise_delta(exercise1_id, 0.1, 1)?;
-        deltas.record_exercise_delta(exercise1_id, 0.2, 2)?;
-        deltas.record_exercise_delta(exercise1_id, 0.3, 3)?;
+        deltas.record_exercise_deltas(&[
+            delta(exercise1_id, 0.1, 1),
+            delta(exercise1_id, 0.2, 2),
+            delta(exercise1_id, 0.3, 3),
+        ])?;
 
         let exercise2_id = Ustr::from("exercise2");
-        deltas.record_exercise_delta(exercise2_id, -0.1, 1)?;
-        deltas.record_exercise_delta(exercise2_id, -0.2, 2)?;
-        deltas.record_exercise_delta(exercise2_id, -0.3, 3)?;
+        deltas.record_exercise_deltas(&[
+            delta(exercise2_id, -0.1, 1),
+            delta(exercise2_id, -0.2, 2),
+            delta(exercise2_id, -0.3, 3),
+        ])?;
 
         deltas.trim_deltas(10)?;
 
@@ -333,19 +351,25 @@ mod test {
     fn remove_deltas_with_prefix() -> Result<()> {
         let mut deltas = new_test_deltas()?;
         let exercise1_id = Ustr::from("exercise1");
-        deltas.record_exercise_delta(exercise1_id, 0.1, 1)?;
-        deltas.record_exercise_delta(exercise1_id, 0.2, 2)?;
-        deltas.record_exercise_delta(exercise1_id, 0.3, 3)?;
+        deltas.record_exercise_deltas(&[
+            delta(exercise1_id, 0.1, 1),
+            delta(exercise1_id, 0.2, 2),
+            delta(exercise1_id, 0.3, 3),
+        ])?;
 
         let exercise2_id = Ustr::from("exercise2");
-        deltas.record_exercise_delta(exercise2_id, -0.1, 1)?;
-        deltas.record_exercise_delta(exercise2_id, -0.2, 2)?;
-        deltas.record_exercise_delta(exercise2_id, -0.3, 3)?;
+        deltas.record_exercise_deltas(&[
+            delta(exercise2_id, -0.1, 1),
+            delta(exercise2_id, -0.2, 2),
+            delta(exercise2_id, -0.3, 3),
+        ])?;
 
         let exercise3_id = Ustr::from("exercise3");
-        deltas.record_exercise_delta(exercise3_id, 0.4, 1)?;
-        deltas.record_exercise_delta(exercise3_id, 0.5, 2)?;
-        deltas.record_exercise_delta(exercise3_id, 0.6, 3)?;
+        deltas.record_exercise_deltas(&[
+            delta(exercise3_id, 0.4, 1),
+            delta(exercise3_id, 0.5, 2),
+            delta(exercise3_id, 0.6, 3),
+        ])?;
 
         // Remove the prefix "exercise1".
         deltas.remove_deltas_with_prefix("exercise1")?;
