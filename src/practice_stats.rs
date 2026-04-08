@@ -262,16 +262,12 @@ mod test {
     fn assert_scores(expected: &[f32], actual: &[ExerciseTrial]) {
         let only_scores: Vec<f32> = actual.iter().map(|t| t.score).collect();
         assert_eq!(expected, only_scores);
-        let timestamp_sorted = actual
-            .iter()
-            .enumerate()
-            .map(|(i, _)| {
-                if i == 0 {
-                    return true;
-                }
-                actual[i - 1].timestamp >= actual[i].timestamp
-            })
-            .all(|b| b);
+        let timestamp_sorted = actual.iter().enumerate().all(|(i, _)| {
+            if i == 0 {
+                return true;
+            }
+            actual[i - 1].timestamp >= actual[i].timestamp
+        });
         assert!(timestamp_sorted);
     }
 

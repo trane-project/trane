@@ -642,7 +642,7 @@ mod test {
         // Manifest with an empty name.
         let course_manifest = CourseManifest {
             id: "course_id".into(),
-            name: "".into(),
+            name: String::new(),
             dependencies: vec![],
             encompassed: vec![],
             superseded: vec![],

@@ -101,7 +101,7 @@ mod tests {
             ..SchedulerOptions::default()
         });
         for i in 0..20 {
-            let exercise_id = Ustr::from(&format!("exercise_{}", i));
+            let exercise_id = Ustr::from(&format!("exercise_{i}"));
             relearn_pile.update(exercise_id, &MasteryScore::One);
         }
         let pile = relearn_pile.select_exercises_helper();

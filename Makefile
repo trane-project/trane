@@ -1,8 +1,10 @@
 # Run all cargo checks and tests.
-build:
+lint:
 	cargo fmt
-	cargo clippy
+	cargo clippy --all-targets --all-features -- -D warnings
 	RUSTDOCFLAGS="-D missing_docs" cargo doc --document-private-items --no-deps
+
+test:
 	cargo test --release
 
 benchmark-small:

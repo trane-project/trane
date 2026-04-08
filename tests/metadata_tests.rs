@@ -831,7 +831,10 @@ fn scheduler_bridges_filtered_dependency_chain() -> Result<()> {
     let d_exercise = TestId(3, Some(0), Some(0)).to_ustr();
     let passing_score = trane.get_scheduler_options().passing_score.min_score;
     assert!(
-        trane.get_exercise_ids(a_lesson).unwrap_or_default().len() > 0,
+        !trane
+            .get_exercise_ids(a_lesson)
+            .unwrap_or_default()
+            .is_empty(),
         "lesson {:?} should contain at least one exercise",
         a_lesson
     );

@@ -237,16 +237,12 @@ mod test {
     fn assert_deltas(expected: &[f32], actual: &[ExerciseDelta]) {
         let only_deltas: Vec<f32> = actual.iter().map(|t| t.delta).collect();
         assert_eq!(expected, only_deltas);
-        let timestamp_sorted = actual
-            .iter()
-            .enumerate()
-            .map(|(i, _)| {
-                if i == 0 {
-                    return true;
-                }
-                actual[i - 1].timestamp >= actual[i].timestamp
-            })
-            .all(|b| b);
+        let timestamp_sorted = actual.iter().enumerate().all(|(i, _)| {
+            if i == 0 {
+                return true;
+            }
+            actual[i - 1].timestamp >= actual[i].timestamp
+        });
         assert!(timestamp_sorted);
     }
 

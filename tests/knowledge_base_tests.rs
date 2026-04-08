@@ -188,7 +188,7 @@ fn all_exercises_visited() -> Result<()> {
     // Initialize the Trane library.
     let temp_dir = TempDir::new()?;
     let mut trane =
-        init_knowledge_base_simulation(temp_dir.path(), &vec![course1_builder, course2_builder])?;
+        init_knowledge_base_simulation(temp_dir.path(), &[course1_builder, course2_builder])?;
 
     // Run the simulation.
     let exercise_ids = trane.get_all_exercise_ids(None);

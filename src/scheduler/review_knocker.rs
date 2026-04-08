@@ -244,30 +244,28 @@ mod tests {
         let mut unit_graph = InMemoryUnitGraph::default();
         for course_index in 0..num_courses {
             // Add course and an encompassing relationship to the previous course.
-            let course_id = Ustr::from(&format!("course_{}", course_index));
+            let course_id = Ustr::from(&format!("course_{course_index}"));
             unit_graph.add_course(course_id)?;
             if course_index > 0 {
                 unit_graph.add_encompassed(
                     course_id,
-                    &vec![Ustr::from(&format!("course_{}", course_index - 1))],
-                    &vec![],
+                    &[Ustr::from(&format!("course_{}", course_index - 1))],
+                    &[],
                 )?;
             }
 
             // Add lessons and dependencies on the previous lesson.
             for lesson_index in 0..num_lessons_per_course {
-                let lesson_id =
-                    Ustr::from(&format!("course_{}_lesson_{}", course_index, lesson_index));
+                let lesson_id = Ustr::from(&format!("course_{course_index}_lesson_{lesson_index}"));
                 unit_graph.add_lesson(lesson_id, course_id)?;
                 if lesson_index > 0 {
                     unit_graph.add_encompassed(
                         lesson_id,
-                        &vec![Ustr::from(&format!(
-                            "course_{}_lesson_{}",
-                            course_index,
+                        &[Ustr::from(&format!(
+                            "course_{course_index}_lesson_{}",
                             lesson_index - 1
                         ))],
-                        &vec![],
+                        &[],
                     )?;
                 }
             }
@@ -277,13 +275,10 @@ mod tests {
         let initial_batch = (0..num_courses)
             .flat_map(|course_index| {
                 (0..num_lessons_per_course).map(move |lesson_index| Candidate {
-                    exercise_id: Ustr::from(&format!("ex{}_{}", course_index, lesson_index)),
+                    exercise_id: Ustr::from(&format!("ex{course_index}_{lesson_index}")),
                     exercise_score: 4.5,
-                    lesson_id: Ustr::from(&format!(
-                        "course_{}_lesson_{}",
-                        course_index, lesson_index
-                    )),
-                    course_id: Ustr::from(&format!("course_{}", course_index)),
+                    lesson_id: Ustr::from(&format!("course_{course_index}_lesson_{lesson_index}")),
+                    course_id: Ustr::from(&format!("course_{course_index}")),
                     ..Default::default()
                 })
             })
@@ -295,7 +290,7 @@ mod tests {
             ReviewKnocker::compute_encompassing_map(&initial_batch, &unit_graph, false);
         for course_id in 0..5 {
             for lesson_id in 0..num_lessons_per_course {
-                let exercise_id = Ustr::from(&format!("ex{}_{}", course_id, lesson_id));
+                let exercise_id = Ustr::from(&format!("ex{course_id}_{lesson_id}"));
                 let weight = weight_map.get(&exercise_id).copied().unwrap_or(0.0);
                 assert!(weight >= VERY_HIGHLY_WEIGHT,);
             }
@@ -317,7 +312,7 @@ mod tests {
             ReviewKnocker::compute_encompassing_map(&initial_batch, &unit_graph, true);
         for course_id in (num_courses - 5)..num_courses {
             for lesson_id in 0..num_lessons_per_course {
-                let exercise_id = Ustr::from(&format!("ex{}_{}", course_id, lesson_id));
+                let exercise_id = Ustr::from(&format!("ex{course_id}_{lesson_id}"));
                 let weight = reverse_map.get(&exercise_id).copied().unwrap_or(0.0);
                 assert!(weight >= VERY_HIGHLY_WEIGHT,);
             }
@@ -341,12 +336,11 @@ mod tests {
         let num_lessons_per_course = 3;
         let mut unit_graph = InMemoryUnitGraph::default();
         for course_index in 0..num_courses {
-            let course_id = Ustr::from(&format!("course_{}", course_index));
+            let course_id = Ustr::from(&format!("course_{course_index}"));
             unit_graph.add_course(course_id)?;
 
             for lesson_index in 0..num_lessons_per_course {
-                let lesson_id =
-                    Ustr::from(&format!("course_{}_lesson_{}", course_index, lesson_index));
+                let lesson_id = Ustr::from(&format!("course_{course_index}_lesson_{lesson_index}"));
                 unit_graph.add_lesson(lesson_id, course_id)?;
             }
         }
@@ -355,13 +349,10 @@ mod tests {
         let initial_batch = (0..num_courses)
             .flat_map(|course_index| {
                 (0..num_lessons_per_course).map(move |lesson_index| Candidate {
-                    exercise_id: Ustr::from(&format!("ex{}_{}", course_index, lesson_index)),
+                    exercise_id: Ustr::from(&format!("ex{course_index}_{lesson_index}")),
                     exercise_score: 4.5,
-                    lesson_id: Ustr::from(&format!(
-                        "course_{}_lesson_{}",
-                        course_index, lesson_index
-                    )),
-                    course_id: Ustr::from(&format!("course_{}", course_index)),
+                    lesson_id: Ustr::from(&format!("course_{course_index}_lesson_{lesson_index}")),
+                    course_id: Ustr::from(&format!("course_{course_index}")),
                     ..Default::default()
                 })
             })
@@ -373,7 +364,7 @@ mod tests {
             ReviewKnocker::compute_encompassing_map(&initial_batch, &unit_graph, false);
         for course_index in 0..num_courses {
             for lesson_index in 0..num_lessons_per_course {
-                let exercise_id = Ustr::from(&format!("ex{}_{}", course_index, lesson_index));
+                let exercise_id = Ustr::from(&format!("ex{course_index}_{lesson_index}"));
                 let weight = weight_map.get(&exercise_id).copied().unwrap_or(0.0);
                 assert_eq!(weight, 0.0);
             }
@@ -384,7 +375,7 @@ mod tests {
             ReviewKnocker::compute_encompassing_map(&initial_batch, &unit_graph, true);
         for course_index in 0..num_courses {
             for lesson_index in 0..num_lessons_per_course {
-                let exercise_id = Ustr::from(&format!("ex{}_{}", course_index, lesson_index));
+                let exercise_id = Ustr::from(&format!("ex{course_index}_{lesson_index}"));
                 let weight = reverse_map.get(&exercise_id).copied().unwrap_or(0.0);
                 assert_eq!(weight, 0.0);
             }
