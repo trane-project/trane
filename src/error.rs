@@ -60,8 +60,8 @@ pub enum PracticeStatsError {
     #[error("cannot get scores for unit {0}: {1}")]
     GetScores(Ustr, #[source] anyhow::Error),
 
-    #[error("cannot record score for unit {0}: {1}")]
-    RecordScore(Ustr, #[source] anyhow::Error),
+    #[error("cannot record scores: {0}")]
+    RecordScore(#[source] anyhow::Error),
 
     #[error("cannot trim scores: {0}")]
     TrimScores(#[source] anyhow::Error),
@@ -77,8 +77,8 @@ pub enum PracticeDeltasError {
     #[error("cannot get deltas for unit {0}: {1}")]
     GetDeltas(Ustr, #[source] anyhow::Error),
 
-    #[error("cannot record delta for unit {0}: {1}")]
-    RecordDelta(Ustr, #[source] anyhow::Error),
+    #[error("cannot record deltas: {0}")]
+    RecordDelta(#[source] anyhow::Error),
 
     #[error("cannot trim deltas: {0}")]
     TrimDeltas(#[source] anyhow::Error),

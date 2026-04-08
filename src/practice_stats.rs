@@ -10,11 +10,7 @@ use rusqlite::{Connection, params};
 use rusqlite_migration::{M, Migrations};
 use ustr::Ustr;
 
-use crate::{
-    data::{ExerciseTrial, MasteryScore},
-    error::PracticeStatsError,
-    utils,
-};
+use crate::{data::ExerciseTrial, error::PracticeStatsError, utils};
 
 /// Contains functions to retrieve and record the scores from each exercise trial.
 pub trait PracticeStats {
@@ -26,15 +22,12 @@ pub trait PracticeStats {
         num_scores: u32,
     ) -> Result<Vec<ExerciseTrial>, PracticeStatsError>;
 
-    /// Records the score assigned to the exercise in a particular trial. Therefore, the score is a
-    /// value of the `MasteryScore` enum instead of a float. Only units of type `UnitType::Exercise`
-    /// should have scores recorded. However, the enforcement of this requirement is left to the
-    /// caller.
-    fn record_exercise_score(
+    /// Records the scores assigned to exercises in one or more trials. Only units of type
+    /// `UnitType::Exercise` should have scores recorded. However, the enforcement of this
+    /// requirement is left to the caller.
+    fn record_exercise_scores(
         &mut self,
-        exercise_id: Ustr,
-        score: MasteryScore,
-        timestamp: i64,
+        trials: &[ExerciseTrial],
     ) -> Result<(), PracticeStatsError>;
 
     /// Deletes all the exercise trials except for the last `num_scores` with the aim of keeping the
@@ -126,20 +119,19 @@ impl LocalPracticeStats {
             .query_map(params![exercise_id.as_str(), num_scores], |row| {
                 let score = row.get(0)?;
                 let timestamp = row.get(1)?;
-                rusqlite::Result::Ok(ExerciseTrial { score, timestamp })
+                rusqlite::Result::Ok(ExerciseTrial {
+                    exercise_id,
+                    score,
+                    timestamp,
+                })
             })?
             .map(|r| r.context("failed to retrieve scores from practice stats DB"))
             .collect::<Result<Vec<ExerciseTrial>, _>>()?;
         Ok(rows)
     }
 
-    /// Helper function to record a score to the database.
-    fn record_exercise_score_helper(
-        &mut self,
-        exercise_id: Ustr,
-        score: &MasteryScore,
-        timestamp: i64,
-    ) -> Result<()> {
+    /// Helper function to record scores to the database.
+    fn record_exercise_scores_helper(&mut self, trials: &[ExerciseTrial]) -> Result<()> {
         // Update the mapping of unit ID to unique integer ID and add the trial in a single
         // transaction.
         let mut connection = self.connection.lock();
@@ -147,17 +139,18 @@ impl LocalPracticeStats {
         {
             let mut uid_stmt =
                 tx.prepare_cached("INSERT OR IGNORE INTO uids(unit_id) VALUES ($1);")?;
-            uid_stmt.execute(params![exercise_id.as_str()])?;
-
             let mut stmt = tx.prepare_cached(
                 "INSERT INTO practice_stats (unit_uid, score, timestamp) VALUES (
                 (SELECT unit_uid FROM uids WHERE unit_id = $1), $2, $3);",
             )?;
-            stmt.execute(params![
-                exercise_id.as_str(),
-                score.float_score(),
-                timestamp
-            ])?;
+            for trial in trials {
+                uid_stmt.execute(params![trial.exercise_id.as_str()])?;
+                stmt.execute(params![
+                    trial.exercise_id.as_str(),
+                    trial.score,
+                    trial.timestamp
+                ])?;
+            }
         }
         tx.commit()?;
         Ok(())
@@ -222,14 +215,12 @@ impl PracticeStats for LocalPracticeStats {
             .map_err(|e| PracticeStatsError::GetScores(exercise_id, e))
     }
 
-    fn record_exercise_score(
+    fn record_exercise_scores(
         &mut self,
-        exercise_id: Ustr,
-        score: MasteryScore,
-        timestamp: i64,
+        trials: &[ExerciseTrial],
     ) -> Result<(), PracticeStatsError> {
-        self.record_exercise_score_helper(exercise_id, &score, timestamp)
-            .map_err(|e| PracticeStatsError::RecordScore(exercise_id, e))
+        self.record_exercise_scores_helper(trials)
+            .map_err(PracticeStatsError::RecordScore)
     }
 
     fn trim_scores(&mut self, num_scores: u32) -> Result<(), PracticeStatsError> {
@@ -251,9 +242,17 @@ mod test {
     use ustr::Ustr;
 
     use crate::{
-        data::{ExerciseTrial, MasteryScore},
+        data::ExerciseTrial,
         practice_stats::{LocalPracticeStats, PracticeStats},
     };
+
+    fn trial(exercise_id: Ustr, score: f32, timestamp: i64) -> ExerciseTrial {
+        ExerciseTrial {
+            exercise_id,
+            score,
+            timestamp,
+        }
+    }
 
     fn new_tests_stats() -> Result<Box<dyn PracticeStats>> {
         let practice_stats = LocalPracticeStats::new(Connection::open_in_memory()?)?;
@@ -281,7 +280,7 @@ mod test {
     fn basic() -> Result<()> {
         let mut stats = new_tests_stats()?;
         let exercise_id = Ustr::from("ex_123");
-        stats.record_exercise_score(exercise_id, MasteryScore::Five, 1)?;
+        stats.record_exercise_scores(&[trial(exercise_id, 5.0, 1)])?;
         let scores = stats.get_scores(exercise_id, 1)?;
         assert_scores(&[5.0], &scores);
         Ok(())
@@ -292,9 +291,11 @@ mod test {
     fn multiple_records() -> Result<()> {
         let mut stats = new_tests_stats()?;
         let exercise_id = Ustr::from("ex_123");
-        stats.record_exercise_score(exercise_id, MasteryScore::Three, 1)?;
-        stats.record_exercise_score(exercise_id, MasteryScore::Four, 2)?;
-        stats.record_exercise_score(exercise_id, MasteryScore::Five, 3)?;
+        stats.record_exercise_scores(&[
+            trial(exercise_id, 3.0, 1),
+            trial(exercise_id, 4.0, 2),
+            trial(exercise_id, 5.0, 3),
+        ])?;
 
         let one_score = stats.get_scores(exercise_id, 1)?;
         assert_scores(&[5.0], &one_score);
@@ -321,14 +322,18 @@ mod test {
     fn trim_scores_some_scores_removed() -> Result<()> {
         let mut stats = new_tests_stats()?;
         let exercise1_id = Ustr::from("exercise1");
-        stats.record_exercise_score(exercise1_id, MasteryScore::Three, 1)?;
-        stats.record_exercise_score(exercise1_id, MasteryScore::Four, 2)?;
-        stats.record_exercise_score(exercise1_id, MasteryScore::Five, 3)?;
+        stats.record_exercise_scores(&[
+            trial(exercise1_id, 3.0, 1),
+            trial(exercise1_id, 4.0, 2),
+            trial(exercise1_id, 5.0, 3),
+        ])?;
 
         let exercise2_id = Ustr::from("exercise2");
-        stats.record_exercise_score(exercise2_id, MasteryScore::One, 1)?;
-        stats.record_exercise_score(exercise2_id, MasteryScore::One, 2)?;
-        stats.record_exercise_score(exercise2_id, MasteryScore::Three, 3)?;
+        stats.record_exercise_scores(&[
+            trial(exercise2_id, 1.0, 1),
+            trial(exercise2_id, 1.0, 2),
+            trial(exercise2_id, 3.0, 3),
+        ])?;
 
         stats.trim_scores(2)?;
 
@@ -344,14 +349,18 @@ mod test {
     fn trim_scores_no_scores_removed() -> Result<()> {
         let mut stats = new_tests_stats()?;
         let exercise1_id = Ustr::from("exercise1");
-        stats.record_exercise_score(exercise1_id, MasteryScore::Three, 1)?;
-        stats.record_exercise_score(exercise1_id, MasteryScore::Four, 2)?;
-        stats.record_exercise_score(exercise1_id, MasteryScore::Five, 3)?;
+        stats.record_exercise_scores(&[
+            trial(exercise1_id, 3.0, 1),
+            trial(exercise1_id, 4.0, 2),
+            trial(exercise1_id, 5.0, 3),
+        ])?;
 
         let exercise2_id = Ustr::from("exercise2");
-        stats.record_exercise_score(exercise2_id, MasteryScore::One, 1)?;
-        stats.record_exercise_score(exercise2_id, MasteryScore::One, 2)?;
-        stats.record_exercise_score(exercise2_id, MasteryScore::Three, 3)?;
+        stats.record_exercise_scores(&[
+            trial(exercise2_id, 1.0, 1),
+            trial(exercise2_id, 1.0, 2),
+            trial(exercise2_id, 3.0, 3),
+        ])?;
 
         stats.trim_scores(10)?;
 
@@ -367,19 +376,25 @@ mod test {
     fn remove_scores_with_prefix() -> Result<()> {
         let mut stats = new_tests_stats()?;
         let exercise1_id = Ustr::from("exercise1");
-        stats.record_exercise_score(exercise1_id, MasteryScore::Three, 1)?;
-        stats.record_exercise_score(exercise1_id, MasteryScore::Four, 2)?;
-        stats.record_exercise_score(exercise1_id, MasteryScore::Five, 3)?;
+        stats.record_exercise_scores(&[
+            trial(exercise1_id, 3.0, 1),
+            trial(exercise1_id, 4.0, 2),
+            trial(exercise1_id, 5.0, 3),
+        ])?;
 
         let exercise2_id = Ustr::from("exercise2");
-        stats.record_exercise_score(exercise2_id, MasteryScore::One, 1)?;
-        stats.record_exercise_score(exercise2_id, MasteryScore::One, 2)?;
-        stats.record_exercise_score(exercise2_id, MasteryScore::Three, 3)?;
+        stats.record_exercise_scores(&[
+            trial(exercise2_id, 1.0, 1),
+            trial(exercise2_id, 1.0, 2),
+            trial(exercise2_id, 3.0, 3),
+        ])?;
 
         let exercise3_id = Ustr::from("exercise3");
-        stats.record_exercise_score(exercise3_id, MasteryScore::One, 1)?;
-        stats.record_exercise_score(exercise3_id, MasteryScore::One, 2)?;
-        stats.record_exercise_score(exercise3_id, MasteryScore::Three, 3)?;
+        stats.record_exercise_scores(&[
+            trial(exercise3_id, 1.0, 1),
+            trial(exercise3_id, 1.0, 2),
+            trial(exercise3_id, 3.0, 3),
+        ])?;
 
         // Remove the prefix "exercise1".
         stats.remove_scores_with_prefix("exercise1")?;

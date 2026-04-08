@@ -360,6 +360,7 @@ mod test {
         let trials = vec![ExerciseTrial {
             score: 2.0,
             timestamp: generate_timestamp(1),
+            ..Default::default()
         }];
         assert!(!scorer.apply_reward(0.5, &trials));
         assert!(!scorer.apply_reward(-1.0, &trials));
@@ -370,14 +371,17 @@ mod test {
             ExerciseTrial {
                 score: 2.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 2.0,
                 timestamp: generate_timestamp(8),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(10),
+                ..Default::default()
             },
         ];
         assert!(!scorer.apply_reward(0.5, &trials));
@@ -389,14 +393,17 @@ mod test {
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(8),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(10),
+                ..Default::default()
             },
         ];
         assert!(!scorer.apply_reward(-0.5, &trials));
@@ -407,14 +414,17 @@ mod test {
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(8),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(10),
+                ..Default::default()
             },
         ];
         assert!(scorer.apply_reward(0.5, &trials));
@@ -422,14 +432,17 @@ mod test {
             ExerciseTrial {
                 score: 2.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(8),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 2.0,
                 timestamp: generate_timestamp(10),
+                ..Default::default()
             },
         ];
         assert!(scorer.apply_reward(-0.5, &trials));

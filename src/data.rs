@@ -99,8 +99,11 @@ impl TryFrom<f32> for MasteryScore {
 
 //@<lp-example-4
 /// The result of a single trial.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct ExerciseTrial {
+    /// The ID of the exercise to which the trial belongs.
+    pub exercise_id: Ustr,
+
     /// The score assigned to the exercise after the trial.
     pub score: f32,
 
@@ -110,8 +113,11 @@ pub struct ExerciseTrial {
 //>@lp-example-4
 
 /// The delta between the predicted and actual score for a single exercise trial.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct ExerciseDelta {
+    /// The ID of the exercise to which the delta belongs.
+    pub exercise_id: Ustr,
+
     /// The delta between the predicted and actual score.
     pub delta: f32,
 
@@ -1483,6 +1489,7 @@ mod test {
     #[test]
     fn exercise_trial_clone() {
         let trial = ExerciseTrial {
+            exercise_id: Ustr::from("exercise"),
             score: 5.0,
             timestamp: 1,
         };

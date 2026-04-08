@@ -536,14 +536,17 @@ mod test {
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(0),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(2),
+                ..Default::default()
             },
         ];
         let easy_difficulty = PowerLawScorer::estimate_difficulty(&easy_trials);
@@ -554,14 +557,17 @@ mod test {
             ExerciseTrial {
                 score: 1.0,
                 timestamp: generate_timestamp(0),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 2.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 1.0,
                 timestamp: generate_timestamp(2),
+                ..Default::default()
             },
         ];
         let hard_difficulty = PowerLawScorer::estimate_difficulty(&hard_trials);
@@ -572,14 +578,17 @@ mod test {
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(0),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 2.0,
                 timestamp: generate_timestamp(2),
+                ..Default::default()
             },
         ];
         let medium_difficulty = PowerLawScorer::estimate_difficulty(&medium_trials);
@@ -590,22 +599,27 @@ mod test {
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(0),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 1.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 2.0,
                 timestamp: generate_timestamp(2),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(3),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(4),
+                ..Default::default()
             },
         ];
         let mixed_difficulty = PowerLawScorer::estimate_difficulty(&mixed_trials);
@@ -628,14 +642,17 @@ mod test {
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(2),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(3),
+                ..Default::default()
             },
         ];
 
@@ -659,6 +676,7 @@ mod test {
             &[ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(1e10 as i64),
+                ..Default::default()
             }],
             &[],
             Utc::now().timestamp(),
@@ -678,10 +696,12 @@ mod test {
                 ExerciseTrial {
                     score: 5.0,
                     timestamp: i64::MAX,
+                    ..Default::default()
                 },
                 ExerciseTrial {
                     score: 1.0,
                     timestamp: i64::MIN,
+                    ..Default::default()
                 },
             ],
             &[],
@@ -700,14 +720,17 @@ mod test {
             ExerciseTrial {
                 score: 1.0, // Bad: P = -0.5, stability decreases
                 timestamp: generate_timestamp(3),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 5.0, // Good: P = 0.5, stability increases
                 timestamp: generate_timestamp(2),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 3.0, // Medium: P = 0.0, stability unchanged
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
         ];
         let stability =
@@ -723,28 +746,34 @@ mod test {
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(2),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(3),
+                ..Default::default()
             },
         ];
         let long_spacing_trials = vec![
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(10),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(30),
+                ..Default::default()
             },
         ];
 
@@ -769,28 +798,34 @@ mod test {
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(2),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(3),
+                ..Default::default()
             },
         ];
         let lapse_trials = vec![
             ExerciseTrial {
                 score: 1.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(2),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(3),
+                ..Default::default()
             },
         ];
 
@@ -817,14 +852,17 @@ mod test {
             ExerciseTrial {
                 score: 1.0,
                 timestamp: generate_timestamp(3),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 1.0,
                 timestamp: generate_timestamp(2),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 1.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
         ];
 
@@ -977,6 +1015,7 @@ mod test {
         let single_trial = vec![ExerciseTrial {
             score: 5.0,
             timestamp: generate_timestamp(0),
+            ..Default::default()
         }];
         let mean = PowerLawScorer::compute_weighted_avg(&single_trial);
         assert!((mean - 5.0).abs() < 1e-6);
@@ -986,14 +1025,17 @@ mod test {
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(0),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(2),
+                ..Default::default()
             },
         ];
         let weighted = PowerLawScorer::compute_weighted_avg(&multi_trials);
@@ -1004,28 +1046,34 @@ mod test {
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(0),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 1.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 1.0,
                 timestamp: generate_timestamp(2),
+                ..Default::default()
             },
         ];
         let sparse_low_tail = vec![
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(0),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 1.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 1.0,
                 timestamp: generate_timestamp(30),
+                ..Default::default()
             },
         ];
         let dense_weighted = PowerLawScorer::compute_weighted_avg(&dense_low_tail);
@@ -1037,24 +1085,29 @@ mod test {
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(0),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
         ];
         let with_ancient = vec![
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(0),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 1.0,
                 timestamp: generate_timestamp(365),
+                ..Default::default()
             },
         ];
         let compact_weighted = PowerLawScorer::compute_weighted_avg(&compact);
@@ -1095,18 +1148,22 @@ mod test {
             ExerciseTrial {
                 score: 1.0,
                 timestamp: generate_timestamp(3),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(7),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 2.0,
                 timestamp: generate_timestamp(10),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 1.0,
                 timestamp: generate_timestamp(13),
+                ..Default::default()
             },
         ];
         let score = score_helper(
@@ -1126,42 +1183,52 @@ mod test {
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(4),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 2.0,
                 timestamp: generate_timestamp(5),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(6),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(7),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(10),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 2.0,
                 timestamp: generate_timestamp(14),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(18),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(21),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(25),
+                ..Default::default()
             },
         ];
         let score = score_helper(
@@ -1183,10 +1250,12 @@ mod test {
                 ExerciseTrial {
                     score: 3.0,
                     timestamp: generate_timestamp(2),
+                    ..Default::default()
                 },
                 ExerciseTrial {
                     score: 4.0,
                     timestamp: generate_timestamp(1),
+                    ..Default::default()
                 },
             ],
             &[],
@@ -1203,6 +1272,7 @@ mod test {
             &[ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(100),
+                ..Default::default()
             }],
             &[],
             Utc::now().timestamp(),
@@ -1218,34 +1288,42 @@ mod test {
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(0),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(2),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(3),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(4),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(5),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(6),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(7),
+                ..Default::default()
             },
         ];
         let score = score_helper(
@@ -1265,34 +1343,42 @@ mod test {
             ExerciseTrial {
                 score: 1.0,
                 timestamp: generate_timestamp(0),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 2.0,
                 timestamp: generate_timestamp(2),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 1.0,
                 timestamp: generate_timestamp(4),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(6),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 2.0,
                 timestamp: generate_timestamp(9),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 1.0,
                 timestamp: generate_timestamp(15),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 1.0,
                 timestamp: generate_timestamp(16),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 2.0,
                 timestamp: generate_timestamp(27),
+                ..Default::default()
             },
         ];
         let score = score_helper(
@@ -1313,26 +1399,32 @@ mod test {
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(200),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(210),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(213),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(248),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(256),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(270),
+                ..Default::default()
             },
         ];
         let score = score_helper(
@@ -1360,26 +1452,32 @@ mod test {
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(400),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(410),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(411),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(420),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(430),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(431),
+                ..Default::default()
             },
         ];
         let score = score_helper(
@@ -1405,10 +1503,12 @@ mod test {
         let recent_trials = vec![ExerciseTrial {
             score: 5.0,
             timestamp: generate_timestamp(1),
+            ..Default::default()
         }];
         let old_trials = vec![ExerciseTrial {
             score: 5.0,
             timestamp: generate_timestamp(30),
+            ..Default::default()
         }];
 
         let recent = score_helper(
@@ -1435,6 +1535,7 @@ mod test {
         let trials = vec![ExerciseTrial {
             score: 3.0,
             timestamp: generate_timestamp(0),
+            ..Default::default()
         }];
         assert_eq!(PowerLawScorer::velocity(&trials), None);
     }
@@ -1447,22 +1548,27 @@ mod test {
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(0),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(2),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 2.0,
                 timestamp: generate_timestamp(3),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 1.0,
                 timestamp: generate_timestamp(4),
+                ..Default::default()
             },
         ];
         let velocity = PowerLawScorer::velocity(&trials).unwrap();
@@ -1477,22 +1583,27 @@ mod test {
             ExerciseTrial {
                 score: 1.0,
                 timestamp: generate_timestamp(0),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 2.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(2),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(3),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 5.0,
                 timestamp: generate_timestamp(4),
+                ..Default::default()
             },
         ];
         let velocity = PowerLawScorer::velocity(&trials).unwrap();
@@ -1506,14 +1617,17 @@ mod test {
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(0),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(2),
+                ..Default::default()
             },
         ];
         let velocity = PowerLawScorer::velocity(&trials).unwrap();
@@ -1527,24 +1641,29 @@ mod test {
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(0),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(2),
+                ..Default::default()
             },
         ];
         let deltas = vec![
             ExerciseDelta {
                 delta: 0.5,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseDelta {
                 delta: 1.2,
                 timestamp: generate_timestamp(2),
+                ..Default::default()
             },
         ];
 
@@ -1571,24 +1690,29 @@ mod test {
             ExerciseTrial {
                 score: 3.0,
                 timestamp: generate_timestamp(0),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseTrial {
                 score: 4.0,
                 timestamp: generate_timestamp(2),
+                ..Default::default()
             },
         ];
         let deltas = vec![
             ExerciseDelta {
                 delta: -0.5,
                 timestamp: generate_timestamp(1),
+                ..Default::default()
             },
             ExerciseDelta {
                 delta: -0.8,
                 timestamp: generate_timestamp(2),
+                ..Default::default()
             },
         ];
 
