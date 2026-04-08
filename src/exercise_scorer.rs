@@ -592,7 +592,7 @@ mod test {
             },
         ];
         let medium_difficulty = PowerLawScorer::estimate_difficulty(&medium_trials);
-        assert!(medium_difficulty >= 4.0 && medium_difficulty < 7.0);
+        assert!((4.0..7.0).contains(&medium_difficulty));
 
         // A mixed history should yield an intermediate difficulty from aggregate failures.
         let mixed_trials = vec![
@@ -670,7 +670,7 @@ mod test {
 
     /// Verifies scoring an exercise with an invalid timestamp still returns a sane score.
     #[test]
-    fn invalid_timestamp() -> Result<()> {
+    fn invalid_timestamp() {
         let score = score_helper(
             ExerciseType::Declarative,
             &[ExerciseTrial {
@@ -684,12 +684,11 @@ mod test {
         assert!(score.value >= 0.0 && score.value <= 5.0);
         assert!(score.value < 1.0); // Low due to long time elapsed
         assert!((0.0..=1.0).contains(&score.urgency));
-        Ok(())
     }
 
     /// Verifies extreme timestamp gaps do not overflow elapsed-time calculations.
     #[test]
-    fn extreme_timestamp_gap_does_not_overflow() -> Result<()> {
+    fn extreme_timestamp_gap_does_not_overflow() {
         let score = score_helper(
             ExerciseType::Declarative,
             &[
@@ -709,7 +708,6 @@ mod test {
         );
         assert!(score.value >= 0.0 && score.value <= 5.0);
         assert!((0.0..=1.0).contains(&score.urgency));
-        Ok(())
     }
 
     /// Verifies stability computation evolves correctly through reviews.
@@ -961,7 +959,7 @@ mod test {
         let failure_gain =
             PowerLawScorer::compute_spacing_gain(&ExerciseType::Declarative, 10.0, stability, -0.5);
 
-        assert!(short_interval_gain >= 1.0 && short_interval_gain <= 1.0 + SPACING_EFFECT_WEIGHT);
+        assert!((1.0..=1.0 + SPACING_EFFECT_WEIGHT).contains(&short_interval_gain));
         assert!(long_interval_gain > short_interval_gain);
         assert_eq!(neutral_gain, 1.0);
         assert_eq!(failure_gain, 1.0);
@@ -1143,7 +1141,7 @@ mod test {
 
     /// Verifies that a recent bad performance results in a very low score.
     #[test]
-    fn score_bad_recent() -> Result<()> {
+    fn score_bad_recent() {
         let trials = vec![
             ExerciseTrial {
                 score: 1.0,
@@ -1173,12 +1171,11 @@ mod test {
             Utc::now().timestamp(),
         );
         assert!(score.value < 2.0);
-        Ok(())
     }
 
     /// Verifies score for mixed performance history.
     #[test]
-    fn score_mixed_performance() -> Result<()> {
+    fn score_mixed_performance() {
         let trials = vec![
             ExerciseTrial {
                 score: 3.0,
@@ -1238,7 +1235,6 @@ mod test {
             Utc::now().timestamp(),
         );
         assert!(score.value > 1.0 && score.value < 4.0);
-        Ok(())
     }
 
     /// Verifies that trials not sorted in descending order by timestamp return an error.
@@ -1266,7 +1262,7 @@ mod test {
 
     /// Verifies that trials with old timestamp result in a low score.
     #[test]
-    fn score_old_timestamp() -> Result<()> {
+    fn score_old_timestamp() {
         let score = score_helper(
             ExerciseType::Declarative,
             &[ExerciseTrial {
@@ -1278,12 +1274,11 @@ mod test {
             Utc::now().timestamp(),
         );
         assert!(score.value < 3.0);
-        Ok(())
     }
 
     /// Verifies that the score for multiple good trials is very close to the maximum score.
     #[test]
-    fn score_multiple_good() -> Result<()> {
+    fn score_multiple_good() {
         let trials = vec![
             ExerciseTrial {
                 score: 5.0,
@@ -1333,12 +1328,11 @@ mod test {
             Utc::now().timestamp(),
         );
         assert!(score.value > 4.0);
-        Ok(())
     }
 
     /// Verifies that multiple bad trials result in a very low score.
     #[test]
-    fn score_multiple_bad() -> Result<()> {
+    fn score_multiple_bad() {
         let trials = vec![
             ExerciseTrial {
                 score: 1.0,
@@ -1388,13 +1382,12 @@ mod test {
             Utc::now().timestamp(),
         );
         assert!(score.value < 2.0);
-        Ok(())
     }
 
     /// Verifies that many old and well-spaced trials with good scores return a score that is still
     /// good due to high stability.
     #[test]
-    fn score_old_good_trials() -> Result<()> {
+    fn score_old_good_trials() {
         let trials = vec![
             ExerciseTrial {
                 score: 5.0,
@@ -1441,13 +1434,12 @@ mod test {
             Utc::now().timestamp(),
         );
         assert!(score.value >= 3.5);
-        Ok(())
     }
 
     /// Verifies that very old trials of an exercise with good scores return a high score due to
     /// strong stability.
     #[test]
-    fn score_very_good_old_trials() -> Result<()> {
+    fn score_very_good_old_trials() {
         let trials = vec![
             ExerciseTrial {
                 score: 5.0,
@@ -1494,7 +1486,6 @@ mod test {
             Utc::now().timestamp(),
         );
         assert!(score.value >= 3.5);
-        Ok(())
     }
 
     /// Verifies that urgency increases as an otherwise identical review becomes older.
@@ -1636,7 +1627,7 @@ mod test {
 
     /// Verifies that positive deltas increase the score beyond the score with no deltas provided.
     #[test]
-    fn score_with_positive_deltas() -> Result<()> {
+    fn score_with_positive_deltas() {
         let trials = vec![
             ExerciseTrial {
                 score: 3.0,
@@ -1680,12 +1671,11 @@ mod test {
             Utc::now().timestamp(),
         );
         assert!(delta_score.value > base_score.value);
-        Ok(())
     }
 
     /// Verifies that negative deltas decrease the score below the score with no deltas provided.
     #[test]
-    fn score_with_negative_deltas() -> Result<()> {
+    fn score_with_negative_deltas() {
         let trials = vec![
             ExerciseTrial {
                 score: 3.0,
@@ -1729,6 +1719,5 @@ mod test {
             Utc::now().timestamp(),
         );
         assert!(delta_score.value < base_score.value);
-        Ok(())
     }
 }

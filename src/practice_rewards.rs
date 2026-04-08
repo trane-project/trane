@@ -319,16 +319,12 @@ mod test {
         assert_eq!(expected_rewards, only_rewards);
         let only_weights: Vec<f32> = actual.iter().map(|t| t.weight).collect();
         assert_eq!(expected_weights, only_weights);
-        let timestamps_sorted = actual
-            .iter()
-            .enumerate()
-            .map(|(i, _)| {
-                if i == 0 {
-                    return true;
-                }
-                actual[i - 1].timestamp >= actual[i].timestamp
-            })
-            .all(|b| b);
+        let timestamps_sorted = actual.iter().enumerate().all(|(i, _)| {
+            if i == 0 {
+                return true;
+            }
+            actual[i - 1].timestamp >= actual[i].timestamp
+        });
         assert!(timestamps_sorted);
     }
 
@@ -393,7 +389,7 @@ mod test {
                 unit_id,
                 value: i as f32,
                 weight: 1.0,
-                timestamp: i as i64,
+                timestamp: i64::from(i),
             }])?;
         }
 

@@ -595,10 +595,7 @@ fn schedule_exercises_in_review_list() -> Result<()> {
     let exercise_ids = all_test_exercises(&LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
-        if review_exercises
-            .iter()
-            .any(|review_exercise_id| *review_exercise_id == exercise_id)
-        {
+        if review_exercises.contains(&exercise_id) {
             assert!(
                 simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should have been scheduled",
@@ -1164,7 +1161,7 @@ fn serialized_course_library() -> Result<()> {
 
     // Open a new trane instance using the serialized library.
     let trane = Trane::new_local_from_serialized(temp_dir.path(), serialized_data)?;
-    assert!(trane.get_all_exercise_ids(None).len() > 0);
+    assert!(!trane.get_all_exercise_ids(None).is_empty());
 
     Ok(())
 }

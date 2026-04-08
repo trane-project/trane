@@ -1212,12 +1212,12 @@ mod test {
     fn select(
         lesson_score: f32,
         num_candidates: usize,
-        options: PassingScoreOptions,
+        options: &PassingScoreOptions,
     ) -> Vec<Candidate> {
         let candidates = (0..num_candidates)
             .map(|idx| candidate(idx as u32, 0.0, 1.0))
             .collect::<Vec<_>>();
-        DepthFirstScheduler::select_candidates(candidates, lesson_score, &options)
+        DepthFirstScheduler::select_candidates(candidates, lesson_score, options)
     }
 
     /// Returns a candidate with the given exercise and lesson IDs.
@@ -1255,7 +1255,7 @@ mod test {
         let candidates = select(
             2.0,
             5,
-            PassingScoreOptions {
+            &PassingScoreOptions {
                 min_score: 3.0,
                 min_fraction: 0.2,
                 min_avg_trials: 2.0,
@@ -1271,7 +1271,7 @@ mod test {
         let candidates = select(
             2.0,
             5,
-            PassingScoreOptions {
+            &PassingScoreOptions {
                 min_score: 3.0,
                 min_fraction: 0.0,
                 min_avg_trials: 2.0,
@@ -1287,7 +1287,7 @@ mod test {
         let candidates = select(
             3.0,
             2,
-            PassingScoreOptions {
+            &PassingScoreOptions {
                 min_score: 3.0,
                 min_fraction: 0.2,
                 min_avg_trials: 2.0,
@@ -1303,7 +1303,7 @@ mod test {
         let candidates = select(
             3.8,
             10,
-            PassingScoreOptions {
+            &PassingScoreOptions {
                 min_score: 3.0,
                 min_fraction: 0.2,
                 min_avg_trials: 2.0,
@@ -1319,7 +1319,7 @@ mod test {
         let candidates = select(
             3.01,
             2,
-            PassingScoreOptions {
+            &PassingScoreOptions {
                 min_score: 3.0,
                 min_fraction: 0.0,
                 min_avg_trials: 2.0,
@@ -1334,7 +1334,7 @@ mod test {
         let candidates = select(
             5.0,
             11,
-            PassingScoreOptions {
+            &PassingScoreOptions {
                 min_score: 3.0,
                 min_fraction: 0.2,
                 min_avg_trials: 2.0,

@@ -285,10 +285,7 @@ fn avoid_scheduling_exercises_in_blacklist() -> Result<()> {
     let exercise_ids = all_test_exercises(&LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
-        if !exercise_blacklist
-            .iter()
-            .any(|blacklisted_id| *blacklisted_id == exercise_id)
-        {
+        if !exercise_blacklist.contains(&exercise_id) {
             assert!(
                 simulation.answer_history.contains_key(&exercise_ustr),
                 "exercise {:?} should have been scheduled",
@@ -343,10 +340,7 @@ fn invalidate_cache_on_blacklist_update() -> Result<()> {
     // Every blacklisted exercise should not have been scheduled.
     let exercise_ids = all_test_exercises(&LIBRARY);
     for exercise_id in &exercise_ids {
-        if exercise_blacklist
-            .iter()
-            .any(|blacklisted_id| *blacklisted_id == *exercise_id)
-        {
+        if exercise_blacklist.contains(exercise_id) {
             let exercise_ustr = exercise_id.to_ustr();
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
@@ -370,11 +364,11 @@ fn invalidate_cache_on_blacklist_update() -> Result<()> {
         trane.remove_from_blacklist(exercise_id.to_ustr())?;
     }
     let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::One)));
-    simulation.run_simulation(&mut trane, &vec![], &None)?;
+    simulation.run_simulation(&mut trane, &Vec::new(), &None)?;
 
     // Trane should not schedule any lesson or course depending on the lesson with ID `TestId(0,
     // Some(0), None)`.
-    let unscheduled_lessons = vec![
+    let unscheduled_lessons = [
         TestId(0, Some(1), None),
         TestId(1, Some(0), None),
         TestId(1, Some(1), None),

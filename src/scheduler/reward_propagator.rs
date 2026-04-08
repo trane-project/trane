@@ -204,7 +204,7 @@ mod test {
     }
 
     /// Propagates a score of five through the graph and return the rewards as a map.
-    fn propagate_five_rewards(unit_graph: &dyn UnitGraph) -> Result<UstrMap<UnitReward>> {
+    fn propagate_five_rewards(unit_graph: &dyn UnitGraph) -> UstrMap<UnitReward> {
         let rewards = RewardPropagator::propagate_rewards_helper(
             unit_graph,
             Ustr::from("0::0"),
@@ -212,10 +212,10 @@ mod test {
             &MasteryScore::Five,
             0,
         );
-        Ok(rewards
+        rewards
             .into_iter()
             .map(|reward| (reward.unit_id, reward))
-            .collect())
+            .collect()
     }
 
     /// Verifies the initial reward for each score.
@@ -253,7 +253,7 @@ mod test {
     #[test]
     fn strongest_path_wins() -> Result<()> {
         let graph = build_path_graph(&[(Ustr::from("0::1"), 1.0), (Ustr::from("0::2"), 0.5)])?;
-        let reward_map = propagate_five_rewards(&graph)?;
+        let reward_map = propagate_five_rewards(&graph);
         let reward = reward_map.get(&Ustr::from("0::3")).unwrap();
         assert!((reward.value - 0.72).abs() < f32::EPSILON);
         assert!((reward.weight - 0.8).abs() < f32::EPSILON);
@@ -267,11 +267,11 @@ mod test {
             build_path_graph(&[(Ustr::from("0::1"), 1.0), (Ustr::from("0::2"), 0.5)])?;
         let second_order =
             build_path_graph(&[(Ustr::from("0::2"), 0.5), (Ustr::from("0::1"), 1.0)])?;
-        let first_reward = propagate_five_rewards(&first_order)?
+        let first_reward = propagate_five_rewards(&first_order)
             .get(&Ustr::from("0::3"))
             .cloned()
             .unwrap();
-        let second_reward = propagate_five_rewards(&second_order)?
+        let second_reward = propagate_five_rewards(&second_order)
             .get(&Ustr::from("0::3"))
             .cloned()
             .unwrap();
@@ -291,7 +291,7 @@ mod test {
         graph.add_encompassed(Ustr::from("0::0"), &[], &[(Ustr::from("0::1"), 0.8)])?;
         graph.add_encompassed(Ustr::from("0::1"), &[], &[(Ustr::from("0::2"), 0.8)])?;
 
-        let reward_map = propagate_five_rewards(&graph)?;
+        let reward_map = propagate_five_rewards(&graph);
         let first_hop = reward_map.get(&Ustr::from("0::1")).unwrap();
         assert!((first_hop.value - 0.64).abs() < f32::EPSILON);
         assert!((first_hop.weight - 0.8).abs() < f32::EPSILON);
@@ -311,7 +311,7 @@ mod test {
         graph.add_lesson(Ustr::from("0::1"), Ustr::from("0"))?;
         graph.add_encompassed(Ustr::from("0::0"), &[], &[(Ustr::from("0::1"), 0.1)])?;
 
-        let reward_map = propagate_five_rewards(&graph)?;
+        let reward_map = propagate_five_rewards(&graph);
         assert!(reward_map.is_empty());
         Ok(())
     }
@@ -327,7 +327,7 @@ mod test {
         graph.add_encompassed(Ustr::from("0::0"), &[], &[(Ustr::from("0::1"), 1.0)])?;
         graph.add_encompassed(Ustr::from("0::1"), &[], &[(Ustr::from("0::2"), 0.1)])?;
 
-        let reward_map = propagate_five_rewards(&graph)?;
+        let reward_map = propagate_five_rewards(&graph);
         assert!(reward_map.contains_key(&Ustr::from("0::1")));
         assert!(!reward_map.contains_key(&Ustr::from("0::2")));
         Ok(())

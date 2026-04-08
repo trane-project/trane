@@ -460,9 +460,9 @@ mod test {
         assert!(final_candidates.len() < batch_size);
 
         // Verify that remainders are not added when the batch is already full enough.
-        let mut final_candidates_full = (0..batch_size * 3 / 4 + 1)
+        let mut final_candidates_full = (0..=(batch_size * 3 / 4))
             .map(|i| Candidate {
-                exercise_id: Ustr::from(&format!("exercise{}", i)),
+                exercise_id: Ustr::from(&format!("exercise{i}")),
                 ..Default::default()
             })
             .collect::<Vec<_>>();
