@@ -700,6 +700,12 @@ impl DepthFirstScheduler {
         lessons_in_progress: &mut UstrSet,
         options: &SchedulerOptions,
     ) {
+        // Exit early if the lesson has no candidates, as is the case for blacklisted or
+        // filtered-out lessons.
+        if candidates.is_empty() {
+            return;
+        }
+
         let in_progress = match lesson_score {
             Some(score) => score <= options.target_window_opts.range.1,
             None => true,

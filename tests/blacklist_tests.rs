@@ -10,9 +10,10 @@ use tempfile::TempDir;
 use trane::{
     blacklist::Blacklist,
     data::{
-        MasteryScore,
+        MasteryScore, SchedulerOptions,
         filter::{ExerciseFilter, UnitFilter},
     },
+    scheduler::ExerciseScheduler,
     test_utils::*,
 };
 
@@ -120,6 +121,56 @@ static LIBRARY: LazyLock<Vec<TestCourse>> = LazyLock::new(|| {
                 TestLesson {
                     id: TestId(3, Some(1), None),
                     dependencies: vec![TestId(3, Some(0), None)],
+                    encompassed: vec![],
+                    superseded: vec![],
+                    metadata: BTreeMap::default(),
+                    num_exercises: 10,
+                },
+            ],
+        },
+        TestCourse {
+            id: TestId(4, None, None),
+            dependencies: vec![TestId(0, None, None)],
+            encompassed: vec![],
+            superseded: vec![],
+            metadata: BTreeMap::default(),
+            lessons: vec![
+                TestLesson {
+                    id: TestId(4, Some(0), None),
+                    dependencies: vec![],
+                    encompassed: vec![],
+                    superseded: vec![],
+                    metadata: BTreeMap::default(),
+                    num_exercises: 10,
+                },
+                TestLesson {
+                    id: TestId(4, Some(1), None),
+                    dependencies: vec![TestId(4, Some(0), None)],
+                    encompassed: vec![],
+                    superseded: vec![],
+                    metadata: BTreeMap::default(),
+                    num_exercises: 10,
+                },
+            ],
+        },
+        TestCourse {
+            id: TestId(5, None, None),
+            dependencies: vec![TestId(0, None, None)],
+            encompassed: vec![],
+            superseded: vec![],
+            metadata: BTreeMap::default(),
+            lessons: vec![
+                TestLesson {
+                    id: TestId(5, Some(0), None),
+                    dependencies: vec![],
+                    encompassed: vec![],
+                    superseded: vec![],
+                    metadata: BTreeMap::default(),
+                    num_exercises: 10,
+                },
+                TestLesson {
+                    id: TestId(5, Some(1), None),
+                    dependencies: vec![TestId(5, Some(0), None)],
                     encompassed: vec![],
                     superseded: vec![],
                     metadata: BTreeMap::default(),
@@ -292,6 +343,56 @@ fn avoid_scheduling_exercises_in_blacklist() -> Result<()> {
                 exercise_id
             );
             assert_simulation_scores(exercise_ustr, &trane, &simulation.answer_history)?;
+        } else {
+            assert!(
+                !simulation.answer_history.contains_key(&exercise_ustr),
+                "exercise {:?} should not have been scheduled",
+                exercise_id
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Verifies that courses are still being scheduled even when many units are blacklisted. This is a
+/// regression test for a bug where blacklisted units were incorrectly counted towards the
+/// `max_lessons_in_progress` limit, prematurely capping the candidate search.
+#[test]
+fn schedule_courses_with_many_blacklisted_units() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
+
+    // Tighten the max lessons in progress so the bug would manifest easily.
+    trane.set_scheduler_options(SchedulerOptions {
+        max_lessons_in_progress: 5,
+        ..SchedulerOptions::default()
+    });
+
+    // Blacklist all courses except the last one.
+    let course_blacklist = vec![
+        TestId(0, None, None),
+        TestId(1, None, None),
+        TestId(2, None, None),
+        TestId(3, None, None),
+        TestId(4, None, None),
+    ];
+    let mut simulation = TraneSimulation::new(500, Box::new(|_| Some(MasteryScore::Five)));
+    simulation.run_simulation(&mut trane, &course_blacklist, &None)?;
+
+    // Verify exercises from the non-blacklisted course were scheduled, and exercises from the
+    // blacklisted courses were not.
+    let exercise_ids = all_test_exercises(&LIBRARY);
+    for exercise_id in exercise_ids {
+        let exercise_ustr = exercise_id.to_ustr();
+        if !course_blacklist
+            .iter()
+            .any(|course_id| exercise_id.exercise_in_course(course_id))
+        {
+            assert!(
+                simulation.answer_history.contains_key(&exercise_ustr),
+                "exercise {:?} should have been scheduled",
+                exercise_id
+            );
         } else {
             assert!(
                 !simulation.answer_history.contains_key(&exercise_ustr),
