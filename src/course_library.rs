@@ -222,7 +222,7 @@ impl LocalCourseLibrary {
         lesson_manifest: &LessonManifest,
     ) -> Result<()> {
         // Verify that the IDs mentioned in the manifests are valid and agree with each other.
-        ensure!(!lesson_manifest.id.is_empty(), "ID in manifest is empty",);
+        ensure!(!lesson_manifest.id.is_empty(), "ID in manifest is empty");
         ensure!(
             lesson_manifest.course_id == course_manifest.id,
             "course_id in manifest for lesson {} does not match the manifest for course {}",
@@ -277,7 +277,7 @@ impl LocalCourseLibrary {
     /// Verifies that the IDs mentioned in the course manifest are valid.
     #[cfg_attr(coverage, coverage(off))]
     fn verify_course_manifest(course_manifest: &CourseManifest) -> Result<()> {
-        ensure!(!course_manifest.id.is_empty(), "ID in manifest is empty",);
+        ensure!(!course_manifest.id.is_empty(), "ID in manifest is empty");
         Ok(())
     }
 
@@ -609,8 +609,8 @@ impl CourseLibrary for LocalCourseLibrary {
         match unit_type {
             Some(UnitType::Course) => self
                 .course_map
-                .iter()
-                .filter_map(|(id, _)| {
+                .keys()
+                .filter_map(|id| {
                     if id.starts_with(prefix) {
                         Some(*id)
                     } else {
@@ -620,8 +620,8 @@ impl CourseLibrary for LocalCourseLibrary {
                 .collect(),
             Some(UnitType::Lesson) => self
                 .lesson_map
-                .iter()
-                .filter_map(|(id, _)| {
+                .keys()
+                .filter_map(|id| {
                     if id.starts_with(prefix) {
                         Some(*id)
                     } else {
@@ -631,8 +631,8 @@ impl CourseLibrary for LocalCourseLibrary {
                 .collect(),
             Some(UnitType::Exercise) => self
                 .exercise_map
-                .iter()
-                .filter_map(|(id, _)| {
+                .keys()
+                .filter_map(|id| {
                     if id.starts_with(prefix) {
                         Some(*id)
                     } else {

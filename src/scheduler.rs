@@ -983,8 +983,7 @@ impl DepthFirstScheduler {
                     UnitFilter::LessonFilter { lesson_ids } => {
                         let mut candidates = Vec::new();
                         for lesson_id in lesson_ids {
-                            candidates
-                                .extend(self.get_candidates_from_lesson(lesson_id)?.into_iter());
+                            candidates.extend(self.get_candidates_from_lesson(lesson_id)?);
                         }
                         candidates
                     }
