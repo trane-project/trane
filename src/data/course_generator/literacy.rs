@@ -6,6 +6,7 @@
 //! asked to write the examples and exceptions based on the tutor's dictation.
 
 use anyhow::{Context, Error, Result, anyhow};
+use noyalib::compat::serde_yaml;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
     collections::BTreeMap,
@@ -56,11 +57,23 @@ pub const EXAMPLE_SUFFIX: &str = ".example.md";
 /// The extension of files containing exceptions.
 pub const EXCEPTION_SUFFIX: &str = ".exception.md";
 
+/// The extension of files containing the answer to an example.
+pub const ANSWER_SUFFIX: &str = ".answer.md";
+
+/// The extension of files containing the answer to an exception.
+pub const EXCEPTION_ANSWER_SUFFIX: &str = ".exception_answer.md";
+
 /// The name of the file containing a list of examples.
 pub const SIMPLE_EXAMPLES_FILE: &str = "simple_examples.md";
 
 /// The name of the file containing a list of exceptions.
 pub const SIMPLE_EXCEPTIONS_FILE: &str = "simple_exceptions.md";
+
+/// The name of the file containing a list of examples with optional answers.
+pub const SIMPLE_EXAMPLES_WITH_ANSWERS_FILE: &str = "simple_examples_with_answers.yaml";
+
+/// The name of the file containing a list of exceptions with optional answers.
+pub const SIMPLE_EXCEPTIONS_WITH_ANSWERS_FILE: &str = "simple_exceptions_with_answers.yaml";
 
 /// An enum representing a type of files that can be found in a literacy lesson directory.
 #[derive(Debug, Eq, PartialEq)]
@@ -86,11 +99,23 @@ pub enum LiteracyFile {
     /// The file containing the back of the flashcard for the exercise with the given short ID.
     Exception(String),
 
+    /// The file containing the answer to the example with the given short ID.
+    ExampleAnswer(String),
+
+    /// The file containing the answer to the exception with the given short ID.
+    ExceptionAnswer(String),
+
     /// The file containing one example per line.
     SimpleExamples,
 
     /// The file containing one exception per line.
     SimpleExceptions,
+
+    /// The file containing a list of examples with optional answers.
+    SimpleExamplesWithAnswers,
+
+    /// The file containing a list of exceptions with optional answers.
+    SimpleExceptionsWithAnswers,
 }
 
 impl LiteracyFile {
@@ -132,6 +157,16 @@ impl LiteracyFile {
             .filter(|s| !s.is_empty())
             .collect())
     }
+
+    /// Opens a YAML file containing a list of examples or exceptions with optional answers and
+    /// deserializes its contents.
+    pub fn open_yml_list<T: DeserializeOwned + 'static>(path: &Path) -> Result<Vec<T>> {
+        let display = path.display();
+        let file = File::open(path).context(format!("cannot open literacy yaml file {display}"))?;
+        let reader = BufReader::new(file);
+        serde_yaml::from_reader(reader)
+            .context(format!("cannot parse literacy yaml file {display}"))
+    }
 }
 
 impl TryFrom<&str> for LiteracyFile {
@@ -152,8 +187,18 @@ impl TryFrom<&str> for LiteracyFile {
                 let short_id = file_name.strip_suffix(EXCEPTION_SUFFIX).unwrap();
                 Ok(LiteracyFile::Exception(short_id.to_string()))
             }
+            file_name if file_name.ends_with(ANSWER_SUFFIX) => {
+                let short_id = file_name.strip_suffix(ANSWER_SUFFIX).unwrap();
+                Ok(LiteracyFile::ExampleAnswer(short_id.to_string()))
+            }
+            file_name if file_name.ends_with(EXCEPTION_ANSWER_SUFFIX) => {
+                let short_id = file_name.strip_suffix(EXCEPTION_ANSWER_SUFFIX).unwrap();
+                Ok(LiteracyFile::ExceptionAnswer(short_id.to_string()))
+            }
             SIMPLE_EXAMPLES_FILE => Ok(LiteracyFile::SimpleExamples),
             SIMPLE_EXCEPTIONS_FILE => Ok(LiteracyFile::SimpleExceptions),
+            SIMPLE_EXAMPLES_WITH_ANSWERS_FILE => Ok(LiteracyFile::SimpleExamplesWithAnswers),
+            SIMPLE_EXCEPTIONS_WITH_ANSWERS_FILE => Ok(LiteracyFile::SimpleExceptionsWithAnswers),
             _ => Err(anyhow!("Not a valid literacy file name: {file_name}")), // grcov-excl-line
         }
     }
@@ -170,16 +215,43 @@ pub enum LiteracyLessonType {
     Dictation,
 }
 
+/// A single entry in a `simple_examples_with_answers.yaml` file.
+#[derive(Debug, Deserialize)]
+pub struct SimpleExamplesWithAnswersEntry {
+    /// The example.
+    pub example: String,
+
+    /// The optional answer to the example, such as a translation into another script.
+    #[serde(default)]
+    pub answer: Option<String>,
+}
+
+/// A single entry in a `simple_exceptions_with_answers.yaml` file.
+#[derive(Debug, Deserialize)]
+pub struct SimpleExceptionsWithAnswersEntry {
+    /// The exception.
+    pub exception: String,
+
+    /// The optional answer to the exception, such as a translation into another script.
+    #[serde(default)]
+    pub answer: Option<String>,
+}
+
 /// A representation of a literacy lesson containing examples and exceptions from which the raw
 /// lesson and exercise manifests are generated.
 ///
 /// In a literacy course, lessons are generated by searching for all directories with a name in the
 /// format `<short_id>.lesson`. Examples are read from files with the suffix `.example.md`. The
-/// optional exceptions are read from files with the suffix `.exception.md`.
+/// optional exceptions are read from files with the suffix `.exception.md`. Examples and exceptions
+/// can be paired with an optional answer, such as a translation into another script, by adding a
+/// file with the suffix `.answer.md` for examples and `.exception_answer.md` for exceptions.
 ///
-/// Simple example and exceptions can be added by reading examples from the file
+/// Simple examples and exceptions can be added by reading examples from the file
 /// `simple_examples.md` and exceptions from the file `simple_exceptions.md`. Each line of these
-/// files is treated as a separate example or exception.
+/// files is treated as a separate example or exception. Examples and exceptions with an optional
+/// answer can be added from the files `simple_examples_with_answers.yaml` and
+/// `simple_exceptions_with_answers.yaml`. Each entry in these files contains the example or
+/// exception and an optional answer.
 ///
 /// Additional fields like the name and dependencies of the lesson can be set by creating a file
 /// named `lesson.<PROPERTY_NAME>.json` in the lesson directory with the serialized value of the
@@ -208,11 +280,13 @@ pub struct LiteracyLesson {
     /// Optional instructions for the lesson.
     pub instructions: Option<BasicAsset>,
 
-    /// The examples for the lesson.
-    pub examples: Vec<String>,
+    /// The examples for the lesson. Each example can optionally be paired with an answer, such as
+    /// a translation into another script.
+    pub examples: Vec<(String, Option<String>)>,
 
-    /// The exceptions for the lesson.
-    pub exceptions: Vec<String>,
+    /// The exceptions for the lesson. Each exception can optionally be paired with an answer, such
+    /// as a translation into another script.
+    pub exceptions: Vec<(String, Option<String>)>,
 }
 
 impl LiteracyLesson {
@@ -232,6 +306,27 @@ impl LiteracyLesson {
             examples: vec![],
             exceptions: vec![],
         };
+
+        // Collect the answers to the individual examples and exceptions. This is done before
+        // reading the examples and exceptions themselves, because the answer files might be
+        // processed in any order.
+        let mut example_answers = BTreeMap::new();
+        let mut exception_answers = BTreeMap::new();
+        for lesson_file in files {
+            match lesson_file {
+                LiteracyFile::ExampleAnswer(short_id) => {
+                    let path = lesson_root.join(format!("{short_id}{ANSWER_SUFFIX}"));
+                    let answer = LiteracyFile::open_md(&path)?;
+                    example_answers.insert(short_id.clone(), answer);
+                }
+                LiteracyFile::ExceptionAnswer(short_id) => {
+                    let path = lesson_root.join(format!("{short_id}{EXCEPTION_ANSWER_SUFFIX}"));
+                    let answer = LiteracyFile::open_md(&path)?;
+                    exception_answers.insert(short_id.clone(), answer);
+                }
+                _ => {}
+            }
+        }
 
         // Iterate through the lesson files found in the lesson directory and update the
         // corresponding field in the lesson.
@@ -266,22 +361,49 @@ impl LiteracyLesson {
                 LiteracyFile::Example(short_id) => {
                     let path = lesson_root.join(format!("{short_id}{EXAMPLE_SUFFIX}"));
                     let example = LiteracyFile::open_md(&path)?;
-                    lesson.examples.push(example);
+                    let answer = example_answers.get(short_id).cloned();
+                    lesson.examples.push((example, answer));
                 }
                 LiteracyFile::Exception(short_id) => {
                     let path = lesson_root.join(format!("{short_id}{EXCEPTION_SUFFIX}"));
                     let exception = LiteracyFile::open_md(&path)?;
-                    lesson.exceptions.push(exception);
+                    let answer = exception_answers.get(short_id).cloned();
+                    lesson.exceptions.push((exception, answer));
                 }
+                LiteracyFile::ExampleAnswer(_) | LiteracyFile::ExceptionAnswer(_) => {}
                 LiteracyFile::SimpleExamples => {
                     let path = lesson_root.join(SIMPLE_EXAMPLES_FILE);
                     let examples = LiteracyFile::open_md_list(&path)?;
-                    lesson.examples.extend(examples);
+                    lesson
+                        .examples
+                        .extend(examples.into_iter().map(|example| (example, None)));
                 }
                 LiteracyFile::SimpleExceptions => {
                     let path = lesson_root.join(SIMPLE_EXCEPTIONS_FILE);
                     let exceptions = LiteracyFile::open_md_list(&path)?;
-                    lesson.exceptions.extend(exceptions);
+                    lesson
+                        .exceptions
+                        .extend(exceptions.into_iter().map(|exception| (exception, None)));
+                }
+                LiteracyFile::SimpleExamplesWithAnswers => {
+                    let path = lesson_root.join(SIMPLE_EXAMPLES_WITH_ANSWERS_FILE);
+                    let examples =
+                        LiteracyFile::open_yml_list::<SimpleExamplesWithAnswersEntry>(&path)?;
+                    lesson.examples.extend(
+                        examples
+                            .into_iter()
+                            .map(|entry| (entry.example, entry.answer)),
+                    );
+                }
+                LiteracyFile::SimpleExceptionsWithAnswers => {
+                    let path = lesson_root.join(SIMPLE_EXCEPTIONS_WITH_ANSWERS_FILE);
+                    let exceptions =
+                        LiteracyFile::open_yml_list::<SimpleExceptionsWithAnswersEntry>(&path)?;
+                    lesson.exceptions.extend(
+                        exceptions
+                            .into_iter()
+                            .map(|entry| (entry.exception, entry.answer)),
+                    );
                 }
             }
         }
@@ -711,8 +833,13 @@ mod test {
         fs::write(lesson_dir.join("lesson.instructions.md"), "Instructions")?;
         fs::write(lesson_dir.join("example_0.example.md"), "Example 0")?;
         fs::write(lesson_dir.join("example_1.example.md"), "Example 1")?;
+        fs::write(lesson_dir.join("example_0.answer.md"), "Answer 0")?;
         fs::write(lesson_dir.join("exception_0.exception.md"), "Exception 0")?;
         fs::write(lesson_dir.join("exception_1.exception.md"), "Exception 1")?;
+        fs::write(
+            lesson_dir.join("exception_0.exception_answer.md"),
+            "Exception Answer 0",
+        )?;
         fs::write(
             lesson_dir.join("simple_examples.md"),
             "Simple Example 0\nSimple Example 1",
@@ -720,6 +847,14 @@ mod test {
         fs::write(
             lesson_dir.join("simple_exceptions.md"),
             "Simple Exception 0\nSimple Exception 1",
+        )?;
+        fs::write(
+            lesson_dir.join("simple_examples_with_answers.yaml"),
+            "- example: Yaml Example 0\n  answer: Yaml Answer 0\n- example: Yaml Example 1",
+        )?;
+        fs::write(
+            lesson_dir.join("simple_exceptions_with_answers.yaml"),
+            "- exception: Yaml Exception 0\n  answer: Yaml Answer 0\n- exception: Yaml Exception 1",
         )?;
 
         // Open the lesson and verify its contents.
@@ -733,16 +868,29 @@ mod test {
                 content: "Instructions".to_string(),
             }),
             examples: vec![
-                "Example 0".to_string(),
-                "Example 1".to_string(),
-                "Simple Example 0".to_string(),
-                "Simple Example 1".to_string(),
+                ("Example 0".to_string(), Some("Answer 0".to_string())),
+                ("Example 1".to_string(), None),
+                ("Simple Example 0".to_string(), None),
+                ("Simple Example 1".to_string(), None),
+                (
+                    "Yaml Example 0".to_string(),
+                    Some("Yaml Answer 0".to_string()),
+                ),
+                ("Yaml Example 1".to_string(), None),
             ],
             exceptions: vec![
-                "Exception 0".to_string(),
-                "Exception 1".to_string(),
-                "Simple Exception 0".to_string(),
-                "Simple Exception 1".to_string(),
+                (
+                    "Exception 0".to_string(),
+                    Some("Exception Answer 0".to_string()),
+                ),
+                ("Exception 1".to_string(), None),
+                ("Simple Exception 0".to_string(), None),
+                ("Simple Exception 1".to_string(), None),
+                (
+                    "Yaml Exception 0".to_string(),
+                    Some("Yaml Answer 0".to_string()),
+                ),
+                ("Yaml Exception 1".to_string(), None),
             ],
         };
         assert_eq!(lesson, want);
@@ -809,6 +957,33 @@ mod test {
                     .join("\n");
                 fs::write(&simple_exception_file, simple_exception_content)?;
             }
+
+            // If simple examples and exceptions with answers are requested, generate the
+            // `simple_examples_with_answers.yaml` and `simple_exceptions_with_answers.yaml` files.
+            if num_simple_examples > 0 {
+                let simple_example_file = lesson_dir.join("simple_examples_with_answers.yaml");
+                let simple_example_content = (0..num_simple_examples)
+                    .map(|j| {
+                        format!(
+                            "- example: simple_example_with_answer_{j}\n  answer: simple_answer_{j}"
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                fs::write(&simple_example_file, simple_example_content)?;
+            }
+            if num_simple_exceptions > 0 {
+                let simple_exception_file = lesson_dir.join("simple_exceptions_with_answers.yaml");
+                let simple_exception_content = (0..num_simple_exceptions)
+                    .map(|j| {
+                        format!(
+                            "- exception: simple_exception_with_answer_{j}\n  answer: simple_answer_{j}"
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                fs::write(&simple_exception_file, simple_exception_content)?;
+            }
         }
         Ok(())
     }
@@ -839,9 +1014,9 @@ mod test {
         // Generate the manifests. Sort lessons and exercises by ID to have predictable outputs.
         let prefs = UserPreferences::default();
         let mut got = config.generate_manifests(temp_dir.path(), &course_manifest, &prefs)?;
-        got.lessons.sort_by(|a, b| a.0.id.cmp(&b.0.id));
+        got.lessons.sort_by_key(|lesson| lesson.0.id);
         for (_, exercises) in &mut got.lessons {
-            exercises.sort_by(|a, b| a.id.cmp(&b.id));
+            exercises.sort_by_key(|exercise| exercise.id);
         }
 
         // Verify the generated course.
@@ -873,16 +1048,32 @@ mod test {
                         exercise_asset: ExerciseAsset::LiteracyAsset {
                             lesson_type: LiteracyLessonType::Dictation,
                             examples: vec![
-                                "example_0".to_string(),
-                                "example_1".to_string(),
-                                "simple_example_0".to_string(),
-                                "simple_example_1".to_string(),
+                                ("example_0".to_string(), None),
+                                ("example_1".to_string(), None),
+                                ("simple_example_0".to_string(), None),
+                                ("simple_example_1".to_string(), None),
+                                (
+                                    "simple_example_with_answer_0".to_string(),
+                                    Some("simple_answer_0".to_string()),
+                                ),
+                                (
+                                    "simple_example_with_answer_1".to_string(),
+                                    Some("simple_answer_1".to_string()),
+                                ),
                             ],
                             exceptions: vec![
-                                "exception_0".to_string(),
-                                "exception_1".to_string(),
-                                "simple_exception_0".to_string(),
-                                "simple_exception_1".to_string(),
+                                ("exception_0".to_string(), None),
+                                ("exception_1".to_string(), None),
+                                ("simple_exception_0".to_string(), None),
+                                ("simple_exception_1".to_string(), None),
+                                (
+                                    "simple_exception_with_answer_0".to_string(),
+                                    Some("simple_answer_0".to_string()),
+                                ),
+                                (
+                                    "simple_exception_with_answer_1".to_string(),
+                                    Some("simple_answer_1".to_string()),
+                                ),
                             ],
                         },
                     }],
@@ -913,16 +1104,32 @@ mod test {
                         exercise_asset: ExerciseAsset::LiteracyAsset {
                             lesson_type: LiteracyLessonType::Reading,
                             examples: vec![
-                                "example_0".to_string(),
-                                "example_1".to_string(),
-                                "simple_example_0".to_string(),
-                                "simple_example_1".to_string(),
+                                ("example_0".to_string(), None),
+                                ("example_1".to_string(), None),
+                                ("simple_example_0".to_string(), None),
+                                ("simple_example_1".to_string(), None),
+                                (
+                                    "simple_example_with_answer_0".to_string(),
+                                    Some("simple_answer_0".to_string()),
+                                ),
+                                (
+                                    "simple_example_with_answer_1".to_string(),
+                                    Some("simple_answer_1".to_string()),
+                                ),
                             ],
                             exceptions: vec![
-                                "exception_0".to_string(),
-                                "exception_1".to_string(),
-                                "simple_exception_0".to_string(),
-                                "simple_exception_1".to_string(),
+                                ("exception_0".to_string(), None),
+                                ("exception_1".to_string(), None),
+                                ("simple_exception_0".to_string(), None),
+                                ("simple_exception_1".to_string(), None),
+                                (
+                                    "simple_exception_with_answer_0".to_string(),
+                                    Some("simple_answer_0".to_string()),
+                                ),
+                                (
+                                    "simple_exception_with_answer_1".to_string(),
+                                    Some("simple_answer_1".to_string()),
+                                ),
                             ],
                         },
                     }],
@@ -956,16 +1163,32 @@ mod test {
                         exercise_asset: ExerciseAsset::LiteracyAsset {
                             lesson_type: LiteracyLessonType::Dictation,
                             examples: vec![
-                                "example_0".to_string(),
-                                "example_1".to_string(),
-                                "simple_example_0".to_string(),
-                                "simple_example_1".to_string(),
+                                ("example_0".to_string(), None),
+                                ("example_1".to_string(), None),
+                                ("simple_example_0".to_string(), None),
+                                ("simple_example_1".to_string(), None),
+                                (
+                                    "simple_example_with_answer_0".to_string(),
+                                    Some("simple_answer_0".to_string()),
+                                ),
+                                (
+                                    "simple_example_with_answer_1".to_string(),
+                                    Some("simple_answer_1".to_string()),
+                                ),
                             ],
                             exceptions: vec![
-                                "exception_0".to_string(),
-                                "exception_1".to_string(),
-                                "simple_exception_0".to_string(),
-                                "simple_exception_1".to_string(),
+                                ("exception_0".to_string(), None),
+                                ("exception_1".to_string(), None),
+                                ("simple_exception_0".to_string(), None),
+                                ("simple_exception_1".to_string(), None),
+                                (
+                                    "simple_exception_with_answer_0".to_string(),
+                                    Some("simple_answer_0".to_string()),
+                                ),
+                                (
+                                    "simple_exception_with_answer_1".to_string(),
+                                    Some("simple_answer_1".to_string()),
+                                ),
                             ],
                         },
                     }],
@@ -999,16 +1222,32 @@ mod test {
                         exercise_asset: ExerciseAsset::LiteracyAsset {
                             lesson_type: LiteracyLessonType::Reading,
                             examples: vec![
-                                "example_0".to_string(),
-                                "example_1".to_string(),
-                                "simple_example_0".to_string(),
-                                "simple_example_1".to_string(),
+                                ("example_0".to_string(), None),
+                                ("example_1".to_string(), None),
+                                ("simple_example_0".to_string(), None),
+                                ("simple_example_1".to_string(), None),
+                                (
+                                    "simple_example_with_answer_0".to_string(),
+                                    Some("simple_answer_0".to_string()),
+                                ),
+                                (
+                                    "simple_example_with_answer_1".to_string(),
+                                    Some("simple_answer_1".to_string()),
+                                ),
                             ],
                             exceptions: vec![
-                                "exception_0".to_string(),
-                                "exception_1".to_string(),
-                                "simple_exception_0".to_string(),
-                                "simple_exception_1".to_string(),
+                                ("exception_0".to_string(), None),
+                                ("exception_1".to_string(), None),
+                                ("simple_exception_0".to_string(), None),
+                                ("simple_exception_1".to_string(), None),
+                                (
+                                    "simple_exception_with_answer_0".to_string(),
+                                    Some("simple_answer_0".to_string()),
+                                ),
+                                (
+                                    "simple_exception_with_answer_1".to_string(),
+                                    Some("simple_answer_1".to_string()),
+                                ),
                             ],
                         },
                     }],
@@ -1052,9 +1291,9 @@ mod test {
         // Generate the manifests. Sort lessons and exercises by ID to have predictable outputs.
         let prefs = UserPreferences::default();
         let mut got = config.generate_manifests(temp_dir.path(), &course_manifest, &prefs)?;
-        got.lessons.sort_by(|a, b| a.0.id.cmp(&b.0.id));
+        got.lessons.sort_by_key(|lesson| lesson.0.id);
         for (_, exercises) in &mut got.lessons {
-            exercises.sort_by(|a, b| a.id.cmp(&b.id));
+            exercises.sort_by_key(|exercise| exercise.id);
         }
 
         // Verify the generated course.
@@ -1086,16 +1325,32 @@ mod test {
                         exercise_asset: ExerciseAsset::LiteracyAsset {
                             lesson_type: LiteracyLessonType::Reading,
                             examples: vec![
-                                "example_0".to_string(),
-                                "example_1".to_string(),
-                                "simple_example_0".to_string(),
-                                "simple_example_1".to_string(),
+                                ("example_0".to_string(), None),
+                                ("example_1".to_string(), None),
+                                ("simple_example_0".to_string(), None),
+                                ("simple_example_1".to_string(), None),
+                                (
+                                    "simple_example_with_answer_0".to_string(),
+                                    Some("simple_answer_0".to_string()),
+                                ),
+                                (
+                                    "simple_example_with_answer_1".to_string(),
+                                    Some("simple_answer_1".to_string()),
+                                ),
                             ],
                             exceptions: vec![
-                                "exception_0".to_string(),
-                                "exception_1".to_string(),
-                                "simple_exception_0".to_string(),
-                                "simple_exception_1".to_string(),
+                                ("exception_0".to_string(), None),
+                                ("exception_1".to_string(), None),
+                                ("simple_exception_0".to_string(), None),
+                                ("simple_exception_1".to_string(), None),
+                                (
+                                    "simple_exception_with_answer_0".to_string(),
+                                    Some("simple_answer_0".to_string()),
+                                ),
+                                (
+                                    "simple_exception_with_answer_1".to_string(),
+                                    Some("simple_answer_1".to_string()),
+                                ),
                             ],
                         },
                     }],
@@ -1129,16 +1384,32 @@ mod test {
                         exercise_asset: ExerciseAsset::LiteracyAsset {
                             lesson_type: LiteracyLessonType::Reading,
                             examples: vec![
-                                "example_0".to_string(),
-                                "example_1".to_string(),
-                                "simple_example_0".to_string(),
-                                "simple_example_1".to_string(),
+                                ("example_0".to_string(), None),
+                                ("example_1".to_string(), None),
+                                ("simple_example_0".to_string(), None),
+                                ("simple_example_1".to_string(), None),
+                                (
+                                    "simple_example_with_answer_0".to_string(),
+                                    Some("simple_answer_0".to_string()),
+                                ),
+                                (
+                                    "simple_example_with_answer_1".to_string(),
+                                    Some("simple_answer_1".to_string()),
+                                ),
                             ],
                             exceptions: vec![
-                                "exception_0".to_string(),
-                                "exception_1".to_string(),
-                                "simple_exception_0".to_string(),
-                                "simple_exception_1".to_string(),
+                                ("exception_0".to_string(), None),
+                                ("exception_1".to_string(), None),
+                                ("simple_exception_0".to_string(), None),
+                                ("simple_exception_1".to_string(), None),
+                                (
+                                    "simple_exception_with_answer_0".to_string(),
+                                    Some("simple_answer_0".to_string()),
+                                ),
+                                (
+                                    "simple_exception_with_answer_1".to_string(),
+                                    Some("simple_answer_1".to_string()),
+                                ),
                             ],
                         },
                     }],

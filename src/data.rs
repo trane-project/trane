@@ -621,13 +621,15 @@ pub enum ExerciseAsset {
         /// The type of the lesson.
         lesson_type: LiteracyLessonType,
 
-        /// The examples to use in the lesson's exercise.
+        /// The examples to use in the lesson's exercise. Each example can optionally be paired
+        /// with an answer, such as a translation into another script.
         #[serde(default)]
-        examples: Vec<String>,
+        examples: Vec<(String, Option<String>)>,
 
-        /// The exceptions to the examples to use in the lesson's exercise.
+        /// The exceptions to the examples to use in the lesson's exercise. Each exception can
+        /// optionally be paired with an answer, such as a translation into another script.
         #[serde(default)]
-        exceptions: Vec<String>,
+        exceptions: Vec<(String, Option<String>)>,
     },
 
     /// An asset which stores a link to a SoundSlice.
@@ -1256,8 +1258,11 @@ mod test {
         let temp_dir = tempfile::tempdir()?;
         let literacy_asset = ExerciseAsset::LiteracyAsset {
             lesson_type: LiteracyLessonType::Reading,
-            examples: vec!["C".to_string(), "D".to_string()],
-            exceptions: vec!["E".to_string()],
+            examples: vec![
+                ("C".to_string(), None),
+                ("D".to_string(), Some("d".to_string())),
+            ],
+            exceptions: vec![("E".to_string(), None)],
         };
         assert!(literacy_asset.verify_paths(temp_dir.path())?);
         Ok(())
