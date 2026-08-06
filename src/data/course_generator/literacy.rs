@@ -36,6 +36,9 @@ pub const LESSON_SUFFIX: &str = ".lesson";
 /// The name of the file containing the dependencies of a lesson.
 pub const LESSON_DEPENDENCIES_FILE: &str = "lesson.dependencies.json";
 
+/// The name of the file containing the courses or lessons encompassed by the lesson.
+pub const LESSON_ENCOMPASSED_FILE: &str = "lesson.encompassed.json";
+
 /// The name of the file containing the name of a lesson.
 pub const LESSON_NAME_FILE: &str = "lesson.name.json";
 
@@ -89,6 +92,9 @@ pub enum LiteracyFile {
 
     /// The file containing the dependencies of the lesson.
     LessonDependencies,
+
+    /// The file containing the courses or lessons encompassed by the lesson.
+    LessonEncompassed,
 
     /// The file containing the lesson instructions.
     LessonInstructions,
@@ -176,6 +182,7 @@ impl TryFrom<&str> for LiteracyFile {
     fn try_from(file_name: &str) -> Result<Self> {
         match file_name {
             LESSON_DEPENDENCIES_FILE => Ok(LiteracyFile::LessonDependencies),
+            LESSON_ENCOMPASSED_FILE => Ok(LiteracyFile::LessonEncompassed),
             LESSON_NAME_FILE => Ok(LiteracyFile::LessonName),
             LESSON_DESCRIPTION_FILE => Ok(LiteracyFile::LessonDescription),
             LESSON_INSTRUCTIONS_FILE => Ok(LiteracyFile::LessonInstructions),
@@ -271,6 +278,9 @@ pub struct LiteracyLesson {
     /// the lesson has no dependencies.
     pub dependencies: Vec<Ustr>,
 
+    /// The IDs of all courses or lessons encompassed by this lesson and their respective weights.
+    pub encompassed: Vec<(Ustr, f32)>,
+
     /// The name of the lesson to be presented to the user.
     pub name: Option<String>,
 
@@ -300,6 +310,7 @@ impl LiteracyLesson {
         let mut lesson = Self {
             short_id: short_lesson_id,
             dependencies: vec![],
+            encompassed: vec![],
             name: None,
             description: None,
             instructions: None,
@@ -343,6 +354,10 @@ impl LiteracyLesson {
                 LiteracyFile::LessonDependencies => {
                     let path = lesson_root.join(LESSON_DEPENDENCIES_FILE);
                     lesson.dependencies = LiteracyFile::open_serialized(&path)?;
+                }
+                LiteracyFile::LessonEncompassed => {
+                    let path = lesson_root.join(LESSON_ENCOMPASSED_FILE);
+                    lesson.encompassed = LiteracyFile::open_serialized(&path)?;
                 }
                 LiteracyFile::LessonName => {
                     let path = lesson_root.join(LESSON_NAME_FILE);
@@ -489,12 +504,23 @@ impl LiteracyLesson {
             .map(|id| Self::full_reading_lesson_id(course_manifest.id, *id, short_ids))
             .collect::<Vec<_>>();
         dependencies.sort();
+        let mut encompassed = self
+            .encompassed
+            .iter()
+            .map(|(id, weight)| {
+                (
+                    Self::full_reading_lesson_id(course_manifest.id, *id, short_ids),
+                    *weight,
+                )
+            })
+            .collect::<Vec<_>>();
+        encompassed.sort_by_key(|(id, _)| *id);
 
         // Create the lesson manifest.
         let lesson_manifest = LessonManifest {
             id: lesson_id,
             dependencies,
-            encompassed: vec![],
+            encompassed,
             superseded: vec![],
             course_id: course_manifest.id,
             name: lesson_name.clone(),
@@ -555,12 +581,23 @@ impl LiteracyLesson {
             .collect::<Vec<_>>();
         dependencies.push(reading_lesson_id);
         dependencies.sort();
+        let mut encompassed = self
+            .encompassed
+            .iter()
+            .map(|(id, weight)| {
+                (
+                    Self::full_dictation_lesson_id(course_manifest.id, *id, short_ids),
+                    *weight,
+                )
+            })
+            .collect::<Vec<_>>();
+        encompassed.sort_by_key(|(id, _)| *id);
 
         // Create the lesson manifest.
         let lesson_manifest = LessonManifest {
             id: lesson_id,
             dependencies,
-            encompassed: vec![],
+            encompassed,
             superseded: vec![],
             course_id: course_manifest.id,
             name: lesson_name.clone(),
@@ -785,6 +822,7 @@ mod test {
         let lesson = LiteracyLesson {
             short_id: Ustr::from("lesson_id"),
             dependencies: vec![],
+            encompassed: vec![],
             name: Some("Lesson Name".to_string()),
             description: None,
             instructions: None,
@@ -800,6 +838,7 @@ mod test {
         let lesson = LiteracyLesson {
             short_id: Ustr::from("lesson_id"),
             dependencies: vec![],
+            encompassed: vec![],
             name: None,
             description: None,
             instructions: None,
@@ -824,6 +863,10 @@ mod test {
         fs::write(
             lesson_dir.join("lesson.dependencies.json"),
             "[\"other_course\"]",
+        )?;
+        fs::write(
+            lesson_dir.join("lesson.encompassed.json"),
+            "[[\"other_course\", 0.5]]",
         )?;
         fs::write(lesson_dir.join("lesson.name.json"), "\"Lesson 0\"")?;
         fs::write(
@@ -862,6 +905,7 @@ mod test {
         let want = LiteracyLesson {
             short_id: Ustr::from("lesson_0"),
             dependencies: vec![Ustr::from("other_course")],
+            encompassed: vec![(Ustr::from("other_course"), 0.5)],
             name: Some("Lesson 0".to_string()),
             description: Some("Description".to_string()),
             instructions: Some(BasicAsset::InlinedAsset {
@@ -926,6 +970,13 @@ mod test {
                 let dependencies_content = format!("[\"lesson_{}\", \"other_lesson\"]", i - 1);
                 fs::write(&dependencies_file, dependencies_content)?;
             }
+
+            // Write the encompassed file. It includes a reference to a lesson in the course to
+            // verify the short ID resolution and a reference to a lesson outside the course to
+            // verify that external references are preserved.
+            let encompassed_file = lesson_dir.join("lesson.encompassed.json");
+            let encompassed_content = "[[\"lesson_0\", 1.0], [\"other_lesson\", 0.5]]";
+            fs::write(&encompassed_file, encompassed_content)?;
 
             // Write individual example and exception files.
             for j in 0..num_examples {
@@ -1026,7 +1077,10 @@ mod test {
                     LessonManifest {
                         id: "literacy_course::lesson_0::dictation".into(),
                         dependencies: vec!["literacy_course::lesson_0::reading".into()],
-                        encompassed: vec![],
+                        encompassed: vec![
+                            (Ustr::from("literacy_course::lesson_0::dictation"), 1.0),
+                            (Ustr::from("other_lesson"), 0.5),
+                        ],
                         superseded: vec![],
                         course_id: "literacy_course".into(),
                         name: "Literacy Course - lesson_0 - Dictation".into(),
@@ -1082,7 +1136,10 @@ mod test {
                     LessonManifest {
                         id: "literacy_course::lesson_0::reading".into(),
                         dependencies: vec!["other_lesson".into()],
-                        encompassed: vec![],
+                        encompassed: vec![
+                            (Ustr::from("literacy_course::lesson_0::reading"), 1.0),
+                            (Ustr::from("other_lesson"), 0.5),
+                        ],
                         superseded: vec![],
                         course_id: "literacy_course".into(),
                         name: "Literacy Course - lesson_0 - Reading".into(),
@@ -1141,7 +1198,10 @@ mod test {
                             "literacy_course::lesson_0::dictation".into(),
                             "literacy_course::lesson_1::reading".into(),
                         ],
-                        encompassed: vec![],
+                        encompassed: vec![
+                            (Ustr::from("literacy_course::lesson_0::dictation"), 1.0),
+                            (Ustr::from("other_lesson"), 0.5),
+                        ],
                         superseded: vec![],
                         course_id: "literacy_course".into(),
                         name: "Literacy Course - lesson_1 - Dictation".into(),
@@ -1200,7 +1260,10 @@ mod test {
                             "literacy_course::lesson_0::reading".into(),
                             "other_lesson".into(),
                         ],
-                        encompassed: vec![],
+                        encompassed: vec![
+                            (Ustr::from("literacy_course::lesson_0::reading"), 1.0),
+                            (Ustr::from("other_lesson"), 0.5),
+                        ],
                         superseded: vec![],
                         course_id: "literacy_course".into(),
                         name: "Literacy Course - lesson_1 - Reading".into(),
@@ -1303,7 +1366,10 @@ mod test {
                     LessonManifest {
                         id: "literacy_course::lesson_0::reading".into(),
                         dependencies: vec!["other_lesson".into()],
-                        encompassed: vec![],
+                        encompassed: vec![
+                            (Ustr::from("literacy_course::lesson_0::reading"), 1.0),
+                            (Ustr::from("other_lesson"), 0.5),
+                        ],
                         superseded: vec![],
                         course_id: "literacy_course".into(),
                         name: "Literacy Course - lesson_0 - Reading".into(),
@@ -1362,7 +1428,10 @@ mod test {
                             "literacy_course::lesson_0::reading".into(),
                             "other_lesson".into(),
                         ],
-                        encompassed: vec![],
+                        encompassed: vec![
+                            (Ustr::from("literacy_course::lesson_0::reading"), 1.0),
+                            (Ustr::from("other_lesson"), 0.5),
+                        ],
                         superseded: vec![],
                         course_id: "literacy_course".into(),
                         name: "Literacy Course - lesson_1 - Reading".into(),
