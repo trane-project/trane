@@ -1,6 +1,6 @@
 [package]
 name = "trane"
-version = "0.29.0"
+version = "0.30.0"
 edition = "2024"
 description = "An automated system for learning complex skills"
 license = "AGPL-3.0-or-later"
@@ -20,7 +20,7 @@ indoc = "2.0.7"
 parking_lot = { version = "0.12.5", features = ["hardware-lock-elision"] }
 rand = "0.10.0"
 rayon = "1.11.0"
-rusqlite = { version = "0.38.0", features = ["bundled"] }
+rusqlite = { version = "0.40.2", features = ["bundled"] }
 rusqlite_migration = "2.4.1"
 serde = { version = "1.0.228", features = ["derive", "rc"] }
 serde_json = "1.0.149"
@@ -29,7 +29,7 @@ tempfile = "3.27.0"
 thiserror = "2.0.18"
 ustr = { version = "1.1.0", features = ["serde"] }
 walkdir = "2.5.0"
-noyalib = { version = "0.0.5", features = ["compat-serde-yaml"] }
+noyalib = { version = "0.0.24", features = ["compat-serde-yaml"] }
 
 [dev-dependencies]
 pretty_assertions = "1.4"
