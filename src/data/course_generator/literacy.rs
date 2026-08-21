@@ -39,6 +39,9 @@ pub const LESSON_DEPENDENCIES_FILE: &str = "lesson.dependencies.json";
 /// The name of the file containing the courses or lessons encompassed by the lesson.
 pub const LESSON_ENCOMPASSED_FILE: &str = "lesson.encompassed.json";
 
+/// The name of the file containing the courses or lessons superseded by the lesson.
+pub const LESSON_SUPERSEDED_FILE: &str = "lesson.superseded.json";
+
 /// The name of the file containing the name of a lesson.
 pub const LESSON_NAME_FILE: &str = "lesson.name.json";
 
@@ -95,6 +98,9 @@ pub enum LiteracyFile {
 
     /// The file containing the courses or lessons encompassed by the lesson.
     LessonEncompassed,
+
+    /// The file containing the courses or lessons superseded by the lesson.
+    LessonSuperseded,
 
     /// The file containing the lesson instructions.
     LessonInstructions,
@@ -183,6 +189,7 @@ impl TryFrom<&str> for LiteracyFile {
         match file_name {
             LESSON_DEPENDENCIES_FILE => Ok(LiteracyFile::LessonDependencies),
             LESSON_ENCOMPASSED_FILE => Ok(LiteracyFile::LessonEncompassed),
+            LESSON_SUPERSEDED_FILE => Ok(LiteracyFile::LessonSuperseded),
             LESSON_NAME_FILE => Ok(LiteracyFile::LessonName),
             LESSON_DESCRIPTION_FILE => Ok(LiteracyFile::LessonDescription),
             LESSON_INSTRUCTIONS_FILE => Ok(LiteracyFile::LessonInstructions),
@@ -260,9 +267,9 @@ pub struct SimpleExceptionsWithAnswersEntry {
 /// `simple_exceptions_with_answers.yaml`. Each entry in these files contains the example or
 /// exception and an optional answer.
 ///
-/// Additional fields like the name and dependencies of the lesson can be set by creating a file
-/// named `lesson.<PROPERTY_NAME>.json` in the lesson directory with the serialized value of the
-/// property.
+/// Additional fields like the name, dependencies, and superseded lessons can be set by creating a
+/// file named `lesson.<PROPERTY_NAME>.json` in the lesson directory with the serialized value of
+/// the property.
 ///
 /// An instruction file can be created by creating a file named `lesson.instructions.md` in the
 /// lesson directory.
@@ -280,6 +287,10 @@ pub struct LiteracyLesson {
 
     /// The IDs of all courses or lessons encompassed by this lesson and their respective weights.
     pub encompassed: Vec<(Ustr, f32)>,
+
+    /// The IDs of all courses or lessons superseded by this lesson. The values can be full lesson
+    /// IDs or the short ID of one of the other lessons in the course.
+    pub superseded: Vec<Ustr>,
 
     /// The name of the lesson to be presented to the user.
     pub name: Option<String>,
@@ -311,6 +322,7 @@ impl LiteracyLesson {
             short_id: short_lesson_id,
             dependencies: vec![],
             encompassed: vec![],
+            superseded: vec![],
             name: None,
             description: None,
             instructions: None,
@@ -358,6 +370,10 @@ impl LiteracyLesson {
                 LiteracyFile::LessonEncompassed => {
                     let path = lesson_root.join(LESSON_ENCOMPASSED_FILE);
                     lesson.encompassed = LiteracyFile::open_serialized(&path)?;
+                }
+                LiteracyFile::LessonSuperseded => {
+                    let path = lesson_root.join(LESSON_SUPERSEDED_FILE);
+                    lesson.superseded = LiteracyFile::open_serialized(&path)?;
                 }
                 LiteracyFile::LessonName => {
                     let path = lesson_root.join(LESSON_NAME_FILE);
@@ -515,13 +531,19 @@ impl LiteracyLesson {
             })
             .collect::<Vec<_>>();
         encompassed.sort_by_key(|(id, _)| *id);
+        let mut superseded = self
+            .superseded
+            .iter()
+            .map(|id| Self::full_reading_lesson_id(course_manifest.id, *id, short_ids))
+            .collect::<Vec<_>>();
+        superseded.sort();
 
         // Create the lesson manifest.
         let lesson_manifest = LessonManifest {
             id: lesson_id,
             dependencies,
             encompassed,
-            superseded: vec![],
+            superseded,
             course_id: course_manifest.id,
             name: lesson_name.clone(),
             description: self.description.clone(),
@@ -592,13 +614,19 @@ impl LiteracyLesson {
             })
             .collect::<Vec<_>>();
         encompassed.sort_by_key(|(id, _)| *id);
+        let mut superseded = self
+            .superseded
+            .iter()
+            .map(|id| Self::full_dictation_lesson_id(course_manifest.id, *id, short_ids))
+            .collect::<Vec<_>>();
+        superseded.sort();
 
         // Create the lesson manifest.
         let lesson_manifest = LessonManifest {
             id: lesson_id,
             dependencies,
             encompassed,
-            superseded: vec![],
+            superseded,
             course_id: course_manifest.id,
             name: lesson_name.clone(),
             description: self.description.clone(),
@@ -823,6 +851,7 @@ mod test {
             short_id: Ustr::from("lesson_id"),
             dependencies: vec![],
             encompassed: vec![],
+            superseded: vec![],
             name: Some("Lesson Name".to_string()),
             description: None,
             instructions: None,
@@ -839,6 +868,7 @@ mod test {
             short_id: Ustr::from("lesson_id"),
             dependencies: vec![],
             encompassed: vec![],
+            superseded: vec![],
             name: None,
             description: None,
             instructions: None,
@@ -867,6 +897,10 @@ mod test {
         fs::write(
             lesson_dir.join("lesson.encompassed.json"),
             "[[\"other_course\", 0.5]]",
+        )?;
+        fs::write(
+            lesson_dir.join("lesson.superseded.json"),
+            "[\"superseded_course\"]",
         )?;
         fs::write(lesson_dir.join("lesson.name.json"), "\"Lesson 0\"")?;
         fs::write(
@@ -906,6 +940,7 @@ mod test {
             short_id: Ustr::from("lesson_0"),
             dependencies: vec![Ustr::from("other_course")],
             encompassed: vec![(Ustr::from("other_course"), 0.5)],
+            superseded: vec![Ustr::from("superseded_course")],
             name: Some("Lesson 0".to_string()),
             description: Some("Description".to_string()),
             instructions: Some(BasicAsset::InlinedAsset {
