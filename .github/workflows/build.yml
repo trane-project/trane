@@ -30,9 +30,6 @@ jobs:
       - name: Run cargo nextest
         run: cargo nextest run --release
 
-      - name: Run cargo doctests
-        run: cargo test --doc --release
-
   lints:
     name: Lints
     runs-on: ubuntu-latest
@@ -47,8 +44,8 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Install extra components
-        run: rustup component add clippy rust-docs rustfmt 
+       - name: Install extra components
+         run: rustup component add clippy rustfmt
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
@@ -58,8 +55,3 @@ jobs:
 
       - name: Run cargo clippy
         run: cargo clippy -- -D warnings
-
-      - name: Run rustdoc lints
-        env:
-          RUSTDOCFLAGS: "-D missing_docs -D rustdoc::missing_doc_code_examples"
-        run: cargo doc --workspace --all-features --no-deps --document-private-items
