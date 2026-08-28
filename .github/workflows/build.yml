@@ -44,8 +44,8 @@ jobs:
         with:
           toolchain: stable
 
-       - name: Install extra components
-         run: rustup component add clippy rustfmt
+      - name: Install extra components
+        run: rustup component add clippy rustfmt
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
