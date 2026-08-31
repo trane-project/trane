@@ -509,6 +509,7 @@ impl LiteracyLesson {
         course_manifest: &CourseManifest,
         short_id: Ustr,
         short_ids: &UstrSet,
+        exercise_type: &ExerciseType,
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Generate basic info for the lesson.
         let lesson_id = Self::full_reading_lesson_id(course_manifest.id, short_id, short_ids);
@@ -562,7 +563,7 @@ impl LiteracyLesson {
             course_id: course_manifest.id,
             name: lesson_name,
             description: self.description.clone(),
-            exercise_type: ExerciseType::Procedural,
+            exercise_type: exercise_type.clone(),
             exercise_asset: ExerciseAsset::LiteracyAsset {
                 lesson_type: LiteracyLessonType::Reading,
                 examples: self.examples.clone(),
@@ -578,6 +579,7 @@ impl LiteracyLesson {
         course_manifest: &CourseManifest,
         short_id: Ustr,
         short_ids: &UstrSet,
+        exercise_type: &ExerciseType,
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
         // Generate basic info for the lesson. The dependencies are the dictation lessons of the
         // other lessons in the course that are marked as a dependency of this lesson. Exclude
@@ -645,7 +647,7 @@ impl LiteracyLesson {
             course_id: course_manifest.id,
             name: lesson_name,
             description: self.description.clone(),
-            exercise_type: ExerciseType::Procedural,
+            exercise_type: exercise_type.clone(),
             exercise_asset: ExerciseAsset::LiteracyAsset {
                 lesson_type: LiteracyLessonType::Dictation,
                 examples: self.examples.clone(),
@@ -661,6 +663,7 @@ impl LiteracyLesson {
         course_manifest: &CourseManifest,
         short_id: Ustr,
         short_ids: &UstrSet,
+        exercise_type: &ExerciseType,
     ) -> Vec<(LessonManifest, Vec<ExerciseManifest>)> {
         let mut generate_dictation = false;
         if let Some(CourseGenerator::Literacy(config)) = &course_manifest.generator_config {
@@ -669,11 +672,11 @@ impl LiteracyLesson {
 
         if generate_dictation {
             vec![
-                self.generate_reading_lesson(course_manifest, short_id, short_ids),
-                self.generate_dictation_lesson(course_manifest, short_id, short_ids),
+                self.generate_reading_lesson(course_manifest, short_id, short_ids, exercise_type),
+                self.generate_dictation_lesson(course_manifest, short_id, short_ids, exercise_type),
             ]
         } else {
-            vec![self.generate_reading_lesson(course_manifest, short_id, short_ids)]
+            vec![self.generate_reading_lesson(course_manifest, short_id, short_ids, exercise_type)]
         }
     }
 }
@@ -686,6 +689,10 @@ pub struct LiteracyConfig {
     /// exceptions based on the tutor's dictation.
     #[serde(default)]
     pub generate_dictation: bool,
+
+    /// The type of the generated exercises.
+    #[serde(default)]
+    pub exercise_type: ExerciseType,
 }
 
 impl LiteracyConfig {
@@ -739,7 +746,12 @@ impl GenerateManifests for LiteracyConfig {
         let lessons: Vec<(LessonManifest, Vec<ExerciseManifest>)> = lessons
             .into_iter()
             .flat_map(|(short_id, lesson)| {
-                lesson.generate_manifests(course_manifest, short_id, &short_ids)
+                lesson.generate_manifests(
+                    course_manifest,
+                    short_id,
+                    &short_ids,
+                    &self.exercise_type,
+                )
             })
             .collect();
         let mut metadata = course_manifest.metadata.clone().unwrap_or_default();
@@ -1080,6 +1092,7 @@ mod test {
         // Create course manifest and files.
         let config = CourseGenerator::Literacy(LiteracyConfig {
             generate_dictation: true,
+            exercise_type: ExerciseType::Procedural,
         });
         let course_manifest = CourseManifest {
             id: "literacy_course".into(),
@@ -1369,6 +1382,7 @@ mod test {
         // Create course manifest and files.
         let config = CourseGenerator::Literacy(LiteracyConfig {
             generate_dictation: false,
+            exercise_type: ExerciseType::Procedural,
         });
         let course_manifest = CourseManifest {
             id: "literacy_course".into(),
@@ -1528,6 +1542,50 @@ mod test {
             }),
         };
         assert_eq!(got, want);
+        Ok(())
+    }
+
+    /// Verifies that the configured exercise type is applied to reading and dictation exercises.
+    #[test]
+    fn test_generate_manifests_exercise_type() -> Result<()> {
+        // Craete a test declarative course.
+        let config = LiteracyConfig {
+            generate_dictation: true,
+            exercise_type: ExerciseType::Declarative,
+        };
+        let course_manifest = CourseManifest {
+            id: "literacy_course".into(),
+            name: "Literacy Course".into(),
+            dependencies: vec![],
+            encompassed: vec![],
+            superseded: vec![],
+            description: None,
+            authors: None,
+            metadata: None,
+            course_material: None,
+            course_instructions: None,
+            generator_config: Some(CourseGenerator::Literacy(config.clone())),
+        };
+        let temp_dir = tempfile::tempdir()?;
+        generate_test_files(temp_dir.path(), 1, 1, 1, 0, 0)?;
+
+        let generated = config.generate_manifests(
+            temp_dir.path(),
+            &course_manifest,
+            &UserPreferences::default(),
+        )?;
+        let exercise_types = generated
+            .lessons
+            .iter()
+            .flat_map(|(_, exercises)| exercises)
+            .map(|exercise| exercise.exercise_type.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(exercise_types.len(), 2);
+        assert!(
+            exercise_types
+                .iter()
+                .all(|exercise_type| *exercise_type == ExerciseType::Declarative)
+        );
         Ok(())
     }
 }
