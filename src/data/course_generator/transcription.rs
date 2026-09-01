@@ -946,6 +946,369 @@ mod test {
         );
     }
 
+    /// Verifies the dependencies and superseded lessons generated for transcription lessons.
+    #[test]
+    fn generate_lesson_manifests_relationships() {
+        let config = TranscriptionConfig {
+            transcription_dependencies: vec!["dependency_course".into()],
+            passage_directory: String::new(),
+            inlined_passages: vec![],
+            skip_singing_lessons: false,
+            skip_advanced_lessons: false,
+        };
+        let course_manifest = CourseManifest {
+            id: "course".into(),
+            name: "Course".into(),
+            dependencies: vec![],
+            encompassed: vec![],
+            superseded: vec![],
+            description: None,
+            authors: None,
+            metadata: None,
+            course_material: None,
+            course_instructions: None,
+            generator_config: Some(CourseGenerator::Transcription(config.clone())),
+        };
+        let preferences = TranscriptionPreferences {
+            instruments: vec![Instrument {
+                name: "Piano".into(),
+                id: "piano".into(),
+            }],
+            ..Default::default()
+        };
+
+        let lessons = config.generate_lesson_manifests(&course_manifest, &preferences, &[]);
+        assert_eq!(lessons.len(), 4);
+        let get_lesson = |id: &str| {
+            lessons
+                .iter()
+                .find(|(lesson, _)| lesson.id == id)
+                .map(|(lesson, _)| lesson)
+                .unwrap()
+        };
+        assert_eq!(
+            get_lesson("course::singing").dependencies,
+            vec![Ustr::from("dependency_course::singing")]
+        );
+        assert!(get_lesson("course::singing").superseded.is_empty());
+        assert_eq!(
+            get_lesson("course::advanced_singing").dependencies,
+            vec![Ustr::from("course::singing")]
+        );
+        assert_eq!(
+            get_lesson("course::advanced_singing").superseded,
+            vec![Ustr::from("course::singing")]
+        );
+        assert_eq!(
+            get_lesson("course::transcription::piano").dependencies,
+            vec![
+                Ustr::from("dependency_course::transcription::piano"),
+                Ustr::from("course::singing")
+            ]
+        );
+        assert!(
+            get_lesson("course::transcription::piano")
+                .superseded
+                .is_empty()
+        );
+        assert_eq!(
+            get_lesson("course::advanced_transcription::piano").dependencies,
+            vec![
+                Ustr::from("course::transcription::piano"),
+                Ustr::from("course::advanced_singing")
+            ]
+        );
+        assert_eq!(
+            get_lesson("course::advanced_transcription::piano").superseded,
+            vec![Ustr::from("course::transcription::piano")]
+        );
+    }
+
+    /// Verifies that transcription dependencies link the corresponding lessons in two courses.
+    #[test]
+    fn generate_manifests_with_transcription_dependencies() -> Result<()> {
+        let course1_config = TranscriptionConfig {
+            transcription_dependencies: vec![],
+            passage_directory: String::new(),
+            inlined_passages: vec![],
+            skip_singing_lessons: false,
+            skip_advanced_lessons: false,
+        };
+        let course2_config = TranscriptionConfig {
+            transcription_dependencies: vec!["course1".into()],
+            ..course1_config.clone()
+        };
+        let course_manifest = |id: &str, config: &TranscriptionConfig| CourseManifest {
+            id: id.into(),
+            name: id.into(),
+            dependencies: vec![],
+            encompassed: vec![],
+            superseded: vec![],
+            description: None,
+            authors: None,
+            metadata: None,
+            course_material: None,
+            course_instructions: None,
+            generator_config: Some(CourseGenerator::Transcription(config.clone())),
+        };
+        let course1_manifest = course_manifest("course1", &course1_config);
+        let course2_manifest = course_manifest("course2", &course2_config);
+        let preferences = UserPreferences {
+            transcription: Some(TranscriptionPreferences {
+                instruments: vec![Instrument {
+                    name: "Piano".into(),
+                    id: "piano".into(),
+                }],
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let temp_dir = tempfile::tempdir()?;
+        let generated_course1 =
+            course1_config.generate_manifests(temp_dir.path(), &course1_manifest, &preferences)?;
+        let generated_course2 =
+            course2_config.generate_manifests(temp_dir.path(), &course2_manifest, &preferences)?;
+
+        fn get_lesson<'a>(course: &'a GeneratedCourse, id: &str) -> &'a LessonManifest {
+            course
+                .lessons
+                .iter()
+                .find(|(lesson, _)| lesson.id == id)
+                .map(|(lesson, _)| lesson)
+                .unwrap()
+        }
+        assert!(
+            get_lesson(&generated_course1, "course1::singing")
+                .dependencies
+                .is_empty()
+        );
+        assert_eq!(
+            get_lesson(&generated_course1, "course1::transcription::piano").dependencies,
+            vec![Ustr::from("course1::singing")]
+        );
+        assert_eq!(
+            get_lesson(&generated_course2, "course2::singing").dependencies,
+            vec![Ustr::from("course1::singing")]
+        );
+        assert_eq!(
+            get_lesson(&generated_course2, "course2::transcription::piano").dependencies,
+            vec![
+                Ustr::from("course1::transcription::piano"),
+                Ustr::from("course2::singing")
+            ]
+        );
+        assert_eq!(
+            get_lesson(&generated_course2, "course2::advanced_singing").dependencies,
+            vec![Ustr::from("course2::singing")]
+        );
+        assert_eq!(
+            get_lesson(&generated_course2, "course2::advanced_transcription::piano").dependencies,
+            vec![
+                Ustr::from("course2::transcription::piano"),
+                Ustr::from("course2::advanced_singing")
+            ]
+        );
+
+        let generated_courses = [&generated_course1, &generated_course2];
+        let lesson_ids = generated_courses
+            .iter()
+            .flat_map(|course| course.lessons.iter().map(|(lesson, _)| lesson.id))
+            .collect::<HashSet<_>>();
+        for course in generated_courses {
+            for (lesson, _) in &course.lessons {
+                for dependency in &lesson.dependencies {
+                    assert!(
+                        lesson_ids.contains(dependency),
+                        "dependency {dependency} for lesson {} was not generated",
+                        lesson.id
+                    );
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Verifies that the transcription generator honors its lesson skip options.
+    #[test]
+    fn generate_lesson_manifests_respects_skip_options() {
+        let passage = TranscriptionPassages {
+            asset: TranscriptionAsset::Track {
+                short_id: "track".into(),
+                track_name: "Track".into(),
+                artist_name: None,
+                album_name: None,
+                duration: None,
+                external_link: None,
+            },
+            intervals: HashMap::new(),
+        };
+        let preferences = TranscriptionPreferences {
+            instruments: vec![Instrument {
+                name: "Piano".into(),
+                id: "piano".into(),
+            }],
+            ..Default::default()
+        };
+
+        // Verify advanced lessons are skipped.
+        let skip_advanced_config = TranscriptionConfig {
+            transcription_dependencies: vec![],
+            passage_directory: String::new(),
+            inlined_passages: vec![],
+            skip_singing_lessons: false,
+            skip_advanced_lessons: true,
+        };
+        let skip_advanced_manifest = CourseManifest {
+            id: "skip_advanced".into(),
+            name: "Skip Advanced".into(),
+            dependencies: vec![],
+            encompassed: vec![],
+            superseded: vec![],
+            description: None,
+            authors: None,
+            metadata: None,
+            course_material: None,
+            course_instructions: None,
+            generator_config: Some(CourseGenerator::Transcription(skip_advanced_config.clone())),
+        };
+        let skip_advanced_lessons = skip_advanced_config.generate_lesson_manifests(
+            &skip_advanced_manifest,
+            &preferences,
+            std::slice::from_ref(&passage),
+        );
+        let mut skip_advanced_ids = skip_advanced_lessons
+            .iter()
+            .map(|(lesson, _)| lesson.id)
+            .collect::<Vec<_>>();
+        skip_advanced_ids.sort();
+        assert_eq!(
+            skip_advanced_ids,
+            vec![
+                Ustr::from("skip_advanced::singing"),
+                Ustr::from("skip_advanced::transcription::piano")
+            ]
+        );
+        assert!(
+            skip_advanced_lessons
+                .iter()
+                .all(|(_, exercises)| exercises.len() == 1)
+        );
+
+        // Verify singing lessons are skipped. The lessons are created to preserve the graph, but
+        // they contain no exercises.
+        let skip_singing_config = TranscriptionConfig {
+            transcription_dependencies: vec![],
+            passage_directory: String::new(),
+            inlined_passages: vec![],
+            skip_singing_lessons: true,
+            skip_advanced_lessons: false,
+        };
+        let skip_singing_manifest = CourseManifest {
+            id: "skip_singing".into(),
+            name: "Skip Singing".into(),
+            dependencies: vec![],
+            encompassed: vec![],
+            superseded: vec![],
+            description: None,
+            authors: None,
+            metadata: None,
+            course_material: None,
+            course_instructions: None,
+            generator_config: Some(CourseGenerator::Transcription(skip_singing_config.clone())),
+        };
+        let skip_singing_lessons = skip_singing_config.generate_lesson_manifests(
+            &skip_singing_manifest,
+            &preferences,
+            std::slice::from_ref(&passage),
+        );
+        let mut skip_singing_ids = skip_singing_lessons
+            .iter()
+            .map(|(lesson, _)| lesson.id)
+            .collect::<Vec<_>>();
+        skip_singing_ids.sort();
+        assert_eq!(
+            skip_singing_ids,
+            vec![
+                Ustr::from("skip_singing::advanced_singing"),
+                Ustr::from("skip_singing::advanced_transcription::piano"),
+                Ustr::from("skip_singing::singing"),
+                Ustr::from("skip_singing::transcription::piano")
+            ]
+        );
+        let exercise_count = |id: &str| {
+            skip_singing_lessons
+                .iter()
+                .find(|(lesson, _)| lesson.id == id)
+                .unwrap()
+                .1
+                .len()
+        };
+        assert_eq!(exercise_count("skip_singing::singing"), 0);
+        assert_eq!(exercise_count("skip_singing::advanced_singing"), 0);
+        assert_eq!(exercise_count("skip_singing::transcription::piano"), 1);
+        assert_eq!(
+            exercise_count("skip_singing::advanced_transcription::piano"),
+            1
+        );
+
+        // Verify that both options can be enabled at the same time.
+        let both_skips_config = TranscriptionConfig {
+            transcription_dependencies: vec![],
+            passage_directory: String::new(),
+            inlined_passages: vec![],
+            skip_singing_lessons: true,
+            skip_advanced_lessons: true,
+        };
+        let both_skips_manifest = CourseManifest {
+            id: "both_skips".into(),
+            name: "Both Skips".into(),
+            dependencies: vec![],
+            encompassed: vec![],
+            superseded: vec![],
+            description: None,
+            authors: None,
+            metadata: None,
+            course_material: None,
+            course_instructions: None,
+            generator_config: Some(CourseGenerator::Transcription(both_skips_config.clone())),
+        };
+        let both_skips_lessons = both_skips_config.generate_lesson_manifests(
+            &both_skips_manifest,
+            &preferences,
+            std::slice::from_ref(&passage),
+        );
+        let mut both_skips_ids = both_skips_lessons
+            .iter()
+            .map(|(lesson, _)| lesson.id)
+            .collect::<Vec<_>>();
+        both_skips_ids.sort();
+        assert_eq!(
+            both_skips_ids,
+            vec![
+                Ustr::from("both_skips::singing"),
+                Ustr::from("both_skips::transcription::piano")
+            ]
+        );
+        assert_eq!(
+            both_skips_lessons
+                .iter()
+                .find(|(lesson, _)| lesson.id == "both_skips::singing")
+                .unwrap()
+                .1
+                .len(),
+            0
+        );
+        assert_eq!(
+            both_skips_lessons
+                .iter()
+                .find(|(lesson, _)| lesson.id == "both_skips::transcription::piano")
+                .unwrap()
+                .1
+                .len(),
+            1
+        );
+    }
+
     /// Verifies generating the asset for an exercise in the course.
     #[test]
     fn generate_exercise_asset() {
