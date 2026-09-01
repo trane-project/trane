@@ -18,12 +18,23 @@ use std::{
 };
 use ustr::Ustr;
 
-use super::*;
 use crate::data::{
     BasicAsset, CourseGenerator, CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseType,
     GenerateManifests, GeneratedCourse, LessonManifest, UserPreferences,
 };
 use constants::*;
+
+//@<instrument
+/// Describes an instrument that can be used to practice transcription exercises.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct Instrument {
+    /// The name of the instrument. For example, "Tenor Saxophone".
+    pub name: String,
+
+    /// An ID for this instrument used to generate lesson IDs. For example, "tenor_saxophone".
+    pub id: String,
+}
+//>@instrument
 
 //@<transcription-link
 /// A link to an external resource for a transcription asset.
@@ -1248,6 +1259,18 @@ mod test {
         Ok(())
     }
 
+    /// Verifies cloning an instrument. Done so that the auto-generated trait implementation is
+    /// included in the code coverage reports.
+    #[test]
+    fn instrument_clone() {
+        let instrument = Instrument {
+            name: "Piano".to_string(),
+            id: "piano".to_string(),
+        };
+        let instrument_clone = instrument.clone();
+        assert_eq!(instrument.name, instrument_clone.name);
+        assert_eq!(instrument.id, instrument_clone.id);
+    }
     /// Verifies cloning a transcription asset. Done so that the auto-generated trait implementation
     /// is included in the code coverage reports.
     #[test]

@@ -9,12 +9,9 @@ use trane::{
     course_library::CourseLibrary,
     data::{
         CourseGenerator, CourseManifest, LessonManifestBuilder, MasteryScore, UserPreferences,
-        course_generator::{
-            Instrument,
-            transcription::{
-                TranscriptionAsset, TranscriptionConfig, TranscriptionPassages,
-                TranscriptionPreferences,
-            },
+        course_generator::transcription::{
+            Instrument, TranscriptionAsset, TranscriptionConfig, TranscriptionPassages,
+            TranscriptionPreferences,
         },
     },
     test_utils::{TraneSimulation, assert_simulation_scores, init_simulation},
