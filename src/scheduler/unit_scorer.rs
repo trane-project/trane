@@ -725,6 +725,19 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that a unit with no valid exercises is considered to have scores for all of them.
+    #[test]
+    fn no_valid_exercises_have_scores() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let mut library = init_test_simulation(temp_dir.path(), &TEST_LIBRARY)?;
+        let lesson_id = Ustr::from("0::0");
+        library.add_to_blacklist(lesson_id)?;
+        let cache = UnitScorer::new(library.get_scheduler_data(), SchedulerOptions::default());
+
+        assert!(cache.all_valid_exercises_have_scores(lesson_id));
+        Ok(())
+    }
+
     /// Verifies that the score of a superseded course is None and is correctly cached.
     #[test]
     fn superseded_course_cached() -> Result<()> {

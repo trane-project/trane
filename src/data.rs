@@ -14,7 +14,6 @@ use ustr::Ustr;
 use crate::data::course_generator::{
     knowledge_base::KnowledgeBaseConfig,
     literacy::{LiteracyConfig, LiteracyLessonType},
-    music_piece::MusicPieceConfig,
     transcription::{TranscriptionConfig, TranscriptionLink, TranscriptionPreferences},
 };
 
@@ -279,9 +278,6 @@ pub enum CourseGenerator {
     /// The configuration for generating a literacy course.
     Literacy(LiteracyConfig),
 
-    /// The configuration for generating a music piece course.
-    MusicPiece(MusicPieceConfig),
-
     /// The configuration for generating a transcription course.
     Transcription(TranscriptionConfig),
 }
@@ -323,9 +319,6 @@ impl GenerateManifests for CourseGenerator {
                 config.generate_manifests(course_root, course_manifest, preferences)
             }
             CourseGenerator::Literacy(config) => {
-                config.generate_manifests(course_root, course_manifest, preferences)
-            }
-            CourseGenerator::MusicPiece(config) => {
                 config.generate_manifests(course_root, course_manifest, preferences)
             }
             CourseGenerator::Transcription(config) => {
