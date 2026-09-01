@@ -1,6 +1,6 @@
 //! End-to-end tests for courses generated from course generator configurations.
 
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 use anyhow::Result;
 use tempfile::TempDir;
@@ -167,7 +167,7 @@ fn transcription_course_generator() -> Result<()> {
             duration: None,
             external_link: None,
         },
-        intervals: Default::default(),
+        intervals: HashMap::from([(0, ("0:00".into(), "0:10".into()))]),
     };
     let generator = CourseGenerator::Transcription(TranscriptionConfig {
         transcription_dependencies: vec![],
