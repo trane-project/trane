@@ -7,16 +7,12 @@
 
 pub mod constants;
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, bail};
 use indoc::formatdoc;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    fs::File,
-    io::BufReader,
-    path::Path,
-};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use ustr::Ustr;
+use vfs::VfsPath;
 
 use crate::data::{
     BasicAsset, CourseGenerator, CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseType,
@@ -163,12 +159,12 @@ impl TranscriptionPassages {
 }
 
 impl TranscriptionPassages {
-    fn open(path: &Path) -> Result<Self> {
-        let file =
-            File::open(path).context(format!("cannot open passage file {}", path.display()))?;
-        let reader = BufReader::new(file);
-        serde_json::from_reader(reader)
-            .context(format!("cannot parse passage file {}", path.display()))
+    fn open(path: &VfsPath) -> Result<Self> {
+        let file = path
+            .open_file()
+            .context(format!("cannot open passage file {}", path.as_str()))?;
+        serde_json::from_reader(file)
+            .context(format!("cannot parse passage file {}", path.as_str()))
     }
 }
 
@@ -696,7 +692,7 @@ impl TranscriptionConfig {
 
     /// Reads all the files in the passage directory to generate the list of all the passages
     /// included in the course.
-    fn open_passage_directory(&self, course_root: &Path) -> Result<Vec<TranscriptionPassages>> {
+    fn open_passage_directory(&self, course_root: &VfsPath) -> Result<Vec<TranscriptionPassages>> {
         // Do not attempt to open the passage directory if the value is empty.
         if self.passage_directory.is_empty() {
             return Ok(Vec::new());
@@ -707,26 +703,17 @@ impl TranscriptionConfig {
         let mut seen_ids = HashSet::new();
 
         // Read all the files in the passage directory.
-        let passage_dir = course_root.join(&self.passage_directory);
-        for entry in std::fs::read_dir(passage_dir)? {
+        let passage_dir = course_root.join(&self.passage_directory)?;
+        for path in passage_dir.read_dir()? {
             // Only files inside the passage directory are considered.
-            let entry = entry?;
-            if !entry.file_type()?.is_file() {
+            if !path.is_file()? {
                 continue; // grcov-excl-line
             }
 
-            // Extract the file name from the entry.
-            let path = entry.path();
-            let file_name = path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .ok_or(anyhow!("Failed to get the file name"))?
-                .to_string();
-
             // Ignore any non-JSON files.
-            if !Path::new(&file_name)
+            if !path
                 .extension()
-                .is_some_and(|ext| ext.eq_ignore_ascii_case("json"))
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("json"))
             {
                 continue; // grcov-excl-line
             }
@@ -832,7 +819,7 @@ impl TranscriptionConfig {
 impl GenerateManifests for TranscriptionConfig {
     fn generate_manifests(
         &self,
-        course_root: &Path,
+        course_root: &VfsPath,
         course_manifest: &CourseManifest,
         preferences: &UserPreferences,
     ) -> Result<GeneratedCourse> {
@@ -873,11 +860,15 @@ impl GenerateManifests for TranscriptionConfig {
 mod test {
     use anyhow::Result;
     use indoc::indoc;
-    use std::{fs, io::Write};
+    use std::{fs, fs::File, io::Write};
 
     use crate::data::CourseGenerator;
 
     use super::*;
+
+    fn vfs_path(path: &std::path::Path) -> VfsPath {
+        VfsPath::new(vfs::PhysicalFS::new(path))
+    }
 
     /// Verifies generating IDs for the exercises in the course.
     #[test]
@@ -1027,6 +1018,15 @@ mod test {
     /// Verifies that transcription dependencies link the corresponding lessons in two courses.
     #[test]
     fn generate_manifests_with_transcription_dependencies() -> Result<()> {
+        fn get_lesson<'a>(course: &'a GeneratedCourse, id: &str) -> &'a LessonManifest {
+            course
+                .lessons
+                .iter()
+                .find(|(lesson, _)| lesson.id == id)
+                .map(|(lesson, _)| lesson)
+                .unwrap()
+        }
+
         let course1_config = TranscriptionConfig {
             transcription_dependencies: vec![],
             passage_directory: String::new(),
@@ -1038,7 +1038,7 @@ mod test {
             transcription_dependencies: vec!["course1".into()],
             ..course1_config.clone()
         };
-        let course_manifest = |id: &str, config: &TranscriptionConfig| CourseManifest {
+        let build_manifest = |id: &str, config: &TranscriptionConfig| CourseManifest {
             id: id.into(),
             name: id.into(),
             dependencies: vec![],
@@ -1051,8 +1051,8 @@ mod test {
             course_instructions: None,
             generator_config: Some(CourseGenerator::Transcription(config.clone())),
         };
-        let course1_manifest = course_manifest("course1", &course1_config);
-        let course2_manifest = course_manifest("course2", &course2_config);
+        let course1_manifest = build_manifest("course1", &course1_config);
+        let course2_manifest = build_manifest("course2", &course2_config);
         let preferences = UserPreferences {
             transcription: Some(TranscriptionPreferences {
                 instruments: vec![Instrument {
@@ -1064,19 +1064,17 @@ mod test {
             ..Default::default()
         };
         let temp_dir = tempfile::tempdir()?;
-        let generated_course1 =
-            course1_config.generate_manifests(temp_dir.path(), &course1_manifest, &preferences)?;
-        let generated_course2 =
-            course2_config.generate_manifests(temp_dir.path(), &course2_manifest, &preferences)?;
+        let generated_course1 = course1_config.generate_manifests(
+            &vfs_path(temp_dir.path()),
+            &course1_manifest,
+            &preferences,
+        )?;
+        let generated_course2 = course2_config.generate_manifests(
+            &vfs_path(temp_dir.path()),
+            &course2_manifest,
+            &preferences,
+        )?;
 
-        fn get_lesson<'a>(course: &'a GeneratedCourse, id: &str) -> &'a LessonManifest {
-            course
-                .lessons
-                .iter()
-                .find(|(lesson, _)| lesson.id == id)
-                .map(|(lesson, _)| lesson)
-                .unwrap()
-        }
         assert!(
             get_lesson(&generated_course1, "course1::singing")
                 .dependencies
@@ -1109,12 +1107,12 @@ mod test {
             ]
         );
 
-        let generated_courses = [&generated_course1, &generated_course2];
-        let lesson_ids = generated_courses
+        let courses = [&generated_course1, &generated_course2];
+        let lesson_ids = courses
             .iter()
             .flat_map(|course| course.lessons.iter().map(|(lesson, _)| lesson.id))
             .collect::<HashSet<_>>();
-        for course in generated_courses {
+        for course in courses {
             for (lesson, _) in &course.lessons {
                 for dependency in &lesson.dependencies {
                     assert!(
@@ -1418,7 +1416,7 @@ mod test {
             skip_singing_lessons: false,
             skip_advanced_lessons: false,
         };
-        let passages = config.open_passage_directory(temp_dir.path())?;
+        let passages = config.open_passage_directory(&vfs_path(temp_dir.path()))?;
         assert_eq!(2, passages.len());
 
         Ok(())
@@ -1438,7 +1436,7 @@ mod test {
             skip_singing_lessons: false,
             skip_advanced_lessons: false,
         };
-        let passages = config.open_passage_directory(temp_dir.path())?;
+        let passages = config.open_passage_directory(&vfs_path(temp_dir.path()))?;
         assert!(passages.is_empty());
 
         Ok(())
@@ -1488,7 +1486,7 @@ mod test {
             skip_singing_lessons: false,
             skip_advanced_lessons: false,
         };
-        let result = config.open_passage_directory(temp_dir.path());
+        let result = config.open_passage_directory(&vfs_path(temp_dir.path()));
         assert!(result.is_err());
         Ok(())
     }
@@ -1507,7 +1505,7 @@ mod test {
             skip_singing_lessons: false,
             skip_advanced_lessons: false,
         };
-        let result = config.open_passage_directory(temp_dir.path());
+        let result = config.open_passage_directory(&vfs_path(temp_dir.path()));
         assert!(result.is_err());
         Ok(())
     }
@@ -1541,8 +1539,11 @@ mod test {
             generator_config: Some(course_generator.clone()),
         };
         let preferences = UserPreferences::default();
-        let generated_course =
-            course_generator.generate_manifests(temp_dir.path(), &course_manifest, &preferences)?;
+        let generated_course = course_generator.generate_manifests(
+            &vfs_path(temp_dir.path()),
+            &course_manifest,
+            &preferences,
+        )?;
         assert!(generated_course.updated_instructions.is_none());
         Ok(())
     }
@@ -1601,8 +1602,11 @@ mod test {
 
         // Create the course and verifies the metadata is correct.
         let preferences = UserPreferences::default();
-        let generated_course =
-            course_generator.generate_manifests(temp_dir.path(), &course_manifest, &preferences)?;
+        let generated_course = course_generator.generate_manifests(
+            &vfs_path(temp_dir.path()),
+            &course_manifest,
+            &preferences,
+        )?;
         assert_eq!(
             generated_course
                 .updated_metadata

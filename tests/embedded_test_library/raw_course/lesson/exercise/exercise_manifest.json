@@ -1,0 +1,14 @@
+{
+  "id": "embedded::raw_course::lesson::exercise",
+  "lesson_id": "embedded::raw_course::lesson",
+  "course_id": "embedded::raw_course",
+  "name": "Embedded Raw Exercise",
+  "description": null,
+  "exercise_type": "Procedural",
+  "exercise_asset": {
+    "FlashcardAsset": {
+      "front_path": "front.md",
+      "back_path": "back.md"
+    }
+  }
+}

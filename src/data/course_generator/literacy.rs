@@ -8,14 +8,10 @@
 use anyhow::{Context, Error, Result, anyhow};
 use noyalib::compat::serde_yaml;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use std::{
-    collections::BTreeMap,
-    fs::{File, read_dir},
-    io::{BufReader, Read},
-    path::Path,
-};
+use std::collections::BTreeMap;
 use strum::Display;
 use ustr::{Ustr, UstrMap, UstrSet};
+use vfs::VfsPath;
 
 use crate::data::{
     BasicAsset, CourseGenerator, CourseManifest, ExerciseAsset, ExerciseManifest, ExerciseType,
@@ -132,36 +128,24 @@ pub enum LiteracyFile {
 
 impl LiteracyFile {
     /// Opens the knowledge base file at the given path and deserializes its contents.
-    pub fn open_serialized<T: DeserializeOwned>(path: &Path) -> Result<T> {
-        let display = path.display();
-        let file = File::open(path).context(format!("cannot open literacy file {display}"))?;
-        let reader = BufReader::new(file);
-        serde_json::from_reader(reader).context(format!("cannot parse literacy file {display}"))
+    pub fn open_serialized<T: DeserializeOwned>(path: &VfsPath) -> Result<T> {
+        let display = path.as_str();
+        let file = path
+            .open_file()
+            .context(format!("cannot open literacy file {display}"))?;
+        serde_json::from_reader(file).context(format!("cannot parse literacy file {display}"))
     }
 
     /// Opens a file that contains an example or exception stored as markdown.
-    pub fn open_md(path: &Path) -> Result<String> {
-        let display = path.display();
-        let file =
-            File::open(path).context(format!("cannot open literacy markdown file {display}"))?;
-        let mut reader = BufReader::new(file);
-        let mut contents = String::new();
-        reader
-            .read_to_string(&mut contents)
-            .context(format!("cannot read literacy markdown file {display}"))?;
-        Ok(contents)
+    pub fn open_md(path: &VfsPath) -> Result<String> {
+        let display = path.as_str();
+        path.read_to_string()
+            .context(format!("cannot read literacy markdown file {display}"))
     }
 
     /// Opens a file that contains one example or exception per line.
-    pub fn open_md_list(path: &Path) -> Result<Vec<String>> {
-        let display = path.display();
-        let file =
-            File::open(path).context(format!("cannot open literacy markdown file {display}"))?;
-        let mut reader = BufReader::new(file);
-        let mut contents = String::new();
-        reader
-            .read_to_string(&mut contents)
-            .context(format!("cannot read literacy markdown file {display}"))?;
+    pub fn open_md_list(path: &VfsPath) -> Result<Vec<String>> {
+        let contents = Self::open_md(path)?;
         Ok(contents
             .lines()
             .map(ToString::to_string)
@@ -172,12 +156,12 @@ impl LiteracyFile {
 
     /// Opens a YAML file containing a list of examples or exceptions with optional answers and
     /// deserializes its contents.
-    pub fn open_yml_list<T: DeserializeOwned + 'static>(path: &Path) -> Result<Vec<T>> {
-        let display = path.display();
-        let file = File::open(path).context(format!("cannot open literacy yaml file {display}"))?;
-        let reader = BufReader::new(file);
-        serde_yaml::from_reader(reader)
-            .context(format!("cannot parse literacy yaml file {display}"))
+    pub fn open_yml_list<T: DeserializeOwned + 'static>(path: &VfsPath) -> Result<Vec<T>> {
+        let display = path.as_str();
+        let file = path
+            .open_file()
+            .context(format!("cannot open literacy yaml file {display}"))?;
+        serde_yaml::from_reader(file).context(format!("cannot parse literacy yaml file {display}"))
     }
 }
 
@@ -313,7 +297,7 @@ pub struct LiteracyLesson {
 impl LiteracyLesson {
     /// Generates the lesson from a list of literacy files.
     fn create_lesson(
-        lesson_root: &Path,
+        lesson_root: &VfsPath,
         short_lesson_id: Ustr,
         files: &[LiteracyFile],
     ) -> Result<Self> {
@@ -338,12 +322,12 @@ impl LiteracyLesson {
         for lesson_file in files {
             match lesson_file {
                 LiteracyFile::ExampleAnswer(short_id) => {
-                    let path = lesson_root.join(format!("{short_id}{ANSWER_SUFFIX}"));
+                    let path = lesson_root.join(format!("{short_id}{ANSWER_SUFFIX}"))?;
                     let answer = LiteracyFile::open_md(&path)?;
                     example_answers.insert(short_id.clone(), answer);
                 }
                 LiteracyFile::ExceptionAnswer(short_id) => {
-                    let path = lesson_root.join(format!("{short_id}{EXCEPTION_ANSWER_SUFFIX}"));
+                    let path = lesson_root.join(format!("{short_id}{EXCEPTION_ANSWER_SUFFIX}"))?;
                     let answer = LiteracyFile::open_md(&path)?;
                     exception_answers.insert(short_id.clone(), answer);
                 }
@@ -359,65 +343,65 @@ impl LiteracyLesson {
                 LiteracyFile::CourseInstructions => {
                     return Err(anyhow!(
                         "Found course instructions file in lesson directory: {}",
-                        lesson_root.display()
+                        lesson_root.as_str()
                     ));
                 }
                 // grcov-excl-stop
                 LiteracyFile::LessonDependencies => {
-                    let path = lesson_root.join(LESSON_DEPENDENCIES_FILE);
+                    let path = lesson_root.join(LESSON_DEPENDENCIES_FILE)?;
                     lesson.dependencies = LiteracyFile::open_serialized(&path)?;
                 }
                 LiteracyFile::LessonEncompassed => {
-                    let path = lesson_root.join(LESSON_ENCOMPASSED_FILE);
+                    let path = lesson_root.join(LESSON_ENCOMPASSED_FILE)?;
                     lesson.encompassed = LiteracyFile::open_serialized(&path)?;
                 }
                 LiteracyFile::LessonSuperseded => {
-                    let path = lesson_root.join(LESSON_SUPERSEDED_FILE);
+                    let path = lesson_root.join(LESSON_SUPERSEDED_FILE)?;
                     lesson.superseded = LiteracyFile::open_serialized(&path)?;
                 }
                 LiteracyFile::LessonName => {
-                    let path = lesson_root.join(LESSON_NAME_FILE);
+                    let path = lesson_root.join(LESSON_NAME_FILE)?;
                     lesson.name = Some(LiteracyFile::open_serialized(&path)?);
                 }
                 LiteracyFile::LessonDescription => {
-                    let path = lesson_root.join(LESSON_DESCRIPTION_FILE);
+                    let path = lesson_root.join(LESSON_DESCRIPTION_FILE)?;
                     lesson.description = Some(LiteracyFile::open_serialized(&path)?);
                 }
                 LiteracyFile::LessonInstructions => {
-                    let path = lesson_root.join(LESSON_INSTRUCTIONS_FILE);
+                    let path = lesson_root.join(LESSON_INSTRUCTIONS_FILE)?;
                     lesson.instructions = Some(BasicAsset::InlinedAsset {
                         content: LiteracyFile::open_md(&path)?,
                     });
                 }
                 LiteracyFile::Example(short_id) => {
-                    let path = lesson_root.join(format!("{short_id}{EXAMPLE_SUFFIX}"));
+                    let path = lesson_root.join(format!("{short_id}{EXAMPLE_SUFFIX}"))?;
                     let example = LiteracyFile::open_md(&path)?;
                     let answer = example_answers.get(short_id).cloned();
                     lesson.examples.push((example, answer));
                 }
                 LiteracyFile::Exception(short_id) => {
-                    let path = lesson_root.join(format!("{short_id}{EXCEPTION_SUFFIX}"));
+                    let path = lesson_root.join(format!("{short_id}{EXCEPTION_SUFFIX}"))?;
                     let exception = LiteracyFile::open_md(&path)?;
                     let answer = exception_answers.get(short_id).cloned();
                     lesson.exceptions.push((exception, answer));
                 }
                 LiteracyFile::ExampleAnswer(_) | LiteracyFile::ExceptionAnswer(_) => {}
                 LiteracyFile::SimpleExamples => {
-                    let path = lesson_root.join(SIMPLE_EXAMPLES_FILE);
+                    let path = lesson_root.join(SIMPLE_EXAMPLES_FILE)?;
                     let examples = LiteracyFile::open_md_list(&path)?;
                     lesson
                         .examples
                         .extend(examples.into_iter().map(|example| (example, None)));
                 }
                 LiteracyFile::SimpleExceptions => {
-                    let path = lesson_root.join(SIMPLE_EXCEPTIONS_FILE);
+                    let path = lesson_root.join(SIMPLE_EXCEPTIONS_FILE)?;
                     let exceptions = LiteracyFile::open_md_list(&path)?;
                     lesson
                         .exceptions
                         .extend(exceptions.into_iter().map(|exception| (exception, None)));
                 }
                 LiteracyFile::SimpleExamplesWithAnswers => {
-                    let path = lesson_root.join(SIMPLE_EXAMPLES_WITH_ANSWERS_FILE);
+                    let path = lesson_root.join(SIMPLE_EXAMPLES_WITH_ANSWERS_FILE)?;
                     let examples =
                         LiteracyFile::open_yml_list::<SimpleExamplesWithAnswersEntry>(&path)?;
                     lesson.examples.extend(
@@ -427,7 +411,7 @@ impl LiteracyLesson {
                     );
                 }
                 LiteracyFile::SimpleExceptionsWithAnswers => {
-                    let path = lesson_root.join(SIMPLE_EXCEPTIONS_WITH_ANSWERS_FILE);
+                    let path = lesson_root.join(SIMPLE_EXCEPTIONS_WITH_ANSWERS_FILE)?;
                     let exceptions =
                         LiteracyFile::open_yml_list::<SimpleExceptionsWithAnswersEntry>(&path)?;
                     lesson.exceptions.extend(
@@ -446,13 +430,11 @@ impl LiteracyLesson {
     }
 
     /// Opens a literacy lesson from the given directory.
-    fn open_lesson(lesson_root: &Path, short_lesson_id: Ustr) -> Result<Self> {
+    fn open_lesson(lesson_root: &VfsPath, short_lesson_id: Ustr) -> Result<Self> {
         // Iterate through the directory to find all the matching files in the lesson directory.
-        let lesson_files = read_dir(lesson_root)?
-            .flatten()
-            .flat_map(|entry| {
-                LiteracyFile::try_from(entry.file_name().to_str().unwrap_or_default())
-            })
+        let lesson_files = lesson_root
+            .read_dir()?
+            .flat_map(|entry| LiteracyFile::try_from(entry.filename().as_str()))
             .collect::<Vec<_>>();
 
         // Create the literacy lesson.
@@ -697,9 +679,9 @@ pub struct LiteracyConfig {
 
 impl LiteracyConfig {
     // Opens the course instructions if they exist.
-    fn open_course_instructions(course_root: &Path) -> Result<Option<BasicAsset>> {
-        let path = course_root.join(COURSE_INSTRUCTIONS_FILE);
-        if path.exists() && path.is_file() {
+    fn open_course_instructions(course_root: &VfsPath) -> Result<Option<BasicAsset>> {
+        let path = course_root.join(COURSE_INSTRUCTIONS_FILE)?;
+        if path.is_file()? {
             Ok(Some(BasicAsset::InlinedAsset {
                 content: LiteracyFile::open_md(&path)?,
             }))
@@ -712,25 +694,21 @@ impl LiteracyConfig {
 impl GenerateManifests for LiteracyConfig {
     fn generate_manifests(
         &self,
-        course_root: &Path,
+        course_root: &VfsPath,
         course_manifest: &CourseManifest,
         _preferences: &UserPreferences,
     ) -> Result<GeneratedCourse> {
         // Create the lessons by iterating through all the directories in the course root,
         // processing only those whose name fits the pattern `<SHORT_LESSON_ID>.lesson`.
         let mut lessons = UstrMap::default();
-        let valid_entries = read_dir(course_root)?
-            .flatten()
-            .filter(|entry| {
-                let path = entry.path();
-                path.is_dir()
-            })
+        let valid_entries = course_root
+            .read_dir()?
+            .filter(|path| path.is_dir().unwrap_or(false))
             .collect::<Vec<_>>();
-        for entry in valid_entries {
+        for path in valid_entries {
             // Check if the directory name is in the format `<SHORT_LESSON_ID>.lesson`. If so, read
             // the knowledge base lesson and its exercises.
-            let path = entry.path();
-            let dir_name = path.file_name().unwrap_or_default().to_str().unwrap();
+            let dir_name = path.filename();
             if let Some(short_id) = dir_name.strip_suffix(LESSON_SUFFIX)
                 && !short_id.is_empty()
             {
@@ -777,6 +755,11 @@ mod test {
         GenerateManifests, GeneratedCourse, LessonManifest, UserPreferences,
         course_generator::literacy::{LiteracyConfig, LiteracyLesson, LiteracyLessonType},
     };
+    use vfs::VfsPath;
+
+    fn vfs_path(path: &Path) -> VfsPath {
+        VfsPath::new(vfs::PhysicalFS::new(path))
+    }
 
     /// Verifies that lesson IDs are generated correctly.
     #[test]
@@ -947,7 +930,7 @@ mod test {
         )?;
 
         // Open the lesson and verify its contents.
-        let lesson = LiteracyLesson::open_lesson(&lesson_dir, Ustr::from("lesson_0"))?;
+        let lesson = LiteracyLesson::open_lesson(&vfs_path(&lesson_dir), Ustr::from("lesson_0"))?;
         let want = LiteracyLesson {
             short_id: Ustr::from("lesson_0"),
             dependencies: vec![Ustr::from("other_course")],
@@ -1112,7 +1095,8 @@ mod test {
 
         // Generate the manifests. Sort lessons and exercises by ID to have predictable outputs.
         let prefs = UserPreferences::default();
-        let mut got = config.generate_manifests(temp_dir.path(), &course_manifest, &prefs)?;
+        let mut got =
+            config.generate_manifests(&vfs_path(temp_dir.path()), &course_manifest, &prefs)?;
         got.lessons.sort_by_key(|lesson| lesson.0.id);
         for (_, exercises) in &mut got.lessons {
             exercises.sort_by_key(|exercise| exercise.id);
@@ -1402,7 +1386,8 @@ mod test {
 
         // Generate the manifests. Sort lessons and exercises by ID to have predictable outputs.
         let prefs = UserPreferences::default();
-        let mut got = config.generate_manifests(temp_dir.path(), &course_manifest, &prefs)?;
+        let mut got =
+            config.generate_manifests(&vfs_path(temp_dir.path()), &course_manifest, &prefs)?;
         got.lessons.sort_by_key(|lesson| lesson.0.id);
         for (_, exercises) in &mut got.lessons {
             exercises.sort_by_key(|exercise| exercise.id);
@@ -1570,7 +1555,7 @@ mod test {
         generate_test_files(temp_dir.path(), 1, 1, 1, 0, 0)?;
 
         let generated = config.generate_manifests(
-            temp_dir.path(),
+            &vfs_path(temp_dir.path()),
             &course_manifest,
             &UserPreferences::default(),
         )?;

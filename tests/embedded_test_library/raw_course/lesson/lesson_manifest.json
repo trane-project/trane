@@ -1,0 +1,20 @@
+{
+  "id": "embedded::raw_course::lesson",
+  "dependencies": [],
+  "encompassed": [],
+  "superseded": [],
+  "course_id": "embedded::raw_course",
+  "name": "Embedded Raw Lesson",
+  "description": null,
+  "metadata": null,
+  "lesson_material": {
+    "MarkdownAsset": {
+      "path": "lesson.material.md"
+    }
+  },
+  "lesson_instructions": {
+    "MarkdownAsset": {
+      "path": "lesson.instructions.md"
+    }
+  }
+}

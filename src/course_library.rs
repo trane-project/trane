@@ -9,19 +9,14 @@ use parking_lot::RwLock;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use std::{
-    fs::File,
-    io::BufReader,
-    path::{self, Path, PathBuf},
-    sync::Arc,
-};
+use std::sync::Arc;
 use ustr::{Ustr, UstrMap, UstrSet};
-use walkdir::WalkDir;
+use vfs::VfsPath;
 
 use crate::{
     data::{
         CourseManifest, ExerciseManifest, GenerateManifests, LessonManifest, NormalizePaths,
-        UnitType, UserPreferences,
+        UnitType, UserPreferences, VerifyPaths,
     },
     graph::{InMemoryUnitGraph, UnitGraph},
 };
@@ -116,7 +111,7 @@ impl From<&LocalCourseLibrary> for SerializedCourseLibrary {
 /// opening a library.
 struct OpenCourseRequest {
     /// The path to the course root directory.
-    course_root: PathBuf,
+    course_root: VfsPath,
 
     /// The course manifest.
     course_manifest: CourseManifest,
@@ -174,21 +169,21 @@ pub struct LocalCourseLibrary {
 
 impl LocalCourseLibrary {
     /// Opens the course, lesson, or exercise manifest located at the given path.
-    fn open_manifest<T: DeserializeOwned>(path: &Path) -> Result<T> {
-        let display = path.display();
-        let file = File::open(path).context(format!("cannot open manifest file {display}"))?;
-        let reader = BufReader::new(file);
-        serde_json::from_reader(reader).context(format!("cannot parse manifest file {display}"))
+    fn open_manifest<T: DeserializeOwned>(path: &VfsPath) -> Result<T> {
+        let display = path.as_str();
+        let file = path
+            .open_file()
+            .context(format!("cannot open manifest file {display}"))?;
+        serde_json::from_reader(file).context(format!("cannot parse manifest file {display}"))
     }
 
     /// Returns the file name of the given path.
-    fn get_file_name(path: &Path) -> Result<String> {
-        Ok(path
-            .file_name()
-            .ok_or(anyhow!("cannot get file name from DirEntry"))?
-            .to_str()
-            .ok_or(anyhow!("invalid dir entry {}", path.display()))?
-            .to_string())
+    fn get_file_name(path: &VfsPath) -> Result<String> {
+        let file_name = path.filename();
+        if file_name.is_empty() {
+            return Err(anyhow!("cannot get file name from VfsPath"));
+        }
+        Ok(file_name)
     }
 
     // Verifies that the IDs mentioned in the exercise manifest and its lesson manifest are valid
@@ -236,37 +231,40 @@ impl LocalCourseLibrary {
     /// which it belongs. It also traverses the given `DirEntry` and adds all the exercises in the
     /// lesson.
     fn process_lesson_manifest(
-        lesson_root: &Path,
+        lesson_root: &VfsPath,
         course_manifest: &CourseManifest,
-        lesson_manifest: LessonManifest,
+        lesson_manifest: &LessonManifest,
     ) -> Result<(LessonManifest, Vec<ExerciseManifest>)> {
+        let library_root = lesson_root.root();
+        let lesson_manifest = lesson_manifest.normalize_paths(&library_root, lesson_root)?;
+        ensure!(
+            lesson_manifest.verify_paths(&library_root)?,
+            "asset path in lesson {} does not exist",
+            lesson_manifest.id
+        );
         // Verify the manifest and create a vector for the exercises.
         LocalCourseLibrary::verify_lesson_manifest(course_manifest, &lesson_manifest)?;
         let mut exercises = Vec::new();
 
-        // Start a new search from the parent of the passed `DirEntry`, which corresponds to the
-        // lesson's root. Each exercise in the lesson must be contained in a directory that is a
-        // direct descendant of the lesson's root. Therefore, all the exercise manifests will be
-        // found at a depth of two.
-        for entry in WalkDir::new(lesson_root)
-            .min_depth(2)
-            .max_depth(2)
-            .into_iter()
-            .flatten()
-        {
-            // Ignore any entries that are not files named `exercise_manifest.json`.
-            if entry.path().is_dir() {
-                continue; // grcov-excl-line
+        // Each exercise manifest must be inside a direct child of the lesson root.
+        for exercise_root in lesson_root.read_dir()? {
+            if !exercise_root.is_dir()? {
+                continue;
             }
-            let file_name = Self::get_file_name(entry.path())?;
-            if file_name != EXERCISE_MANIFEST_FILENAME {
+            let manifest_path = exercise_root.join(EXERCISE_MANIFEST_FILENAME)?;
+            if !manifest_path.is_file()? {
                 continue;
             }
 
             // Open the exercise manifest and process it.
-            let mut exercise_manifest: ExerciseManifest = Self::open_manifest(entry.path())?;
-            exercise_manifest =
-                exercise_manifest.normalize_paths(entry.path().parent().unwrap())?;
+            let exercise_manifest: ExerciseManifest = Self::open_manifest(&manifest_path)?;
+            let exercise_manifest =
+                exercise_manifest.normalize_paths(&library_root, &exercise_root)?;
+            ensure!(
+                exercise_manifest.verify_paths(&library_root)?,
+                "asset path in exercise {} does not exist",
+                exercise_manifest.id
+            );
             LocalCourseLibrary::verify_exercise_manifest(&lesson_manifest, &exercise_manifest)?;
             exercises.push(exercise_manifest);
         }
@@ -285,10 +283,17 @@ impl LocalCourseLibrary {
     /// `DirEntry` and adds all the lessons in the course.
     fn process_course_manifest(
         &self,
-        course_root: &Path,
-        mut course_manifest: CourseManifest,
+        course_root: &VfsPath,
+        course_manifest: &CourseManifest,
     ) -> Result<OpenCourseResult> {
-        // Verify the manifest and create a vector for the lessons.
+        // Verify the paths and the manifest and create a vector for the lessons.
+        let library_root = course_root.root();
+        let mut course_manifest = course_manifest.normalize_paths(&library_root, course_root)?;
+        ensure!(
+            course_manifest.verify_paths(&library_root)?,
+            "asset path in course {} does not exist",
+            course_manifest.id
+        );
         LocalCourseLibrary::verify_course_manifest(&course_manifest)?;
         let mut lessons = Vec::new();
 
@@ -310,34 +315,22 @@ impl LocalCourseLibrary {
             }
         }
 
-        // Start a new search from the parent of the passed `DirEntry`, which corresponds to the
-        // course's root. Each lesson in the course must be contained in a directory that is a
-        // direct descendant of its root. Therefore, all the lesson manifests will be found at a
-        // depth of two.
-        for entry in WalkDir::new(course_root)
-            .min_depth(2)
-            .max_depth(2)
-            .into_iter()
-            .flatten()
-        {
-            // Ignore any entries which are not directories.
-            if entry.path().is_dir() {
+        // Each lesson manifest must be inside a direct child of the course root.
+        for lesson_root in course_root.read_dir()? {
+            if !lesson_root.is_dir()? {
                 continue;
             }
-
-            // Ignore any files which are not named `lesson_manifest.json`.
-            let file_name = Self::get_file_name(entry.path())?;
-            if file_name != LESSON_MANIFEST_FILENAME {
+            let manifest_path = lesson_root.join(LESSON_MANIFEST_FILENAME)?;
+            if !manifest_path.is_file()? {
                 continue;
             }
 
             // Open the lesson manifest and process it.
-            let mut lesson_manifest: LessonManifest = Self::open_manifest(entry.path())?;
-            lesson_manifest = lesson_manifest.normalize_paths(entry.path().parent().unwrap())?;
+            let lesson_manifest: LessonManifest = Self::open_manifest(&manifest_path)?;
             lessons.push(Self::process_lesson_manifest(
-                entry.path().parent().unwrap(),
+                &lesson_root,
                 &course_manifest,
-                lesson_manifest,
+                &lesson_manifest,
             )?);
         }
 
@@ -423,8 +416,8 @@ impl LocalCourseLibrary {
         Ok(())
     }
 
-    /// A constructor taking the path to the root of the library.
-    pub fn new(library_root: &Path, user_preferences: UserPreferences) -> Result<Self> {
+    /// A constructor taking the virtual path to the root of the library.
+    pub fn new(library_root: &VfsPath, user_preferences: UserPreferences) -> Result<Self> {
         let mut library = LocalCourseLibrary {
             course_map: UstrMap::default(),
             lesson_map: UstrMap::default(),
@@ -433,53 +426,49 @@ impl LocalCourseLibrary {
             unit_graph: Arc::new(RwLock::new(InMemoryUnitGraph::default())),
         };
 
-        // Convert the list of paths to ignore into absolute paths.
-        let absolute_root = path::absolute(library_root)?;
+        // Convert the list of paths to ignore into paths inside the virtual filesystem.
         let ignored_paths = library
             .user_preferences
             .ignored_paths
             .iter()
-            .map(|path| {
-                let mut absolute_path = absolute_root.clone();
-                absolute_path.push(path);
-                absolute_path
-            })
-            .collect::<Vec<_>>();
+            .map(|path| library_root.join(path.trim_matches('/')))
+            .collect::<Result<Vec<_>, _>>()?;
 
         // Start a search for courses from the library root. Courses can be located at any level
         // within the library root. However, the course manifests, assets, and its lessons and
         // exercises follow a fixed structure.
         let mut courses = Vec::new();
-        for entry in WalkDir::new(library_root)
-            .min_depth(2)
-            .into_iter()
-            .flatten()
-        {
+        for entry in library_root.walk_dir()? {
+            let entry = entry?;
             // Ignore any entries which are not directories.
-            if entry.path().is_dir() {
+            if entry.is_dir()? {
                 continue;
             }
 
             // Ignore any files which are not named `course_manifest.json`.
-            let file_name = Self::get_file_name(entry.path())?;
+            let file_name = Self::get_file_name(&entry)?;
             if file_name != COURSE_MANIFEST_FILENAME {
                 continue;
             }
 
+            // Course manifests must be contained in a child directory of the library root.
+            if entry.parent() == *library_root {
+                continue;
+            }
+
             // Ignore any directory that matches the list of paths to ignore.
-            if ignored_paths
-                .iter()
-                .any(|ignored_path| entry.path().starts_with(ignored_path))
-            {
+            if ignored_paths.iter().any(|ignored_path| {
+                let prefix = format!("{}/", ignored_path.as_str().trim_end_matches('/'));
+                entry.as_str().starts_with(&prefix)
+            }) {
                 continue;
             }
 
             // Open the course manifest and create a request to open the course.
-            let mut course_manifest: CourseManifest = Self::open_manifest(entry.path())?;
-            let parent = entry.path().parent().unwrap();
-            course_manifest = course_manifest.normalize_paths(parent)?;
+            let course_manifest: CourseManifest = Self::open_manifest(&entry)?;
+            let parent = entry.parent();
             courses.push(OpenCourseRequest {
-                course_root: parent.to_path_buf(),
+                course_root: parent,
                 course_manifest,
             });
         }
@@ -488,7 +477,7 @@ impl LocalCourseLibrary {
         let course_results = courses
             .into_par_iter()
             .map(|course| {
-                library.process_course_manifest(&course.course_root, course.course_manifest)
+                library.process_course_manifest(&course.course_root, &course.course_manifest)
             })
             .collect::<Result<Vec<_>>>()?;
         library.process_results(course_results)?;

@@ -8,8 +8,8 @@ use trane::{
     course_builder::{AssetBuilder, CourseBuilder},
     course_library::CourseLibrary,
     data::{
-        CourseGenerator, CourseManifest, ExerciseType, LessonManifestBuilder, MasteryScore,
-        UserPreferences,
+        BasicAsset, CourseGenerator, CourseManifest, ExerciseAsset, ExerciseType,
+        LessonManifestBuilder, MasteryScore, UserPreferences,
         course_generator::{
             knowledge_base::KnowledgeBaseConfig,
             literacy::LiteracyConfig,
@@ -85,11 +85,27 @@ fn assert_all_generated_exercises_visited(
 /// Verifies that a knowledge-base course generates reachable exercises.
 #[test]
 fn knowledge_base_course_generator() -> Result<()> {
-    let generator = CourseGenerator::KnowledgeBase(KnowledgeBaseConfig { inlined: true });
-    let course_builder = course_builder(
+    let generator = CourseGenerator::KnowledgeBase(KnowledgeBaseConfig { inlined: false });
+    let mut course_builder = course_builder(
         "knowledge_base_course",
         generator,
         vec![
+            AssetBuilder {
+                file_name: "course.instructions.md".into(),
+                contents: "Course instructions".into(),
+            },
+            AssetBuilder {
+                file_name: "course.material.md".into(),
+                contents: "Course material".into(),
+            },
+            AssetBuilder {
+                file_name: "lesson_0.lesson/lesson.instructions.md".into(),
+                contents: "Lesson instructions".into(),
+            },
+            AssetBuilder {
+                file_name: "lesson_0.lesson/lesson.material.md".into(),
+                contents: "Lesson material".into(),
+            },
             AssetBuilder {
                 file_name: "lesson_0.lesson/exercise_0.front.md".into(),
                 contents: "Front 0".into(),
@@ -112,13 +128,96 @@ fn knowledge_base_course_generator() -> Result<()> {
             },
         ],
     );
+    course_builder.course_manifest.course_instructions = Some(BasicAsset::MarkdownAsset {
+        path: "course.instructions.md".into(),
+    });
+    course_builder.course_manifest.course_material = Some(BasicAsset::MarkdownAsset {
+        path: "course.material.md".into(),
+    });
     let temp_dir = TempDir::new()?;
-    assert_all_generated_exercises_visited(
+    let trane = init_simulation(
         temp_dir.path(),
-        course_builder,
-        UserPreferences::default(),
-        2,
-    )
+        &[course_builder],
+        Some(&UserPreferences::default()),
+    )?;
+    let library_root = vfs::VfsPath::new(vfs::PhysicalFS::new(temp_dir.path()));
+    let exercise_ids = trane.get_all_exercise_ids(None);
+    assert_eq!(exercise_ids.len(), 2);
+
+    let expected_assets = [
+        (
+            "knowledge_base_course::lesson_0::exercise_0",
+            "Front 0",
+            "Back 0",
+        ),
+        (
+            "knowledge_base_course::lesson_1::exercise_1",
+            "Front 1",
+            "Back 1",
+        ),
+    ];
+
+    let course_manifest = trane
+        .get_course_manifest("knowledge_base_course".into())
+        .unwrap();
+    let assert_asset = |asset: &BasicAsset, expected_path: &str, expected_content: &str| {
+        assert!(matches!(asset, BasicAsset::MarkdownAsset { .. }));
+        if let BasicAsset::MarkdownAsset { path } = asset {
+            assert_eq!(path, expected_path);
+            assert_eq!(library_root.join(path)?.read_to_string()?, expected_content);
+        }
+        Ok::<(), anyhow::Error>(())
+    };
+    assert_asset(
+        course_manifest.course_instructions.as_ref().unwrap(),
+        "knowledge_base_course/course.instructions.md",
+        "Course instructions",
+    )?;
+    assert_asset(
+        course_manifest.course_material.as_ref().unwrap(),
+        "knowledge_base_course/course.material.md",
+        "Course material",
+    )?;
+
+    let lesson_manifest = trane
+        .get_lesson_manifest("knowledge_base_course::lesson_0".into())
+        .unwrap();
+    assert_asset(
+        lesson_manifest.lesson_instructions.as_ref().unwrap(),
+        "knowledge_base_course/lesson_0.lesson/lesson.instructions.md",
+        "Lesson instructions",
+    )?;
+    assert_asset(
+        lesson_manifest.lesson_material.as_ref().unwrap(),
+        "knowledge_base_course/lesson_0.lesson/lesson.material.md",
+        "Lesson material",
+    )?;
+
+    for (exercise_id, expected_front, expected_back) in expected_assets {
+        let manifest = trane.get_exercise_manifest(exercise_id.into()).unwrap();
+        assert!(matches!(
+            &manifest.exercise_asset,
+            ExerciseAsset::FlashcardAsset { .. }
+        ));
+        if let ExerciseAsset::FlashcardAsset {
+            front_path,
+            back_path: Some(back_path),
+        } = &manifest.exercise_asset
+        {
+            assert!(!front_path.starts_with('/'));
+            assert!(!back_path.starts_with('/'));
+            assert_eq!(
+                library_root.join(front_path)?.read_to_string()?,
+                expected_front
+            );
+            assert_eq!(
+                library_root.join(back_path)?.read_to_string()?,
+                expected_back
+            );
+        }
+    }
+
+    Ok(())
 }
 
 /// Verifies that a literacy course generates reachable reading and dictation exercises.

@@ -1129,7 +1129,8 @@ fn serialized_course_library() -> Result<()> {
 
     // Serialize the course library. This requires opening the course library again. The `Trane`
     // struct cannot be used because it uses dynamic traits.
-    let course_library = LocalCourseLibrary::new(temp_dir.path(), UserPreferences::default())?;
+    let course_root = vfs::VfsPath::new(vfs::PhysicalFS::new(temp_dir.path()));
+    let course_library = LocalCourseLibrary::new(&course_root, UserPreferences::default())?;
     let serialized_data = SerializedCourseLibrary::from(&course_library);
 
     // Decode and encode the data.

@@ -81,6 +81,7 @@ use std::{
     sync::Arc,
 };
 use ustr::{Ustr, UstrMap, UstrSet};
+use vfs::VfsPath;
 
 use crate::{
     blacklist::{Blacklist, LocalBlacklist},
@@ -316,9 +317,34 @@ impl Trane {
                 .join(USER_PREFERENCES_PATH),
         }));
         let user_preferences = preferences_manager.read().get_user_preferences()?;
+        let library_root_vfs = VfsPath::new(vfs::PhysicalFS::new(working_dir.join(library_root)));
         let course_library = Arc::new(RwLock::new(LocalCourseLibrary::new(
-            &working_dir.join(library_root),
+            &library_root_vfs,
             user_preferences.clone(),
+        )?));
+
+        // Call the helper function to create the rest of the components.
+        Self::new_local_helper(library_root, preferences_manager, course_library)
+    }
+
+    /// Creates a new local instance of Trane using a virtual filesystem for the course library.
+    /// The user data will be stored in a directory named `.trane` inside the physical library root
+    /// directory.
+    #[cfg_attr(coverage, coverage(off))]
+    pub fn new_local_with_vfs(library_root: &Path, course_library_root: &VfsPath) -> Result<Trane> {
+        // Initialize the config directory.
+        Self::init_config_directory(library_root)?;
+
+        // Build the preferences manager and load the course library with the current preferences.
+        let preferences_manager = Arc::new(RwLock::new(LocalPreferencesManager {
+            path: library_root
+                .join(TRANE_CONFIG_DIR_PATH)
+                .join(USER_PREFERENCES_PATH),
+        }));
+        let user_preferences = preferences_manager.read().get_user_preferences()?;
+        let course_library = Arc::new(RwLock::new(LocalCourseLibrary::new(
+            course_library_root,
+            user_preferences,
         )?));
 
         // Call the helper function to create the rest of the components.

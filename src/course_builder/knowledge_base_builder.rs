@@ -433,14 +433,20 @@ impl SimpleKnowledgeBaseCourse {
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod test {
-    use std::collections::BTreeMap;
-
     use anyhow::Result;
+    use std::collections::BTreeMap;
+    use std::path::Path;
+    use vfs::VfsPath;
 
     use crate::{
         course_builder::knowledge_base_builder::*,
         data::{ExerciseType, course_generator::knowledge_base::KnowledgeBaseFile},
     };
+
+    fn vfs_path(path: &Path) -> Result<VfsPath> {
+        let root = VfsPath::new(vfs::PhysicalFS::new(path.parent().unwrap()));
+        Ok(root.join(path.file_name().unwrap().to_string_lossy())?)
+    }
 
     /// Creates a test lesson builder.
     fn test_lesson_builder() -> LessonBuilder {
@@ -543,46 +549,52 @@ mod test {
         assert_eq!(fs::read_to_string(back_file)?, "Exercise 1 back");
         let name_file = lesson_dir.join("ex1.name.json");
         assert!(name_file.exists());
-        assert_eq!(KnowledgeBaseFile::open::<String>(&name_file)?, "Exercise 1",);
+        assert_eq!(
+            KnowledgeBaseFile::open::<String>(&vfs_path(&name_file)?)?,
+            "Exercise 1",
+        );
         let description_file = lesson_dir.join("ex1.description.json");
         assert!(description_file.exists());
         assert_eq!(
-            KnowledgeBaseFile::open::<String>(&description_file)?,
+            KnowledgeBaseFile::open::<String>(&vfs_path(&description_file)?)?,
             "Exercise 1 description",
         );
         let type_file = lesson_dir.join("ex1.type.json");
         assert!(type_file.exists());
         assert_eq!(
-            KnowledgeBaseFile::open::<ExerciseType>(&type_file)?,
+            KnowledgeBaseFile::open::<ExerciseType>(&vfs_path(&type_file)?)?,
             ExerciseType::Procedural,
         );
 
         // Verify that the lesson was built correctly.
         let name_file = lesson_dir.join(LESSON_NAME_FILE);
         assert!(name_file.exists());
-        assert_eq!(KnowledgeBaseFile::open::<String>(&name_file)?, "Lesson 1",);
+        assert_eq!(
+            KnowledgeBaseFile::open::<String>(&vfs_path(&name_file)?)?,
+            "Lesson 1",
+        );
         let description_file = lesson_dir.join(LESSON_DESCRIPTION_FILE);
         assert!(description_file.exists());
         assert_eq!(
-            KnowledgeBaseFile::open::<String>(&description_file)?,
+            KnowledgeBaseFile::open::<String>(&vfs_path(&description_file)?)?,
             "Lesson 1 description",
         );
         let dependencies_file = lesson_dir.join(LESSON_DEPENDENCIES_FILE);
         assert!(lesson_dir.join(LESSON_DEPENDENCIES_FILE).exists());
         assert_eq!(
-            KnowledgeBaseFile::open::<Vec<String>>(&dependencies_file)?,
+            KnowledgeBaseFile::open::<Vec<String>>(&vfs_path(&dependencies_file)?)?,
             vec!["lesson2".to_string()],
         );
         let metadata_file = lesson_dir.join(LESSON_METADATA_FILE);
         assert!(metadata_file.exists());
         assert_eq!(
-            KnowledgeBaseFile::open::<BTreeMap<String, Vec<String>>>(&metadata_file)?,
+            KnowledgeBaseFile::open::<BTreeMap<String, Vec<String>>>(&vfs_path(&metadata_file)?)?,
             BTreeMap::from([("key".to_string(), vec!["value".to_string()])]),
         );
         let encompassed_file = lesson_dir.join(LESSON_ENCOMPASSED_FILE);
         assert!(encompassed_file.exists());
         assert_eq!(
-            KnowledgeBaseFile::open::<Vec<(String, f32)>>(&encompassed_file)?,
+            KnowledgeBaseFile::open::<Vec<(String, f32)>>(&vfs_path(&encompassed_file)?)?,
             vec![("lesson3".to_string(), 0.5)],
         );
         let instructions_file = lesson_dir.join(LESSON_INSTRUCTIONS_FILE);
@@ -595,8 +607,10 @@ mod test {
         // Verify that the course was built correctly.
         assert!(course_dir.join("course_manifest.json").exists());
         assert_eq!(
-            KnowledgeBaseFile::open::<CourseManifest>(&course_dir.join("course_manifest.json"))
-                .unwrap(),
+            KnowledgeBaseFile::open::<CourseManifest>(&vfs_path(
+                &course_dir.join("course_manifest.json"),
+            )?)
+            .unwrap(),
             course_builder.manifest,
         );
         assert!(course_dir.join("course_instructions.md").exists());
@@ -719,8 +733,8 @@ mod test {
         );
         let dependencies_file = lesson_dir.join(LESSON_DEPENDENCIES_FILE);
         assert!(!dependencies_file.exists());
-        let superseced_file = lesson_dir.join(LESSON_SUPERSEDED_FILE);
-        assert!(!superseced_file.exists());
+        let superseded_file = lesson_dir.join(LESSON_SUPERSEDED_FILE);
+        assert!(!superseded_file.exists());
         let encompassed_file = lesson_dir.join(LESSON_ENCOMPASSED_FILE);
         assert!(!encompassed_file.exists());
         let instructions_file = lesson_dir.join(LESSON_INSTRUCTIONS_FILE);
@@ -752,19 +766,19 @@ mod test {
         let dependencies_file = lesson_dir.join(LESSON_DEPENDENCIES_FILE);
         assert!(dependencies_file.exists());
         assert_eq!(
-            KnowledgeBaseFile::open::<Vec<String>>(&dependencies_file)?,
+            KnowledgeBaseFile::open::<Vec<String>>(&vfs_path(&dependencies_file)?)?,
             vec!["1".to_string()]
         );
-        let superseced_file = lesson_dir.join(LESSON_SUPERSEDED_FILE);
-        assert!(superseced_file.exists());
+        let superseded_file = lesson_dir.join(LESSON_SUPERSEDED_FILE);
+        assert!(superseded_file.exists());
         assert_eq!(
-            KnowledgeBaseFile::open::<Vec<String>>(&superseced_file)?,
+            KnowledgeBaseFile::open::<Vec<String>>(&vfs_path(&superseded_file)?)?,
             vec!["0".to_string()]
         );
         let encompassed_file = lesson_dir.join(LESSON_ENCOMPASSED_FILE);
         assert!(encompassed_file.exists());
         assert_eq!(
-            KnowledgeBaseFile::open::<Vec<(String, f32)>>(&encompassed_file)?,
+            KnowledgeBaseFile::open::<Vec<(String, f32)>>(&vfs_path(&encompassed_file)?)?,
             vec![("lesson1".to_string(), 0.25)]
         );
         let instructions_file = lesson_dir.join(LESSON_INSTRUCTIONS_FILE);
@@ -779,16 +793,16 @@ mod test {
         let metadata_file = lesson_dir.join(LESSON_METADATA_FILE);
         assert!(metadata_file.exists());
         assert_eq!(
-            KnowledgeBaseFile::open::<BTreeMap<String, Vec<String>>>(&metadata_file)?,
+            KnowledgeBaseFile::open::<BTreeMap<String, Vec<String>>>(&vfs_path(&metadata_file)?)?,
             BTreeMap::from([("key".to_string(), vec!["value".to_string()])])
         );
         let dummy_file = lesson_dir.join("dummy.md");
         assert!(dummy_file.exists());
         assert_eq!(fs::read_to_string(&dummy_file)?, "I'm a dummy file");
         assert_eq!(
-            KnowledgeBaseFile::open::<CourseManifest>(
-                &temp_dir.path().join("course_manifest.json")
-            )?
+            KnowledgeBaseFile::open::<CourseManifest>(&vfs_path(
+                &temp_dir.path().join("course_manifest.json"),
+            )?)?
             .encompassed,
             vec![("course2".into(), 0.5)],
         );

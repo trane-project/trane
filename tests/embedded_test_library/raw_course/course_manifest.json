@@ -1,0 +1,21 @@
+{
+  "id": "embedded::raw_course",
+  "name": "Embedded Raw Course",
+  "dependencies": [],
+  "encompassed": [],
+  "superseded": [],
+  "description": null,
+  "authors": null,
+  "metadata": null,
+  "course_material": {
+    "MarkdownAsset": {
+      "path": "course.material.md"
+    }
+  },
+  "course_instructions": {
+    "MarkdownAsset": {
+      "path": "course.instructions.md"
+    }
+  },
+  "generator_config": null
+}
