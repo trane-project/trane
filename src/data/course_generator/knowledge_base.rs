@@ -210,12 +210,12 @@ impl KnowledgeBaseExercise {
     /// set.
     pub fn to_exercise_manifest(
         &self,
-        course_root: &VfsPath,
+        lesson_root: &VfsPath,
         default_exercise_type: Option<ExerciseType>,
         inlined: bool,
     ) -> Result<ExerciseManifest> {
         let exercise_asset = if inlined {
-            let front_content = course_root
+            let front_content = lesson_root
                 .join(&self.front_file)?
                 .read_to_string()
                 .context(format!(
@@ -226,7 +226,7 @@ impl KnowledgeBaseExercise {
                 .back_file
                 .as_ref()
                 .map(|path| {
-                    course_root
+                    lesson_root
                         .join(path)?
                         .read_to_string()
                         .context(format!("failed to read exercise back file {path}"))
@@ -238,11 +238,11 @@ impl KnowledgeBaseExercise {
             }
         } else {
             ExerciseAsset::FlashcardAsset {
-                front_path: normalize_path(&course_root.root(), course_root, &self.front_file)?,
+                front_path: normalize_path(&lesson_root.root(), lesson_root, &self.front_file)?,
                 back_path: self
                     .back_file
                     .as_ref()
-                    .map(|path| normalize_path(&course_root.root(), course_root, path))
+                    .map(|path| normalize_path(&lesson_root.root(), lesson_root, path))
                     .transpose()?,
             }
         };
@@ -955,7 +955,7 @@ mod test {
             description: Some("Description".into()),
             exercise_type: None,
         };
-        let course_root = vfs_path(Path::new("."));
+        let lesson_root = vfs_path(Path::new("."));
 
         // Exercise has its own type, ignore lesson default.
         let exercise_with_type = KnowledgeBaseExercise {
@@ -963,7 +963,7 @@ mod test {
             ..base_exercise.clone()
         };
         let manifest = exercise_with_type
-            .to_exercise_manifest(&course_root, Some(ExerciseType::Procedural), false)
+            .to_exercise_manifest(&lesson_root, Some(ExerciseType::Procedural), false)
             .unwrap();
         assert_eq!(manifest.exercise_type, ExerciseType::Declarative);
 
@@ -973,13 +973,13 @@ mod test {
             ..base_exercise.clone()
         };
         let manifest = exercise_no_type
-            .to_exercise_manifest(&course_root, Some(ExerciseType::Declarative), false)
+            .to_exercise_manifest(&lesson_root, Some(ExerciseType::Declarative), false)
             .unwrap();
         assert_eq!(manifest.exercise_type, ExerciseType::Declarative);
 
         // Exercise has no type, lesson has no default, fall back to Procedural.
         let manifest = exercise_no_type
-            .to_exercise_manifest(&course_root, None, false)
+            .to_exercise_manifest(&lesson_root, None, false)
             .unwrap();
         assert_eq!(manifest.exercise_type, ExerciseType::Procedural);
     }
