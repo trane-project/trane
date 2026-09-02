@@ -5,11 +5,12 @@
 pub mod course_generator;
 pub mod filter;
 
-use anyhow::{Result, bail};
+use anyhow::{Result, bail, ensure};
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, path::Path};
+use std::collections::BTreeMap;
 use ustr::Ustr;
+use vfs::VfsPath;
 
 use crate::data::course_generator::{
     knowledge_base::KnowledgeBaseConfig,
@@ -170,29 +171,39 @@ impl std::fmt::Display for UnitType {
     }
 }
 
-/// Trait to convert relative paths to absolute paths so that objects stored in memory contain the
-/// full path to all their assets.
+/// Trait to convert asset paths to paths relative to the course library root.
 pub trait NormalizePaths
 where
     Self: Sized,
 {
-    /// Converts all relative paths in the object to absolute paths.
-    fn normalize_paths(&self, working_dir: &Path) -> Result<Self>;
+    /// Converts asset paths declared relative to `manifest_root` to paths relative to
+    /// `library_root`.
+    fn normalize_paths(&self, library_root: &VfsPath, manifest_root: &VfsPath) -> Result<Self>;
 }
 
-/// Converts a relative to an absolute path given a path and a working directory.
-fn normalize_path(working_dir: &Path, path_str: &str) -> Result<String> {
-    let path = Path::new(path_str);
-    if path.is_absolute() {
-        return Ok(path_str.to_string());
-    }
-
-    Ok(working_dir
-        .join(path)
-        .canonicalize()?
-        .to_str()
-        .unwrap_or(path_str)
-        .to_string())
+/// Resolves an asset path against its manifest directory and returns it relative to the library
+/// root.
+pub(crate) fn normalize_path(
+    library_root: &VfsPath,
+    manifest_root: &VfsPath,
+    path_str: &str,
+) -> Result<String> {
+    let resolved_path = manifest_root.join(path_str)?;
+    let library_path = library_root.as_str().trim_end_matches('/');
+    let resolved = resolved_path.as_str();
+    let relative = if library_path.is_empty() {
+        resolved.trim_start_matches('/')
+    } else {
+        let remainder = resolved
+            .strip_prefix(library_path)
+            .ok_or_else(|| anyhow::anyhow!("asset path {resolved} is outside the library root"))?;
+        ensure!(
+            remainder.is_empty() || remainder.starts_with('/'),
+            "asset path {resolved} is outside the library root"
+        );
+        remainder.trim_start_matches('/')
+    };
+    Ok(relative.to_string())
 }
 
 /// Trait to verify that the paths in the object are valid.
@@ -200,8 +211,9 @@ pub trait VerifyPaths
 where
     Self: Sized,
 {
-    /// Checks that all the paths mentioned in the object exist in disk.
-    fn verify_paths(&self, working_dir: &Path) -> Result<bool>;
+    /// Checks that all the paths mentioned in the object exist in the virtual filesystem rooted at
+    /// `root`.
+    fn verify_paths(&self, root: &VfsPath) -> Result<bool>;
 }
 
 /// Trait to get the metadata from a lesson or course manifest.
@@ -217,10 +229,12 @@ pub trait GetUnitType {
 }
 
 /// An asset attached to a unit, which could be used to store instructions, or present the material
-/// introduced by a course or lesson.
+/// introduced by a course or lesson. Paths are declared relative to the directory containing the
+/// manifest.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum BasicAsset {
-    /// An asset containing the path to a markdown file.
+    /// An asset containing the path to a markdown file. The path should be declared relative to the
+    /// directory containing the manifest.
     MarkdownAsset {
         /// The path to the markdown file.
         path: String,
@@ -241,27 +255,26 @@ pub enum BasicAsset {
 }
 
 impl NormalizePaths for BasicAsset {
-    fn normalize_paths(&self, working_dir: &Path) -> Result<Self> {
+    fn normalize_paths(&self, library_root: &VfsPath, manifest_root: &VfsPath) -> Result<Self> {
         match &self {
             BasicAsset::InlinedAsset { .. } | BasicAsset::InlinedUniqueAsset { .. } => {
                 Ok(self.clone()) // grcov-excl-line
             }
             BasicAsset::MarkdownAsset { path } => {
-                let abs_path = normalize_path(working_dir, path)?;
-                Ok(BasicAsset::MarkdownAsset { path: abs_path })
+                let normalized_path = normalize_path(library_root, manifest_root, path)?;
+                Ok(BasicAsset::MarkdownAsset {
+                    path: normalized_path,
+                })
             }
         }
     }
 }
 
 impl VerifyPaths for BasicAsset {
-    fn verify_paths(&self, working_dir: &Path) -> Result<bool> {
+    fn verify_paths(&self, root: &VfsPath) -> Result<bool> {
         match &self {
             BasicAsset::InlinedAsset { .. } | BasicAsset::InlinedUniqueAsset { .. } => Ok(true),
-            BasicAsset::MarkdownAsset { path } => {
-                let abs_path = working_dir.join(Path::new(path));
-                Ok(abs_path.exists())
-            }
+            BasicAsset::MarkdownAsset { path } => Ok(root.join(path)?.is_file()?),
         }
     }
 }
@@ -301,7 +314,7 @@ pub trait GenerateManifests {
     /// Returns all the generated lesson and exercise manifests for a course.
     fn generate_manifests(
         &self,
-        course_root: &Path,
+        course_root: &VfsPath,
         course_manifest: &CourseManifest,
         preferences: &UserPreferences,
     ) -> Result<GeneratedCourse>;
@@ -310,7 +323,7 @@ pub trait GenerateManifests {
 impl GenerateManifests for CourseGenerator {
     fn generate_manifests(
         &self,
-        course_root: &Path,
+        course_root: &VfsPath,
         course_manifest: &CourseManifest,
         preferences: &UserPreferences,
     ) -> Result<GeneratedCourse> {
@@ -425,32 +438,35 @@ pub struct CourseManifest {
 }
 
 impl NormalizePaths for CourseManifest {
-    fn normalize_paths(&self, working_directory: &Path) -> Result<Self> {
+    fn normalize_paths(&self, library_root: &VfsPath, manifest_root: &VfsPath) -> Result<Self> {
         let mut clone = self.clone();
         match &self.course_instructions {
             None => (),
             Some(asset) => {
-                clone.course_instructions = Some(asset.normalize_paths(working_directory)?);
+                clone.course_instructions =
+                    Some(asset.normalize_paths(library_root, manifest_root)?);
             }
         }
         match &self.course_material {
             None => (),
-            Some(asset) => clone.course_material = Some(asset.normalize_paths(working_directory)?),
+            Some(asset) => {
+                clone.course_material = Some(asset.normalize_paths(library_root, manifest_root)?);
+            }
         }
         Ok(clone)
     }
 }
 
 impl VerifyPaths for CourseManifest {
-    fn verify_paths(&self, working_dir: &Path) -> Result<bool> {
+    fn verify_paths(&self, root: &VfsPath) -> Result<bool> {
         // The paths mentioned in the instructions and material must both exist.
         let instructions_exist = match &self.course_instructions {
             None => true,
-            Some(asset) => asset.verify_paths(working_dir)?,
+            Some(asset) => asset.verify_paths(root)?,
         };
         let material_exists = match &self.course_material {
             None => true,
-            Some(asset) => asset.verify_paths(working_dir)?,
+            Some(asset) => asset.verify_paths(root)?,
         };
         Ok(instructions_exist && material_exists)
     }
@@ -538,28 +554,28 @@ pub struct LessonManifest {
 }
 
 impl NormalizePaths for LessonManifest {
-    fn normalize_paths(&self, working_dir: &Path) -> Result<Self> {
+    fn normalize_paths(&self, library_root: &VfsPath, manifest_root: &VfsPath) -> Result<Self> {
         let mut clone = self.clone();
         if let Some(asset) = &self.lesson_instructions {
-            clone.lesson_instructions = Some(asset.normalize_paths(working_dir)?);
+            clone.lesson_instructions = Some(asset.normalize_paths(library_root, manifest_root)?);
         }
         if let Some(asset) = &self.lesson_material {
-            clone.lesson_material = Some(asset.normalize_paths(working_dir)?);
+            clone.lesson_material = Some(asset.normalize_paths(library_root, manifest_root)?);
         }
         Ok(clone)
     }
 }
 
 impl VerifyPaths for LessonManifest {
-    fn verify_paths(&self, working_dir: &Path) -> Result<bool> {
+    fn verify_paths(&self, root: &VfsPath) -> Result<bool> {
         // The paths mentioned in the instructions and material must both exist.
         let instruction_exists = match &self.lesson_instructions {
             None => true,
-            Some(asset) => asset.verify_paths(working_dir)?,
+            Some(asset) => asset.verify_paths(root)?,
         };
         let material_exists = match &self.lesson_material {
             None => true,
-            Some(asset) => asset.verify_paths(working_dir)?,
+            Some(asset) => asset.verify_paths(root)?,
         };
         Ok(instruction_exists && material_exists)
     }
@@ -577,13 +593,15 @@ impl GetUnitType for LessonManifest {
     }
 }
 
-/// The asset storing the material of a particular exercise.
+/// The asset storing the material of a particular exercise. Paths are declared relative to the
+/// directory containing the manifest.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum ExerciseAsset {
     /// A basic asset storing the material of the exercise.
     BasicAsset(BasicAsset),
 
-    /// An asset representing a flashcard with a front and back each stored in a markdown file.
+    /// An asset representing a flashcard with a front and back each stored in a markdown file. The
+    /// paths should be declared relative to the directory containing the manifest.
     FlashcardAsset {
         /// The path to the file containing the front of the flashcard.
         front_path: String,
@@ -636,7 +654,8 @@ pub enum ExerciseAsset {
         #[serde(default)]
         description: Option<String>,
 
-        /// An optional path to a MusicXML file containing the sheet music for the exercise.
+        /// An optional path to a MusicXML file containing the sheet music for the exercise. The path
+        /// should be declared relative to the directory containing the manifest.
         #[serde(default)]
         backup: Option<String>,
     },
@@ -655,26 +674,27 @@ pub enum ExerciseAsset {
 }
 
 impl NormalizePaths for ExerciseAsset {
-    fn normalize_paths(&self, working_dir: &Path) -> Result<Self> {
+    fn normalize_paths(&self, library_root: &VfsPath, manifest_root: &VfsPath) -> Result<Self> {
         match &self {
             // grcov-excl-start
             ExerciseAsset::BasicAsset(asset) => Ok(ExerciseAsset::BasicAsset(
-                asset.normalize_paths(working_dir)?,
+                asset.normalize_paths(library_root, manifest_root)?,
             )),
             // grcov-excl-stop
             ExerciseAsset::FlashcardAsset {
                 front_path,
                 back_path,
             } => {
-                let abs_front_path = normalize_path(working_dir, front_path)?;
-                let abs_back_path = if let Some(back_path) = back_path {
-                    Some(normalize_path(working_dir, back_path)?)
+                let normalized_front_path =
+                    normalize_path(library_root, manifest_root, front_path)?;
+                let normalized_back_path = if let Some(back_path) = back_path {
+                    Some(normalize_path(library_root, manifest_root, back_path)?)
                 } else {
                     None // grcov-excl-line
                 };
                 Ok(ExerciseAsset::FlashcardAsset {
-                    front_path: abs_front_path,
-                    back_path: abs_back_path,
+                    front_path: normalized_front_path,
+                    back_path: normalized_back_path,
                 })
             }
             ExerciseAsset::InlineFlashcardAsset { .. } => Ok(self.clone()), // grcov-excl-line
@@ -688,11 +708,11 @@ impl NormalizePaths for ExerciseAsset {
             } => match backup {
                 None => Ok(self.clone()),
                 Some(path) => {
-                    let abs_path = normalize_path(working_dir, path)?;
+                    let normalized_path = normalize_path(library_root, manifest_root, path)?;
                     Ok(ExerciseAsset::SoundSliceAsset {
                         link: link.clone(),
                         description: description.clone(),
-                        backup: Some(abs_path),
+                        backup: Some(normalized_path),
                     })
                 }
             },
@@ -701,21 +721,21 @@ impl NormalizePaths for ExerciseAsset {
 }
 
 impl VerifyPaths for ExerciseAsset {
-    fn verify_paths(&self, working_dir: &Path) -> Result<bool> {
+    fn verify_paths(&self, root: &VfsPath) -> Result<bool> {
         match &self {
-            ExerciseAsset::BasicAsset(asset) => asset.verify_paths(working_dir),
+            ExerciseAsset::BasicAsset(asset) => asset.verify_paths(root),
             ExerciseAsset::FlashcardAsset {
                 front_path,
                 back_path,
             } => {
-                let front_abs_path = working_dir.join(Path::new(front_path));
+                let front_path = root.join(front_path)?;
                 if let Some(back_path) = back_path {
                     // The paths to the front and back of the flashcard must both exist.
-                    let back_abs_path = working_dir.join(Path::new(back_path));
-                    Ok(front_abs_path.exists() && back_abs_path.exists())
+                    let back_path = root.join(back_path)?;
+                    Ok(front_path.is_file()? && back_path.is_file()?)
                 } else {
                     // If the back of the flashcard is missing, then the front must exist.
-                    Ok(front_abs_path.exists())
+                    Ok(front_path.is_file()?)
                 }
             }
             ExerciseAsset::InlineFlashcardAsset { .. } => Ok(true),
@@ -726,8 +746,7 @@ impl VerifyPaths for ExerciseAsset {
                 None => Ok(true),
                 Some(path) => {
                     // The backup path must exist.
-                    let abs_path = working_dir.join(Path::new(path));
-                    Ok(abs_path.exists())
+                    Ok(root.join(path)?.is_file()?)
                 }
             },
         }
@@ -773,16 +792,18 @@ pub struct ExerciseManifest {
 }
 
 impl NormalizePaths for ExerciseManifest {
-    fn normalize_paths(&self, working_dir: &Path) -> Result<Self> {
+    fn normalize_paths(&self, library_root: &VfsPath, manifest_root: &VfsPath) -> Result<Self> {
         let mut clone = self.clone();
-        clone.exercise_asset = clone.exercise_asset.normalize_paths(working_dir)?;
+        clone.exercise_asset = clone
+            .exercise_asset
+            .normalize_paths(library_root, manifest_root)?;
         Ok(clone)
     }
 }
 
 impl VerifyPaths for ExerciseManifest {
-    fn verify_paths(&self, working_dir: &Path) -> Result<bool> {
-        self.exercise_asset.verify_paths(working_dir)
+    fn verify_paths(&self, root: &VfsPath) -> Result<bool> {
+        self.exercise_asset.verify_paths(root)
     }
 }
 
@@ -1103,6 +1124,7 @@ pub struct UserPreferences {
 #[cfg_attr(coverage, coverage(off))]
 mod test {
     use crate::data::*;
+    use vfs::VfsPath;
 
     // Verifies the conversion of mastery scores to float values.
     #[test]
@@ -1179,21 +1201,33 @@ mod test {
     /// Verifies the `NormalizePaths` trait works for a `SoundSlice` asset.
     #[test]
     fn soundslice_normalize_paths() -> Result<()> {
+        let library_root = VfsPath::new(vfs::MemoryFS::new());
+        let manifest_root = library_root.join("course")?;
         let soundslice = ExerciseAsset::SoundSliceAsset {
             link: "https://www.soundslice.com/slices/QfZcc/".to_string(),
             description: Some("Test".to_string()),
             backup: None,
         };
-        soundslice.normalize_paths(Path::new("./"))?;
+        soundslice.normalize_paths(&library_root, &manifest_root)?;
 
         let temp_dir = tempfile::tempdir()?;
-        let temp_file = tempfile::NamedTempFile::new_in(temp_dir.path())?;
+        let library_root = VfsPath::new(vfs::PhysicalFS::new(temp_dir.path()));
+        let manifest_root = library_root.join("course")?;
+        std::fs::write(temp_dir.path().join("backup"), "backup")?;
         let soundslice = ExerciseAsset::SoundSliceAsset {
             link: "https://www.soundslice.com/slices/QfZcc/".to_string(),
             description: Some("Test".to_string()),
-            backup: Some(temp_file.path().as_os_str().to_str().unwrap().to_string()),
+            backup: Some("/backup".to_string()),
         };
-        soundslice.normalize_paths(temp_dir.path())?;
+        let normalized = soundslice.normalize_paths(&library_root, &manifest_root)?;
+        assert_eq!(
+            normalized,
+            ExerciseAsset::SoundSliceAsset {
+                link: "https://www.soundslice.com/slices/QfZcc/".to_string(),
+                description: Some("Test".to_string()),
+                backup: Some("backup".to_string()),
+            }
+        );
         Ok(())
     }
 
@@ -1205,14 +1239,15 @@ mod test {
             description: Some("Test".to_string()),
             backup: None,
         };
-        assert!(soundslice.verify_paths(Path::new("./"))?);
+        let root = VfsPath::new(vfs::PhysicalFS::new("."));
+        assert!(soundslice.verify_paths(&root)?);
 
         let soundslice = ExerciseAsset::SoundSliceAsset {
             link: "https://www.soundslice.com/slices/QfZcc/".to_string(),
             description: Some("Test".to_string()),
             backup: Some("./bad_file".to_string()),
         };
-        assert!(!soundslice.verify_paths(Path::new("./"))?);
+        assert!(!soundslice.verify_paths(&root)?);
         Ok(())
     }
 
@@ -1222,26 +1257,47 @@ mod test {
         // Verify a flashcard with no back.
         let temp_dir = tempfile::tempdir()?;
         let front_file = tempfile::NamedTempFile::new_in(temp_dir.path())?;
+        let root = VfsPath::new(vfs::PhysicalFS::new(temp_dir.path()));
         let flashcard_asset = ExerciseAsset::FlashcardAsset {
-            front_path: front_file.path().as_os_str().to_str().unwrap().to_string(),
+            front_path: front_file
+                .path()
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string(),
             back_path: None,
         };
-        assert!(flashcard_asset.verify_paths(temp_dir.path())?);
+        assert!(flashcard_asset.verify_paths(&root)?);
 
         // Verify a flashcard with front and back.
         let back_file = tempfile::NamedTempFile::new_in(temp_dir.path())?;
         let flashcard_asset = ExerciseAsset::FlashcardAsset {
-            front_path: front_file.path().as_os_str().to_str().unwrap().to_string(),
-            back_path: Some(back_file.path().as_os_str().to_str().unwrap().to_string()),
+            front_path: front_file
+                .path()
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string(),
+            back_path: Some(
+                back_file
+                    .path()
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string(),
+            ),
         };
-        assert!(flashcard_asset.verify_paths(temp_dir.path())?);
+        assert!(flashcard_asset.verify_paths(&root)?);
 
         // Verify an inlined flashcard.
         let flashcard_asset = ExerciseAsset::InlineFlashcardAsset {
             front_content: "Front".to_string(),
             back_content: Some("Back".to_string()),
         };
-        assert!(flashcard_asset.verify_paths(temp_dir.path())?);
+        assert!(flashcard_asset.verify_paths(&root)?);
         Ok(())
     }
 
@@ -1257,7 +1313,8 @@ mod test {
             ],
             exceptions: vec![("E".to_string(), None)],
         };
-        assert!(literacy_asset.verify_paths(temp_dir.path())?);
+        let root = VfsPath::new(vfs::PhysicalFS::new(temp_dir.path()));
+        assert!(literacy_asset.verify_paths(&root)?);
         Ok(())
     }
 
@@ -1273,29 +1330,51 @@ mod test {
     #[test]
     fn normalize_good_path() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        let temp_file = tempfile::NamedTempFile::new_in(temp_dir.path())?;
-        let temp_file_path = temp_file.path().to_str().unwrap();
-        let normalized_path = normalize_path(temp_dir.path(), temp_file_path)?;
-        assert_eq!(
-            temp_dir.path().join(temp_file_path).to_str().unwrap(),
-            normalized_path
-        );
+        let library_root = VfsPath::new(vfs::PhysicalFS::new(temp_dir.path()));
+        let manifest_root = library_root.join("course")?;
+        let normalized_path = normalize_path(&library_root, &manifest_root, "asset.md")?;
+        assert_eq!("course/asset.md", normalized_path);
+        Ok(())
+    }
+
+    /// Verifies that a path is trimmed to a library-root-relative value.
+    #[test]
+    fn normalize_path_trims_library_root_prefix() -> Result<()> {
+        let root = VfsPath::new(vfs::MemoryFS::new());
+        let library_root = root.join("library")?;
+        let manifest_root = library_root.join("course")?;
+        let normalized_path = normalize_path(&library_root, &manifest_root, "asset.md")?;
+        assert_eq!("course/asset.md", normalized_path);
         Ok(())
     }
 
     /// Verifies that normalizing an absolute path returns the original path.
     #[test]
-    fn normalize_absolute_path() {
-        let normalized_path = normalize_path(Path::new("/working/dir"), "/absolute/path").unwrap();
-        assert_eq!("/absolute/path", normalized_path,);
+    fn normalize_absolute_path() -> Result<()> {
+        let library_root = VfsPath::new(vfs::MemoryFS::new());
+        let manifest_root = library_root.join("course")?;
+        let normalized_path = normalize_path(&library_root, &manifest_root, "/absolute/path")?;
+        assert_eq!("absolute/path", normalized_path);
+        Ok(())
     }
 
     /// Verifies that normalizing a path fails with the path to a missing file.
     #[test]
     fn normalize_bad_path() -> Result<()> {
-        let temp_dir = tempfile::tempdir()?;
-        let temp_file_path = "missing_file";
-        assert!(normalize_path(temp_dir.path(), temp_file_path).is_err());
+        let root = VfsPath::new(vfs::MemoryFS::new());
+        let library_root = root.join("library")?;
+        let manifest_root = library_root.join("course")?;
+        assert!(normalize_path(&library_root, &manifest_root, "../../outside").is_err());
+        Ok(())
+    }
+
+    /// Verifies that a similarly prefixed directory is not treated as the library root.
+    #[test]
+    fn normalize_path_rejects_root_prefix_collision() -> Result<()> {
+        let root = VfsPath::new(vfs::MemoryFS::new());
+        let library_root = root.join("library")?;
+        let manifest_root = root.join("library_backup")?;
+        assert!(normalize_path(&library_root, &manifest_root, "asset.md").is_err());
         Ok(())
     }
 

@@ -95,7 +95,8 @@ impl ExerciseBuilder {
         }
 
         // Verify that all paths mentioned in the manifest are valid.
-        manifest.verify_paths(exercise_directory).context(format!(
+        let exercise_root = vfs::VfsPath::new(vfs::PhysicalFS::new(exercise_directory));
+        manifest.verify_paths(&exercise_root).context(format!(
             "failed to verify files for exercise {}",
             manifest.id
         ))?;
@@ -151,8 +152,9 @@ impl LessonBuilder {
         }
 
         // Verify that all paths mentioned in the manifest are valid.
+        let lesson_root = vfs::VfsPath::new(vfs::PhysicalFS::new(lesson_directory));
         manifest
-            .verify_paths(lesson_directory)
+            .verify_paths(&lesson_root)
             .context(format!("failed to verify files for lesson {}", manifest.id))?;
         Ok(())
     }
@@ -201,8 +203,9 @@ impl CourseBuilder {
         }
 
         // Verify that all paths mentioned in the manifest are valid.
+        let course_root = vfs::VfsPath::new(vfs::PhysicalFS::new(&course_directory));
         self.course_manifest
-            .verify_paths(&course_directory)
+            .verify_paths(&course_root)
             .context(format!(
                 "failed to verify files for course {}",
                 self.course_manifest.id
