@@ -1357,6 +1357,16 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that a similarly prefixed directory is not treated as the library root.
+    #[test]
+    fn normalize_path_rejects_root_prefix_collision() -> Result<()> {
+        let root = VfsPath::new(vfs::MemoryFS::new());
+        let library_root = root.join("library")?;
+        let manifest_root = root.join("library_backup")?;
+        assert!(normalize_path(&library_root, &manifest_root, "asset.md").is_err());
+        Ok(())
+    }
+
     /// Verifies the default scheduler options are valid.
     #[test]
     fn valid_default_scheduler_options() {

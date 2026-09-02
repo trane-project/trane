@@ -646,3 +646,97 @@ impl GetUnitGraph for LocalCourseLibrary {
         self.unit_graph.clone()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::io::Write;
+
+    use super::*;
+    use crate::data::{ExerciseAsset, ExerciseType};
+    use serde::Serialize;
+    use vfs::MemoryFS;
+
+    /// Verifies that a root virtual path is rejected when no filename is available.
+    #[test]
+    fn rejects_root_path_without_filename() {
+        let root = VfsPath::new(MemoryFS::new());
+        assert!(LocalCourseLibrary::get_file_name(&root).is_err());
+    }
+
+    fn write_manifest<T: Serialize>(path: &VfsPath, manifest: &T) -> Result<()> {
+        path.create_file()?
+            .write_all(&serde_json::to_vec(manifest)?)?;
+        Ok(())
+    }
+
+    /// Verifies that lesson directories without an exercise manifest are ignored.
+    #[test]
+    fn skips_directories_without_exercise_manifests() -> Result<()> {
+        let root = VfsPath::new(MemoryFS::new());
+        let library_root = root.join("library")?;
+        library_root.create_dir()?;
+        let category = library_root.join("category")?;
+        category.create_dir()?;
+        let course = category.join("course")?;
+        let lesson = course.join("lesson")?;
+        let valid_exercise = lesson.join("valid")?;
+        course.create_dir()?;
+        lesson.create_dir()?;
+        lesson.join("empty")?.create_dir()?;
+        valid_exercise.create_dir()?;
+        write_manifest(
+            &course.join(COURSE_MANIFEST_FILENAME)?,
+            &CourseManifest {
+                id: "course".into(),
+                name: "Course".into(),
+                dependencies: vec![],
+                encompassed: vec![],
+                superseded: vec![],
+                description: None,
+                authors: None,
+                metadata: None,
+                course_material: None,
+                course_instructions: None,
+                generator_config: None,
+            },
+        )?;
+        write_manifest(
+            &lesson.join(LESSON_MANIFEST_FILENAME)?,
+            &LessonManifest {
+                id: "course::lesson".into(),
+                dependencies: vec![],
+                encompassed: vec![],
+                superseded: vec![],
+                course_id: "course".into(),
+                name: "Lesson".into(),
+                description: None,
+                metadata: None,
+                lesson_material: None,
+                lesson_instructions: None,
+            },
+        )?;
+        write_manifest(
+            &valid_exercise.join(EXERCISE_MANIFEST_FILENAME)?,
+            &ExerciseManifest {
+                id: "course::lesson::valid".into(),
+                lesson_id: "course::lesson".into(),
+                course_id: "course".into(),
+                name: "Exercise".into(),
+                description: None,
+                exercise_type: ExerciseType::Procedural,
+                exercise_asset: ExerciseAsset::InlineFlashcardAsset {
+                    front_content: "Front".into(),
+                    back_content: None,
+                },
+            },
+        )?;
+
+        let library = LocalCourseLibrary::new(&library_root, UserPreferences::default())?;
+        assert_eq!(library.get_course_ids(), vec![Ustr::from("course")]);
+        assert_eq!(
+            library.get_exercise_ids("course::lesson".into()).unwrap(),
+            vec![Ustr::from("course::lesson::valid")]
+        );
+        Ok(())
+    }
+}
