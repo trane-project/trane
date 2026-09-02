@@ -1337,6 +1337,17 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that a path is trimmed to a library-root-relative value.
+    #[test]
+    fn normalize_path_trims_library_root_prefix() -> Result<()> {
+        let root = VfsPath::new(vfs::MemoryFS::new());
+        let library_root = root.join("library")?;
+        let manifest_root = library_root.join("course")?;
+        let normalized_path = normalize_path(&library_root, &manifest_root, "asset.md")?;
+        assert_eq!("course/asset.md", normalized_path);
+        Ok(())
+    }
+
     /// Verifies that normalizing an absolute path returns the original path.
     #[test]
     fn normalize_absolute_path() -> Result<()> {

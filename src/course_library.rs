@@ -701,6 +701,22 @@ mod tests {
             },
         )?;
         write_manifest(
+            &library_root.join(COURSE_MANIFEST_FILENAME)?,
+            &CourseManifest {
+                id: "ignored_root_course".into(),
+                name: "Ignored Root Course".into(),
+                dependencies: vec![],
+                encompassed: vec![],
+                superseded: vec![],
+                description: None,
+                authors: None,
+                metadata: None,
+                course_material: None,
+                course_instructions: None,
+                generator_config: None,
+            },
+        )?;
+        write_manifest(
             &lesson.join(LESSON_MANIFEST_FILENAME)?,
             &LessonManifest {
                 id: "course::lesson".into(),
