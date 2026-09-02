@@ -210,7 +210,6 @@ impl KnowledgeBaseExercise {
     /// set.
     pub fn to_exercise_manifest(
         &self,
-        library_root: &VfsPath,
         course_root: &VfsPath,
         default_exercise_type: Option<ExerciseType>,
         inlined: bool,
@@ -239,11 +238,11 @@ impl KnowledgeBaseExercise {
             }
         } else {
             ExerciseAsset::FlashcardAsset {
-                front_path: normalize_path(library_root, course_root, &self.front_file)?,
+                front_path: normalize_path(&course_root.root(), course_root, &self.front_file)?,
                 back_path: self
                     .back_file
                     .as_ref()
-                    .map(|path| normalize_path(library_root, course_root, path))
+                    .map(|path| normalize_path(&course_root.root(), course_root, path))
                     .transpose()?,
             }
         };
@@ -644,7 +643,6 @@ impl GenerateManifests for KnowledgeBaseConfig {
         course_manifest: &CourseManifest,
         _preferences: &UserPreferences,
     ) -> Result<GeneratedCourse> {
-        let library_root = course_root.root();
         // Create the lessons by iterating through all the directories in the course root,
         // processing only those whose name fits the pattern `<SHORT_LESSON_ID>.lesson`.
         let mut lessons = UstrMap::default();
@@ -674,12 +672,11 @@ impl GenerateManifests for KnowledgeBaseConfig {
             .map(|(short_id, (lesson, exercises))| {
                 let lesson_root = course_root.join(format!("{short_id}{LESSON_SUFFIX}"))?;
                 let lesson_manifest = LessonManifest::from(lesson.clone())
-                    .normalize_paths(&library_root, &lesson_root)?;
+                    .normalize_paths(&lesson_root.root(), &lesson_root)?;
                 let exercise_manifests = exercises
                     .into_iter()
                     .map(|e| {
                         e.to_exercise_manifest(
-                            &library_root,
                             &lesson_root,
                             lesson.default_exercise_type.clone(),
                             self.inlined,
@@ -891,12 +888,7 @@ mod test {
             },
         };
         let actual_manifest = exercise
-            .to_exercise_manifest(
-                &vfs_path(Path::new(".")),
-                &vfs_path(Path::new(".")),
-                None,
-                false,
-            )
+            .to_exercise_manifest(&vfs_path(Path::new(".")), None, false)
             .unwrap();
         assert_eq!(actual_manifest, expected_manifest);
     }
@@ -921,7 +913,7 @@ mod test {
             exercise_type: Some(ExerciseType::Procedural),
         };
         let root = vfs_path(temp_dir.path());
-        let manifest = exercise.to_exercise_manifest(&root, &root, None, true)?;
+        let manifest = exercise.to_exercise_manifest(&root, None, true)?;
         assert_eq!(
             manifest.exercise_asset,
             ExerciseAsset::InlineFlashcardAsset {
@@ -945,12 +937,8 @@ mod test {
             description: Some("Description".into()),
             exercise_type: Some(ExerciseType::Procedural),
         };
-        let manifest = exercise.to_exercise_manifest(
-            &VfsPath::new(vfs::MemoryFS::new()),
-            &VfsPath::new(vfs::MemoryFS::new()),
-            None,
-            true,
-        );
+        let manifest =
+            exercise.to_exercise_manifest(&VfsPath::new(vfs::MemoryFS::new()), None, true);
         assert!(manifest.is_err());
     }
 
@@ -975,12 +963,7 @@ mod test {
             ..base_exercise.clone()
         };
         let manifest = exercise_with_type
-            .to_exercise_manifest(
-                &course_root,
-                &course_root,
-                Some(ExerciseType::Procedural),
-                false,
-            )
+            .to_exercise_manifest(&course_root, Some(ExerciseType::Procedural), false)
             .unwrap();
         assert_eq!(manifest.exercise_type, ExerciseType::Declarative);
 
@@ -990,18 +973,13 @@ mod test {
             ..base_exercise.clone()
         };
         let manifest = exercise_no_type
-            .to_exercise_manifest(
-                &course_root,
-                &course_root,
-                Some(ExerciseType::Declarative),
-                false,
-            )
+            .to_exercise_manifest(&course_root, Some(ExerciseType::Declarative), false)
             .unwrap();
         assert_eq!(manifest.exercise_type, ExerciseType::Declarative);
 
         // Exercise has no type, lesson has no default, fall back to Procedural.
         let manifest = exercise_no_type
-            .to_exercise_manifest(&course_root, &course_root, None, false)
+            .to_exercise_manifest(&course_root, None, false)
             .unwrap();
         assert_eq!(manifest.exercise_type, ExerciseType::Procedural);
     }
