@@ -3,7 +3,10 @@
 
 use anyhow::{Context, Error, Result, anyhow};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    io::BufReader,
+};
 use ustr::{Ustr, UstrMap};
 use vfs::VfsPath;
 
@@ -110,7 +113,9 @@ impl KnowledgeBaseFile {
         let file = path
             .open_file()
             .context(format!("cannot open knowledge base file {display}"))?;
-        serde_json::from_reader(file).context(format!("cannot parse knowledge base file {display}"))
+        let reader = BufReader::new(file);
+        serde_json::from_reader(reader)
+            .context(format!("cannot parse knowledge base file {display}"))
     }
 }
 

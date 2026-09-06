@@ -8,7 +8,7 @@
 use anyhow::{Context, Error, Result, anyhow};
 use noyalib::compat::serde_yaml;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, io::BufReader};
 use strum::Display;
 use ustr::{Ustr, UstrMap, UstrSet};
 use vfs::VfsPath;
@@ -133,7 +133,8 @@ impl LiteracyFile {
         let file = path
             .open_file()
             .context(format!("cannot open literacy file {display}"))?;
-        serde_json::from_reader(file).context(format!("cannot parse literacy file {display}"))
+        let reader = BufReader::new(file);
+        serde_json::from_reader(reader).context(format!("cannot parse literacy file {display}"))
     }
 
     /// Opens a file that contains an example or exception stored as markdown.
