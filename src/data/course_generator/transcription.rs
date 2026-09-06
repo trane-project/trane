@@ -10,7 +10,10 @@ pub mod constants;
 use anyhow::{Context, Result, bail};
 use indoc::formatdoc;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    io::BufReader,
+};
 use ustr::Ustr;
 use vfs::VfsPath;
 
@@ -163,7 +166,8 @@ impl TranscriptionPassages {
         let file = path
             .open_file()
             .context(format!("cannot open passage file {}", path.as_str()))?;
-        serde_json::from_reader(file)
+        let reader = BufReader::new(file);
+        serde_json::from_reader(reader)
             .context(format!("cannot parse passage file {}", path.as_str()))
     }
 }

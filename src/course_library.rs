@@ -9,6 +9,7 @@ use parking_lot::RwLock;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use std::io::BufReader;
 use std::sync::Arc;
 use ustr::{Ustr, UstrMap, UstrSet};
 use vfs::VfsPath;
@@ -174,7 +175,8 @@ impl LocalCourseLibrary {
         let file = path
             .open_file()
             .context(format!("cannot open manifest file {display}"))?;
-        serde_json::from_reader(file).context(format!("cannot parse manifest file {display}"))
+        let reader = BufReader::new(file);
+        serde_json::from_reader(reader).context(format!("cannot parse manifest file {display}"))
     }
 
     /// Returns the file name of the given path.

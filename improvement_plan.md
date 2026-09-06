@@ -18,63 +18,17 @@ this review.
 
 ## Priority Order
 
-| Priority | Improvement | Scope | Evidence |
-| --- | --- | --- | --- |
-| 1 | Restore JSON read buffering | Four parsing sites | Measured large parsing speedup |
-| 2 | Skip scoring queries whose results cannot matter | One scoring path | Exact reduction in query count |
-| 3 | Deduplicate exercise IDs before selection | Candidate collection | Reproduced duplicate output |
-| 4 | Expire time-dependent score caches and align clocks | Small cross-module correction | Reproduced stale mastery |
-| 5 | Reduce filesystem checks and remove redundant indexes | Independent small cleanups | Source-backed, not benchmarked |
-| Experiment | Check whether suppressed reviews have selected covering material | Bounded postselection check | Demonstrable mismatch; learning benefit unproven |
+| Priority   | Improvement                                                      | Scope                         | Evidence                                         |
+| ---------- | ---------------------------------------------------------------- | ----------------------------- | ------------------------------------------------ |
+| 1          | Restore JSON read buffering (DONE)                               | Four parsing sites            | Measured large parsing speedup                   |
+| 2          | Skip scoring queries whose results cannot matter                 | One scoring path              | Exact reduction in query count                   |
+| 3          | Deduplicate exercise IDs before selection                        | Candidate collection          | Reproduced duplicate output                      |
+| 4          | Expire time-dependent score caches and align clocks              | Small cross-module correction | Reproduced stale mastery                         |
+| 5          | Reduce filesystem checks and remove redundant indexes            | Independent small cleanups    | Source-backed, not benchmarked                   |
+| Experiment | Check whether suppressed reviews have selected covering material | Bounded postselection check   | Demonstrable mismatch; learning benefit unproven |
 
 Recommendation: implement the first four fixes before changing learning heuristics. Keep the
 selected-coverage repair as a separate, explicitly experimental change.
-
-## 1. Restore JSON Buffering
-
-This is the clearest impact-to-change win.
-
-The VFS conversion removed `BufReader`. The current loader passes an unbuffered physical file into
-`serde_json::from_reader`, which performs byte-sized reads.
-
-Locations:
-
-- [`src/course_library.rs:172`](src/course_library.rs#L172)
-- [`src/data/course_generator/knowledge_base.rs:108`](src/data/course_generator/knowledge_base.rs#L108)
-- [`src/data/course_generator/literacy.rs:131`](src/data/course_generator/literacy.rs#L131)
-- [`src/data/course_generator/transcription.rs:162`](src/data/course_generator/transcription.rs#L162)
-
-### Proposed Change
-
-Wrap the VFS reader in `BufReader` at these sites. This restores the previous physical-filesystem
-behavior while retaining VFS support. It is unrelated to the previously considered database write
-buffers.
-
-### Measured Evidence
-
-A temporary harness tested actual `PhysicalFS` handles against the large fixture's 51 course
-manifests, totaling 475,210 bytes, with and without an 8 KiB buffer.
-
-| Measurement | Current | Buffered |
-| --- | ---: | ---: |
-| Underlying read calls, including EOF | 475,261 | 150 |
-| Median JSON parsing time | 150.8 ms | 3.0 ms |
-
-Parsed `serde_json::Value` results were identical. Measurements used an instrumented, warm-cache,
-release-mode harness with one warmup and seven measured passes per mode, alternating order.
-Timing excluded file opening/closing and result comparison.
-
-This was approximately 51 times faster parsing, not 51 times faster library startup. Filesystem
-discovery, generation, graph construction, and database initialization were outside the
-measurement. Embedded and in-memory libraries will not receive the same syscall savings.
-
-### Validation
-
-- Preserve identical parsed manifests and generator inputs.
-- Measure full library startup separately from JSON parsing.
-- Check physical, embedded, and in-memory backends.
-- Do not extend this diagnosis to YAML without measuring: the current YAML compatibility reader
-  already reads its input into a string.
 
 ## 2. Skip Irrelevant Scoring Queries
 
@@ -90,10 +44,10 @@ Existing rules already establish:
   [`src/reward_scorer.rs:117`](src/reward_scorer.rs#L117).
 
 | Retrieved trials | Current storage queries | Necessary queries |
-| --- | ---: | ---: |
-| 0 | 4 | 1 |
-| 1-2 | 4 | 2 |
-| 3+ | 4 | 4 |
+| ---------------- | ----------------------: | ----------------: |
+| 0                |                       4 |                 1 |
+| 1-2              |                       4 |                 2 |
+| 3+               |                       4 |                 4 |
 
 ### Proposed Change
 
@@ -182,11 +136,11 @@ aggregates inherit the problem.
 Record one grade-five trial, evaluate scores, advance the effective clock 30 days without
 practicing, then invalidate the exercise.
 
-| State | Exercise | Lesson | Course |
-| --- | ---: | ---: | ---: |
-| Immediately after practice | 5.000 | 5.000 | 5.000 |
-| After advancing 30 days | 5.000 | 5.000 | 5.000 |
-| After cache invalidation | 2.699 | 2.699 | 2.699 |
+| State                      | Exercise | Lesson | Course |
+| -------------------------- | -------: | -----: | -----: |
+| Immediately after practice |    5.000 |  5.000 |  5.000 |
+| After advancing 30 days    |    5.000 |  5.000 |  5.000 |
+| After cache invalidation   |    2.699 |  2.699 |  2.699 |
 
 The harness used `T = 1800000000`, advanced by exactly 2,592,000 seconds, and observed a
 recomputed score of `2.6993408` for all three unit types after invalidating only the exercise ID.
@@ -296,11 +250,11 @@ unrelated U. Each belongs to a distinct lesson and course. All scores are 4.5. L
 course be LA and CA. Use only these explicit encompassing edges, all with weight 1:
 
 | Source | Its lesson encompasses | Its course encompasses |
-| --- | --- | --- |
-| B1 | LA and CA | LA and CA |
-| B2 | LA and CA | LA and CA |
-| B3 | LA | CA |
-| U | Nothing | Nothing |
+| ------ | ---------------------- | ---------------------- |
+| B1     | LA and CA              | LA and CA              |
+| B2     | LA and CA              | LA and CA              |
+| B3     | LA                     | CA                     |
+| U      | Nothing                | Nothing                |
 
 LA and CA have no outgoing edges. The current calculation gives LA weight 5 and CA weight 5,
 so A receives weight 10 and is fully knocked out.
