@@ -21,63 +21,14 @@ this review.
 | Priority   | Improvement                                                      | Scope                         | Evidence                                         |
 | ---------- | ---------------------------------------------------------------- | ----------------------------- | ------------------------------------------------ |
 | 1          | Restore JSON read buffering (DONE)                               | Four parsing sites            | Measured large parsing speedup                   |
-| 2          | Skip scoring queries whose results cannot matter                 | One scoring path              | Exact reduction in query count                   |
-| 3          | Deduplicate exercise IDs before selection                        | Candidate collection          | Reproduced duplicate output                      |
+| 2          | Skip scoring queries whose results cannot matter (DONE)          | One scoring path              | Exact reduction in query count                   |
+| 3          | Deduplicate exercise IDs before selection (DONE)                 | Candidate collection          | Reproduced duplicate output                      |
 | 4          | Expire time-dependent score caches and align clocks              | Small cross-module correction | Reproduced stale mastery                         |
 | 5          | Reduce filesystem checks and remove redundant indexes            | Independent small cleanups    | Source-backed, not benchmarked                   |
 | Experiment | Check whether suppressed reviews have selected covering material | Bounded postselection check   | Demonstrable mismatch; learning benefit unproven |
 
 Recommendation: implement the first four fixes before changing learning heuristics. Keep the
 selected-coverage repair as a separate, explicitly experimental change.
-
-## 3. Deduplicate Before Sampling
-
-Overlapping review-list entries are expanded independently in
-[`src/scheduler.rs:922`](src/scheduler.rs#L922). A course, one of its lessons, and one of that
-lesson's exercises can therefore contribute the same exercise multiple times.
-
-Weighted sampling operates on candidate entries, not unique exercise IDs. The later deduplication
-only prevents relearn entries from duplicating normal selections.
-
-### Reproduction
-
-Create one course, one lesson, and one exercise. Add all three units to the review list. With no
-practice history or failures, the returned batch was:
-
-```text
-["0::0::0", "0::0::0"]
-```
-
-This occurred in 20 of 20 batches: two entries, one unique exercise, and no relearning
-contribution.
-
-### Proposed Change
-
-Deduplicate the candidate union by exercise ID before knockout and weighted selection. Resolve
-differing path metadata consistently, rather than letting review-list iteration order decide it.
-
-Deduplicating only the final output is insufficient: duplicate candidates would still get
-multiple sampling opportunities and could distort window allocation.
-
-The expected benefit is removal of unintended repeated presentations and path-dependent
-sampling bias. This does not ban intentional retries after an actual attempt.
-
-### Scientific Context
-
-[Karpicke and Roediger (2008)](https://pubmed.ncbi.nlm.nih.gov/18276894/) found that repeated
-retrieval can improve delayed retention. The recommendation is not that repetition is wasteful;
-it is that overlapping organizational paths should not silently prescribe extra repetitions.
-
-The effect on learning efficiency is unmeasured and depends on what replaces the accidental
-duplicate.
-
-### Validation
-
-- Cover overlapping course, lesson, and exercise review-list entries.
-- Cover repeated lesson IDs in a lesson filter.
-- Assert uniqueness before sampling, not only in the returned batch.
-- Preserve intentional later attempts through the relearn mechanism.
-- Check deterministic handling of differing candidate metadata for the same exercise.
 
 ## 4. Make Cached Scores Respect Time
 
