@@ -964,6 +964,13 @@ impl DepthFirstScheduler {
         Ok(candidates)
     }
 
+    /// Deduplicates candidates by exercise ID, keeping the first occurrence.
+    fn deduplicate_candidates(mut candidates: Vec<Candidate>) -> Vec<Candidate> {
+        let mut seen = UstrSet::default();
+        candidates.retain(|candidate| seen.insert(candidate.exercise_id));
+        candidates
+    }
+
     /// Retrieves an initial batch of candidates based on the given filter.
     fn get_initial_candidates(&self, filter: Option<ExerciseFilter>) -> Result<Vec<Candidate>> {
         // Retrieve an initial list of candidates based on the type of the filter.
@@ -1024,12 +1031,12 @@ impl DepthFirstScheduler {
                         .data
                         .get_session_filter(&session_data, Utc::now())?
                         .map(ExerciseFilter::UnitFilter);
-                    self.get_initial_candidates(unit_filter)?
+                    return self.get_initial_candidates(unit_filter);
                 }
             },
         };
 
-        Ok(candidates)
+        Ok(Self::deduplicate_candidates(candidates))
     }
 
     /// Takes a list of candidates and returns a vector of tuples of exercises IDs and manifests.
@@ -1242,6 +1249,28 @@ mod test {
             max_lessons_in_progress: max,
             ..Default::default()
         }
+    }
+
+    /// Verifies that deduplication preserves order and the first occurrence's metadata.
+    #[test]
+    fn deduplicate_candidates() {
+        let candidates = vec![
+            candidate(2, 4.0, 1.0),
+            candidate(1, 3.0, 2.0),
+            candidate(2, 1.0, 9.0),
+        ];
+        let deduplicated = DepthFirstScheduler::deduplicate_candidates(candidates);
+        let actual: Vec<_> = deduplicated
+            .iter()
+            .map(|c| (c.exercise_id, c.exercise_score, c.depth))
+            .collect();
+        assert_eq!(
+            actual,
+            vec![
+                (Ustr::from("exercise-2"), 4.0, 1.0),
+                (Ustr::from("exercise-1"), 3.0, 2.0),
+            ]
+        );
     }
 
     /// Verifies that an empty list of candidates results in an empty selection.
