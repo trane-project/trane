@@ -388,11 +388,14 @@ fn all_exercises_scheduled() -> Result<()> {
     let mut trane = init_test_simulation(temp_dir.path(), &LIBRARY)?;
 
     // Run the simulation.
-    let mut simulation = TraneSimulation::new(1000, Box::new(|_| Some(MasteryScore::Five)));
+    let exercise_ids = all_test_exercises(&LIBRARY);
+    let mut simulation = TraneSimulation::new(
+        exercise_ids.len() * 25,
+        Box::new(|_| Some(MasteryScore::Five)),
+    );
     simulation.run_simulation(&mut trane, &vec![], &None)?;
 
     // Every exercise ID should be in `simulation.answer_history`.
-    let exercise_ids = all_test_exercises(&LIBRARY);
     for exercise_id in exercise_ids {
         let exercise_ustr = exercise_id.to_ustr();
         assert!(

@@ -23,6 +23,9 @@ pub trait RewardScorer {
     fn apply_reward(&self, reward: f32, previous_trials: &[ExerciseTrial]) -> bool;
 }
 
+/// The minimum number of trials at which rewards start to be applied.
+pub const MIN_TRIALS_FOR_REWARD: usize = 3;
+
 /// The reward half-life, in days, used to decay both reward values and reward weights.
 const REWARD_HALF_LIFE_DAYS: f32 = 14.0;
 
@@ -116,7 +119,7 @@ impl RewardScorer for WeightedRewardScorer {
 
     fn apply_reward(&self, reward: f32, previous_trials: &[ExerciseTrial]) -> bool {
         // Do not apply rewards to exercises with very few trials
-        if previous_trials.len() <= 2 {
+        if previous_trials.len() < MIN_TRIALS_FOR_REWARD {
             return false;
         }
 

@@ -13,7 +13,7 @@ use ustr::{Ustr, UstrMap, UstrSet};
 use crate::{
     data::{ExerciseType, SchedulerOptions, UnitType},
     exercise_scorer::{ExerciseScorer, PowerLawScorer},
-    reward_scorer::{RewardScorer, WeightedRewardScorer},
+    reward_scorer::{MIN_TRIALS_FOR_REWARD, RewardScorer, WeightedRewardScorer},
     scheduler::SchedulerData,
 };
 
@@ -187,7 +187,8 @@ impl UnitScorer {
             return Ok(score);
         }
 
-        // Retrieve the exercise's type and previous trials and compute its score.
+        // Retrieve the exercise's type and previous trials. Decide whether the deltas or rewards
+        // should be retrieved.
         let exercise_type = self
             .data
             .course_library
@@ -202,34 +203,48 @@ impl UnitScorer {
             .read()
             .get_scores(exercise_id, self.options.num_trials)
             .unwrap_or_default();
-        let deltas = self
-            .data
-            .practice_deltas
-            .read()
-            .get_deltas(exercise_id, self.options.num_trials)
-            .unwrap_or_default();
+        let retrieve_deltas = !scores.is_empty();
+        let retrieve_rewards = scores.len() >= MIN_TRIALS_FOR_REWARD;
+
+        // Then retrieve the deltas and rewards based on the previous step's result.
+        let deltas = if retrieve_deltas {
+            self.data
+                .practice_deltas
+                .read()
+                .get_deltas(exercise_id, self.options.num_trials)
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        let mut lesson_rewards = Vec::new();
+        let mut course_rewards = Vec::new();
+        if retrieve_rewards {
+            let graph = self.data.unit_graph.read();
+            let rewards = self.data.practice_rewards.read();
+            let lesson_id = graph.get_exercise_lesson(exercise_id).unwrap_or_default();
+            lesson_rewards = rewards
+                .get_rewards(lesson_id, self.options.num_rewards)
+                .unwrap_or_default();
+            let course_id = graph.get_lesson_course(lesson_id).unwrap_or_default();
+            course_rewards = rewards
+                .get_rewards(course_id, self.options.num_rewards)
+                .unwrap_or_default();
+        }
+
+        // Compute the score and the reward.
         let score = self
             .exercise_scorer
             .score(exercise_type, &scores, &deltas, self.now())?;
-
-        // Retrieve the rewards for this exercise's lesson and course and compute the reward.
-        let graph = self.data.unit_graph.read();
-        let rewards = self.data.practice_rewards.read();
-        let lesson_id = graph.get_exercise_lesson(exercise_id).unwrap_or_default();
-        let lesson_rewards = rewards
-            .get_rewards(lesson_id, self.options.num_rewards)
-            .unwrap_or_default();
-        let course_id = graph.get_lesson_course(lesson_id).unwrap_or_default();
-        let course_rewards = rewards
-            .get_rewards(course_id, self.options.num_rewards)
-            .unwrap_or_default();
-        let reward = self
-            .reward_scorer
-            .score_rewards(&course_rewards, &lesson_rewards)
-            .unwrap_or_default();
+        let reward = if retrieve_rewards {
+            self.reward_scorer
+                .score_rewards(&course_rewards, &lesson_rewards)
+                .unwrap_or_default()
+        } else {
+            0.0
+        };
 
         // Apply the reward if it meets the criteria and cache the final score.
-        let final_score = if self.reward_scorer.apply_reward(reward, &scores) {
+        let final_score = if retrieve_rewards && self.reward_scorer.apply_reward(reward, &scores) {
             (score.value + reward).clamp(0.0, 5.0)
         } else {
             score.value

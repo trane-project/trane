@@ -30,48 +30,6 @@ this review.
 Recommendation: implement the first four fixes before changing learning heuristics. Keep the
 selected-coverage repair as a separate, explicitly experimental change.
 
-## 2. Skip Irrelevant Scoring Queries
-
-On an exercise-cache miss, [`get_exercise_score`](src/scheduler/unit_scorer.rs#L199) fetches trials,
-deltas, lesson rewards, and course rewards before determining whether all that information is
-useful.
-
-Existing rules already establish:
-
-- With zero trials, the exercise scorer returns the unseen-exercise result without examining
-  deltas: [`src/exercise_scorer.rs:451`](src/exercise_scorer.rs#L451).
-- With two or fewer trials, rewards never apply:
-  [`src/reward_scorer.rs:117`](src/reward_scorer.rs#L117).
-
-| Retrieved trials | Current storage queries | Necessary queries |
-| ---------------- | ----------------------: | ----------------: |
-| 0                |                       4 |                 1 |
-| 1-2              |                       4 |                 2 |
-| 3+               |                       4 |                 4 |
-
-### Proposed Change
-
-After the existing cache-hit fast path and trial retrieval, skip unused delta/reward retrieval
-and reward aggregation. Keep the reward-eligibility rule centralized rather than duplicating an
-unexplained threshold.
-
-For 10,000 unseen exercises actually scored on cold caches, this means 40,000 to 10,000 storage
-queries, without changing scores or scheduling policy. This is an operation-count reduction, not
-a measured runtime claim.
-
-This is distinct from the previously rejected eager lesson-reward precomputation: it does no
-additional work before cache hits and introduces no new cache.
-
-### Constraints And Validation
-
-- Independently trimmed trial and delta histories can differ. Skipping deltas is safe for empty
-  trials, not automatically for every short trial history.
-- Preserve cached score, urgency, velocity, and trial count.
-- Verify exact output equality for histories with 0, 1, 2, 3, and 20 trials, including populated
-  parent rewards and independently trimmed histories.
-- Count storage calls on cold caches and confirm cache-hit work remains unchanged.
-- Mature exercises with three or more retrieved trials receive no query-count improvement.
-
 ## 3. Deduplicate Before Sampling
 
 Overlapping review-list entries are expanded independently in
