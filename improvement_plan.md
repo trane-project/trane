@@ -103,42 +103,6 @@ Trane already discards caches.
 - Verify reward half-life and recent-performance protections under the injected clock.
 - Measure the cost of the selected expiration policy and preserve same-time cache hits.
 
-## 5. Smaller Performance Wins
-
-### Check Filenames Before Filesystem Type
-
-[`src/course_library.rs:441`](src/course_library.rs#L441) calls `entry.is_dir()` before checking
-whether the name is `course_manifest.json`. The VFS walker already checks entry metadata, and
-`is_dir()` adds existence/metadata checks.
-
-Moving the filename rejection first avoids those additional probes for unrelated assets. This
-is particularly attractive for asset-heavy physical libraries and requires almost no structural
-change. Preserve the directory rejection for matching names.
-
-Validate with VFS operation counts and identical discovered courses. This opportunity was not
-benchmarked during the review.
-
-### Remove Duplicate SQLite Indexes
-
-These tables declare `unit_id` as `UNIQUE`, then create another ordinary index on the same column:
-
-- [`src/practice_stats.rs:54`](src/practice_stats.rs#L54)
-- [`src/practice_rewards.rs:111`](src/practice_rewards.rs#L111)
-- [`src/blacklist.rs:51`](src/blacklist.rs#L51)
-- [`src/review_list.rs:39`](src/review_list.rs#L39)
-
-SQLite already supplies an index for the unique constraint. Append migrations dropping
-`unit_ids` in stats/rewards and `unit_id_index` in blacklist/review-list storage, preserving the
-constraints and history indexes. Do not rewrite historical migrations.
-
-This saves one redundant B-tree per affected database and reduces new-ID write amplification.
-It is primarily a space improvement, not a major steady-state scheduling speedup. Freed pages
-become reusable; file sizes need not shrink immediately.
-
-Validate query plans and uniqueness with the bundled SQLite version, and measure reclaimed
-index pages separately from compacted file size. No live query-plan or database-size experiment
-was performed during this review.
-
 ## 6. Experiment: Verify Selected Coverage
 
 This is the one new scheduling-policy direction worth investigating, but it should not be

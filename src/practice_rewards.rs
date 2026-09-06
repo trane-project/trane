@@ -125,6 +125,8 @@ impl LocalPracticeRewards {
             // Create a combined index of `unit_uid` and `timestamp` for fast reward retrieval.
             M::up("CREATE INDEX rewards ON practice_rewards (unit_uid, timestamp);")
                 .down("DROP INDEX rewards"),
+            // UNIQUE on unit_id already supplies an index for these lookups.
+            M::up("DROP INDEX unit_ids;").down("CREATE INDEX unit_ids ON uids (unit_id);"),
         ])
     }
 

@@ -442,14 +442,14 @@ impl LocalCourseLibrary {
         let mut courses = Vec::new();
         for entry in library_root.walk_dir()? {
             let entry = entry?;
-            // Ignore any entries which are not directories.
-            if entry.is_dir()? {
+            // Check the filename first to avoid extra filesystem queries for unrelated entries.
+            let file_name = Self::get_file_name(&entry)?;
+            if file_name != COURSE_MANIFEST_FILENAME {
                 continue;
             }
 
-            // Ignore any files which are not named `course_manifest.json`.
-            let file_name = Self::get_file_name(&entry)?;
-            if file_name != COURSE_MANIFEST_FILENAME {
+            // A directory named `course_manifest.json` is not a manifest.
+            if entry.is_dir()? {
                 continue;
             }
 
@@ -677,6 +677,9 @@ mod tests {
         let root = VfsPath::new(MemoryFS::new());
         let library_root = root.join("library")?;
         library_root.create_dir()?;
+        let not_a_course = library_root.join("not_a_course")?;
+        not_a_course.create_dir()?;
+        not_a_course.join(COURSE_MANIFEST_FILENAME)?.create_dir()?;
         let category = library_root.join("category")?;
         category.create_dir()?;
         let course = category.join("course")?;
