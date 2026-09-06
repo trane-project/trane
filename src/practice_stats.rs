@@ -76,6 +76,8 @@ impl LocalPracticeStats {
             // Create a combined index of `unit_uid` and `timestamp` for fast trial retrieval.
             M::up("CREATE INDEX trials ON practice_stats (unit_uid, timestamp);")
                 .down("DROP INDEX trials"),
+            // UNIQUE on unit_id already supplies an index for these lookups.
+            M::up("DROP INDEX unit_ids;").down("CREATE INDEX unit_ids ON uids (unit_id);"),
         ])
     }
 

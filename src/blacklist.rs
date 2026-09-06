@@ -53,6 +53,9 @@ impl LocalBlacklist {
             // Create an index of the blacklisted unit IDs.
             M::up("CREATE INDEX unit_id_index ON blacklist (unit_id);")
                 .down("DROP INDEX unit_id_index"),
+            // UNIQUE on unit_id already supplies an index for these lookups.
+            M::up("DROP INDEX unit_id_index;")
+                .down("CREATE INDEX unit_id_index ON blacklist (unit_id);"),
         ])
     }
 
