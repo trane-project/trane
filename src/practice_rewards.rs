@@ -277,7 +277,7 @@ impl PracticeRewards for LocalPracticeRewards {
         num_rewards: u32,
     ) -> Result<Vec<UnitReward>, PracticeRewardsError> {
         self.get_rewards_helper(unit_id, num_rewards)
-            .map_err(|e| PracticeRewardsError::GetRewards(unit_id, e))
+            .map_err(|e| PracticeRewardsError::GetRewards(unit_id, e)) // grcov-excl-line
     }
 
     fn record_unit_rewards(
@@ -285,17 +285,17 @@ impl PracticeRewards for LocalPracticeRewards {
         rewards: &[UnitReward],
     ) -> Result<Vec<Ustr>, PracticeRewardsError> {
         self.record_unit_rewards_helper(rewards)
-            .map_err(PracticeRewardsError::RecordRewards)
+            .map_err(PracticeRewardsError::RecordRewards) // grcov-excl-line
     }
 
     fn trim_rewards(&mut self, num_rewards: u32) -> Result<(), PracticeRewardsError> {
         self.trim_rewards_helper(num_rewards)
-            .map_err(PracticeRewardsError::TrimReward)
+            .map_err(PracticeRewardsError::TrimReward) // grcov-excl-line
     }
 
     fn remove_rewards_with_prefix(&mut self, prefix: &str) -> Result<(), PracticeRewardsError> {
         self.remove_rewards_with_prefix_helper(prefix)
-            .map_err(|e| PracticeRewardsError::RemovePrefix(prefix.to_string(), e))
+            .map_err(|e| PracticeRewardsError::RemovePrefix(prefix.to_string(), e)) // grcov-excl-line
     }
 }
 

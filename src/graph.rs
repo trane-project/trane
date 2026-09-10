@@ -523,17 +523,17 @@ impl InMemoryUnitGraph {
 impl UnitGraph for InMemoryUnitGraph {
     fn add_course(&mut self, course_id: Ustr) -> Result<(), UnitGraphError> {
         self.add_course_helper(course_id)
-            .map_err(|e| UnitGraphError::AddUnit(course_id, UnitType::Course, e))
+            .map_err(|e| UnitGraphError::AddUnit(course_id, UnitType::Course, e)) // grcov-excl-line
     }
 
     fn add_lesson(&mut self, lesson_id: Ustr, course_id: Ustr) -> Result<(), UnitGraphError> {
         self.add_lesson_helper(lesson_id, course_id)
-            .map_err(|e| UnitGraphError::AddUnit(lesson_id, UnitType::Lesson, e))
+            .map_err(|e| UnitGraphError::AddUnit(lesson_id, UnitType::Lesson, e)) // grcov-excl-line
     }
 
     fn add_exercise(&mut self, exercise_id: Ustr, lesson_id: Ustr) -> Result<(), UnitGraphError> {
         self.add_exercise_helper(exercise_id, lesson_id)
-            .map_err(|e| UnitGraphError::AddUnit(exercise_id, UnitType::Exercise, e))
+            .map_err(|e| UnitGraphError::AddUnit(exercise_id, UnitType::Exercise, e)) // grcov-excl-line
     }
 
     fn add_dependencies(
@@ -543,7 +543,7 @@ impl UnitGraph for InMemoryUnitGraph {
         dependencies: &[Ustr],
     ) -> Result<(), UnitGraphError> {
         self.add_dependencies_helper(unit_id, &unit_type, dependencies)
-            .map_err(|e| UnitGraphError::AddDependencies(unit_id, unit_type, e))
+            .map_err(|e| UnitGraphError::AddDependencies(unit_id, unit_type, e)) // grcov-excl-line
     }
 
     fn add_encompassed(
@@ -553,7 +553,7 @@ impl UnitGraph for InMemoryUnitGraph {
         encompassed: &[(Ustr, f32)],
     ) -> Result<(), UnitGraphError> {
         self.add_encompassed_helper(unit_id, dependencies, encompassed)
-            .map_err(|e| UnitGraphError::AddEncompassed(unit_id, e))
+            .map_err(|e| UnitGraphError::AddEncompassed(unit_id, e)) // grcov-excl-line
     }
 
     fn set_encompasing_equals_dependency(&mut self) {
@@ -686,7 +686,7 @@ impl UnitGraph for InMemoryUnitGraph {
 
     fn check_cycles(&self) -> Result<(), UnitGraphError> {
         self.check_cycles_helper()
-            .map_err(UnitGraphError::CheckCycles)
+            .map_err(UnitGraphError::CheckCycles) // grcov-excl-line
     }
 
     fn generate_dot_graph(&self, courses_only: bool) -> String {

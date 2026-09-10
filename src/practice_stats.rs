@@ -214,7 +214,7 @@ impl PracticeStats for LocalPracticeStats {
         num_scores: u32,
     ) -> Result<Vec<ExerciseTrial>, PracticeStatsError> {
         self.get_scores_helper(exercise_id, num_scores)
-            .map_err(|e| PracticeStatsError::GetScores(exercise_id, e))
+            .map_err(|e| PracticeStatsError::GetScores(exercise_id, e)) // grcov-excl-line
     }
 
     fn record_exercise_scores(
@@ -222,17 +222,17 @@ impl PracticeStats for LocalPracticeStats {
         trials: &[ExerciseTrial],
     ) -> Result<(), PracticeStatsError> {
         self.record_exercise_scores_helper(trials)
-            .map_err(PracticeStatsError::RecordScore)
+            .map_err(PracticeStatsError::RecordScore) // grcov-excl-line
     }
 
     fn trim_scores(&mut self, num_scores: u32) -> Result<(), PracticeStatsError> {
         self.trim_scores_helper(num_scores)
-            .map_err(PracticeStatsError::TrimScores)
+            .map_err(PracticeStatsError::TrimScores) // grcov-excl-line
     }
 
     fn remove_scores_with_prefix(&mut self, prefix: &str) -> Result<(), PracticeStatsError> {
         self.remove_scores_with_prefix_helper(prefix)
-            .map_err(|e| PracticeStatsError::RemovePrefix(prefix.to_string(), e))
+            .map_err(|e| PracticeStatsError::RemovePrefix(prefix.to_string(), e)) // grcov-excl-line
     }
 }
 

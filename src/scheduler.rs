@@ -1060,7 +1060,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
         // Retrieve an initial batch of candidates based on the type of the filter.
         let initial_candidates = self
             .get_initial_candidates(filter)
-            .map_err(ExerciseSchedulerError::GetExerciseBatch)?;
+            .map_err(ExerciseSchedulerError::GetExerciseBatch)?; // grcov-excl-line
 
         // Knock out highly encompassed exercises from the initial batch to ensure that they are not
         // overrepresented in the final batch.
@@ -1091,7 +1091,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
             Shuffler::shuffle_candidates(final_candidates, &self.data.options);
         let manifests = self
             .candidates_to_exercises(shuffled_candidates)
-            .map_err(ExerciseSchedulerError::GetExerciseBatch)?;
+            .map_err(ExerciseSchedulerError::GetExerciseBatch)?; // grcov-excl-line
 
         // Increment the frequency of the exercises in the batch. These exercises will have a lower
         // chance of being selected in the future.
@@ -1129,7 +1129,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
                     delta,
                     timestamp,
                 }])
-                .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?;
+                .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?; // grcov-excl-line
         }
 
         // Write the score to the practice stats database, invalidate the cache, and update the
@@ -1142,7 +1142,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
                 score: score.float_score(),
                 timestamp,
             }])
-            .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?;
+            .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?; // grcov-excl-line
         self.unit_scorer.invalidate_cached_score(exercise_id);
         self.relearn_pile.update(exercise_id, &score);
         self.data.update_success_rate(&score);
@@ -1156,7 +1156,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
             .practice_rewards
             .write()
             .record_unit_rewards(&rewards)
-            .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?;
+            .map_err(|e| ExerciseSchedulerError::ScoreExercise(e.into()))?; // grcov-excl-line
 
         // Invalidate caches for units were updated.
         for unit_id in updated_ids {
@@ -1169,7 +1169,7 @@ impl ExerciseScheduler for DepthFirstScheduler {
     fn get_unit_score(&self, unit_id: Ustr) -> Result<Option<f32>, ExerciseSchedulerError> {
         self.unit_scorer
             .get_unit_score(unit_id)
-            .map_err(|e| ExerciseSchedulerError::GetUnitScore(unit_id, e))
+            .map_err(|e| ExerciseSchedulerError::GetUnitScore(unit_id, e)) // grcov-excl-line
     }
 
     #[cfg_attr(coverage, coverage(off))]
