@@ -858,52 +858,44 @@ mod test {
         let scheduler_data = library.get_scheduler_data();
         let cache = UnitScorer::new(scheduler_data, SchedulerOptions::default());
 
-        // Insert some scores into the exercise and lesson caches.
-        cache.exercise_cache.borrow_mut().insert(
-            Ustr::from("a"),
-            CachedScore {
-                score: 5.0,
-                urgency: 0.0,
-                velocity: None,
-                num_trials: 1,
-            },
-        );
-        cache.exercise_cache.borrow_mut().insert(
-            Ustr::from("b::a"),
-            CachedScore {
-                score: 5.0,
-                urgency: 0.0,
-                velocity: None,
-                num_trials: 1,
-            },
-        );
-        cache
-            .lesson_cache
-            .borrow_mut()
-            .insert(Ustr::from("a::a"), Some(5.0));
-        cache
-            .lesson_cache
-            .borrow_mut()
-            .insert(Ustr::from("c::a"), Some(5.0));
+        let score_caches = [
+            &cache.lesson_cache,
+            &cache.course_cache,
+            &cache.lesson_trials_cache,
+            &cache.course_trials_cache,
+        ];
+        for id in [Ustr::from("a::a"), Ustr::from("b::a")] {
+            cache.exercise_cache.borrow_mut().insert(
+                id,
+                CachedScore {
+                    score: 5.0,
+                    ..CachedScore::default()
+                },
+            );
+            for scores in score_caches {
+                scores.borrow_mut().insert(id, Some(5.0));
+            }
+        }
 
-        // Verify that the scores are present.
-        assert_eq!(cache.get_exercise_score(Ustr::from("a"))?, 5.0);
-        assert_eq!(cache.get_exercise_score(Ustr::from("b::a"))?, 5.0);
-        assert_eq!(cache.get_lesson_score(Ustr::from("a::a"))?, Some(5.0));
-        assert_eq!(cache.get_lesson_score(Ustr::from("c::a"))?, Some(5.0));
-
-        // Invalidate prefix `a` and verify that the cached scores are removed.
+        // Remove the matching key from every cache, preserving the nonmatching key.
         cache.invalidate_cached_scores_with_prefix("a");
-        assert_eq!(cache.get_exercise_score(Ustr::from("a"))?, 0.0);
-        assert_eq!(cache.get_exercise_score(Ustr::from("b::a"))?, 5.0);
-        assert_eq!(cache.get_lesson_score(Ustr::from("a::a"))?, None);
-        assert_eq!(cache.get_lesson_score(Ustr::from("c::a"))?, Some(5.0));
+        for id in [Ustr::from("a::a"), Ustr::from("b::a")] {
+            let expected = if id.starts_with("a") { None } else { Some(5.0) };
+            assert_eq!(
+                cache.exercise_cache.borrow().get(&id).map(|s| s.score),
+                expected
+            );
+            for scores in score_caches {
+                assert_eq!(scores.borrow().get(&id).copied(), expected.map(Some));
+            }
+        }
 
-        // Invalidate units `b::a  and `c::a` and verify that the score is removed.
+        // Remove the remaining key from every cache by its exact ID.
         cache.invalidate_cached_score(Ustr::from("b::a"));
-        cache.invalidate_cached_score(Ustr::from("c::a"));
-        assert_eq!(cache.get_exercise_score(Ustr::from("b::a"))?, 0.0);
-        assert_eq!(cache.get_lesson_score(Ustr::from("c::a"))?, None);
+        assert!(cache.exercise_cache.borrow().is_empty());
+        for scores in score_caches {
+            assert!(scores.borrow().is_empty());
+        }
         Ok(())
     }
 
