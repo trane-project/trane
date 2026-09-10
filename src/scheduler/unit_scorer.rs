@@ -419,7 +419,9 @@ impl UnitScorer {
             return Ok(None);
         }
 
-        // Check if the lesson has been superseded. Superseded lessons have no score.
+        // Check if the lesson has been superseded. Superseded lessons have no score. Do not cache
+        // this result: a superseding unit can lose mastery without invalidating this lesson's
+        // cache, leaving a stale value.
         let superseding_ids = self.get_superseding_recursive(lesson_id);
         if let Some(superseding_ids) = superseding_ids
             && self.is_superseded(lesson_id, &superseding_ids)
@@ -482,7 +484,9 @@ impl UnitScorer {
             return Ok(None);
         }
 
-        // Check if the course has been superseded. Superseded courses have no score.
+        // Check if the course has been superseded. Superseded courses have no score. Do not cache
+        // this result: a superseding unit can lose mastery without invalidating this course's
+        // cache, leaving a stale value.
         let superseding_ids = self.get_superseding_recursive(course_id);
         if let Some(superseding_ids) = superseding_ids
             && self.is_superseded(course_id, &superseding_ids)
