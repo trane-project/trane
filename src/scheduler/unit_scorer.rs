@@ -424,7 +424,6 @@ impl UnitScorer {
         if let Some(superseding_ids) = superseding_ids
             && self.is_superseded(lesson_id, &superseding_ids)
         {
-            self.lesson_cache.borrow_mut().insert(lesson_id, None);
             return Ok(None);
         }
 
@@ -488,7 +487,6 @@ impl UnitScorer {
         if let Some(superseding_ids) = superseding_ids
             && self.is_superseded(course_id, &superseding_ids)
         {
-            self.course_cache.borrow_mut().insert(course_id, None);
             return Ok(None);
         }
 
