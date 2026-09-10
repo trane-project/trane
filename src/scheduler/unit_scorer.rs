@@ -451,13 +451,16 @@ impl UnitScorer {
                     // If all exercises are blacklisted, the lesson has no valid score.
                     Ok(None)
                 } else {
-                    // Compute the average score of the valid exercises.
-                    let avg_score: f32 = valid_exercises
+                    // Average only the exercises whose scores could be computed.
+                    let scores = valid_exercises
                         .iter()
-                        .map(|id| self.get_exercise_score(*id))
-                        .sum::<Result<f32>>()?
-                        / valid_exercises.len() as f32;
-                    Ok(Some(avg_score))
+                        .filter_map(|id| self.get_exercise_score(*id).ok())
+                        .collect::<Vec<_>>();
+                    if scores.is_empty() {
+                        Ok(None)
+                    } else {
+                        Ok(Some(scores.iter().sum::<f32>() / scores.len() as f32))
+                    }
                 }
             }
         };
@@ -505,16 +508,8 @@ impl UnitScorer {
                 // Collect all the valid scores from the course's lessons.
                 let valid_lesson_scores = lesson_ids
                     .iter()
-                    .copied()
-                    .map(|lesson_id| self.get_lesson_score(lesson_id))
-                    .filter(|score| {
-                        // Filter out any lesson whose score is not valid.
-                        if score.as_ref().unwrap_or(&None).is_none() {
-                            return false;
-                        }
-                        true
-                    })
-                    .collect::<Result<Vec<_>>>()?;
+                    .filter_map(|id| self.get_lesson_score(*id).unwrap_or_default())
+                    .collect::<Vec<_>>();
 
                 // Return an invalid score if all the lesson scores are invalid. This can happen if
                 // all the lessons in the course are blacklisted.
@@ -523,11 +518,8 @@ impl UnitScorer {
                 }
 
                 // Compute the average of the valid lesson scores.
-                let avg_score: f32 = valid_lesson_scores
-                    .iter()
-                    .map(|s| s.unwrap_or_default())
-                    .sum::<f32>()
-                    / valid_lesson_scores.len() as f32;
+                let avg_score =
+                    valid_lesson_scores.iter().sum::<f32>() / valid_lesson_scores.len() as f32;
                 Ok(Some(avg_score))
             }
         };
@@ -880,7 +872,7 @@ mod test {
         // Remove the matching key from every cache, preserving the nonmatching key.
         cache.invalidate_cached_scores_with_prefix("a");
         for id in [Ustr::from("a::a"), Ustr::from("b::a")] {
-            let expected = if id.starts_with("a") { None } else { Some(5.0) };
+            let expected = if id.starts_with('a') { None } else { Some(5.0) };
             assert_eq!(
                 cache.exercise_cache.borrow().get(&id).map(|s| s.score),
                 expected
