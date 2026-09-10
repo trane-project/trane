@@ -494,7 +494,8 @@ impl LiteracyLesson {
         short_ids: &UstrSet,
         exercise_type: &ExerciseType,
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
-        // Generate basic info for the lesson.
+        // Generate basic info for the lesson. Dependencies with short IDs are resolved to the
+        // reading lessons for that short ID.
         let lesson_id = Self::full_reading_lesson_id(course_manifest.id, short_id, short_ids);
         let course_name = Self::course_name(course_manifest);
         let lesson_name = self.lesson_name(&course_name, &LiteracyLessonType::Reading);
@@ -564,10 +565,10 @@ impl LiteracyLesson {
         short_ids: &UstrSet,
         exercise_type: &ExerciseType,
     ) -> (LessonManifest, Vec<ExerciseManifest>) {
-        // Generate basic info for the lesson. The dependencies are the dictation lessons of the
-        // other lessons in the course that are marked as a dependency of this lesson. Exclude
-        // dependencies outside the course. The reading lesson is always a dependency of the
-        // dictation lesson.
+        // Generate basic info for the lesson. Dependencies with short IDs are resolved to the
+        // dictation lesson for that short ID. Dependencies outside the course are excluded because
+        // dictation lessons in the other course might not be present. Reading lessons already have
+        // the connection to those dependencies, so the information is not lost.
         let lesson_id = Self::full_dictation_lesson_id(course_manifest.id, short_id, short_ids);
         let course_name = Self::course_name(course_manifest);
         let lesson_name = self.lesson_name(&course_name, &LiteracyLessonType::Dictation);
@@ -599,11 +600,15 @@ impl LiteracyLesson {
             })
             .collect::<Vec<_>>();
         encompassed.sort_by_key(|(id, _)| *id);
+
+        // Compute the superseded units. The matching reading lesson is always added to the list to
+        // further reduce the number of unnecessary reviews.
         let mut superseded = self
             .superseded
             .iter()
             .map(|id| Self::full_dictation_lesson_id(course_manifest.id, *id, short_ids))
             .collect::<Vec<_>>();
+        superseded.push(reading_lesson_id);
         superseded.sort();
 
         // Create the lesson manifest.
@@ -800,6 +805,65 @@ mod test {
         assert_eq!(
             dictation_lesson_id,
             Ustr::from("other_course_id::other_lesson_id")
+        );
+    }
+
+    /// Verifies internal and external superseded IDs and the matching reading lesson.
+    #[test]
+    fn superseding() {
+        let course_manifest = CourseManifest {
+            id: "literacy_course".into(),
+            name: "Literacy Course".into(),
+            dependencies: vec![],
+            encompassed: vec![],
+            superseded: vec![],
+            description: None,
+            authors: None,
+            metadata: None,
+            course_material: None,
+            course_instructions: None,
+            generator_config: None,
+        };
+        let lesson = LiteracyLesson {
+            short_id: "lesson_1".into(),
+            dependencies: vec![],
+            encompassed: vec![],
+            superseded: vec!["other_course::lesson::reading".into(), "lesson_0".into()],
+            name: None,
+            description: None,
+            instructions: None,
+            examples: vec![],
+            exceptions: vec![],
+        };
+        let short_ids = vec!["lesson_0".into(), "lesson_1".into()]
+            .into_iter()
+            .collect();
+        let (reading, _) = lesson.generate_reading_lesson(
+            &course_manifest,
+            lesson.short_id,
+            &short_ids,
+            &ExerciseType::Procedural,
+        );
+        let (dictation, _) = lesson.generate_dictation_lesson(
+            &course_manifest,
+            lesson.short_id,
+            &short_ids,
+            &ExerciseType::Procedural,
+        );
+        assert_eq!(
+            reading.superseded,
+            vec![
+                Ustr::from("literacy_course::lesson_0::reading"),
+                Ustr::from("other_course::lesson::reading"),
+            ]
+        );
+        assert_eq!(
+            dictation.superseded,
+            vec![
+                Ustr::from("literacy_course::lesson_0::dictation"),
+                Ustr::from("literacy_course::lesson_1::reading"),
+                Ustr::from("other_course::lesson::reading"),
+            ]
         );
     }
 
@@ -1114,7 +1178,7 @@ mod test {
                             (Ustr::from("literacy_course::lesson_0::dictation"), 1.0),
                             (Ustr::from("other_lesson"), 0.5),
                         ],
-                        superseded: vec![],
+                        superseded: vec!["literacy_course::lesson_0::reading".into()],
                         course_id: "literacy_course".into(),
                         name: "Literacy Course - lesson_0 - Dictation".into(),
                         description: None,
@@ -1235,7 +1299,7 @@ mod test {
                             (Ustr::from("literacy_course::lesson_0::dictation"), 1.0),
                             (Ustr::from("other_lesson"), 0.5),
                         ],
-                        superseded: vec![],
+                        superseded: vec!["literacy_course::lesson_1::reading".into()],
                         course_id: "literacy_course".into(),
                         name: "Literacy Course - lesson_1 - Dictation".into(),
                         description: None,

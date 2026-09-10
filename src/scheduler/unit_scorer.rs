@@ -368,9 +368,10 @@ impl UnitScorer {
             .iter()
             .filter_map(|id| self.get_unit_score(*id).unwrap_or_default())
             .collect::<Vec<_>>();
-        scores
-            .iter()
-            .all(|score| *score >= self.data.options.superseding_score)
+        !scores.is_empty()
+            && scores
+                .iter()
+                .all(|score| *score >= self.data.options.superseding_score)
     }
 
     /// Recursively check if each superseding unit has itself been superseded by another unit and
@@ -750,6 +751,48 @@ mod test {
         let cache = UnitScorer::new(library.get_scheduler_data(), SchedulerOptions::default());
 
         assert!(cache.all_valid_exercises_have_scores(lesson_id));
+        Ok(())
+    }
+
+    /// Verifies that a lesson with no exercises cannot supersede another lesson.
+    #[test]
+    fn empty_lesson_cannot_supersede() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let courses = vec![TestCourse {
+            id: TestId(1, None, None),
+            dependencies: vec![],
+            superseded: vec![],
+            encompassed: vec![],
+            metadata: BTreeMap::default(),
+            lessons: vec![
+                TestLesson {
+                    id: TestId(1, Some(0), None),
+                    dependencies: vec![],
+                    superseded: vec![],
+                    encompassed: vec![],
+                    metadata: BTreeMap::default(),
+                    num_exercises: 1,
+                },
+                TestLesson {
+                    id: TestId(1, Some(1), None),
+                    dependencies: vec![TestId(1, Some(0), None)],
+                    superseded: vec![TestId(1, Some(0), None)],
+                    encompassed: vec![],
+                    metadata: BTreeMap::default(),
+                    num_exercises: 0,
+                },
+            ],
+        }];
+        let library = init_test_simulation(temp_dir.path(), &courses)?;
+        let ts = Utc::now().timestamp();
+        library.score_exercise(Ustr::from("1::0::0"), MasteryScore::Five, ts)?;
+        let cache = UnitScorer::new(library.get_scheduler_data(), SchedulerOptions::default());
+        let lesson_id = Ustr::from("1::0");
+        let superseding_ids = [Ustr::from("1::1")].into_iter().collect();
+
+        assert!(cache.all_valid_exercises_have_scores(lesson_id));
+        assert_eq!(cache.get_unit_score(Ustr::from("1::1"))?, None);
+        assert!(!cache.is_superseded(lesson_id, &superseding_ids));
         Ok(())
     }
 
