@@ -368,9 +368,10 @@ impl UnitScorer {
             .iter()
             .filter_map(|id| self.get_unit_score(*id).unwrap_or_default())
             .collect::<Vec<_>>();
-        scores
-            .iter()
-            .all(|score| *score >= self.data.options.superseding_score)
+        !scores.is_empty()
+            && scores
+                .iter()
+                .all(|score| *score >= self.data.options.superseding_score)
     }
 
     /// Recursively check if each superseding unit has itself been superseded by another unit and
@@ -418,12 +419,13 @@ impl UnitScorer {
             return Ok(None);
         }
 
-        // Check if the lesson has been superseded. Superseded lessons have no score.
+        // Check if the lesson has been superseded. Superseded lessons have no score. Do not cache
+        // this result: a superseding unit can lose mastery without invalidating this lesson's
+        // cache, leaving a stale value.
         let superseding_ids = self.get_superseding_recursive(lesson_id);
         if let Some(superseding_ids) = superseding_ids
             && self.is_superseded(lesson_id, &superseding_ids)
         {
-            self.lesson_cache.borrow_mut().insert(lesson_id, None);
             return Ok(None);
         }
 
@@ -449,13 +451,16 @@ impl UnitScorer {
                     // If all exercises are blacklisted, the lesson has no valid score.
                     Ok(None)
                 } else {
-                    // Compute the average score of the valid exercises.
-                    let avg_score: f32 = valid_exercises
+                    // Average only the exercises whose scores could be computed.
+                    let scores = valid_exercises
                         .iter()
-                        .map(|id| self.get_exercise_score(*id))
-                        .sum::<Result<f32>>()?
-                        / valid_exercises.len() as f32;
-                    Ok(Some(avg_score))
+                        .filter_map(|id| self.get_exercise_score(*id).ok())
+                        .collect::<Vec<_>>();
+                    if scores.is_empty() {
+                        Ok(None)
+                    } else {
+                        Ok(Some(scores.iter().sum::<f32>() / scores.len() as f32))
+                    }
                 }
             }
         };
@@ -482,12 +487,13 @@ impl UnitScorer {
             return Ok(None);
         }
 
-        // Check if the course has been superseded. Superseded courses have no score.
+        // Check if the course has been superseded. Superseded courses have no score. Do not cache
+        // this result: a superseding unit can lose mastery without invalidating this course's
+        // cache, leaving a stale value.
         let superseding_ids = self.get_superseding_recursive(course_id);
         if let Some(superseding_ids) = superseding_ids
             && self.is_superseded(course_id, &superseding_ids)
         {
-            self.course_cache.borrow_mut().insert(course_id, None);
             return Ok(None);
         }
 
@@ -502,16 +508,8 @@ impl UnitScorer {
                 // Collect all the valid scores from the course's lessons.
                 let valid_lesson_scores = lesson_ids
                     .iter()
-                    .copied()
-                    .map(|lesson_id| self.get_lesson_score(lesson_id))
-                    .filter(|score| {
-                        // Filter out any lesson whose score is not valid.
-                        if score.as_ref().unwrap_or(&None).is_none() {
-                            return false;
-                        }
-                        true
-                    })
-                    .collect::<Result<Vec<_>>>()?;
+                    .filter_map(|id| self.get_lesson_score(*id).unwrap_or_default())
+                    .collect::<Vec<_>>();
 
                 // Return an invalid score if all the lesson scores are invalid. This can happen if
                 // all the lessons in the course are blacklisted.
@@ -520,11 +518,8 @@ impl UnitScorer {
                 }
 
                 // Compute the average of the valid lesson scores.
-                let avg_score: f32 = valid_lesson_scores
-                    .iter()
-                    .map(|s| s.unwrap_or_default())
-                    .sum::<f32>()
-                    / valid_lesson_scores.len() as f32;
+                let avg_score =
+                    valid_lesson_scores.iter().sum::<f32>() / valid_lesson_scores.len() as f32;
                 Ok(Some(avg_score))
             }
         };
@@ -753,6 +748,48 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that a lesson with no exercises cannot supersede another lesson.
+    #[test]
+    fn empty_lesson_cannot_supersede() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let courses = vec![TestCourse {
+            id: TestId(1, None, None),
+            dependencies: vec![],
+            superseded: vec![],
+            encompassed: vec![],
+            metadata: BTreeMap::default(),
+            lessons: vec![
+                TestLesson {
+                    id: TestId(1, Some(0), None),
+                    dependencies: vec![],
+                    superseded: vec![],
+                    encompassed: vec![],
+                    metadata: BTreeMap::default(),
+                    num_exercises: 1,
+                },
+                TestLesson {
+                    id: TestId(1, Some(1), None),
+                    dependencies: vec![TestId(1, Some(0), None)],
+                    superseded: vec![TestId(1, Some(0), None)],
+                    encompassed: vec![],
+                    metadata: BTreeMap::default(),
+                    num_exercises: 0,
+                },
+            ],
+        }];
+        let library = init_test_simulation(temp_dir.path(), &courses)?;
+        let ts = Utc::now().timestamp();
+        library.score_exercise(Ustr::from("1::0::0"), MasteryScore::Five, ts)?;
+        let cache = UnitScorer::new(library.get_scheduler_data(), SchedulerOptions::default());
+        let lesson_id = Ustr::from("1::0");
+        let superseding_ids = [Ustr::from("1::1")].into_iter().collect();
+
+        assert!(cache.all_valid_exercises_have_scores(lesson_id));
+        assert_eq!(cache.get_unit_score(Ustr::from("1::1"))?, None);
+        assert!(!cache.is_superseded(lesson_id, &superseding_ids));
+        Ok(())
+    }
+
     /// Verifies that the score of a superseded course is None and is correctly cached.
     #[test]
     fn superseded_course_cached() -> Result<()> {
@@ -813,52 +850,44 @@ mod test {
         let scheduler_data = library.get_scheduler_data();
         let cache = UnitScorer::new(scheduler_data, SchedulerOptions::default());
 
-        // Insert some scores into the exercise and lesson caches.
-        cache.exercise_cache.borrow_mut().insert(
-            Ustr::from("a"),
-            CachedScore {
-                score: 5.0,
-                urgency: 0.0,
-                velocity: None,
-                num_trials: 1,
-            },
-        );
-        cache.exercise_cache.borrow_mut().insert(
-            Ustr::from("b::a"),
-            CachedScore {
-                score: 5.0,
-                urgency: 0.0,
-                velocity: None,
-                num_trials: 1,
-            },
-        );
-        cache
-            .lesson_cache
-            .borrow_mut()
-            .insert(Ustr::from("a::a"), Some(5.0));
-        cache
-            .lesson_cache
-            .borrow_mut()
-            .insert(Ustr::from("c::a"), Some(5.0));
+        let score_caches = [
+            &cache.lesson_cache,
+            &cache.course_cache,
+            &cache.lesson_trials_cache,
+            &cache.course_trials_cache,
+        ];
+        for id in [Ustr::from("a::a"), Ustr::from("b::a")] {
+            cache.exercise_cache.borrow_mut().insert(
+                id,
+                CachedScore {
+                    score: 5.0,
+                    ..CachedScore::default()
+                },
+            );
+            for scores in score_caches {
+                scores.borrow_mut().insert(id, Some(5.0));
+            }
+        }
 
-        // Verify that the scores are present.
-        assert_eq!(cache.get_exercise_score(Ustr::from("a"))?, 5.0);
-        assert_eq!(cache.get_exercise_score(Ustr::from("b::a"))?, 5.0);
-        assert_eq!(cache.get_lesson_score(Ustr::from("a::a"))?, Some(5.0));
-        assert_eq!(cache.get_lesson_score(Ustr::from("c::a"))?, Some(5.0));
-
-        // Invalidate prefix `a` and verify that the cached scores are removed.
+        // Remove the matching key from every cache, preserving the nonmatching key.
         cache.invalidate_cached_scores_with_prefix("a");
-        assert_eq!(cache.get_exercise_score(Ustr::from("a"))?, 0.0);
-        assert_eq!(cache.get_exercise_score(Ustr::from("b::a"))?, 5.0);
-        assert_eq!(cache.get_lesson_score(Ustr::from("a::a"))?, None);
-        assert_eq!(cache.get_lesson_score(Ustr::from("c::a"))?, Some(5.0));
+        for id in [Ustr::from("a::a"), Ustr::from("b::a")] {
+            let expected = if id.starts_with('a') { None } else { Some(5.0) };
+            assert_eq!(
+                cache.exercise_cache.borrow().get(&id).map(|s| s.score),
+                expected
+            );
+            for scores in score_caches {
+                assert_eq!(scores.borrow().get(&id).copied(), expected.map(Some));
+            }
+        }
 
-        // Invalidate units `b::a  and `c::a` and verify that the score is removed.
+        // Remove the remaining key from every cache by its exact ID.
         cache.invalidate_cached_score(Ustr::from("b::a"));
-        cache.invalidate_cached_score(Ustr::from("c::a"));
-        assert_eq!(cache.get_exercise_score(Ustr::from("b::a"))?, 0.0);
-        assert_eq!(cache.get_lesson_score(Ustr::from("c::a"))?, None);
+        assert!(cache.exercise_cache.borrow().is_empty());
+        for scores in score_caches {
+            assert!(scores.borrow().is_empty());
+        }
         Ok(())
     }
 
