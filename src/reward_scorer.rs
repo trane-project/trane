@@ -4,23 +4,25 @@
 //! value can be positive or negative.
 
 use anyhow::Result;
-use chrono::{DateTime, TimeZone, Utc};
 
 use crate::data::{ExerciseTrial, UnitReward};
 
 /// A trait exposing a function to combine the rewards of a unit into a single value. The lesson
 /// and course rewards are given separately to allow the implementation to treat them differently.
 pub trait RewardScorer {
-    /// Computes the final reward for a unit based on its previous course and lesson rewards.
+    /// Computes the final reward for a unit based on its previous course and lesson rewards. The
+    /// `now` timestamp is the effective evaluation time used to decay the rewards.
     fn score_rewards(
         &self,
         previous_course_rewards: &[UnitReward],
         previous_lesson_rewards: &[UnitReward],
+        now: i64,
     ) -> Result<f32>;
 
     /// Determines whether the reward should be applied to an exercise with the given trials. The
-    /// trials are assumed to be ordered in descending order by timestamp.
-    fn apply_reward(&self, reward: f32, previous_trials: &[ExerciseTrial]) -> bool;
+    /// trials are assumed to be ordered in descending order by timestamp. The `now` timestamp is
+    /// the effective evaluation time used to decide how recent the trials are.
+    fn apply_reward(&self, reward: f32, previous_trials: &[ExerciseTrial], now: i64) -> bool;
 }
 
 /// The minimum number of trials at which rewards start to be applied.
@@ -44,13 +46,11 @@ const LESSON_REWARDS_WEIGHT: f32 = 0.7;
 pub struct WeightedRewardScorer {}
 
 impl WeightedRewardScorer {
-    /// Returns the number of days since the reward.
-    fn days_since(reward: &UnitReward, now: DateTime<Utc>) -> f32 {
-        let timestamp = Utc
-            .timestamp_opt(reward.timestamp, 0)
-            .earliest()
-            .unwrap_or_default();
-        (now - timestamp).num_days().max(0) as f32
+    /// Returns the number of days since the reward, clamped to zero so that rewards with future
+    /// timestamps are not amplified.
+    fn days_since(reward: &UnitReward, now: i64) -> f32 {
+        let seconds = (now - reward.timestamp).max(0);
+        (seconds / 86_400) as f32
     }
 
     /// Returns the reward-decay factor for the given number of elapsed days.
@@ -59,14 +59,14 @@ impl WeightedRewardScorer {
     }
 
     /// Returns the reward value and weight after applying time decay.
-    fn decayed_reward(reward: &UnitReward, now: DateTime<Utc>) -> (f32, f32) {
+    fn decayed_reward(reward: &UnitReward, now: i64) -> (f32, f32) {
         let days = Self::days_since(reward, now);
         let decay = Self::decay_factor(days);
         (reward.value * decay, reward.weight * decay)
     }
 
     /// Returns the weighted average of the scores.
-    fn weighted_average(rewards: &[UnitReward], now: DateTime<Utc>) -> f32 {
+    fn weighted_average(rewards: &[UnitReward], now: i64) -> f32 {
         let mut numerator = 0.0;
         let mut denominator = 0.0;
 
@@ -93,9 +93,8 @@ impl RewardScorer for WeightedRewardScorer {
         &self,
         previous_course_rewards: &[UnitReward],
         previous_lesson_rewards: &[UnitReward],
+        now: i64,
     ) -> Result<f32> {
-        let now = Utc::now();
-
         // Compute the lesson and course scores separately.
         let course_score = Self::weighted_average(previous_course_rewards, now);
         let lesson_score = Self::weighted_average(previous_lesson_rewards, now);
@@ -117,7 +116,7 @@ impl RewardScorer for WeightedRewardScorer {
         }
     }
 
-    fn apply_reward(&self, reward: f32, previous_trials: &[ExerciseTrial]) -> bool {
+    fn apply_reward(&self, reward: f32, previous_trials: &[ExerciseTrial], now: i64) -> bool {
         // Do not apply rewards to exercises with very few trials
         if previous_trials.len() < MIN_TRIALS_FOR_REWARD {
             return false;
@@ -128,7 +127,7 @@ impl RewardScorer for WeightedRewardScorer {
         // that are not being performed well.
         let recent_trials = previous_trials.iter().take(3);
         let last_trial = previous_trials.first().unwrap();
-        let num_days = (Utc::now().timestamp() - last_trial.timestamp) as f32 / (86_400.0);
+        let num_days = (now - last_trial.timestamp) as f32 / (86_400.0);
         let average_score = recent_trials.map(|trial| trial.score).sum::<f32>() / 3.0;
         if reward > 0.0 && average_score < 3.0 && num_days < 7.0 {
             return false;
@@ -182,7 +181,7 @@ mod test {
     /// Verifies decaying reward values and weights with elapsed time.
     #[test]
     fn test_decayed_reward() {
-        let now = Utc::now();
+        let now = Utc::now().timestamp();
 
         let reward = UnitReward {
             unit_id: Ustr::default(),
@@ -205,10 +204,29 @@ mod test {
         assert!((weight - 0.5).abs() < 0.001);
     }
 
+    /// Verifies that decay is computed from the provided evaluation time instead of the wall
+    /// clock.
+    #[test]
+    fn test_decay_uses_provided_time() {
+        let reward = UnitReward {
+            unit_id: Ustr::default(),
+            value: 1.0,
+            weight: 2.0,
+            timestamp: 1_000_000,
+        };
+
+        // Exactly one half-life after the reward, the value and weight should be halved even though
+        // the evaluation time is unrelated to the current wall clock.
+        let now = 1_000_000 + 14 * SECONDS_IN_DAY;
+        let (value, weight) = WeightedRewardScorer::decayed_reward(&reward, now);
+        assert!((value - 0.5).abs() < 0.001);
+        assert!((weight - 1.0).abs() < 0.001);
+    }
+
     /// Verifies clamping elapsed days to avoid amplifying rewards with future timestamps.
     #[test]
     fn test_future_timestamp_is_clamped() {
-        let now = Utc::now();
+        let now = Utc::now().timestamp();
         let reward = UnitReward {
             unit_id: Ustr::default(),
             value: 1.0,
@@ -224,7 +242,9 @@ mod test {
     #[test]
     fn test_no_rewards() {
         let scorer = WeightedRewardScorer {};
-        let result = scorer.score_rewards(&[], &[]).unwrap();
+        let result = scorer
+            .score_rewards(&[], &[], Utc::now().timestamp())
+            .unwrap();
         assert_eq!(result, 0.0);
     }
 
@@ -246,7 +266,9 @@ mod test {
                 timestamp: generate_timestamp(2),
             },
         ];
-        let result = scorer.score_rewards(&[], &lesson_rewards).unwrap();
+        let result = scorer
+            .score_rewards(&[], &lesson_rewards, Utc::now().timestamp())
+            .unwrap();
         assert!((result - 1.371).abs() < 0.001);
     }
 
@@ -268,7 +290,9 @@ mod test {
                 timestamp: generate_timestamp(2),
             },
         ];
-        let result = scorer.score_rewards(&course_rewards, &[]).unwrap();
+        let result = scorer
+            .score_rewards(&course_rewards, &[], Utc::now().timestamp())
+            .unwrap();
         assert!((result - 1.371).abs() < 0.001);
     }
 
@@ -305,7 +329,7 @@ mod test {
             },
         ];
         let result = scorer
-            .score_rewards(&course_rewards, &lesson_rewards)
+            .score_rewards(&course_rewards, &lesson_rewards, Utc::now().timestamp())
             .unwrap();
         assert!((result - 2.533).abs() < 0.001);
     }
@@ -328,7 +352,9 @@ mod test {
                 timestamp: generate_timestamp(0) - 1,
             },
         ];
-        let result = scorer.score_rewards(&[], &lesson_rewards).unwrap();
+        let result = scorer
+            .score_rewards(&[], &lesson_rewards, Utc::now().timestamp())
+            .unwrap();
         assert!((result - 2.0).abs() < 0.001);
     }
 
@@ -350,14 +376,46 @@ mod test {
                 timestamp: generate_timestamp(0),
             },
         ];
-        let result = scorer.score_rewards(&[], &lesson_rewards).unwrap();
+        let result = scorer
+            .score_rewards(&[], &lesson_rewards, Utc::now().timestamp())
+            .unwrap();
         assert!(result > 0.7);
+    }
+
+    /// Verifies that the recent-performance protection is evaluated against the provided time.
+    #[test]
+    fn test_apply_reward_uses_provided_time() {
+        let scorer = WeightedRewardScorer {};
+        let trials = vec![
+            ExerciseTrial {
+                score: 2.0,
+                timestamp: 1_000_000,
+                ..Default::default()
+            },
+            ExerciseTrial {
+                score: 2.0,
+                timestamp: 1_000_000,
+                ..Default::default()
+            },
+            ExerciseTrial {
+                score: 3.0,
+                timestamp: 1_000_000,
+                ..Default::default()
+            },
+        ];
+
+        // The last trial is less than a week old, so positive rewards are not applied.
+        assert!(!scorer.apply_reward(0.5, &trials, 1_000_000 + 2 * SECONDS_IN_DAY));
+
+        // Once more than a week has passed, positive rewards are applied.
+        assert!(scorer.apply_reward(0.5, &trials, 1_000_000 + 8 * SECONDS_IN_DAY));
     }
 
     /// Verifies that the rewards are applied only when the correct criteria are met.
     #[test]
     fn test_apply_rewards() {
         let scorer = WeightedRewardScorer {};
+        let now = Utc::now().timestamp();
 
         // Do not apply rewards to exercises with very few trials.
         let trials = vec![ExerciseTrial {
@@ -365,8 +423,8 @@ mod test {
             timestamp: generate_timestamp(1),
             ..Default::default()
         }];
-        assert!(!scorer.apply_reward(0.5, &trials));
-        assert!(!scorer.apply_reward(-1.0, &trials));
+        assert!(!scorer.apply_reward(0.5, &trials, now));
+        assert!(!scorer.apply_reward(-1.0, &trials, now));
 
         // Do not apply positive rewards to exercises where the average of the last 3 trials is less
         // than 3 and the last trial was less than a week ago.
@@ -387,8 +445,8 @@ mod test {
                 ..Default::default()
             },
         ];
-        assert!(!scorer.apply_reward(0.5, &trials));
-        assert!(scorer.apply_reward(-1.0, &trials));
+        assert!(!scorer.apply_reward(0.5, &trials, now));
+        assert!(scorer.apply_reward(-1.0, &trials, now));
 
         // Do not apply negative rewards to exercises where the average of the last 3 trials is
         // greater than 3.5 and the last trial was less than a week ago.
@@ -409,8 +467,8 @@ mod test {
                 ..Default::default()
             },
         ];
-        assert!(!scorer.apply_reward(-0.5, &trials));
-        assert!(scorer.apply_reward(1.0, &trials));
+        assert!(!scorer.apply_reward(-0.5, &trials, now));
+        assert!(scorer.apply_reward(1.0, &trials, now));
 
         // Apply rewards in other cases.
         let trials = vec![
@@ -430,7 +488,7 @@ mod test {
                 ..Default::default()
             },
         ];
-        assert!(scorer.apply_reward(0.5, &trials));
+        assert!(scorer.apply_reward(0.5, &trials, now));
         let trials = vec![
             ExerciseTrial {
                 score: 2.0,
@@ -448,6 +506,6 @@ mod test {
                 ..Default::default()
             },
         ];
-        assert!(scorer.apply_reward(-0.5, &trials));
+        assert!(scorer.apply_reward(-0.5, &trials, now));
     }
 }

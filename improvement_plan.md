@@ -23,85 +23,12 @@ this review.
 | 1          | Restore JSON read buffering (DONE)                               | Four parsing sites            | Measured large parsing speedup                   |
 | 2          | Skip scoring queries whose results cannot matter (DONE)          | One scoring path              | Exact reduction in query count                   |
 | 3          | Deduplicate exercise IDs before selection (DONE)                 | Candidate collection          | Reproduced duplicate output                      |
-| 4          | Expire time-dependent score caches and align clocks              | Small cross-module correction | Reproduced stale mastery                         |
-| 5          | Reduce filesystem checks and remove redundant indexes            | Independent small cleanups    | Source-backed, not benchmarked                   |
+| 4          | Expire time-dependent score caches and align clocks (DONE)       | Small cross-module correction | Reproduced stale mastery                         |
+| 5          | Reduce filesystem checks and remove redundant indexes (DONE)     | Independent small cleanups    | Source-backed, not benchmarked                   |
 | Experiment | Check whether suppressed reviews have selected covering material | Bounded postselection check   | Demonstrable mismatch; learning benefit unproven |
 
 Recommendation: implement the first four fixes before changing learning heuristics. Keep the
 selected-coverage repair as a separate, explicitly experimental change.
-
-## 4. Make Cached Scores Respect Time
-
-This is the most important learning-related correctness issue found in this review.
-
-Exercise mastery and urgency depend on time, but their caches do not expire. Changing the
-timestamp override also leaves caches intact:
-[`src/scheduler/unit_scorer.rs:88`](src/scheduler/unit_scorer.rs#L88) and
-[`src/scheduler/unit_scorer.rs:179`](src/scheduler/unit_scorer.rs#L179). Cached lesson and course
-aggregates inherit the problem.
-
-### Reproduction
-
-Record one grade-five trial, evaluate scores, advance the effective clock 30 days without
-practicing, then invalidate the exercise.
-
-| State                      | Exercise | Lesson | Course |
-| -------------------------- | -------: | -----: | -----: |
-| Immediately after practice |    5.000 |  5.000 |  5.000 |
-| After advancing 30 days    |    5.000 |  5.000 |  5.000 |
-| After cache invalidation   |    2.699 |  2.699 |  2.699 |
-
-The harness used `T = 1800000000`, advanced by exactly 2,592,000 seconds, and observed a
-recomputed score of `2.6993408` for all three unit types after invalidating only the exercise ID.
-
-The problem is not a disagreement about the forgetting model. The cache prevents the existing
-model from running.
-
-There is a related clock inconsistency: reward decay and recent-performance protections use
-wall-clock time even when exercise scoring uses simulated time:
-[`src/reward_scorer.rs:94`](src/reward_scorer.rs#L94) and
-[`src/reward_scorer.rs:128`](src/reward_scorer.rs#L128).
-
-### Proposed Change
-
-Invalidate derived exercise, lesson, and course scores when an explicit timestamp override
-changes, and introduce bounded freshness for ordinary long-lived instances. Use the same
-effective evaluation time for exercise and reward scoring.
-
-Preserve time-independent caches where possible. Avoid indiscriminately clearing everything on
-every lookup. Choose and document a freshness tolerance; the cited literature does not determine
-a cache lifetime.
-
-Clock consistency does not mean recording a later answer with the earlier batch-generation
-timestamp. Practice events should retain their actual event timestamps.
-
-### Scientific Context
-
-- [Cepeda et al. (2008)](https://pubmed.ncbi.nlm.nih.gov/19076480/) demonstrated that retention
-  depends strongly on the relationship between practice spacing and the retention horizon.
-- [Tatel and Ackerman (2025)](https://pubmed.ncbi.nlm.nih.gov/40455501/) synthesized 1,344 effect
-  sizes from 457 reports on procedural skills involving motor components, finding time-related
-  decay and important task-dependent moderators. Temporal accuracy matters beyond flashcards.
-- [Lindsey et al. (2014)](https://journals.sagepub.com/doi/10.1177/0956797613504302) found 10%
-  higher retention under personalized review than generic spaced review in a semester-long
-  Spanish study with equal review-trial allocations. This is a relative improvement, not a
-  percentage-point gain.
-
-These studies support taking temporal state seriously. They do not establish a cache lifetime,
-validate Trane's exact forgetting function, or predict a particular reduction in Trane reviews.
-
-Fixing this may increase some immediate reviews while preventing avoidable forgetting and later
-relearning. Its practical impact is greatest for long-lived clients and simulations; restarting
-Trane already discards caches.
-
-### Validation
-
-- Advance time without writing new history and verify that exercise and aggregate scores reflect
-  the existing scorer's new projections.
-- Check urgency as well as mastery.
-- Compare a long-running instance and a fresh instance at the same effective timestamp.
-- Verify reward half-life and recent-performance protections under the injected clock.
-- Measure the cost of the selected expiration policy and preserve same-time cache hits.
 
 ## 6. Experiment: Verify Selected Coverage
 
