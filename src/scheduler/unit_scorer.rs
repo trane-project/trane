@@ -17,6 +17,16 @@ use crate::{
     scheduler::SchedulerData,
 };
 
+/// The maximum age, in seconds, for which a cached value is considered valid.
+const MAX_CACHE_AGE: i64 = 2 * 60 * 60;
+
+/// Returns whether a value cached at `cached_at` is still fresh at the effective time `now`. A
+/// value cached in the future is never considered fresh, so that moving the effective clock
+/// backwards also invalidates the cache.
+fn is_fresh(cached_at: i64, now: i64) -> bool {
+    now >= cached_at && now - cached_at <= MAX_CACHE_AGE
+}
+
 /// Stores information about a cached score.
 #[derive(Clone, Default)]
 pub(super) struct CachedScore {
@@ -32,6 +42,9 @@ pub(super) struct CachedScore {
 
     /// The number of trials used to compute the score.
     num_trials: usize,
+
+    /// The effective timestamp at which the score was computed.
+    timestamp: i64,
 }
 
 /// Contains the logic to score units based on their previous scores and rewards, as well as the
@@ -40,11 +53,11 @@ pub(super) struct UnitScorer {
     /// A mapping of exercise ID to cached score.
     exercise_cache: RefCell<UstrMap<CachedScore>>,
 
-    /// A mapping of lesson ID to cached score.
-    lesson_cache: RefCell<UstrMap<Option<f32>>>,
+    /// A mapping of lesson ID to cached score and the effective timestamp at which it was computed.
+    lesson_cache: RefCell<UstrMap<(Option<f32>, i64)>>,
 
-    /// A mapping of course ID to cached score.
-    course_cache: RefCell<UstrMap<Option<f32>>>,
+    /// A mapping of course ID to cached score and the effective timestamp at which it was computed.
+    course_cache: RefCell<UstrMap<(Option<f32>, i64)>>,
 
     /// A mapping of lesson ID to cached average number of trials.
     lesson_trials_cache: RefCell<UstrMap<Option<f32>>>,
@@ -177,11 +190,13 @@ impl UnitScorer {
 
     /// Returns the score for the given exercise.
     fn get_exercise_score(&self, exercise_id: Ustr) -> Result<f32> {
-        // Return the cached score if it exists.
+        // Return the cached score if it exists and is still fresh.
+        let now = self.now();
         let cached_score = self
             .exercise_cache
             .borrow()
             .get(&exercise_id)
+            .filter(|c| is_fresh(c.timestamp, now))
             .map(|c| c.score);
         if let Some(score) = cached_score {
             return Ok(score);
@@ -234,21 +249,22 @@ impl UnitScorer {
         // Compute the score and the reward.
         let score = self
             .exercise_scorer
-            .score(exercise_type, &scores, &deltas, self.now())?;
+            .score(exercise_type, &scores, &deltas, now)?;
         let reward = if retrieve_rewards {
             self.reward_scorer
-                .score_rewards(&course_rewards, &lesson_rewards)
+                .score_rewards(&course_rewards, &lesson_rewards, now)
                 .unwrap_or_default()
         } else {
             0.0
         };
 
         // Apply the reward if it meets the criteria and cache the final score.
-        let final_score = if retrieve_rewards && self.reward_scorer.apply_reward(reward, &scores) {
-            (score.value + reward).clamp(0.0, 5.0)
-        } else {
-            score.value
-        };
+        let final_score =
+            if retrieve_rewards && self.reward_scorer.apply_reward(reward, &scores, now) {
+                (score.value + reward).clamp(0.0, 5.0)
+            } else {
+                score.value
+            };
         self.exercise_cache.borrow_mut().insert(
             exercise_id,
             CachedScore {
@@ -256,6 +272,7 @@ impl UnitScorer {
                 urgency: score.urgency,
                 velocity: score.velocity,
                 num_trials: scores.len(),
+                timestamp: now,
             },
         );
         Ok(final_score)
@@ -263,11 +280,13 @@ impl UnitScorer {
 
     /// Returns the urgency of scheduling the given exercise, as a value between 0.0 and 1.0.
     pub(super) fn get_exercise_urgency(&self, exercise_id: Ustr) -> Result<f32> {
-        // Return the cached value if it exists.
+        // Return the cached value if it exists and is still fresh.
+        let now = self.now();
         let cached_urgency = self
             .exercise_cache
             .borrow()
             .get(&exercise_id)
+            .filter(|c| is_fresh(c.timestamp, now))
             .map(|c| c.urgency);
         if let Some(urgency) = cached_urgency {
             return Ok(urgency);
@@ -287,11 +306,13 @@ impl UnitScorer {
 
     /// Returns the velocity of learning for the given exercise.
     pub(super) fn get_exercise_velocity(&self, exercise_id: Ustr) -> Result<Option<f32>> {
-        // Return the cached value if it exists.
+        // Return the cached value if it exists and is still fresh.
+        let now = self.now();
         let cached_velocity = self
             .exercise_cache
             .borrow()
             .get(&exercise_id)
+            .filter(|c| is_fresh(c.timestamp, now))
             .and_then(|c| c.velocity);
         if let Some(velocity) = cached_velocity {
             return Ok(Some(velocity));
@@ -311,11 +332,13 @@ impl UnitScorer {
     /// Returns the number of trials that were considered when computing the score for the given
     /// exercise.
     pub(super) fn get_exercise_num_trials(&self, exercise_id: Ustr) -> Result<Option<usize>> {
-        // Return the cached value if it exists.
+        // Return the cached value if it exists and is still fresh.
+        let now = self.now();
         let cached_num_trials = self
             .exercise_cache
             .borrow()
             .get(&exercise_id)
+            .filter(|c| is_fresh(c.timestamp, now))
             .map(|c| c.num_trials);
         if let Some(num_trials) = cached_num_trials {
             return Ok(Some(num_trials));
@@ -405,8 +428,14 @@ impl UnitScorer {
 
     /// Returns the average score of all the exercises in the given lesson.
     fn get_lesson_score(&self, lesson_id: Ustr) -> Result<Option<f32>> {
-        // Return the cached score if it exists.
-        let cached_score = self.lesson_cache.borrow().get(&lesson_id).copied();
+        // Return the cached score if it exists and is still fresh.
+        let now = self.now();
+        let cached_score = self
+            .lesson_cache
+            .borrow()
+            .get(&lesson_id)
+            .filter(|entry| is_fresh(entry.1, now))
+            .map(|(score, _)| *score);
         if let Some(score) = cached_score {
             return Ok(score);
         }
@@ -415,7 +444,9 @@ impl UnitScorer {
         let blacklist = self.data.blacklist.read();
         let blacklisted = blacklist.blacklisted(lesson_id);
         if blacklisted.unwrap_or(false) {
-            self.lesson_cache.borrow_mut().insert(lesson_id, None);
+            self.lesson_cache
+                .borrow_mut()
+                .insert(lesson_id, (None, now));
             return Ok(None);
         }
 
@@ -467,15 +498,23 @@ impl UnitScorer {
 
         // Update the cache with a valid score.
         if let Ok(score) = score {
-            self.lesson_cache.borrow_mut().insert(lesson_id, score);
+            self.lesson_cache
+                .borrow_mut()
+                .insert(lesson_id, (score, now));
         }
         score
     }
 
     /// Returns the average score of all the lesson scores in the given course.
     fn get_course_score(&self, course_id: Ustr) -> Result<Option<f32>> {
-        // Return the cached score if it exists.
-        let cached_score = self.course_cache.borrow().get(&course_id).copied();
+        // Return the cached score if it exists and is still fresh.
+        let now = self.now();
+        let cached_score = self
+            .course_cache
+            .borrow()
+            .get(&course_id)
+            .filter(|entry| is_fresh(entry.1, now))
+            .map(|(score, _)| *score);
         if let Some(score) = cached_score {
             return Ok(score);
         }
@@ -483,7 +522,9 @@ impl UnitScorer {
         // Check if the unit is blacklisted. A blacklisted course has no valid score.
         let blacklisted = self.data.blacklist.read().blacklisted(course_id);
         if blacklisted.unwrap_or(false) {
-            self.course_cache.borrow_mut().insert(course_id, None);
+            self.course_cache
+                .borrow_mut()
+                .insert(course_id, (None, now));
             return Ok(None);
         }
 
@@ -526,7 +567,9 @@ impl UnitScorer {
 
         // Update the cache with a valid score.
         if let Ok(score) = score {
-            self.course_cache.borrow_mut().insert(course_id, score);
+            self.course_cache
+                .borrow_mut()
+                .insert(course_id, (score, now));
         }
         score
     }
@@ -850,12 +893,8 @@ mod test {
         let scheduler_data = library.get_scheduler_data();
         let cache = UnitScorer::new(scheduler_data, SchedulerOptions::default());
 
-        let score_caches = [
-            &cache.lesson_cache,
-            &cache.course_cache,
-            &cache.lesson_trials_cache,
-            &cache.course_trials_cache,
-        ];
+        let score_caches = [&cache.lesson_cache, &cache.course_cache];
+        let trials_caches = [&cache.lesson_trials_cache, &cache.course_trials_cache];
         for id in [Ustr::from("a::a"), Ustr::from("b::a")] {
             cache.exercise_cache.borrow_mut().insert(
                 id,
@@ -865,7 +904,10 @@ mod test {
                 },
             );
             for scores in score_caches {
-                scores.borrow_mut().insert(id, Some(5.0));
+                scores.borrow_mut().insert(id, (Some(5.0), 0));
+            }
+            for trials in trials_caches {
+                trials.borrow_mut().insert(id, Some(5.0));
             }
         }
 
@@ -878,7 +920,13 @@ mod test {
                 expected
             );
             for scores in score_caches {
-                assert_eq!(scores.borrow().get(&id).copied(), expected.map(Some));
+                assert_eq!(
+                    scores.borrow().get(&id).map(|(score, _)| *score),
+                    expected.map(Some)
+                );
+            }
+            for trials in trials_caches {
+                assert_eq!(trials.borrow().get(&id).copied(), expected.map(Some));
             }
         }
 
@@ -887,6 +935,9 @@ mod test {
         assert!(cache.exercise_cache.borrow().is_empty());
         for scores in score_caches {
             assert!(scores.borrow().is_empty());
+        }
+        for trials in trials_caches {
+            assert!(trials.borrow().is_empty());
         }
         Ok(())
     }
