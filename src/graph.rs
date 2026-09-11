@@ -994,6 +994,26 @@ mod test {
         Ok(())
     }
 
+    /// Verifies that encompassed units must have weights between zero and one.
+    #[test]
+    fn encompassed_with_invalid_weights() -> Result<()> {
+        let mut graph = InMemoryUnitGraph::default();
+        let unit_id = Ustr::from("unit");
+        let encompassed_id = Ustr::from("encompassed");
+        graph.add_course(unit_id)?;
+
+        for weight in [-0.1, 1.1, f32::NAN] {
+            assert!(
+                graph
+                    .add_encompassed(unit_id, &[], &[(encompassed_id, weight)])
+                    .is_err()
+            );
+        }
+
+        assert_eq!(graph.get_encompasses(unit_id), None);
+        Ok(())
+    }
+
     /// Verifies that the dependency graph is used when there is no encompassing graph.
     #[test]
     fn encompassing_equals_dependencies() -> Result<()> {

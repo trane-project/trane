@@ -182,7 +182,7 @@ impl LocalPracticeRewards {
                 })
             })?
             .map(|r| r.context("failed to retrieve rewards from practice rewards DB"))
-            .collect::<Result<Vec<UnitReward>, _>>()?;
+            .collect::<Result<Vec<UnitReward>, _>>()?; // grcov-excl-line
         Ok(rows)
     }
 

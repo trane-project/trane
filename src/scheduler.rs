@@ -377,7 +377,7 @@ impl DepthFirstScheduler {
                     encompassed_weight: 0.0,
                 })
             })
-            .collect::<Result<Vec<Candidate>>>()?;
+            .collect::<Result<Vec<Candidate>>>()?; // grcov-excl-line
 
         // Compute the lesson average directly from the candidate exercise scores and select the
         // right fraction of candidates based on the lesson average and passing options.
@@ -1047,7 +1047,7 @@ impl DepthFirstScheduler {
                 let manifest = self.data.get_exercise_manifest(c.exercise_id)?;
                 Ok(Arc::unwrap_or_clone(manifest))
             })
-            .collect::<Result<Vec<_>>>()?;
+            .collect::<Result<Vec<_>>>()?; // grcov-excl-line
         Ok(exercises)
     }
 }

@@ -109,7 +109,7 @@ impl LocalPracticeDeltas {
                 })
             })?
             .map(|r| r.context("failed to retrieve deltas from practice deltas DB"))
-            .collect::<Result<Vec<ExerciseDelta>, _>>()?;
+            .collect::<Result<Vec<ExerciseDelta>, _>>()?; // grcov-excl-line
         Ok(rows)
     }
 
@@ -144,7 +144,7 @@ impl LocalPracticeDeltas {
         let uids = uid_stmt
             .query_map([], |row| row.get(0))?
             .map(|r| r.context("failed to retrieve UIDs from practice deltas DB"))
-            .collect::<Result<Vec<i64>, _>>()?;
+            .collect::<Result<Vec<i64>, _>>()?; // grcov-excl-line
 
         for uid in uids {
             let mut stmt = connection.prepare_cached(
@@ -167,7 +167,7 @@ impl LocalPracticeDeltas {
         let uids = uid_stmt
             .query_map(params![format!("{}%", prefix)], |row| row.get(0))?
             .map(|r| r.context("failed to retrieve UIDs from practice deltas DB"))
-            .collect::<Result<Vec<i64>, _>>()?;
+            .collect::<Result<Vec<i64>, _>>()?; // grcov-excl-line
 
         for uid in uids {
             let mut stmt =

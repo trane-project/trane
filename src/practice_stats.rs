@@ -128,7 +128,7 @@ impl LocalPracticeStats {
                 })
             })?
             .map(|r| r.context("failed to retrieve scores from practice stats DB"))
-            .collect::<Result<Vec<ExerciseTrial>, _>>()?;
+            .collect::<Result<Vec<ExerciseTrial>, _>>()?; // grcov-excl-line
         Ok(rows)
     }
 
@@ -166,7 +166,7 @@ impl LocalPracticeStats {
         let uids = uid_stmt
             .query_map([], |row| row.get(0))?
             .map(|r| r.context("failed to retrieve UIDs from practice stats DB"))
-            .collect::<Result<Vec<i64>, _>>()?;
+            .collect::<Result<Vec<i64>, _>>()?; // grcov-excl-line
 
         // Delete the oldest trials for each UID but keep the most recent `num_scores` trials.
         for uid in uids {
@@ -192,7 +192,7 @@ impl LocalPracticeStats {
         let uids = uid_stmt
             .query_map(params![format!("{}%", prefix)], |row| row.get(0))?
             .map(|r| r.context("failed to retrieve UIDs from practice stats DB"))
-            .collect::<Result<Vec<i64>, _>>()?;
+            .collect::<Result<Vec<i64>, _>>()?; // grcov-excl-line
 
         // Delete all the trials for those units.
         for uid in uids {
