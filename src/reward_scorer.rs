@@ -10,8 +10,7 @@ use crate::data::{ExerciseTrial, UnitReward};
 /// A trait exposing a function to combine the rewards of a unit into a single value. The lesson
 /// and course rewards are given separately to allow the implementation to treat them differently.
 pub trait RewardScorer {
-    /// Computes the final reward for a unit based on its previous course and lesson rewards. The
-    /// `now` timestamp is the effective evaluation time used to decay the rewards.
+    /// Computes the final reward for a unit based on its previous course and lesson rewards.
     fn score_rewards(
         &self,
         previous_course_rewards: &[UnitReward],
@@ -20,8 +19,7 @@ pub trait RewardScorer {
     ) -> Result<f32>;
 
     /// Determines whether the reward should be applied to an exercise with the given trials. The
-    /// trials are assumed to be ordered in descending order by timestamp. The `now` timestamp is
-    /// the effective evaluation time used to decide how recent the trials are.
+    /// trials are assumed to be ordered in descending order by timestamp.
     fn apply_reward(&self, reward: f32, previous_trials: &[ExerciseTrial], now: i64) -> bool;
 }
 

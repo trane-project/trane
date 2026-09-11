@@ -59,12 +59,10 @@ pub(super) struct UnitScorer {
     /// A mapping of course ID to cached score and the effective timestamp at which it was computed.
     course_cache: RefCell<UstrMap<(Option<f32>, i64)>>,
 
-    /// A mapping of lesson ID to cached average number of trials. This value does not depend on
-    /// time, so it is only invalidated when new trials are recorded.
+    /// A mapping of lesson ID to cached average number of trials.
     lesson_trials_cache: RefCell<UstrMap<Option<f32>>>,
 
-    /// A mapping of course ID to cached average number of trials. This value does not depend on
-    /// time, so it is only invalidated when new trials are recorded.
+    /// A mapping of course ID to cached average number of trials.
     course_trials_cache: RefCell<UstrMap<Option<f32>>>,
 
     /// The data used by the scheduler.
