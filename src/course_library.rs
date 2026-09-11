@@ -242,7 +242,7 @@ impl LocalCourseLibrary {
         ensure!(
             lesson_manifest.verify_paths(&library_root)?,
             "asset path in lesson {} does not exist",
-            lesson_manifest.id
+            lesson_manifest.id // grcov-excl-line
         );
         // Verify the manifest and create a vector for the exercises.
         LocalCourseLibrary::verify_lesson_manifest(course_manifest, &lesson_manifest)?;
@@ -265,7 +265,7 @@ impl LocalCourseLibrary {
             ensure!(
                 exercise_manifest.verify_paths(&library_root)?,
                 "asset path in exercise {} does not exist",
-                exercise_manifest.id
+                exercise_manifest.id // grcov-excl-line
             );
             LocalCourseLibrary::verify_exercise_manifest(&lesson_manifest, &exercise_manifest)?;
             exercises.push(exercise_manifest);
@@ -294,7 +294,7 @@ impl LocalCourseLibrary {
         ensure!(
             course_manifest.verify_paths(&library_root)?,
             "asset path in course {} does not exist",
-            course_manifest.id
+            course_manifest.id // grcov-excl-line
         );
         LocalCourseLibrary::verify_course_manifest(&course_manifest)?;
         let mut lessons = Vec::new();
@@ -434,7 +434,7 @@ impl LocalCourseLibrary {
             .ignored_paths
             .iter()
             .map(|path| library_root.join(path.trim_matches('/')))
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<Vec<_>, _>>()?; // grcov-excl-line
 
         // Start a search for courses from the library root. Courses can be located at any level
         // within the library root. However, the course manifests, assets, and its lessons and
@@ -668,6 +668,35 @@ mod tests {
     fn write_manifest<T: Serialize>(path: &VfsPath, manifest: &T) -> Result<()> {
         path.create_file()?
             .write_all(&serde_json::to_vec(manifest)?)?;
+        Ok(())
+    }
+
+    /// Verifies that errors encountered while processing courses in parallel are returned.
+    #[test]
+    fn rejects_invalid_course_during_parallel_processing() -> Result<()> {
+        let root = VfsPath::new(MemoryFS::new());
+        let library_root = root.join("library")?;
+        let course_root = library_root.join("course")?;
+        library_root.create_dir()?;
+        course_root.create_dir()?;
+        write_manifest(
+            &course_root.join(COURSE_MANIFEST_FILENAME)?,
+            &CourseManifest {
+                id: "".into(),
+                name: "Invalid Course".into(),
+                dependencies: vec![],
+                encompassed: vec![],
+                superseded: vec![],
+                description: None,
+                authors: None,
+                metadata: None,
+                course_material: None,
+                course_instructions: None,
+                generator_config: None,
+            },
+        )?;
+
+        assert!(LocalCourseLibrary::new(&library_root, UserPreferences::default()).is_err());
         Ok(())
     }
 

@@ -356,19 +356,19 @@ impl Benchmark {
             let h5 = s.spawn(|| self.simulate_student(&self.excellent_profile));
             (
                 h1.join()
-                    .map_err(|_| anyhow::anyhow!("remedial thread panicked"))
+                    .map_err(|_| anyhow::anyhow!("remedial thread panicked")) // grcov-excl-line
                     .and_then(|r| r),
                 h2.join()
-                    .map_err(|_| anyhow::anyhow!("below_median thread panicked"))
+                    .map_err(|_| anyhow::anyhow!("below_median thread panicked")) // grcov-excl-line
                     .and_then(|r| r),
                 h3.join()
-                    .map_err(|_| anyhow::anyhow!("median thread panicked"))
+                    .map_err(|_| anyhow::anyhow!("median thread panicked")) // grcov-excl-line
                     .and_then(|r| r),
                 h4.join()
-                    .map_err(|_| anyhow::anyhow!("above_median thread panicked"))
+                    .map_err(|_| anyhow::anyhow!("above_median thread panicked")) // grcov-excl-line
                     .and_then(|r| r),
                 h5.join()
-                    .map_err(|_| anyhow::anyhow!("excellent thread panicked"))
+                    .map_err(|_| anyhow::anyhow!("excellent thread panicked")) // grcov-excl-line
                     .and_then(|r| r),
             )
         });

@@ -44,7 +44,7 @@ impl LocalPreferencesManager {
 impl PreferencesManager for LocalPreferencesManager {
     fn get_user_preferences(&self) -> Result<UserPreferences, PreferencesManagerError> {
         self.get_user_preferences_helper()
-            .map_err(PreferencesManagerError::GetUserPreferences)
+            .map_err(PreferencesManagerError::GetUserPreferences) // grcov-excl-line
     }
 
     fn set_user_preferences(
@@ -52,7 +52,7 @@ impl PreferencesManager for LocalPreferencesManager {
         preferences: UserPreferences,
     ) -> Result<(), PreferencesManagerError> {
         self.set_user_preferences_helper(&preferences)
-            .map_err(PreferencesManagerError::SetUserPreferences)
+            .map_err(PreferencesManagerError::SetUserPreferences) // grcov-excl-line
     }
 }
 

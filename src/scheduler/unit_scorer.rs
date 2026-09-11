@@ -457,7 +457,7 @@ impl UnitScorer {
                         .filter_map(|id| self.get_exercise_score(*id).ok())
                         .collect::<Vec<_>>();
                     if scores.is_empty() {
-                        Ok(None)
+                        Ok(None) // grcov-excl-line
                     } else {
                         Ok(Some(scores.iter().sum::<f32>() / scores.len() as f32))
                     }

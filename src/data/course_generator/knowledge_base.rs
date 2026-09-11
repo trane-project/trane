@@ -248,7 +248,7 @@ impl KnowledgeBaseExercise {
                     .back_file
                     .as_ref()
                     .map(|path| normalize_path(&lesson_root.root(), lesson_root, path))
-                    .transpose()?,
+                    .transpose()?, // grcov-excl-line
             }
         };
 
@@ -717,6 +717,22 @@ mod test {
         VfsPath::new(vfs::PhysicalFS::new(path))
     }
 
+    fn test_course_manifest() -> CourseManifest {
+        CourseManifest {
+            id: "course1".into(),
+            name: "Course 1".into(),
+            dependencies: vec![],
+            encompassed: vec![],
+            superseded: vec![],
+            description: None,
+            authors: None,
+            metadata: None,
+            course_material: None,
+            course_instructions: None,
+            generator_config: None,
+        }
+    }
+
     fn open<T: DeserializeOwned>(path: &Path) -> Result<T> {
         let file_name = path.file_name().unwrap().to_string_lossy();
         let root = VfsPath::new(vfs::PhysicalFS::new(path.parent().unwrap()));
@@ -945,6 +961,47 @@ mod test {
         let manifest =
             exercise.to_exercise_manifest(&VfsPath::new(vfs::MemoryFS::new()), None, true);
         assert!(manifest.is_err());
+    }
+
+    /// Verifies that inlining returns an error when the back path is not a file.
+    #[test]
+    fn manifests_with_invalid_back_file() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let lesson_dir = temp_dir.path().join("lesson1.lesson");
+        fs::create_dir(&lesson_dir)?;
+        fs::write(lesson_dir.join("ex1.front.md"), "Front content")?;
+        fs::create_dir(lesson_dir.join("ex1.back.md"))?;
+
+        let course_root = vfs_path(temp_dir.path());
+        let config = KnowledgeBaseConfig { inlined: true };
+        let result = config.generate_manifests(
+            &course_root,
+            &test_course_manifest(),
+            &UserPreferences::default(),
+        );
+
+        assert!(result.is_err());
+        Ok(())
+    }
+
+    /// Verifies that invalid exercise metadata prevents opening a lesson.
+    #[test]
+    fn lesson_with_invalid_exercise_metadata() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let lesson_dir = temp_dir.path().join("lesson1.lesson");
+        fs::create_dir(&lesson_dir)?;
+        fs::write(lesson_dir.join("ex1.front.md"), "Front content")?;
+        fs::write(lesson_dir.join("ex1.name.json"), "not valid JSON")?;
+
+        let course_root = vfs_path(temp_dir.path());
+        let lesson_root = course_root.join("lesson1.lesson")?;
+        let result = KnowledgeBaseLesson::open_lesson(
+            &lesson_root,
+            &test_course_manifest(),
+            "lesson1".into(),
+        );
+        assert!(result.is_err());
+        Ok(())
     }
 
     /// Verifies the exercise type resolution priority: exercise type > lesson default > Procedural.

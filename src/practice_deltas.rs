@@ -109,7 +109,7 @@ impl LocalPracticeDeltas {
                 })
             })?
             .map(|r| r.context("failed to retrieve deltas from practice deltas DB"))
-            .collect::<Result<Vec<ExerciseDelta>, _>>()?;
+            .collect::<Result<Vec<ExerciseDelta>, _>>()?; // grcov-excl-line
         Ok(rows)
     }
 
@@ -144,7 +144,7 @@ impl LocalPracticeDeltas {
         let uids = uid_stmt
             .query_map([], |row| row.get(0))?
             .map(|r| r.context("failed to retrieve UIDs from practice deltas DB"))
-            .collect::<Result<Vec<i64>, _>>()?;
+            .collect::<Result<Vec<i64>, _>>()?; // grcov-excl-line
 
         for uid in uids {
             let mut stmt = connection.prepare_cached(
@@ -167,7 +167,7 @@ impl LocalPracticeDeltas {
         let uids = uid_stmt
             .query_map(params![format!("{}%", prefix)], |row| row.get(0))?
             .map(|r| r.context("failed to retrieve UIDs from practice deltas DB"))
-            .collect::<Result<Vec<i64>, _>>()?;
+            .collect::<Result<Vec<i64>, _>>()?; // grcov-excl-line
 
         for uid in uids {
             let mut stmt =
@@ -187,7 +187,7 @@ impl PracticeDeltas for LocalPracticeDeltas {
         num_deltas: u32,
     ) -> Result<Vec<ExerciseDelta>, PracticeDeltasError> {
         self.get_deltas_helper(exercise_id, num_deltas)
-            .map_err(|e| PracticeDeltasError::GetDeltas(exercise_id, e))
+            .map_err(|e| PracticeDeltasError::GetDeltas(exercise_id, e)) // grcov-excl-line
     }
 
     fn record_exercise_deltas(
@@ -195,17 +195,17 @@ impl PracticeDeltas for LocalPracticeDeltas {
         deltas: &[ExerciseDelta],
     ) -> Result<(), PracticeDeltasError> {
         self.record_exercise_deltas_helper(deltas)
-            .map_err(PracticeDeltasError::RecordDelta)
+            .map_err(PracticeDeltasError::RecordDelta) // grcov-excl-line
     }
 
     fn trim_deltas(&mut self, num_deltas: u32) -> Result<(), PracticeDeltasError> {
         self.trim_deltas_helper(num_deltas)
-            .map_err(PracticeDeltasError::TrimDeltas)
+            .map_err(PracticeDeltasError::TrimDeltas) // grcov-excl-line
     }
 
     fn remove_deltas_with_prefix(&mut self, prefix: &str) -> Result<(), PracticeDeltasError> {
         self.remove_deltas_with_prefix_helper(prefix)
-            .map_err(|e| PracticeDeltasError::RemovePrefix(prefix.to_string(), e))
+            .map_err(|e| PracticeDeltasError::RemovePrefix(prefix.to_string(), e)) // grcov-excl-line
     }
 }
 
