@@ -67,7 +67,7 @@ impl SchedulerData {
         self.unit_graph
             .read()
             .get_exercise_lesson(exercise_id)
-            .ok_or_else(|| anyhow!("missing lesson ID for exercise with ID {exercise_id}"))
+            .ok_or_else(|| anyhow!("missing lesson ID for exercise with ID {exercise_id}")) // grcov-excl-line
     }
 
     /// Returns the ID of the course to which the lesson with the given ID belongs.
@@ -76,7 +76,7 @@ impl SchedulerData {
         self.unit_graph
             .read()
             .get_lesson_course(lesson_id)
-            .ok_or_else(|| anyhow!("missing course ID for lesson with ID {lesson_id}"))
+            .ok_or_else(|| anyhow!("missing course ID for lesson with ID {lesson_id}")) // grcov-excl-line
     }
 
     /// Returns the type of the given unit.
@@ -92,7 +92,7 @@ impl SchedulerData {
         self.unit_graph
             .read()
             .get_unit_type(unit_id)
-            .ok_or_else(|| anyhow!("missing unit type for unit with ID {unit_id}"))
+            .ok_or_else(|| anyhow!("missing unit type for unit with ID {unit_id}")) // grcov-excl-line
     }
 
     /// Returns the manifest for the course with the given ID.
@@ -101,7 +101,7 @@ impl SchedulerData {
         self.course_library
             .read()
             .get_course_manifest(course_id)
-            .ok_or_else(|| anyhow!("missing manifest for course with ID {course_id}"))
+            .ok_or_else(|| anyhow!("missing manifest for course with ID {course_id}")) // grcov-excl-line
     }
 
     /// Returns the manifest for the lesson with the given ID.
@@ -110,7 +110,7 @@ impl SchedulerData {
         self.course_library
             .read()
             .get_lesson_manifest(lesson_id)
-            .ok_or_else(|| anyhow!("missing manifest for lesson with ID {lesson_id}"))
+            .ok_or_else(|| anyhow!("missing manifest for lesson with ID {lesson_id}")) // grcov-excl-line
     }
 
     /// Returns the manifest for the exercise with the given ID.
@@ -119,7 +119,7 @@ impl SchedulerData {
         self.course_library
             .read()
             .get_exercise_manifest(exercise_id)
-            .ok_or_else(|| anyhow!("missing manifest for exercise with ID {exercise_id}"))
+            .ok_or_else(|| anyhow!("missing manifest for exercise with ID {exercise_id}")) // grcov-excl-line
     }
 
     /// Returns whether the unit with the given ID is blacklisted.
