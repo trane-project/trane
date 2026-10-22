@@ -24,6 +24,7 @@ mod unit_scorer;
 
 use anyhow::Result;
 use chrono::Utc;
+use parking_lot::RwLock;
 use rand::{rng, seq::SliceRandom};
 use reward_propagator::RewardPropagator;
 use std::sync::Arc;
@@ -182,6 +183,9 @@ pub struct DepthFirstScheduler {
     /// The pile of recently failed exercises that need to be re-scheduled soon to improve
     /// retention.
     relearn_pile: RelearnPile,
+
+    /// Caches the results of dependency-satisfaction checks for the current batch.
+    satisfied_dependencies: RwLock<UstrMap<bool>>,
 }
 
 impl DepthFirstScheduler {
@@ -201,6 +205,7 @@ impl DepthFirstScheduler {
             review_knocker,
             filter,
             relearn_pile,
+            satisfied_dependencies: RwLock::new(UstrMap::default()),
         }
     }
 
@@ -577,15 +582,26 @@ impl DepthFirstScheduler {
         dependency_id: Ustr,
         metadata_filter: Option<&KeyValueFilter>,
     ) -> bool {
+        // Return the cached result if it was computed during this batch.
+        if let Some(satisfied) = self.satisfied_dependencies.read().get(&dependency_id) {
+            return *satisfied;
+        }
+
+        // Compute the result and store it in the cache.
         let mut visited = UstrSet::default();
         let targets =
             self.resolve_effective_dependencies(dependency_id, metadata_filter, &mut visited);
-        if targets.is_empty() {
-            return true;
-        }
-        targets
-            .into_iter()
-            .all(|target| self.satisfied_effective_dependency(target))
+        let satisfied = if targets.is_empty() {
+            true
+        } else {
+            targets
+                .into_iter()
+                .all(|target| self.satisfied_effective_dependency(target))
+        };
+        self.satisfied_dependencies
+            .write()
+            .insert(dependency_id, satisfied);
+        satisfied
     }
 
     /// Returns whether all the dependencies of the given unit are satisfied.
@@ -1057,6 +1073,9 @@ impl ExerciseScheduler for DepthFirstScheduler {
         &self,
         filter: Option<ExerciseFilter>,
     ) -> Result<Vec<ExerciseManifest>, ExerciseSchedulerError> {
+        // Clear the cache of dependency checks, as the results are only valid for this batch.
+        self.satisfied_dependencies.write().clear();
+
         // Retrieve an initial batch of candidates based on the type of the filter.
         let initial_candidates = self
             .get_initial_candidates(filter)
