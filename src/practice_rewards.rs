@@ -233,18 +233,18 @@ impl LocalPracticeRewards {
     /// number of rewards is less than the given number, the method deletes no rewards.
     fn trim_rewards_helper(&mut self, num_rewards: u32) -> Result<()> {
         let connection = self.connection.lock();
-        for row in connection
-            .prepare("SELECT unit_uid FROM uids")?
-            .query_map([], |row| row.get(0))?
-        {
-            let unit_uid: i64 = row?;
-            connection.execute(
-                "DELETE FROM practice_rewards WHERE id IN (
+        let mut del_stmt = connection.prepare_cached(
+            "DELETE FROM practice_rewards WHERE id IN (
                     SELECT id FROM practice_rewards WHERE unit_uid = ?1
                     ORDER BY timestamp DESC LIMIT -1 OFFSET ?2
                 )",
-                params![unit_uid, num_rewards],
-            )?;
+        )?;
+        for row in connection
+            .prepare_cached("SELECT unit_uid FROM uids")?
+            .query_map([], |row| row.get(0))?
+        {
+            let unit_uid: i64 = row?;
+            del_stmt.execute(params![unit_uid, num_rewards])?;
         }
         Ok(())
     }
@@ -253,15 +253,14 @@ impl LocalPracticeRewards {
     fn remove_rewards_with_prefix_helper(&mut self, prefix: &str) -> Result<()> {
         // Get all the UIDs for the units that match the prefix.
         let connection = self.connection.lock();
+        let mut del_stmt =
+            connection.prepare_cached("DELETE FROM practice_rewards WHERE unit_uid = ?1;")?;
         for row in connection
-            .prepare("SELECT unit_uid FROM uids WHERE unit_id LIKE ?1")?
+            .prepare_cached("SELECT unit_uid FROM uids WHERE unit_id LIKE ?1")?
             .query_map(params![format!("{}%", prefix)], |row| row.get(0))?
         {
             let unit_uid: i64 = row?;
-            connection.execute(
-                "DELETE FROM practice_rewards WHERE unit_uid = ?1;",
-                params![unit_uid],
-            )?;
+            del_stmt.execute(params![unit_uid])?;
         }
 
         // Call the `VACUUM` command to reclaim the space freed by the deleted trials.

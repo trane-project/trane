@@ -20,37 +20,12 @@ inspection. Items are grouped by effort-to-reward ratio, best first.
 | Priority | Group | Improvement                                          | Effort  | Expected reward                    |
 | -------- | ----- | ---------------------------------------------------- | ------- | ---------------------------------- |
 | A1       | Quick | Lazy error construction in hot getters (DONE)        | Minutes | ~3–5% (2.7% eager formatting)      |
-| A2       | Quick | Cache the four uncached SQLite statements            | Minutes | Small; removes reprepare overhead  |
-| A3       | Quick | Allocation cleanup in dependency resolution          | Small   | Part of the 18% dependency cost    |
+| A2       | Quick | Cache the four uncached SQLite statements (DONE)    | Minutes | Small; removes reprepare overhead  |
 | B1       | Cache | Per-batch memoization of dependency satisfaction     | Medium  | Largest structural win (~18%+2.3%) |
 | B2       | Cache | Read cache for reward retrieval                      | Medium  | ~3.4% (2 queries per score miss)   |
 | C1       | Load  | Course builder write-path cleanup                    | Medium  | Library import time                |
 | C2       | Load  | Course library load-path cleanup                     | Medium  | Library load time                  |
 | D1       | Opt   | SQLite connection pragmas                            | Small   | Small; measure first               |
-
-## Group A — Quick Wins
-
-### A2. Cache the four uncached SQLite statements
-
-The only non-`prepare_cached` statements in the SQLite layer are in maintenance
-helpers, and are the likely source of the 2.5% `sqlite3Reprepare` samples:
-
-- `src/practice_rewards.rs:237` and `:241` — `trim_rewards_helper`
-- `src/practice_rewards.rs:257` and `:261` — `remove_rewards_with_prefix_helper`
-
-Convert `prepare`/`execute` calls to `prepare_cached`.
-
-### A3. Allocation cleanup in dependency resolution
-
-`resolve_effective_dependencies` (`src/scheduler.rs:429-520`) clones entire sets and
-builds intermediate sets:
-
-- `graph.get_dependencies()` returns `Arc<UstrSet>`, but lines 455-460 and 473-479
-  copy it into a fresh `UstrSet` via `.iter().copied().collect()`. Iterate the `Arc`
-  directly.
-- The recursive branches (482-492, 503-516) use
-  `.into_iter().flat_map(...).collect()`, allocating a set per level. Use a single
-  accumulator set and `extend` instead.
 
 ## Group B — Structural Wins (identical outputs)
 
@@ -125,5 +100,5 @@ After each group:
    shrink.
 4. `make lint` before finishing each group.
 
-Suggested order: A → B → C → D, with one commit per group so each win is measurable
+Suggested order: B → C → D, with one commit per group so each win is measurable
 independently.
