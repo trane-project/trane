@@ -39,6 +39,7 @@
 #![cfg_attr(coverage, feature(coverage_attribute))]
 // Use pedantic warnings but disable some that are not useful.
 #![warn(clippy::pedantic)]
+#![allow(clippy::assert_is_empty)]
 #![allow(clippy::doc_markdown)]
 #![allow(clippy::float_cmp)]
 #![allow(clippy::missing_errors_doc)]
