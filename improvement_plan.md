@@ -1,156 +1,129 @@
 # Trane Improvement Plan
 
-Review date: 2026-09-05. Reviewed revision: `be41416`.
+Review date: 2026-10-21. Reviewed revision: `6f5f84a`.
 
 ## Scope
 
-The strongest new opportunities are small implementation fixes, not another scheduling rewrite.
-This review identified three reproducible issues, a scoring-query optimization, two smaller
-performance opportunities, and one scheduling-policy experiment worth investigating cautiously.
+This plan covers speed improvements only. No scheduling policy, scoring math, graph
+semantics, or mastery-window behavior changes. Where caching is introduced, it preserves
+the exact outputs of the existing computation.
 
-The review recovered the deleted `FSRS_PLAN.md`, `plan.md`, `improvements.md`, and seven rounds of
-`improvement_plan.md`: 22 distinct content versions. Recommendations below exclude the mechanisms
-proposed in those documents, including unimplemented and discarded variants.
+This plan supersedes the 2026-09-05 review, whose priority items 1–5 are merged
+(`#436`–`#439`). The previously open experiment ("verify selected coverage") remains
+open and untouched by this plan; see git history for its details.
 
-All recommended fixes preserve Trane's graph traversal, mastery windows, encompassing
-relationships, and general-purpose mastery grades. No implementation changes were made during
-this review.
+All evidence below comes from the repository flamegraph (simulation run) and source
+inspection. Items are grouped by effort-to-reward ratio, best first.
 
 ## Priority Order
 
-| Priority   | Improvement                                                      | Scope                         | Evidence                                         |
-| ---------- | ---------------------------------------------------------------- | ----------------------------- | ------------------------------------------------ |
-| 1          | Restore JSON read buffering (DONE)                               | Four parsing sites            | Measured large parsing speedup                   |
-| 2          | Skip scoring queries whose results cannot matter (DONE)          | One scoring path              | Exact reduction in query count                   |
-| 3          | Deduplicate exercise IDs before selection (DONE)                 | Candidate collection          | Reproduced duplicate output                      |
-| 4          | Expire time-dependent score caches and align clocks (DONE)       | Small cross-module correction | Reproduced stale mastery                         |
-| 5          | Reduce filesystem checks and remove redundant indexes (DONE)     | Independent small cleanups    | Source-backed, not benchmarked                   |
-| Experiment | Check whether suppressed reviews have selected covering material | Bounded postselection check   | Demonstrable mismatch; learning benefit unproven |
+| Priority | Group | Improvement                                          | Effort  | Expected reward                    |
+| -------- | ----- | ---------------------------------------------------- | ------- | ---------------------------------- |
+| A1       | Quick | Lazy error construction in hot getters (DONE)        | Minutes | ~3–5% (2.7% eager formatting)      |
+| A2       | Quick | Cache the four uncached SQLite statements            | Minutes | Small; removes reprepare overhead  |
+| A3       | Quick | Allocation cleanup in dependency resolution          | Small   | Part of the 18% dependency cost    |
+| B1       | Cache | Per-batch memoization of dependency satisfaction     | Medium  | Largest structural win (~18%+2.3%) |
+| B2       | Cache | Read cache for reward retrieval                      | Medium  | ~3.4% (2 queries per score miss)   |
+| C1       | Load  | Course builder write-path cleanup                    | Medium  | Library import time                |
+| C2       | Load  | Course library load-path cleanup                     | Medium  | Library load time                  |
+| D1       | Opt   | SQLite connection pragmas                            | Small   | Small; measure first               |
 
-Recommendation: implement the first four fixes before changing learning heuristics. Keep the
-selected-coverage repair as a separate, explicitly experimental change.
+## Group A — Quick Wins
 
-## 6. Experiment: Verify Selected Coverage
+### A2. Cache the four uncached SQLite statements
 
-This is the one new scheduling-policy direction worth investigating, but it should not be
-immediately adopted as a proven improvement.
+The only non-`prepare_cached` statements in the SQLite layer are in maintenance
+helpers, and are the likely source of the 2.5% `sqlite3Reprepare` samples:
 
-The knocker computes coverage from the initial candidate pool, removes or demotes reviews, and
-only afterward does the filter choose the actual batch:
-[`src/scheduler.rs:1058`](src/scheduler.rs#L1058).
+- `src/practice_rewards.rs:237` and `:241` — `trim_rewards_helper`
+- `src/practice_rewards.rs:257` and `:261` — `remove_rewards_with_prefix_helper`
 
-Therefore, a review can be excluded because encompassing exercises were available, even though
-none of those exercises survives into the returned batch. Coverage-based weighting makes
-selecting them more likely but does not guarantee it.
+Convert `prepare`/`execute` calls to `prepare_cached`.
 
-### Counterexample
+### A3. Allocation cleanup in dependency resolution
 
-A one-hop construction uses five candidates: target A, encompassing exercises B1/B2/B3, and
-unrelated U. Each belongs to a distinct lesson and course. All scores are 4.5. Let A's lesson and
-course be LA and CA. Use only these explicit encompassing edges, all with weight 1:
+`resolve_effective_dependencies` (`src/scheduler.rs:429-520`) clones entire sets and
+builds intermediate sets:
 
-| Source | Its lesson encompasses | Its course encompasses |
-| ------ | ---------------------- | ---------------------- |
-| B1     | LA and CA              | LA and CA              |
-| B2     | LA and CA              | LA and CA              |
-| B3     | LA                     | CA                     |
-| U      | Nothing                | Nothing                |
+- `graph.get_dependencies()` returns `Arc<UstrSet>`, but lines 455-460 and 473-479
+  copy it into a fresh `UstrSet` via `.iter().copied().collect()`. Iterate the `Arc`
+  directly.
+- The recursive branches (482-492, 503-516) use
+  `.into_iter().flat_map(...).collect()`, allocating a set per level. Use a single
+  accumulator set and `extend` instead.
 
-LA and CA have no outgoing edges. The current calculation gives LA weight 5 and CA weight 5,
-so A receives weight 10 and is fully knocked out.
+## Group B — Structural Wins (identical outputs)
 
-With `batch_size = 1`, these candidates supplied through a lesson filter, and no relearning,
-the filter selects one surviving mastered candidate. U has positive selection weight, so the
-returned batch can be `[U]`: neither A nor any covering exercise is present.
+### B1. Per-batch memoization of dependency-satisfaction checks
 
-This is a source-derived counterexample, not an executed learner experiment. It establishes a
-possible zero-selected-coverage case, not starvation or learning harm.
+During the DFS in `get_candidates_from_graph_helper`, the chain
+`get_valid_dependents` → `all_satisfied_dependencies` → `satisfied_dependency`
+(`src/scheduler.rs:538-605`) re-resolves and re-checks the same dependency IDs many
+times across different dependents. Each check re-runs `resolve_effective_dependencies`
+(fresh `visited` set, recursive set building) and `satisfied_effective_dependency`
+(blacklist locks, supersession, score lookups). Together these account for roughly 20%
+of samples.
 
-### Narrow Experiment
+Add a memo map keyed by dependency ID and filter, scoped to a single
+`get_exercise_batch` call. Scores, blacklist, and supersession only change between
+batches via `score_exercise`, so results within one batch computation are identical.
+This is caching, not an algorithm change.
 
-Inspect fully suppressed reviews for zero coverage from the selected batch. Test a bounded
-repair, such as at most one same-window substitution, preserving batch size and protecting
-existing covering selections.
+Caveat to document in code: the score caches are time-freshness-based, so the memo must
+be created and discarded within one batch computation and never reused across calls.
 
-Do not simply reapply the current thresholds of 10 and 5 to the final batch. They currently
-measure candidate abundance; applying them to small returned batches would fundamentally weaken
-the knocker.
+### B2. Read cache for reward retrieval
 
-Implementation constraints:
+`LocalPracticeRewards::get_rewards_helper` (`src/practice_rewards.rs:161-187`) runs a
+SQLite query on every call. It is only gated by the scorer's score cache, so every
+exercise-score cache miss costs two queries (lesson and course rewards), 3.4% of
+samples.
 
-- Retain a bounded reserve of suppressed candidates and their original window information.
-- Separate selected propagation sources from suppressed query targets. The current encompassing
-  helper uses one candidate slice for both; passing their union would incorrectly seed coverage
-  from unselected material.
-- Include selected relearn exercises in the audit and protect intentional relearn selections.
-- Bound traversal and repair work. An incomplete audit is not proof of zero coverage.
-- Avoid iterative knockout/reselection until convergence. Replacing a provider can uncover
-  another review, changing quotas, stochastic behavior, and runtime.
+Mirror the existing write-side `RewardCache` for reads, invalidated in
+`record_unit_rewards_helper`, the only in-process writer.
 
-### Scientific Context And Limits
+## Group C — Import-Time Wins
 
-[Pan and Rickard's 2018 meta-analysis](https://pubmed.ncbi.nlm.nih.gov/29733621/) found that
-retrieval benefits can transfer, but transfer varies substantially with task and response
-characteristics. [Corral et al. (2023)](https://pubmed.ncbi.nlm.nih.gov/36941495/) further showed
-that advantages on practiced problems need not translate into analogous problem-solving
-advantages.
+These only affect building and loading course libraries, not steady-state scheduling.
 
-That supports caution about treating alternatives as interchangeable. It does not prove this
-repair improves Trane. The studies do not directly measure encompassing practice versus direct
-practice of its components.
+### C1. Course builder write path (`src/course_builder.rs`)
 
-There is a legitimate counterargument: abundant encompassing material may provide enough
-practice across successive batches, without covering every suppressed review in each batch.
-A repair could consequently add unnecessary direct reviews. Measure before adopting.
+- Remove the duplicate `create_dir_all` per asset (lines 45 and 55).
+- Share one root `VfsPath` instead of constructing a new `PhysicalFS` per
+  exercise/lesson/course (lines 98, 155, 206).
+- Replace per-exercise and per-lesson template `.clone()` with `Arc` (lines 151, 202).
+- Reduce `verify_paths` stat overhead (two stat syscalls per asset path today,
+  `src/data.rs:273-280`, `:723-753`).
 
-This differs from the earlier weighted-knocker proposals: the change concerns which providers
-were actually selected, not new coverage weights, confidence penalties, or thresholds.
+### C2. Course library load path (`src/course_library.rs:422-487`)
 
-## Validation Cautions
+- Skip non-manifest files during `walk_dir` instead of visiting every asset file.
+- Hoist the per-entry `format!("{}/")` ignored-path allocations out of the loop
+  (lines 462-465).
+- Reduce the `is_dir`/`is_file` double-stat pattern in `process_course_manifest`
+  (lines 321-337) and `process_lesson_manifest` (lines 252-272).
 
-Before using `days_to_mastery` to judge scheduling changes, account for two existing limitations.
+## Group D — Optional, Measure First
 
-### Runtime Option Propagation
+### D1. SQLite connection pragmas
 
-Runtime option changes update only top-level scheduler data, while components retain cloned
-options: [`src/scheduler.rs:1183`](src/scheduler.rs#L1183). The benchmark uses this setter, so
-some requested parameter changes may not reach the component being evaluated.
+`new_connection()` (`src/utils.rs:19-27`) sets WAL and `synchronous=OFF`. Consider
+adding `busy_timeout` (correctness for multi-process access) and a larger `cache_size`.
+Measure before and after; expected effect is small.
 
-### Simulated Learning Outcomes
+Deliberately excluded: batching the per-score write transactions in `score_exercise`
+(`src/scheduler.rs:1104-1166`). Scores are recorded one row at a time by user action,
+and durability motivates the current commit-per-score behavior.
 
-Simulated grades depend on trial count and a fixed lapse probability, not elapsed forgetting or
-transfer: [`src/benchmark.rs:210`](src/benchmark.rs#L210). Mastery is then checked through
-Trane's own scores at [`src/benchmark.rs:239`](src/benchmark.rs#L239). Faster attainment of that
-threshold is not independent evidence of better human learning.
+## Validation
 
-These are interpretation constraints, not a recommendation to revive the previously proposed
-simulation/tuning framework.
+After each group:
 
-More generally, declarative-recall studies cannot directly calibrate procedural or complex-skill
-mastery. Vocabulary correctness, strategy selection, motor accuracy, speed, and integrated
-performance are different outcomes. No quantified learning benefit is claimed for these changes.
+1. `cargo test --release` — all 297 tests must pass.
+2. `make benchmark-small` and `make benchmark-large` — compare before/after timings.
+3. Regenerate the flamegraph after Group B to confirm the `all_satisfied_dependencies`
+   shrink.
+4. `make lint` before finishing each group.
 
-## Verification Performed
-
-- `cargo test --offline --release --lib`: 297 passed, zero failures.
-- A temporary Rust harness reproduced stale exercise/lesson/course caches, duplicate batches,
-  and the JSON read reduction. All harness assertions passed.
-- No full integration suite or human-learning comparison was run.
-- No implementation files were modified during the review.
-
-The temporary harness was created outside the repository at:
-
-```text
-/var/folders/2j/9639h1v158s1g967981cssch0000gn/T/opencode/trane-validation/
-```
-
-The harness was run with:
-
-```sh
-cargo run --offline --release --quiet \
-  --manifest-path "/var/folders/2j/9639h1v158s1g967981cssch0000gn/T/opencode/trane-validation/Cargo.toml" \
-  --target-dir "/Users/martinmr/workspace/trane/target"
-```
-
-This temporary path is recorded for local reproducibility, not as a durable repository artifact.
-The reproduction setups and measured results are preserved above.
+Suggested order: A → B → C → D, with one commit per group so each win is measurable
+independently.
