@@ -21,31 +21,13 @@ inspection. Items are grouped by effort-to-reward ratio, best first.
 | -------- | ----- | ---------------------------------------------------- | ------- | ---------------------------------- |
 | A1       | Quick | Lazy error construction in hot getters (DONE)        | Minutes | ~3–5% (2.7% eager formatting)      |
 | A2       | Quick | Cache the four uncached SQLite statements (DONE)    | Minutes | Small; removes reprepare overhead  |
-| B1       | Cache | Per-batch memoization of dependency satisfaction     | Medium  | Largest structural win (~18%+2.3%) |
+| B1       | Cache | Per-batch memoization of dependency satisfaction (DONE) | Medium  | Largest structural win (~18%+2.3%) |
 | B2       | Cache | Read cache for reward retrieval                      | Medium  | ~3.4% (2 queries per score miss)   |
 | C1       | Load  | Course builder write-path cleanup                    | Medium  | Library import time                |
 | C2       | Load  | Course library load-path cleanup                     | Medium  | Library load time                  |
 | D1       | Opt   | SQLite connection pragmas                            | Small   | Small; measure first               |
 
 ## Group B — Structural Wins (identical outputs)
-
-### B1. Per-batch memoization of dependency-satisfaction checks
-
-During the DFS in `get_candidates_from_graph_helper`, the chain
-`get_valid_dependents` → `all_satisfied_dependencies` → `satisfied_dependency`
-(`src/scheduler.rs:538-605`) re-resolves and re-checks the same dependency IDs many
-times across different dependents. Each check re-runs `resolve_effective_dependencies`
-(fresh `visited` set, recursive set building) and `satisfied_effective_dependency`
-(blacklist locks, supersession, score lookups). Together these account for roughly 20%
-of samples.
-
-Add a memo map keyed by dependency ID and filter, scoped to a single
-`get_exercise_batch` call. Scores, blacklist, and supersession only change between
-batches via `score_exercise`, so results within one batch computation are identical.
-This is caching, not an algorithm change.
-
-Caveat to document in code: the score caches are time-freshness-based, so the memo must
-be created and discarded within one batch computation and never reused across calls.
 
 ### B2. Read cache for reward retrieval
 
