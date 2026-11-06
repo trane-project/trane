@@ -634,7 +634,7 @@ impl DepthFirstScheduler {
             .collect()
     }
 
-    // Returns whether the given course should be skipped during the search. If so, the valid
+    /// Returns whether the given course should be skipped during the search. If so, the valid
     /// dependents of the course should be added to the stack.
     fn skip_course(
         &self,
