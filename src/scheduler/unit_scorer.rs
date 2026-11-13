@@ -299,8 +299,7 @@ impl UnitScorer {
             .exercise_cache
             .borrow()
             .get(&exercise_id)
-            .map(|s| s.urgency)
-            .unwrap_or_default();
+            .map_or_default(|s| s.urgency);
         Ok(cached_urgency)
     }
 
