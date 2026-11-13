@@ -273,7 +273,7 @@ impl NormalizePaths for BasicAsset {
 impl VerifyPaths for BasicAsset {
     fn verify_paths(&self, root: &VfsPath) -> Result<bool> {
         match &self {
-            BasicAsset::InlinedAsset { .. } | BasicAsset::InlinedUniqueAsset { .. } => Ok(true),
+            BasicAsset::InlinedAsset { .. } | BasicAsset::InlinedUniqueAsset { .. } => Ok(true), // grcov-excl-line
             BasicAsset::MarkdownAsset { path } => Ok(root.join(path)?.is_file()?),
         }
     }
@@ -1298,6 +1298,18 @@ mod test {
             back_content: Some("Back".to_string()),
         };
         assert!(flashcard_asset.verify_paths(&root)?);
+
+        // Verify a flashcard with a basic asset.
+        let basic_asset = ExerciseAsset::BasicAsset(BasicAsset::MarkdownAsset {
+            path: front_file
+                .path()
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string(),
+        });
+        assert!(basic_asset.verify_paths(&root)?);
         Ok(())
     }
 
