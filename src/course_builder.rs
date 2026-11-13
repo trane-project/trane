@@ -9,7 +9,7 @@
 
 pub mod knowledge_base_builder;
 
-use anyhow::{Context, Result, ensure};
+use anyhow::{Result, ensure};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{File, create_dir_all},
@@ -18,7 +18,7 @@ use std::{
 };
 use strum::Display;
 
-use crate::data::{CourseManifest, ExerciseManifestBuilder, LessonManifestBuilder, VerifyPaths};
+use crate::data::{CourseManifest, ExerciseManifestBuilder, LessonManifestBuilder};
 
 /// Common metadata keys for all courses and lessons.
 #[derive(Display)]
@@ -41,8 +41,7 @@ pub struct AssetBuilder {
 impl AssetBuilder {
     /// Writes the asset to the given directory.
     pub fn build(&self, asset_directory: &Path) -> Result<()> {
-        // Create the asset directory and verify there's not an existing file with the same name.
-        create_dir_all(asset_directory)?;
+        // Verify there's not an existing asset with the same path.
         let asset_path = asset_directory.join(&self.file_name);
         ensure!(
             !asset_path.exists(),
@@ -93,13 +92,6 @@ impl ExerciseBuilder {
         for asset_builder in &self.asset_builders {
             asset_builder.build(exercise_directory)?;
         }
-
-        // Verify that all paths mentioned in the manifest are valid.
-        let exercise_root = vfs::VfsPath::new(vfs::PhysicalFS::new(exercise_directory));
-        manifest.verify_paths(&exercise_root).context(format!(
-            "failed to verify files for exercise {}",
-            manifest.id
-        ))?;
         Ok(())
     }
 }
@@ -150,12 +142,6 @@ impl LessonBuilder {
             let exercise_directory = lesson_directory.join(&exercise_builder.directory_name);
             exercise_builder.build(&exercise_directory, self.exercise_manifest_template.clone())?;
         }
-
-        // Verify that all paths mentioned in the manifest are valid.
-        let lesson_root = vfs::VfsPath::new(vfs::PhysicalFS::new(lesson_directory));
-        manifest
-            .verify_paths(&lesson_root)
-            .context(format!("failed to verify files for lesson {}", manifest.id))?;
         Ok(())
     }
 }
@@ -201,15 +187,6 @@ impl CourseBuilder {
             let lesson_directory = course_directory.join(&lesson_builder.directory_name);
             lesson_builder.build(&lesson_directory, self.lesson_manifest_template.clone())?;
         }
-
-        // Verify that all paths mentioned in the manifest are valid.
-        let course_root = vfs::VfsPath::new(vfs::PhysicalFS::new(&course_directory));
-        self.course_manifest
-            .verify_paths(&course_root)
-            .context(format!(
-                "failed to verify files for course {}",
-                self.course_manifest.id
-            ))?;
         Ok(())
     }
 }

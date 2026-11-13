@@ -250,9 +250,6 @@ impl LocalCourseLibrary {
 
         // Each exercise manifest must be inside a direct child of the lesson root.
         for exercise_root in lesson_root.read_dir()? {
-            if !exercise_root.is_dir()? {
-                continue;
-            }
             let manifest_path = exercise_root.join(EXERCISE_MANIFEST_FILENAME)?;
             if !manifest_path.is_file()? {
                 continue;
@@ -319,9 +316,6 @@ impl LocalCourseLibrary {
 
         // Each lesson manifest must be inside a direct child of the course root.
         for lesson_root in course_root.read_dir()? {
-            if !lesson_root.is_dir()? {
-                continue;
-            }
             let manifest_path = lesson_root.join(LESSON_MANIFEST_FILENAME)?;
             if !manifest_path.is_file()? {
                 continue;
